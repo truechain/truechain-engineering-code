@@ -166,15 +166,15 @@ func (b *LesApiBackend) SubscribeNewTxsEvent(ch chan<- types.NewTxsEvent) event.
 	return b.etrue.txPool.SubscribeNewTxsEvent(ch)
 }
 
-func (b *LesApiBackend) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
+func (b *LesApiBackend) SubscribeChainEvent(ch chan<- types.FastChainEvent) event.Subscription {
 	return b.etrue.blockchain.SubscribeChainEvent(ch)
 }
 
-func (b *LesApiBackend) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
+func (b *LesApiBackend) SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription {
 	return b.etrue.blockchain.SubscribeChainHeadEvent(ch)
 }
 
-func (b *LesApiBackend) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription {
+func (b *LesApiBackend) SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent) event.Subscription {
 	return b.etrue.blockchain.SubscribeChainSideEvent(ch)
 }
 

@@ -184,15 +184,15 @@ func (b *TrueAPIBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEv
 	return b.etrue.BlockChain().SubscribeRemovedLogsEvent(ch)
 }
 
-func (b *TrueAPIBackend) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeChainEvent(ch chan<- types.FastChainEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainEvent(ch)
 }
 
-func (b *TrueAPIBackend) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainHeadEvent(ch)
 }
 
-func (b *TrueAPIBackend) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainSideEvent(ch)
 }
 

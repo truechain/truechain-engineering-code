@@ -44,29 +44,29 @@ type PendingStateEvent struct{}
 // RemovedLogsEvent is posted when a reorg happens
 type RemovedLogsEvent struct{ Logs []*Log }
 
-type ChainFastEvent struct {
+type FastChainEvent struct {
 	Block *Block
 	Hash  common.Hash
 	Logs  []*Log
 }
 
-type ChainFastSideEvent struct {
+type FastChainSideEvent struct {
 	Block *Block
 }
 
-type ChainFastHeadEvent struct{ Block *Block }
+type FastChainHeadEvent struct{ Block *Block }
 
-type ChainSnailEvent struct {
+type SnailChainEvent struct {
 	Block *SnailBlock
 	Hash  common.Hash
 }
 
-// ChainSnailSideEvent is posted when a block in SideStatTy
-type ChainSnailSideEvent struct {
+// SnailChainSideEvent is posted when a block in SideStatTy
+type SnailChainSideEvent struct {
 	Block *SnailBlock
 }
 
-type ChainSnailHeadEvent struct{ Block *SnailBlock }
+type SnailChainHeadEvent struct{ Block *SnailBlock }
 
 // FruitEvent for fruit event,seems not used
 type FruitEvent struct {
@@ -88,9 +88,6 @@ type PbftSignEvent struct {
 	Block    *Block
 	PbftSign *PbftSign
 }
-
-// NewBlockEvent is posted when a block has been generate .
-type NewBlockEvent struct{ Block *Block }
 
 // NewMinedBlockEvent is posted when a block has been imported.
 type NewMinedBlockEvent struct{ Block *SnailBlock }

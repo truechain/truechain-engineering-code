@@ -1445,7 +1445,7 @@ func testForkedSyncProgress(t *testing.T, protocol int, mode SyncMode) {
 	defer tester.ftester.Terminate()
 
 	// Create a forked chain to simulate origin revertal
-	common, fork := 16, 2*16
+	common, fork := 2, 2*2
 	hashesA, hashesB, headersA, headersB, blocksA, blocksB, fhashes1, fhashes2, fheaders1, fheaders2, fblocks1, fblocks2, freceipt1, freceipt2 := tester.makeChainFork(common+fork, fork, tester.genesis, true)
 
 	// Set a sync init hook to catch progress changes

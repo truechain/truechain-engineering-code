@@ -53,8 +53,7 @@ const (
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize    = 4096
-	blockChanSize = 64
-	signChanSize  = 512
+	blockChanSize = 256
 	nodeChanSize  = 256
 	// fruitChanSize is the size of channel listening to NewFruitsEvent.
 	// The number is referenced from the size of snail pool.
@@ -106,11 +105,9 @@ type ProtocolManager struct {
 	fruitsSub event.Subscription
 
 	//fast block
-	minedFastCh  chan types.NewBlockEvent
+	minedFastCh  chan types.PbftSignEvent
 	minedFastSub event.Subscription
 
-	pbSignsCh     chan types.PbftSignEvent
-	pbSignsSub    event.Subscription
 	pbNodeInfoCh  chan types.NodeInfoEvent
 	pbNodeInfoSub event.Subscription
 
@@ -309,15 +306,10 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.fruitsSub = pm.SnailPool.SubscribeNewFruitEvent(pm.fruitsch)
 	go pm.fruitBroadcastLoop()
 
-	// broadcast mined fastBlocks
-	pm.minedFastCh = make(chan types.NewBlockEvent, blockChanSize)
-	pm.minedFastSub = pm.agentProxy.SubscribeNewFastBlockEvent(pm.minedFastCh)
+	// broadcast fastBlocks
+	pm.minedFastCh = make(chan types.PbftSignEvent, blockChanSize)
+	pm.minedFastSub = pm.agentProxy.SubscribeNewPbftSignEvent(pm.minedFastCh)
 	go pm.minedFastBroadcastLoop()
-
-	// broadcast sign
-	pm.pbSignsCh = make(chan types.PbftSignEvent, signChanSize)
-	pm.pbSignsSub = pm.agentProxy.SubscribeNewPbftSignEvent(pm.pbSignsCh)
-	go pm.pbSignBroadcastLoop()
 
 	// broadcast node info
 	pm.pbNodeInfoCh = make(chan types.NodeInfoEvent, nodeChanSize)
@@ -336,7 +328,6 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()       // quits txBroadcastLoop
 	pm.minedFastSub.Unsubscribe() // quits minedFastBroadcastLoop
-	pm.pbSignsSub.Unsubscribe()
 	pm.pbNodeInfoSub.Unsubscribe()
 	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
@@ -1251,29 +1242,14 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
-		case blockEvent := <-pm.minedFastCh:
+		case signEvent := <-pm.minedFastCh:
+			log.Info("Broadcast fast block", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash(), "recipients", len(pm.peers.peers))
 			atomic.StoreUint32(&pm.acceptTxs, 1)
-			pm.BroadcastFastBlock(blockEvent.Block, true) // First propagate fast block to peers
-
-			// Err() channel will be closed when unsubscribing.
-		case <-pm.minedFastSub.Err():
-			return
-		}
-	}
-}
-
-func (pm *ProtocolManager) pbSignBroadcastLoop() {
-	for {
-		select {
-		case signEvent := <-pm.pbSignsCh:
-			log.Info("Committee sign", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash(), "recipients", len(pm.peers.peers))
-			atomic.StoreUint32(&pm.acceptTxs, 1)
-			pm.BroadcastFastBlock(signEvent.Block, true) // Only then announce to the rest
-			//pm.BroadcastPbSign(signEvent.Block.Signs())
+			pm.BroadcastFastBlock(signEvent.Block, true)  // Only then announce to the rest
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
-		case <-pm.pbSignsSub.Err():
+		case <-pm.minedFastSub.Err():
 			return
 		}
 	}

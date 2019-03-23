@@ -315,7 +315,7 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 	lastCanon := bc.GetBlockByNumber(head)
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
 		events := make([]interface{}, 0, 1)
-		events = append(events, types.ChainSnailHeadEvent{lastCanon})
+		events = append(events, types.SnailChainHeadEvent{lastCanon})
 		bc.PostChainEvents(events)
 	}
 
@@ -944,7 +944,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 			//coalescedLogs = append(coalescedLogs, logs...)
 
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, types.ChainSnailEvent{block, block.Hash()})
+			events = append(events, types.SnailChainEvent{block, block.Hash()})
 			lastCanon = block
 
 		case SideStatTy:
@@ -953,7 +953,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 				common.PrettyDuration(time.Since(bstart)), "fts", len(block.Fruits()))
 
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, types.ChainSnailSideEvent{block})
+			events = append(events, types.SnailChainSideEvent{block})
 		}
 		stats.processed++
 
@@ -978,7 +978,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, types.ChainSnailHeadEvent{lastCanon})
+		events = append(events, types.SnailChainHeadEvent{lastCanon})
 	}
 	return it.index, events, err
 }
@@ -1171,7 +1171,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	if len(oldChain) > 0 {
 		go func() {
 			for _, block := range oldChain {
-				bc.chainSideFeed.Send(types.ChainSnailSideEvent{Block: block})
+				bc.chainSideFeed.Send(types.SnailChainSideEvent{Block: block})
 			}
 		}()
 	}
@@ -1180,7 +1180,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		go func() {
 			for i := len(newChain) - 1; i > 0; i-- {
 				log.Info("reorg snail block", "number", newChain[i].Number(), "hash", newChain[i].Hash())
-				bc.chainFeed.Send(types.ChainSnailEvent{Block: newChain[i]})
+				bc.chainFeed.Send(types.SnailChainEvent{Block: newChain[i]})
 			}
 		}()
 	}
@@ -1212,13 +1212,13 @@ func (bc *SnailBlockChain) ftDifference(a, b types.Fruits) (keep types.Fruits) {
 func (bc *SnailBlockChain) PostChainEvents(events []interface{}) {
 	for _, event := range events {
 		switch ev := event.(type) {
-		case types.ChainSnailEvent:
+		case types.SnailChainEvent:
 			bc.chainFeed.Send(ev)
 
-		case types.ChainSnailHeadEvent:
+		case types.SnailChainHeadEvent:
 			bc.chainHeadFeed.Send(ev)
 
-		case types.ChainSnailSideEvent:
+		case types.SnailChainSideEvent:
 			bc.chainSideFeed.Send(ev)
 
 		case types.NewFastBlocksEvent:
@@ -1392,18 +1392,18 @@ func (bc *SnailBlockChain) Config() *params.ChainConfig { return bc.chainConfig 
 // Engine retrieves the blockchain's consensus engine.
 func (bc *SnailBlockChain) Engine() consensus.Engine { return bc.engine }
 
-// SubscribeChainEvent registers a subscription of ChainSnailEvent.
-func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription {
+// SubscribeChainEvent registers a subscription of SnailChainEvent.
+func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- types.SnailChainEvent) event.Subscription {
 	return bc.scope.Track(bc.chainFeed.Subscribe(ch))
 }
 
-// SubscribeChainHeadEvent registers a subscription of types.ChainSnailHeadEvent.
-func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription {
+// SubscribeChainHeadEvent registers a subscription of types.SnailChainHeadEvent.
+func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- types.SnailChainHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
 
-// SubscribeChainSideEvent registers a subscription of types.ChainSnailSideEvent.
-func (bc *SnailBlockChain) SubscribeChainSideEvent(ch chan<- types.ChainSnailSideEvent) event.Subscription {
+// SubscribeChainSideEvent registers a subscription of types.SnailChainSideEvent.
+func (bc *SnailBlockChain) SubscribeChainSideEvent(ch chan<- types.SnailChainSideEvent) event.Subscription {
 	return bc.scope.Track(bc.chainSideFeed.Subscribe(ch))
 }
 

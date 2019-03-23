@@ -104,10 +104,10 @@ type SnailPool struct {
 	journal       *snailJournal // Journal of local fruit to back up to disk
 
 	//chainHeadCh  chan ChainHeadEvent
-	chainHeadCh  chan types.ChainSnailHeadEvent
+	chainHeadCh  chan types.SnailChainHeadEvent
 	chainHeadSub event.Subscription
 
-	fastchainEventCh  chan types.ChainFastEvent
+	fastchainEventCh  chan types.FastChainEvent
 	fastchainEventSub event.Subscription
 
 	validator core.SnailValidator
@@ -142,8 +142,8 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain
 
 		validator: chain.Validator(),
 
-		chainHeadCh:      make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
-		fastchainEventCh: make(chan types.ChainFastEvent, fastchainHeadChanSize),
+		chainHeadCh:      make(chan types.SnailChainHeadEvent, chainHeadChanSize),
+		fastchainEventCh: make(chan types.FastChainEvent, fastchainHeadChanSize),
 
 		newFruitCh:   make(chan []*types.SnailBlock, fruitChanSize),
 		allFruits:    make(map[common.Hash]*types.SnailBlock),
