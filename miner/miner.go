@@ -101,7 +101,6 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		election:   election,
 		fruitOnly:  mineFruit, // set fruit only
 		singleNode: singleNode,
-		electionCh: make(chan types.ElectionEvent, fruitChanSize),
 		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
 		commitFlag: 1,
 		canStart:   1,
@@ -110,12 +109,13 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 	if !remoteMining {
 		miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
 	}
-	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 
 	go miner.SetFruitOnly(mineFruit)
 
 	// single node and remote agent not need care about the election
 	if !miner.singleNode || remoteMining {
+		miner.electionCh = make(chan types.ElectionEvent, fruitChanSize)
+		miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 		go miner.loop()
 	}
 
