@@ -60,7 +60,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 
 	// Initialize a fresh chain with only a genesis block
 	blockchain, _ := NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{}, fastChain)
-	blockchain.SetValidator(NewBlockValidator(chainConfig, fastChain, blockchain, engine))
+	//blockchain.SetValidator(NewBlockValidator(chainConfig, fastChain, blockchain, engine))
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, fastChain, nil
