@@ -1,5 +1,5 @@
 // Copyright 2018 The TrueChain Authors
-// This file is part of the truechain-engineering-code library.
+// This file is part of the truechain-engine_poolering-code library.
 //
 // The truechain-engineering-code library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
@@ -39,7 +39,7 @@ import (
 var testSnailPoolConfig SnailPoolConfig
 var fastchain *core.BlockChain
 var snailblockchain *SnailBlockChain
-var engine consensus.Engine
+var engine_pool consensus.Engine
 var chainConfig *params.ChainConfig
 var peerDb etruedb.Database // Database of the peers containing all data
 var genesis *core.Genesis
@@ -50,21 +50,21 @@ func pool_init() {
 	testSnailPoolConfig = DefaultSnailPoolConfig
 	chainConfig = params.TestChainConfig
 	testSnailPoolConfig.Journal = ""
-	engine = ethash.NewFaker()
+	engine_pool = ethash.NewFaker()
 	genesis = core.DefaultGenesisBlock()
 
 	cache := &core.CacheConfig{}
 
 	fastGenesis := genesis.MustFastCommit(peerDb)
-	fastchain, _ = core.NewBlockChain(peerDb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	fastchain, _ = core.NewBlockChain(peerDb, cache, params.AllMinervaProtocolChanges, engine_pool, vm.Config{})
 
-	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, peerDb, 300, func(i int, b *core.BlockGen) {
+	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine_pool, peerDb, 300, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 	fastchain.InsertChain(fastblocks)
 
 	snailGenesis = genesis.MustSnailCommit(peerDb)
-	snailblockchain, _ = NewSnailBlockChain(peerDb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+	snailblockchain, _ = NewSnailBlockChain(peerDb, params.TestChainConfig, engine_pool, vm.Config{}, fastchain)
 	/*if err != nil{
 		fmt.Print(err)
 	}*/
@@ -76,7 +76,7 @@ func pool_init() {
 func fruit(fastNumber int, fruitDifficulty *big.Int) *types.SnailBlock {
 	var fruit *types.SnailBlock
 
-	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastchain.CurrentBlock(), engine, peerDb, 1, func(i int, b *core.BlockGen) {
+	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastchain.CurrentBlock(), engine_pool, peerDb, 1, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 
@@ -218,7 +218,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 
 func setupSnailPool() *SnailPool {
 
-	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
+	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine_pool)
 	return pool
 }
 
@@ -449,7 +449,7 @@ func testFruitJournaling(t *testing.T) {
 	// Terminate the old pool,create a new pool and ensure relevant fruit survive
 	pool.Stop()
 
-	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
+	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine_pool)
 
 	pending, unverified = pool.Stats()
 	if unverified != 0 {
@@ -462,7 +462,7 @@ func testFruitJournaling(t *testing.T) {
 	time.Sleep(2 * config.Rejournal)
 	pool.Stop()
 
-	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
+	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine_pool)
 	pending, unverified = pool.Stats()
 	if pending != 0 {
 		t.Fatalf("pending fruits mismatched: have %d, want %d", pending, 0)
