@@ -247,8 +247,6 @@ func makeFruitHead(chain consensus.SnailChainReader, fastBlock *types.Block, par
 	pointerHeader := chain.GetHeaderByNumber(pointerNum.Uint64())
 	header.PointerHash = pointerHeader.Hash()
 	header.PointerNumber = pointerHeader.Number
-
-	log.Info("makeFruitHead", "parent", parent.Number(), "pointerNum", pointerNum, "fastNumber", fastBlock.NumberU64())
 	return header
 }
 
@@ -269,9 +267,6 @@ func (cr *fakeChainReader) CurrentHeader() *types.SnailHeader {
 
 // GetHeader retrieves a block header from the database by hash and number.
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.SnailHeader {
-	for _, block := range cr.chain {
-		log.Info("GetHeader", "number", number, "chain", block.Number())
-	}
 	return cr.chain[number].Header()
 }
 

@@ -467,13 +467,14 @@ func TestBroadcastBlock(t *testing.T) {
 
 func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	var (
-		evmux   = new(event.TypeMux)
-		pow     = ethash.NewFaker()
-		db      = etruedb.NewMemDatabase()
-		config  = &params.ChainConfig{}
-		gspec   = &core.Genesis{Config: config}
-		genesis = gspec.MustFastCommit(db)
-
+		evmux = new(event.TypeMux)
+		pow   = ethash.NewFaker()
+		db    = etruedb.NewMemDatabase()
+		gspec = &core.Genesis{
+			Config:     params.TestChainConfig,
+			Difficulty: big.NewInt(20000),
+		}
+		genesis      = gspec.MustFastCommit(db)
 		snailGenesis = gspec.MustSnailCommit(db)
 
 		priKey, _     = crypto.GenerateKey()
@@ -491,7 +492,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		}
 	)
 
-	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{})
+	blockchain, err := core.NewBlockChain(db, nil, gspec.Config, pow, vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
@@ -499,7 +500,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	snailChain, _ := snailchain.NewSnailBlockChain(db, gspec.Config, pow, vm.Config{}, blockchain)
 
 	//
-	pm, err := NewProtocolManager(config, downloader.FullSync, DefaultConfig.NetworkId, evmux, new(testTxPool), new(testSnailPool), pow, blockchain, snailChain, db, pbftAgent)
+	pm, err := NewProtocolManager(gspec.Config, downloader.FullSync, DefaultConfig.NetworkId, evmux, new(testTxPool), new(testSnailPool), pow, blockchain, snailChain, db, pbftAgent)
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}
@@ -514,7 +515,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		peers = append(peers, peer)
 	}
 	chain, _ := core.GenerateChain(gspec.Config, genesis, pow, db, 1, func(i int, gen *core.BlockGen) {})
-	_ = snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, pow, db, 1, func(i int, gen *snailchain.BlockGen) {})
+	_ = snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, 10, 7, func(i int, gen *snailchain.BlockGen) {})
 
 	pm.BroadcastFastBlock(chain[0], true /*propagate*/)
 

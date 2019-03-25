@@ -57,8 +57,9 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		engine = ethash.NewFaker()
 		db     = etruedb.NewMemDatabase()
 		gspec  = &core.Genesis{
-			Config: params.TestChainConfig,
-			Alloc:  types.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Config:     params.TestChainConfig,
+			Alloc:      types.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Difficulty: big.NewInt(20000),
 		}
 		genesis       = gspec.MustFastCommit(db)
 		blockchain, _ = core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
@@ -85,7 +86,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		panic(err)
 	}
 
-	schain := snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, engine, db, blocks, snailGenerator)
+	schain := snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, blocks, 7, snailGenerator)
 	if _, err := snailChain.InsertChain(schain); err != nil {
 		panic(err)
 	}
