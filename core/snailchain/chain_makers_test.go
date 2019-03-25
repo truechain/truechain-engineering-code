@@ -17,6 +17,7 @@
 package snailchain
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
@@ -39,29 +40,34 @@ func TestExampleGenerateChain(t *testing.T) { testExampleGenerateChain(t, 5) }
 
 func testExampleGenerateChain(t *testing.T, n int) {
 	var (
-		chainId = big.NewInt(3)
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		db      = etruedb.NewMemDatabase()
 		pow     = minerva.NewFaker()
 		gspec   = &core.Genesis{
-			Config:     &params.ChainConfig{ChainID: chainId},
+			Config:     params.TestChainConfig,
 			Alloc:      types.GenesisAlloc{addr1: {Balance: big.NewInt(3000000)}},
 			Difficulty: big.NewInt(20000),
 		}
-
-		genesis       = gspec.MustFastCommit(db)
-		blockchain, _ = core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
-
-		snailGenesis  = gspec.MustSnailCommit(db)
-		snailChain, _ = NewSnailBlockChain(db, gspec.Config, engine, vm.Config{}, blockchain)
+		genesis      = gspec.MustFastCommit(db)
+		snailGenesis = gspec.MustSnailCommit(db)
 	)
 
+	// This call generates a chain of 5 blocks. The function runs for
+	// each block and adds different features to gen based on the
+	// block index.
 	chain, _ := core.GenerateChain(gspec.Config, genesis, pow, db, n*params.MinimumFruits, nil)
-	if _, err := blockchain.InsertChain(chain); err != nil {
-		panic(err)
+
+	// Import the chain. This runs all block validation rules.
+	blockchain, _ := core.NewBlockChain(db, nil, gspec.Config, pow, vm.Config{})
+	defer blockchain.Stop()
+
+	if i, err := blockchain.InsertChain(chain); err != nil {
+		fmt.Printf("insert error (block %d): %v\n", chain[i].NumberU64(), err)
+		return
 	}
 
+	snailChain, _ := NewSnailBlockChain(db, gspec.Config, engine, vm.Config{}, blockchain)
 	// This call generates a chain of 5 blocks. The function runs for
 	// each block and adds different features to gen based on the
 	// block index.
@@ -69,5 +75,5 @@ func testExampleGenerateChain(t *testing.T, n int) {
 	if _, err := snailChain.InsertChain(schain); err != nil {
 		panic(err)
 	}
-	defer blockchain.Stop()
+	defer snailChain.Stop()
 }

@@ -123,11 +123,14 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 	if config == nil {
 		config = params.TestChainConfig
 	}
-	blocks := make(types.SnailBlocks, n+1)
-	chainreader := &fakeChainReader{config, blocks}
-	genblock := func(i int, parent *types.SnailBlock) *types.SnailBlock {
+	var blocks []*types.SnailBlock
+	blocks = append(blocks, parent)
+	log.Info("GenerateChain", "blocks", len(blocks), "number", parent.Number(), "n", n)
+
+	genblock := func(i int, parent *types.SnailBlock, chain []*types.SnailBlock) *types.SnailBlock {
 		var fruitSet []*types.SnailBlock
 		var fruitparent *types.SnailBlock
+		chainreader := &fakeChainReader{config, chain}
 		b := &BlockGen{i: i, fastChain: fastChain, parent: parent, chain: blocks, config: config, chainRead: chainreader}
 		fast := fastChain.GetBlockByNumber(parent.FastNumber().Uint64() + 1)
 		b.header = makeHeader(chainreader, parent, fast)
@@ -168,9 +171,10 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 		if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < i+1 {
 			break
 		}
-		block := genblock(i, parent)
-		blocks[i] = block
+		block := genblock(i, parent, blocks)
+		blocks = append(blocks, block)
 		parent = block
+		log.Info("GenerateChain", "blocks", len(blocks), "number", parent.Number(), "n", n)
 	}
 	return blocks[1:]
 }
@@ -265,12 +269,15 @@ func (cr *fakeChainReader) CurrentHeader() *types.SnailHeader {
 
 // GetHeader retrieves a block header from the database by hash and number.
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.SnailHeader {
-	return cr.chain[number-1].Header()
+	for _, block := range cr.chain {
+		log.Info("GetHeader", "number", number, "chain", block.Number())
+	}
+	return cr.chain[number].Header()
 }
 
 // GetHeaderByNumber retrieves a block header from the database by number.
 func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.SnailHeader {
-	return cr.chain[number-1].Header()
+	return cr.chain[number].Header()
 }
 
 // GetHeaderByHash retrieves a block header from the database by its hash.
@@ -278,7 +285,7 @@ func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.SnailHeader 
 
 // GetBlock retrieves a block from the database by hash and number.
 func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.SnailBlock {
-	return cr.chain[number-1]
+	return cr.chain[number]
 }
 
 //MakeChain return snailChain and fastchain by given fastBlockNumbers and snailBlockNumbers

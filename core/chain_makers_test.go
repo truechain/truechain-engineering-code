@@ -44,16 +44,14 @@ func ExampleGenerateChain() {
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
 		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
-		gspec = &Genesis{
+		gspec   = &Genesis{
 			Config: &params.ChainConfig{ChainID: chainId},
 			Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(3000000)}},
 		}
 		genesis = gspec.MustFastCommit(db)
 		pow     = minerva.NewFaker()
-		signer = types.NewTIP1Signer(gspec.Config.ChainID)
+		signer  = types.NewTIP1Signer(gspec.Config.ChainID)
 	)
-
-
 
 	// This call generates a chain of 5 blocks. The function runs for
 	// each block and adds different features to gen based on the
