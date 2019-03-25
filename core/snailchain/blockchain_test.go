@@ -102,8 +102,9 @@ func TestMakeChain(t *testing.T) {
 
 // Test fork of length N starting from block i
 func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, comparator func(td1, td2 *big.Int)) {
+	engine := minerva.NewFaker()
 	// Copy old chain up to #i into a new db
-	db, blockchain2, fastChain, err := newCanonical(minerva.NewFaker(), i, full)
+	db, blockchain2, fastChain, err := newCanonical(engine, i, full)
 	if err != nil {
 		t.Fatal("could not make new canonical in testFork", err)
 	}
@@ -127,12 +128,12 @@ func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, co
 		headerChainB []*types.SnailHeader
 	)
 	if full {
-		blockChainB = makeBlockChain(fastChain, blockchain2.CurrentBlock(), n, minerva.NewFaker(), db, forkSeed)
+		blockChainB = makeBlockChain(fastChain, blockchain2.CurrentBlock(), n, engine, db, forkSeed)
 		if _, err := blockchain2.InsertChain(blockChainB); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
 	} else {
-		headerChainB = makeHeaderChain(fastChain, blockchain2.CurrentHeader(), n, minerva.NewFaker(), db, forkSeed)
+		headerChainB = makeHeaderChain(fastChain, blockchain2.CurrentHeader(), n, engine, db, forkSeed)
 		if _, err := blockchain2.InsertHeaderChain(headerChainB, 1); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
