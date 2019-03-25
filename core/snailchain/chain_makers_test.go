@@ -67,7 +67,7 @@ func testExampleGenerateChain(t *testing.T, n int) {
 		return
 	}
 
-	snailChain, _ := NewSnailBlockChain(db, gspec.Config, engine, vm.Config{}, blockchain)
+	snailChain, _ := NewSnailBlockChain(db, gspec.Config, pow, vm.Config{}, blockchain)
 	// This call generates a chain of 5 blocks. The function runs for
 	// each block and adds different features to gen based on the
 	// block index.
