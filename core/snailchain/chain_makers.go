@@ -302,7 +302,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
 	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, testdb, fastBlockNumbers, func(i int, b *core.BlockGen) {
-		//b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
+		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 
 	fastchain.InsertChain(fastblocks)
@@ -341,7 +341,7 @@ func MakeSnailBlockBlockChain(chain *SnailBlockChain, fastchain *core.BlockChain
 
 		parent = block
 	}
-	if _, error := chain.InsertChain(blocks); error != nil {
+	if _, error := chain.InsertChain(blocks[1:]); error != nil {
 		panic(error)
 	}
 	return blocks, nil
