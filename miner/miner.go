@@ -105,7 +105,6 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		election:   election,
 		fruitOnly:  mineFruit, // set fruit only
 		singleNode: singleNode,
-		electionCh: make(chan types.ElectionEvent, electionChanSize),
 		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
 		commitFlag: 1,
 		canStart:   1,
