@@ -937,19 +937,11 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	if candidates == nil {
 		log.Warn("can't get election candidates, retain default committee", "begin", snailBeginNumber, "end", snailEndNumber)
 	} else {
-		members = e.elect(candidates, seed)
-	}
-	if len(members) > params.ProposalCommitteeNumber {
-		// Split previous elected candidates into members and backups
-		committee.Members = members[:params.ProposalCommitteeNumber]
-		committee.Backups = members[params.ProposalCommitteeNumber:]
-	} else {
-		// Apply the whole candidates
 		var (
+			all []*types.CommitteeMember
 			addrs = make(map[common.Address]*types.CommitteeMember)
 			defaults = make(map[common.Address]*types.CommitteeMember)
 		)
-		log.Info("Apply all candidates", "begin", snailBeginNumber, "end", snailEndNumber)
 		for _, g := range e.defaultMembers {
 			defaults[g.CommitteeBase] = g
 		}
@@ -967,9 +959,22 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 				Publickey:     crypto.FromECDSAPub(cm.publickey),
 				Flag:          types.StateUnusedFlag,
 			}
-			log.Debug("Apply candidate", "key", hex.EncodeToString(addrs[cm.address].Publickey))
-			committee.Members = append(committee.Members, addrs[cm.address])
+			all = append(all, addrs[cm.address])
 		}
+		if len(all) > params.ProposalCommitteeNumber {
+			members = e.elect(candidates, seed)
+		} else {
+			// Apply the whole candidates
+			log.Info("Apply all candidates", "begin", snailBeginNumber, "end", snailEndNumber)
+			members = all
+		}
+	}
+	if len(members) > params.ProposalCommitteeNumber {
+		// Split elected candidates into members and backups
+		committee.Members = members[:params.ProposalCommitteeNumber]
+		committee.Backups = members[params.ProposalCommitteeNumber:]
+	} else {
+		committee.Members = members
 	}
 
 	for _, member := range committee.Members {
