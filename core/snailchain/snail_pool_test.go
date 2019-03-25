@@ -26,7 +26,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -50,7 +50,7 @@ func pool_init() {
 	testSnailPoolConfig = DefaultSnailPoolConfig
 	chainConfig_pool = params.TestChainConfig
 	testSnailPoolConfig.Journal = ""
-	engine_pool = ethash.NewFaker()
+	engine_pool = minerva.NewFaker()
 	genesis_pool = core.DefaultGenesisBlock()
 
 	cache := &core.CacheConfig{}
