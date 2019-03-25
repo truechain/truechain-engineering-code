@@ -19,7 +19,6 @@ package snailchain
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
@@ -42,10 +41,8 @@ func init() {
 
 // So we can deterministically seed different blockchains
 var (
-	canonicalSeed  = 1
-	forkSeed       = 2
-	testBankKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testBank       = crypto.PubkeyToAddress(testBankKey.PublicKey)
+	canonicalSeed = 1
+	forkSeed      = 2
 )
 
 // newCanonical creates a chain database, and injects a deterministic canonical
@@ -85,15 +82,8 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 }
 
 func TestMakeChain(t *testing.T) {
-
-	var (
-		gspec = &core.Genesis{
-			Config: &params.ChainConfig{ChainID: big.NewInt(3)},
-			Alloc:  types.GenesisAlloc{testBank: {Balance: big.NewInt(3000000)}},
-		}
-	)
-
-	chain, _ := MakeChain(180, 3, gspec, minerva.NewFaker())
+	genesis := core.DefaultGenesisBlock()
+	chain, _ := MakeChain(180, 3, genesis, minerva.NewFaker())
 	log.Info("TestMakeChain", "number", chain.CurrentBlock().Number(), "fast number", chain.CurrentFastBlock().Number())
 	blocks := chain.GetBlocksFromNumber(1)
 
