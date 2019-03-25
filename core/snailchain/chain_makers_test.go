@@ -42,13 +42,12 @@ func testExampleGenerateChain(t *testing.T, n int) {
 		chainId = big.NewInt(3)
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
-
-		db  = etruedb.NewMemDatabase()
-		pow = minerva.NewFaker()
-
-		gspec = &core.Genesis{
-			Config: &params.ChainConfig{ChainID: chainId},
-			Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(3000000)}},
+		db      = etruedb.NewMemDatabase()
+		pow     = minerva.NewFaker()
+		gspec   = &core.Genesis{
+			Config:     &params.ChainConfig{ChainID: chainId},
+			Alloc:      types.GenesisAlloc{addr1: {Balance: big.NewInt(3000000)}},
+			Difficulty: big.NewInt(20000),
 		}
 
 		genesis       = gspec.MustFastCommit(db)
@@ -66,7 +65,7 @@ func testExampleGenerateChain(t *testing.T, n int) {
 	// This call generates a chain of 5 blocks. The function runs for
 	// each block and adds different features to gen based on the
 	// block index.
-	schain := GenerateChain(gspec.Config, blockchain, snailGenesis, engine, db, n, nil)
+	schain := GenerateChain(gspec.Config, blockchain, snailGenesis, n, 7, nil)
 	if _, err := snailChain.InsertChain(schain); err != nil {
 		panic(err)
 	}
