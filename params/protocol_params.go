@@ -120,7 +120,7 @@ var (
 
 	SnailMaximumRewardInterval = big.NewInt(20)
 
-	FastToFruitSpace = big.NewInt(1200)
+	FastToFruitSpace = big.NewInt(1500)
 
 	ElectionPeriodNumber     = big.NewInt(180) // snail block period number
 	ElectionSwitchoverNumber = big.NewInt(9600)
