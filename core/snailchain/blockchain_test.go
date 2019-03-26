@@ -104,9 +104,9 @@ func TestMakeChain(t *testing.T) {
 }
 
 // Test fork of length N starting from block i
-func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, comparator func(td1, td2 *big.Int), engine consensus.Engine) {
+func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, comparator func(td1, td2 *big.Int), engine consensus.Engine, snail bool) {
 	// Copy old chain up to #i into a new db
-	db, blockchain2, fastChain, err := newCanonical(engine, i, full, false)
+	db, blockchain2, fastChain, err := newCanonical(engine, i, full, snail)
 	if err != nil {
 		t.Fatal("could not make new canonical in testFork", err)
 	}
@@ -258,7 +258,7 @@ func testExtendCanonical(t *testing.T, full bool, snail bool) {
 		}
 	}
 	// Start fork from current height
-	testFork(t, processor, length, 1, full, better, engine)
+	testFork(t, processor, length, 1, full, better, engine, snail)
 	/*testFork(t, processor, length, 2, full, better, engine)
 	testFork(t, processor, length, 5, full, better, engine)
 	testFork(t, processor, length, 10, full, better, engine)*/
@@ -266,14 +266,14 @@ func testExtendCanonical(t *testing.T, full bool, snail bool) {
 
 // Tests that given a starting canonical chain of a given size, creating shorter
 // forks do not take canonical ownership.
-func TestShorterForkHeaders(t *testing.T) { testShorterFork(t, false) }
-func TestShorterForkBlocks(t *testing.T)  { testShorterFork(t, true) }
+func TestShorterForkHeaders(t *testing.T) { testShorterFork(t, false, false) }
+func TestShorterForkBlocks(t *testing.T)  { testShorterFork(t, true, true) }
 
-func testShorterFork(t *testing.T, full bool) {
+func testShorterFork(t *testing.T, full bool, snail bool) {
 	length := 10
 	engine := minerva.NewFaker()
 	// Make first chain starting from genesis
-	_, processor, _, err := newCanonical(engine, length, full, false)
+	_, processor, _, err := newCanonical(engine, length, full, snail)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -286,20 +286,20 @@ func testShorterFork(t *testing.T, full bool) {
 		}
 	}
 	// Sum of numbers must be less than `length` for this to be a shorter fork
-	testFork(t, processor, 0, 3, full, worse, engine)
-	testFork(t, processor, 0, 7, full, worse, engine)
-	testFork(t, processor, 1, 1, full, worse, engine)
-	testFork(t, processor, 1, 7, full, worse, engine)
-	testFork(t, processor, 5, 3, full, worse, engine)
-	testFork(t, processor, 5, 4, full, worse, engine)
+	testFork(t, processor, 0, 3, full, worse, engine, snail)
+	testFork(t, processor, 0, 7, full, worse, engine, snail)
+	testFork(t, processor, 1, 1, full, worse, engine, snail)
+	testFork(t, processor, 1, 7, full, worse, engine, snail)
+	testFork(t, processor, 5, 3, full, worse, engine, snail)
+	testFork(t, processor, 5, 4, full, worse, engine, snail)
 }
 
 // Tests that given a starting canonical chain of a given size, creating longer
 // forks do take canonical ownership.
-func TestLongerForkHeaders(t *testing.T) { testLongerFork(t, false) }
-func TestLongerForkBlocks(t *testing.T)  { testLongerFork(t, true) }
+func TestLongerForkHeaders(t *testing.T) { testLongerFork(t, false, false) }
+func TestLongerForkBlocks(t *testing.T)  { testLongerFork(t, true, true) }
 
-func testLongerFork(t *testing.T, full bool) {
+func testLongerFork(t *testing.T, full bool, snail bool) {
 	length := 10
 	engine := minerva.NewFaker()
 	// Make first chain starting from genesis
@@ -316,24 +316,24 @@ func testLongerFork(t *testing.T, full bool) {
 		}
 	}
 	// Sum of numbers must be greater than `length` for this to be a longer fork
-	testFork(t, processor, 0, 11, full, better, engine)
-	testFork(t, processor, 0, 15, full, better, engine)
-	testFork(t, processor, 1, 10, full, better, engine)
-	testFork(t, processor, 1, 12, full, better, engine)
-	testFork(t, processor, 5, 6, full, better, engine)
-	testFork(t, processor, 5, 8, full, better, engine)
+	testFork(t, processor, 0, 11, full, better, engine, snail)
+	testFork(t, processor, 0, 15, full, better, engine, snail)
+	testFork(t, processor, 1, 10, full, better, engine, snail)
+	testFork(t, processor, 1, 12, full, better, engine, snail)
+	testFork(t, processor, 5, 6, full, better, engine, snail)
+	testFork(t, processor, 5, 8, full, better, engine, snail)
 }
 
 // Tests that given a starting canonical chain of a given size, creating equal
 // forks do take canonical ownership.
-func TestEqualForkHeaders(t *testing.T) { testEqualFork(t, false) }
-func TestEqualForkBlocks(t *testing.T)  { testEqualFork(t, true) }
+func TestEqualForkHeaders(t *testing.T) { testEqualFork(t, false, true) }
+func TestEqualForkBlocks(t *testing.T)  { testEqualFork(t, true, true) }
 
-func testEqualFork(t *testing.T, full bool) {
+func testEqualFork(t *testing.T, full bool, snail bool) {
 	length := 10
 	engine := minerva.NewFaker()
 	// Make first chain starting from genesis
-	_, processor, _, err := newCanonical(engine, length, full, false)
+	_, processor, _, err := newCanonical(engine, length, full, snail)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -346,12 +346,12 @@ func testEqualFork(t *testing.T, full bool) {
 		}
 	}
 	// Sum of numbers must be equal to `length` for this to be an equal fork
-	testFork(t, processor, 0, 10, full, equal, engine)
-	testFork(t, processor, 1, 9, full, equal, engine)
-	testFork(t, processor, 2, 8, full, equal, engine)
-	testFork(t, processor, 5, 5, full, equal, engine)
-	testFork(t, processor, 6, 4, full, equal, engine)
-	testFork(t, processor, 9, 1, full, equal, engine)
+	testFork(t, processor, 0, 10, full, equal, engine, snail)
+	testFork(t, processor, 1, 9, full, equal, engine, snail)
+	testFork(t, processor, 2, 8, full, equal, engine, snail)
+	testFork(t, processor, 5, 5, full, equal, engine, snail)
+	testFork(t, processor, 6, 4, full, equal, engine, snail)
+	testFork(t, processor, 9, 1, full, equal, engine, snail)
 }
 
 // Tests that chains missing links do not get accepted by the processor.
