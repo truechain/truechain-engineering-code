@@ -764,7 +764,7 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 			unmineFruitLen := new(big.Int).Sub(fastHight, fruits[len(fruits)-1].FastNumber())
 			waitmine := rand.Intn(1200)
 
-			if timeinterval.Cmp(params.MinTimeGap) > 0 && (waitmine > int(unmineFruitLen.Int64())) {
+			if timeinterval.Cmp(params.MinTimeGap) >= 0 && (waitmine > int(unmineFruitLen.Int64())) {
 				// must big then 5min
 				w.current.fruits = fruitset
 			} else {
