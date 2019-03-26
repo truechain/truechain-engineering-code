@@ -155,7 +155,7 @@ func (s *service) getStateAgent() *ttypes.StateAgentImpl {
 	return s.sa
 }
 func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
-	log.Info("putNodes", "cid", cid, "nodes", nodes)
+	log.Debug("putNodes", "cid", cid, "nodes", nodes)
 	if nodes == nil {
 		return
 	}
@@ -177,11 +177,9 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 			port = node.Port
 		}
 		id := tp2p.ID(hex.EncodeToString(address[:]))
-		log.Debug("putNodes", "id", id, "s.nodeTable", s.nodeTable)
 		addr, err := tp2p.NewNetAddressString(tp2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
 		if v, ok := s.nodeTable[id]; ok {
-			log.Debug("Enter NodeInfo", "id", id, "addr", addr)
 			v.Adrress = addr
 			if v.IP != node.IP || v.Port != port {
 				v.IP, v.Port = node.IP, port
@@ -190,7 +188,6 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		}
 		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
-	log.Debug("PutNodes", "id", cid, "msg", strings.Join(nodeString, "\n"))
 	if update && s.nodesHaveSelf() { //} ((s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) || s.sa.Priv == nil) {
 		select {
 		case s.updateChan <- true:
