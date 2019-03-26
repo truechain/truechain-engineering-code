@@ -961,6 +961,7 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 			}
 			all = append(all, addrs[cm.address])
 		}
+		log.Info("Candidates addrs", "count", len(all))
 		if len(all) > params.ProposalCommitteeNumber {
 			members = e.elect(candidates, seed)
 		} else {
