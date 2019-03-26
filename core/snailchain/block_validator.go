@@ -41,6 +41,7 @@ var (
 	//ErrInvalidFruits is returned if the fruits in block not continuity
 	ErrInvalidFruits = errors.New("invalid fruits number")
 
+	//ErrGapFruits is returned if the fruits's fastblock time gap less than 360s
 	ErrGapFruits = errors.New("invalid fruits time gap")
 )
 
@@ -119,7 +120,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	minfb := v.fastchain.GetHeader(fruits[0].FastHash(), fruits[0].FastNumber().Uint64())
 	gap := maxfb.Time.Sub(maxfb.Time, minfb.Time)
 	if gap.Cmp(params.MinTimeGap) < 0 {
-		log.Info("ValidateBody snail validate time gap error", "block", block.Number(), "first fb time", minfb, "last fb time", maxfb,"tim gap",gap)
+		log.Info("ValidateBody snail validate time gap error", "block", block.Number(), "first fb time", minfb, "last fb time", maxfb, "tim gap", gap)
 		return ErrGapFruits
 	}
 	for _, fruit := range fruits {
