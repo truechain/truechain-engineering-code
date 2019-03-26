@@ -51,7 +51,6 @@ const (
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
 	chainSideChanSize     = 64
 	fastchainHeadChanSize = 1024
-	fastblockTimeInterval = 5 * 60 //second
 )
 
 var (
@@ -762,20 +761,19 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 			endTime := fc.GetHeaderByNumber(fruitset[len(fruitset)-1].FastNumber().Uint64()).Time
 			timeinterval := new(big.Int).Sub(endTime, startTime)
 
-			unmineFruitLen := new(big.Int).Sub(fastHight, fruitset[len(fruitset)-1].FastNumber())
+			unmineFruitLen := new(big.Int).Sub(fastHight, fruits[len(fruits)-1].FastNumber())
 			waitmine := rand.Intn(1200)
 
-			if timeinterval.Cmp(new(big.Int).SetInt64(fastblockTimeInterval)) > 0 && (waitmine > int(unmineFruitLen.Int64())) {
+			if timeinterval.Cmp(params.MinTimeGap) > 0 && (waitmine > int(unmineFruitLen.Int64())) {
 				// must big then 5min
 				w.current.fruits = fruitset
+			} else {
+				//mine fruit
+				w.current.fruits = nil
 			}
 
 		}
-		// need add the time interval
-		/*if len(fruitset) > 0 {
-			w.current.fruits = fruitset
 
-		}*/
 	} else {
 		// make the fruits to nil if not find the fruitset
 		w.current.fruits = nil
