@@ -39,8 +39,8 @@ type Subscriber interface {
 
 	SubscribeFastBlock(chan<- types.FastBlockEvent) event.Subscription
 
-	SubscribeSnailChainEvent(chan<- types.ChainSnailEvent) event.Subscription
-	SubscribeSnailChainSideEvent(chan<- types.ChainSnailSideEvent) event.Subscription
+	SubscribeSnailChainEvent(chan<- types.SnailChainEvent) event.Subscription
+	SubscribeSnailChainSideEvent(chan<- types.SnailChainSideEvent) event.Subscription
 
 	SubscribeElectionEvent(chan<- types.ElectionEvent) event.Subscription
 

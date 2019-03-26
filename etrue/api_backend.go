@@ -326,14 +326,14 @@ func (b *TrueAPIBackend) SubscribeFastBlock(ch chan<- types.FastBlockEvent) even
 }
 
 // SubscribeSnailChainHeadEvent registers a subscription of ChainHeadEvent.
-func (b *TrueAPIBackend) SubscribeSnailChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeSnailChainHeadEvent(ch chan<- types.SnailChainHeadEvent) event.Subscription {
 	return b.etrue.SnailBlockChain().SubscribeChainHeadEvent(ch)
 }
 
-func (b *TrueAPIBackend) SubscribeSnailChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeSnailChainEvent(ch chan<- types.SnailChainEvent) event.Subscription {
 	return b.etrue.SnailBlockChain().SubscribeChainEvent(ch)
 }
-func (b *TrueAPIBackend) SubscribeSnailChainSideEvent(ch chan<- types.ChainSnailSideEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeSnailChainSideEvent(ch chan<- types.SnailChainSideEvent) event.Subscription {
 	return b.etrue.SnailBlockChain().SubscribeChainSideEvent(ch)
 }
 
