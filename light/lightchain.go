@@ -331,12 +331,12 @@ func (self *LightChain) Rollback(chain []common.Hash) {
 func (self *LightChain) postChainEvents(events []interface{}) {
 	for _, event := range events {
 		switch ev := event.(type) {
-		case types.ChainFastEvent:
+		case types.FastChainEvent:
 			if self.CurrentHeader().Hash() == ev.Hash {
-				self.chainHeadFeed.Send(types.ChainFastHeadEvent{Block: ev.Block})
+				self.chainHeadFeed.Send(types.FastChainHeadEvent{Block: ev.Block})
 			}
 			self.chainFeed.Send(ev)
-		case types.ChainFastSideEvent:
+		case types.FastChainSideEvent:
 			self.chainSideFeed.Send(ev)
 		}
 	}
@@ -379,11 +379,11 @@ func (self *LightChain) InsertHeaderChain(chain []*types.Header, checkFreq int) 
 		switch status {
 		case core.CanonStatTy:
 			log.Debug("Inserted new header", "number", header.Number, "hash", header.Hash())
-			events = append(events, types.ChainFastEvent{Block: types.NewBlockWithHeader(header), Hash: header.Hash()})
+			events = append(events, types.FastChainEvent{Block: types.NewBlockWithHeader(header), Hash: header.Hash()})
 
 		case core.SideStatTy:
 			log.Debug("Inserted forked header", "number", header.Number, "hash", header.Hash())
-			events = append(events, types.ChainFastSideEvent{Block: types.NewBlockWithHeader(header)})
+			events = append(events, types.FastChainSideEvent{Block: types.NewBlockWithHeader(header)})
 		}
 		return err
 	}
@@ -497,17 +497,17 @@ func (self *LightChain) UnlockChain() {
 }
 
 // SubscribeChainEvent registers a subscription of ChainEvent.
-func (self *LightChain) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
+func (self *LightChain) SubscribeChainEvent(ch chan<- types.FastChainEvent) event.Subscription {
 	return self.scope.Track(self.chainFeed.Subscribe(ch))
 }
 
 // SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.
-func (self *LightChain) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
+func (self *LightChain) SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription {
 	return self.scope.Track(self.chainHeadFeed.Subscribe(ch))
 }
 
 // SubscribeChainSideEvent registers a subscription of ChainSideEvent.
-func (self *LightChain) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription {
+func (self *LightChain) SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent) event.Subscription {
 	return self.scope.Track(self.chainSideFeed.Subscribe(ch))
 }
 

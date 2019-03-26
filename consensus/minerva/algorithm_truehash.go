@@ -17,7 +17,7 @@
 package minerva
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"golang.org/x/crypto/sha3"
 )
 
 const DATALENGTH = 2048 //2048 520

@@ -53,8 +53,7 @@ const (
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize    = 4096
-	blockChanSize = 64
-	signChanSize  = 512
+	blockChanSize = 256
 	nodeChanSize  = 256
 	// fruitChanSize is the size of channel listening to NewFruitsEvent.
 	// The number is referenced from the size of snail pool.
@@ -106,11 +105,9 @@ type ProtocolManager struct {
 	fruitsSub event.Subscription
 
 	//fast block
-	minedFastCh  chan types.NewBlockEvent
+	minedFastCh  chan types.PbftSignEvent
 	minedFastSub event.Subscription
 
-	pbSignsCh     chan types.PbftSignEvent
-	pbSignsSub    event.Subscription
 	pbNodeInfoCh  chan types.NodeInfoEvent
 	pbNodeInfoSub event.Subscription
 
@@ -177,10 +174,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Initiate a sub-protocol for every implemented version we can handle
 	manager.SubProtocols = make([]p2p.Protocol, 0, len(ProtocolVersions))
 	for i, version := range ProtocolVersions {
-		// Skip protocol version if incompatible with the mode of operation
-		if mode == downloader.FastSync {
-			continue
-		}
 		// Compatible; initialise the sub-protocol
 		version := version // Closure for the run
 		manager.SubProtocols = append(manager.SubProtocols, p2p.Protocol{
@@ -313,15 +306,10 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.fruitsSub = pm.SnailPool.SubscribeNewFruitEvent(pm.fruitsch)
 	go pm.fruitBroadcastLoop()
 
-	// broadcast mined fastBlocks
-	pm.minedFastCh = make(chan types.NewBlockEvent, blockChanSize)
-	pm.minedFastSub = pm.agentProxy.SubscribeNewFastBlockEvent(pm.minedFastCh)
+	// broadcast fastBlocks
+	pm.minedFastCh = make(chan types.PbftSignEvent, blockChanSize)
+	pm.minedFastSub = pm.agentProxy.SubscribeNewPbftSignEvent(pm.minedFastCh)
 	go pm.minedFastBroadcastLoop()
-
-	// broadcast sign
-	pm.pbSignsCh = make(chan types.PbftSignEvent, signChanSize)
-	pm.pbSignsSub = pm.agentProxy.SubscribeNewPbftSignEvent(pm.pbSignsCh)
-	go pm.pbSignBroadcastLoop()
 
 	// broadcast node info
 	pm.pbNodeInfoCh = make(chan types.NodeInfoEvent, nodeChanSize)
@@ -340,7 +328,6 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()       // quits txBroadcastLoop
 	pm.minedFastSub.Unsubscribe() // quits minedFastBroadcastLoop
-	pm.pbSignsSub.Unsubscribe()
 	pm.pbNodeInfoSub.Unsubscribe()
 	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
@@ -434,7 +421,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	defer pm.removePeer(p.id)
 
 	//Register the peer in the downloader. If the downloader considers it banned, we disconnect
-	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
+	if err := pm.downloader.RegisterPeer(p.id, p.version, p.RemoteAddr().String(), p); err != nil {
 		p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
 		return err
 	}
@@ -573,7 +560,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send snail block headers", "headers", len(headers), "time", time.Now().Sub(now), "peer", p.id, "number", query.Origin.Number, "hash", query.Origin.Hash)
-		return p.SendBlockHeaders(&BlockHeadersData{SnailHeaders: headers})
+		return p.SendBlockHeaders(&BlockHeadersData{SnailHeaders: headers}, false)
 
 	case msg.Code == SnailBlockHeadersMsg:
 		// A batch of headers arrived to one of our previous requests
@@ -679,7 +666,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id, "call", query.Call)
-		return p.SendBlockHeaders(&BlockHeadersData{Headers: headers, Call: query.Call})
+		return p.SendBlockHeaders(&BlockHeadersData{Headers: headers, Call: query.Call}, true)
 
 	case msg.Code == FastBlockHeadersMsg:
 
@@ -693,10 +680,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		copy(headers, headerData.Headers)
 
 		filter := len(headers) == 1
-		if len(headers) > 0 && headerData.Call == types.DownloaderCall {
-			log.Info("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number, "call", headerData.Call)
-		} else {
-			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number, "call", headerData.Call)
+		if len(headers) > 0 {
+			log.Debug("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "call", headerData.Call)
 		}
 
 		if filter {
@@ -705,10 +690,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// mecMark
 		if len(headers) > 0 || !filter {
-			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "filter", filter)
-			err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
-			if err != nil {
-				log.Debug("Failed to deliver headers", "err", err)
+			if headerData.Call == types.FetcherCall {
+				log.Info("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
+			} else {
+				log.Debug("FastBlockHeadersMsg", "headers", len(headers), "filter", filter)
+				err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
+				if err != nil {
+					log.Debug("Failed to deliver headers", "err", err)
+				}
 			}
 		}
 
@@ -759,17 +748,21 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(transactions) > 0 || len(signs) > 0 || len(infos) > 0
 		if len(signs) > 0 {
-			log.Debug("FastBlockBodiesMsg", "len(signs)", len(signs), "number", signs[0][0].FastHeight, "len(transactions)", len(transactions))
+			log.Debug("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "transactions", len(transactions))
 		}
 		if filter {
 			transactions, signs, infos = pm.fetcherFast.FilterBodies(p.id, transactions, signs, infos, time.Now())
 		}
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
-			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
-			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
-			if err != nil {
-				log.Debug("Failed to deliver bodies", "err", err)
+			if request.Call == types.FetcherCall {
+				log.Info("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
+			} else {
+				log.Debug("FastBlockBodiesMsg", "transactions", len(transactions), "signs", len(signs), "infos", len(infos), "filter", filter)
+				err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
+				if err != nil {
+					log.Debug("Failed to deliver bodies", "err", err)
+				}
 			}
 		}
 
@@ -1016,8 +1009,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		// committee no current block
-		pm.fetcherFast.EnqueueSign(p.id, signs)
 
 		//fruit structure
 
@@ -1251,29 +1242,14 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
-		case blockEvent := <-pm.minedFastCh:
+		case signEvent := <-pm.minedFastCh:
+			log.Info("Broadcast fast block", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash(), "recipients", len(pm.peers.peers))
 			atomic.StoreUint32(&pm.acceptTxs, 1)
-			pm.BroadcastFastBlock(blockEvent.Block, true) // First propagate fast block to peers
-
-			// Err() channel will be closed when unsubscribing.
-		case <-pm.minedFastSub.Err():
-			return
-		}
-	}
-}
-
-func (pm *ProtocolManager) pbSignBroadcastLoop() {
-	for {
-		select {
-		case signEvent := <-pm.pbSignsCh:
-			log.Info("Committee sign", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash(), "recipients", len(pm.peers.peers))
-			atomic.StoreUint32(&pm.acceptTxs, 1)
-			pm.BroadcastFastBlock(signEvent.Block, true) // Only then announce to the rest
-			//pm.BroadcastPbSign(signEvent.Block.Signs())
+			pm.BroadcastFastBlock(signEvent.Block, true)  // Only then announce to the rest
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
-		case <-pm.pbSignsSub.Err():
+		case <-pm.minedFastSub.Err():
 			return
 		}
 	}
@@ -1317,7 +1293,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 				txs = append(txs, tx)
 			}
 
-			if len(pm.txsCh) > 0 && len(txs) < txPackSize {
+			if len(pm.txsCh) > txPackSize && len(txs) < txPackSize {
 				log.Debug("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
 				continue
 			}
@@ -1362,7 +1338,7 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 				fruits = append(fruits, fruit)
 			}
 
-			if len(pm.txsCh) > 0 && len(fruits) < fruitPackSize {
+			if len(pm.txsCh) > fruitPackSize && len(fruits) < fruitPackSize {
 				log.Debug("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Fts", len(fruitsEvent.Fruits), "fts", len(fruits))
 				continue
 			}

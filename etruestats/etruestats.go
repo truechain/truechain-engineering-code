@@ -57,7 +57,7 @@ const (
 	// chainFastHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 4096
 
-	// chainSnailHeadChanSize is the size of channel listening to ChainSnailHeadEvent.
+	// chainSnailHeadChanSize is the size of channel listening to SnailChainHeadEvent.
 	chainSnailHeadChanSize = 128
 )
 
@@ -68,11 +68,11 @@ type txPool interface {
 }
 
 type blockChain interface {
-	SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription
 }
 
 type snailBlockChain interface {
-	SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- types.SnailChainHeadEvent) event.Subscription
 	SubscribeNewFruitEvent(ch chan<- types.NewMinedFruitEvent) event.Subscription
 }
 
@@ -160,7 +160,7 @@ func (s *Service) loop() {
 		txpool = s.les.TxPool()
 	}
 	//fastBlock
-	chainHeadCh := make(chan types.ChainFastHeadEvent, chainHeadChanSize)
+	chainHeadCh := make(chan types.FastChainHeadEvent, chainHeadChanSize)
 	headSub := blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	defer headSub.Unsubscribe()
 
@@ -170,7 +170,7 @@ func (s *Service) loop() {
 	defer txSub.Unsubscribe()
 
 	//snailBlock
-	chainsnailHeadCh := make(chan types.ChainSnailHeadEvent, chainSnailHeadChanSize)
+	chainsnailHeadCh := make(chan types.SnailChainHeadEvent, chainSnailHeadChanSize)
 	snailheadSub := snailBlockChain.SubscribeChainHeadEvent(chainsnailHeadCh)
 	defer snailheadSub.Unsubscribe()
 
@@ -866,6 +866,7 @@ type nodeStats struct {
 	Syncing           bool `json:"syncing"`
 	Mining            bool `json:"mining"`
 	IsCommitteeMember bool `json:"isCommitteeMember"`
+	IsLeader          bool `json:"isLeader"`
 	Hashrate          int  `json:"hashrate"`
 	Peers             int  `json:"peers"`
 	GasPrice          int  `json:"gasPrice"`
@@ -879,6 +880,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 	var (
 		mining            bool
 		isCommitteeMember bool
+		isLeader          bool
 		hashrate          int
 		syncing           bool
 		gasprice          int
@@ -894,6 +896,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		gasprice = int(price.Uint64())
 
 		isCommitteeMember = s.etrue.PbftAgent().IsCommitteeMember()
+		isLeader = s.etrue.PbftAgent().IsLeader()
 	} else {
 		sync := s.les.Downloader().Progress()
 		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
@@ -909,12 +912,13 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		Syncing:           syncing,
 		Uptime:            100,
 		IsCommitteeMember: isCommitteeMember,
+		IsLeader:          isLeader,
 	}
 	stats := map[string]interface{}{
 		"id":    s.node,
 		"stats": nodeStats,
 	}
-	log.Warn("nodeStats", "nodeStats", nodeStats)
+	//log.Warn("nodeStats", "nodeStats", nodeStats)
 	report := map[string][]interface{}{
 		"emit": {"stats", stats},
 	}

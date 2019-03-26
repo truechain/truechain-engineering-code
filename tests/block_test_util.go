@@ -52,27 +52,31 @@ func (t *BlockTest) UnmarshalJSON(in []byte) error {
 }
 
 type btJSON struct {
-	Blocks     []btBlock             `json:"blocks"`
-	Genesis    btHeader              `json:"genesisBlockHeader"`
-	Pre        types.GenesisAlloc     `json:"pre"`
-	Post       types.GenesisAlloc     `json:"postState"`
-	BestBlock  common.UnprefixedHash `json:"lastblockhash"`
-	Network    string                `json:"network"`
-	SealEngine string                `json:"sealEngine"`
+	Blocks     []btBlock             	`json:"blocks"`
+	Genesis    btHeader              	`json:"genesisBlockHeader"`
+	Pre        types.GenesisAlloc    	`json:"pre"`
+	Post       types.GenesisAlloc    	`json:"postState"`
+	BestBlock  common.UnprefixedHash 	`json:"lastblockhash"`
+	Network    string                	`json:"network"`
+	Committee  types.CommitteeMembers	`json:"committee"`
+	SealEngine string                	`json:"sealEngine"`
 }
 
 type btBlock struct {
 	BlockHeader  *btHeader
+	Txs    []*types.Transaction
+	Signs  []*types.PbftSign
+	Infos  []*types.CommitteeMember
 	Rlp          string
 }
 
 //go:generate gencodec -type btHeader -field-override btHeaderMarshaling -out gen_btheader.go
 
 type btHeader struct {
+	SnailHash		 common.Hash
+	SnailNumber		 *big.Int
+	CommitteeHash	 common.Hash
 	Bloom            types.Bloom
-	Coinbase         common.Address
-	MixHash          common.Hash
-	Nonce            types.BlockNonce
 	Number           *big.Int
 	Hash             common.Hash
 	ParentHash       common.Hash
@@ -80,7 +84,6 @@ type btHeader struct {
 	StateRoot        common.Hash
 	TransactionsTrie common.Hash
 	ExtraData        []byte
-	Difficulty       *big.Int
 	GasLimit         uint64
 	GasUsed          uint64
 	Timestamp        *big.Int
@@ -107,11 +110,9 @@ func (t *BlockTest) Run() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(gblock.Hash().String())
 	if gblock.Hash() != t.json.Genesis.Hash {
 		return fmt.Errorf("genesis block hash doesn't match test: computed=%x, test=%x", gblock.Hash().Bytes()[:6], t.json.Genesis.Hash[:6])
 	}
-	fmt.Println(gblock.Root().String())
 	if gblock.Root() != t.json.Genesis.StateRoot {
 		return fmt.Errorf("genesis block state root does not match test: computed=%x, test=%x", gblock.Root().Bytes()[:6], t.json.Genesis.StateRoot[:6])
 	}
@@ -148,16 +149,13 @@ func (t *BlockTest) Run() error {
 func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
 	return &core.Genesis{
 		Config:     config,
-		Nonce:      t.json.Genesis.Nonce.Uint64(),
 		Timestamp:  t.json.Genesis.Timestamp.Uint64(),
 		ParentHash: t.json.Genesis.ParentHash,
 		ExtraData:  t.json.Genesis.ExtraData,
 		GasLimit:   t.json.Genesis.GasLimit,
 		GasUsed:    t.json.Genesis.GasUsed,
-		Difficulty: t.json.Genesis.Difficulty,
-		Mixhash:    t.json.Genesis.MixHash,
-		Coinbase:   t.json.Genesis.Coinbase,
 		Alloc:      t.json.Pre,
+		Committee:	t.json.Committee,
 	}
 }
 

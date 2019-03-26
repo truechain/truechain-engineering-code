@@ -19,17 +19,18 @@ package miner
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	//	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	//"github.com/truechain/truechain-engineering-code/core/vm"
+	//"crypto/rand"
 	"github.com/ethereum/go-ethereum/log"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -108,12 +109,12 @@ type worker struct {
 	minedfruitCh  chan types.NewMinedFruitEvent
 	minedfruitSub event.Subscription // for fruit pool
 
-	fastchainEventCh  chan types.ChainFastEvent
+	fastchainEventCh  chan types.FastChainEvent
 	fastchainEventSub event.Subscription //for fast block pool
 
-	chainHeadCh  chan types.ChainSnailHeadEvent
+	chainHeadCh  chan types.SnailChainHeadEvent
 	chainHeadSub event.Subscription
-	chainSideCh  chan types.ChainSnailSideEvent
+	chainSideCh  chan types.SnailChainSideEvent
 	chainSideSub event.Subscription
 	wg           sync.WaitGroup
 
@@ -139,7 +140,6 @@ type worker struct {
 	minedFruit    *types.SnailBlock //for addFruits delay to create a new list
 	snapshotState *state.StateDB
 
-	uncleMu        sync.Mutex
 	possibleUncles map[common.Hash]*types.SnailBlock
 
 	unconfirmed *unconfirmedBlocks // set of locally mined blocks pending canonicalness confirmations
@@ -153,15 +153,14 @@ type worker struct {
 
 func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, etrue Backend, mux *event.TypeMux) *worker {
 	worker := &worker{
-		config: config,
-		engine: engine,
-		etrue:  etrue,
-		mux:    mux,
-		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
+		config:            config,
+		engine:            engine,
+		etrue:             etrue,
+		mux:               mux,
 		fruitCh:           make(chan types.NewFruitsEvent, fruitChanSize),
-		fastchainEventCh:  make(chan types.ChainFastEvent, fastchainHeadChanSize),
-		chainHeadCh:       make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
-		chainSideCh:       make(chan types.ChainSnailSideEvent, chainSideChanSize),
+		fastchainEventCh:  make(chan types.FastChainEvent, fastchainHeadChanSize),
+		chainHeadCh:       make(chan types.SnailChainHeadEvent, chainHeadChanSize),
+		chainSideCh:       make(chan types.SnailChainSideEvent, chainSideChanSize),
 		minedfruitCh:      make(chan types.NewMinedFruitEvent, fruitChanSize),
 		chainDb:           etrue.ChainDb(),
 		recv:              make(chan *Result, resultQueueSize),
@@ -449,7 +448,7 @@ func (w *worker) wait() {
 				fruits := block.Fruits()
 				log.Info("+++++ mined block  ---  ", "block number", block.Number(), "fruits", len(fruits), "first", fruits[0].FastNumber(), "end", fruits[len(fruits)-1].FastNumber())
 
-				stat, err := w.chain.WriteCanonicalBlock(block)
+				stat, err := w.chain.WriteMinedCanonicalBlock(block)
 				if err != nil {
 					log.Error("Failed writing block to chain", "err", err)
 					continue
@@ -463,9 +462,9 @@ func (w *worker) wait() {
 				var (
 					events []interface{}
 				)
-				events = append(events, types.ChainSnailEvent{Block: block, Hash: block.Hash()})
+				events = append(events, types.SnailChainEvent{Block: block, Hash: block.Hash()})
 				if stat == chain.CanonStatTy {
-					events = append(events, types.ChainSnailHeadEvent{Block: block})
+					events = append(events, types.SnailChainHeadEvent{Block: block})
 				}
 				events = append(events, types.NewMinedFruitEvent{Block: block})
 				w.chain.PostChainEvents(events)
@@ -521,8 +520,6 @@ func (w *worker) makeCurrent(parent *types.SnailBlock, header *types.SnailHeader
 func (w *worker) commitNewWork() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.uncleMu.Lock()
-	defer w.uncleMu.Unlock()
 	w.currentMu.Lock()
 	defer w.currentMu.Unlock()
 
@@ -578,7 +575,7 @@ func (w *worker) commitNewWork() {
 
 	// only miner fruit if not fruit set only miner the fruit
 	if !w.fruitOnly {
-		w.CommitFruits(pendingFruits, w.chain, w.engine)
+		w.CommitFruits(pendingFruits, w.chain, w.fastchain, w.engine)
 	}
 
 	if work.fruits != nil {
@@ -701,12 +698,15 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 }
 
 // CommitFruits find all fruits and start to the last parent fruits number and end continue fruit list
-func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
+func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
 
+	rand.Seed(time.Now().UnixNano())
+
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
+	fastHight := fc.CurrentHeader().Number
 
 	if len(fs) > 0 {
 		currentFastNumber = fs[len(fs)-1].FastNumber()
@@ -755,11 +755,25 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 			}
 			currentFastNumber.Add(currentFastNumber, common.Big1)
 		}
+		if len(fruitset) >= params.MinimumFruits {
+			// need add the time interval
+			startTime := fc.GetHeaderByNumber(fruitset[0].FastNumber().Uint64()).Time
+			endTime := fc.GetHeaderByNumber(fruitset[len(fruitset)-1].FastNumber().Uint64()).Time
+			timeinterval := new(big.Int).Sub(endTime, startTime)
 
-		if len(fruitset) > 0 {
-			w.current.fruits = fruitset
+			unmineFruitLen := new(big.Int).Sub(fastHight, fruits[len(fruits)-1].FastNumber())
+			waitmine := rand.Intn(1200)
+
+			if timeinterval.Cmp(params.MinTimeGap) >= 0 && (waitmine > int(unmineFruitLen.Int64())) {
+				// must big then 5min
+				w.current.fruits = fruitset
+			} else {
+				//mine fruit
+				w.current.fruits = nil
+			}
 
 		}
+
 	} else {
 		// make the fruits to nil if not find the fruitset
 		w.current.fruits = nil

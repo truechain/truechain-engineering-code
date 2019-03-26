@@ -831,6 +831,9 @@ func (cs *ConsensusState) enterPropose(height uint64, round int, blk *types.Bloc
 }
 
 func (cs *ConsensusState) isProposer() bool {
+	if cs.Validators == nil || cs.Validators.GetProposer() == nil || cs.privValidator == nil {
+		return false
+	}
 	return bytes.Equal(cs.Validators.GetProposer().Address, cs.privValidator.GetAddress())
 }
 
@@ -1590,7 +1593,7 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 				cs.enterNewRound(height, int(vote.Round)+1)
 			} else {
 				metrics.MTimes(metrics.PreCommitTime, true)
-				metrics.MTimesCount(metrics.FetchFastBlockRoundTC, time.Duration(vote.Round))
+				metrics.MTimesCount(metrics.FetchFastBlockRoundTC, time.Duration(vote.Round+1))
 				cs.enterNewRound(height, int(vote.Round))
 				cs.enterPrecommit(height, int(vote.Round))
 				cs.enterCommit(height, int(vote.Round))
@@ -1677,12 +1680,9 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 				log.Info("already has switch Item......")
 			}
 		} else if s.From == 1 { // restore
-			round := int(cs.Round)
-			if round > s.Round || s.Round == -1 {
-				v := cs.pickSwitchValidator(s, true)
-				v.From = 1
-				cs.notifyHealthMgr(v)
-			}
+			v := cs.pickSwitchValidator(s, true)
+			v.From = 1
+			cs.notifyHealthMgr(v)
 		}
 	}
 }

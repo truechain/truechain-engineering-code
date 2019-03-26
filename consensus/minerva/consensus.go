@@ -37,10 +37,6 @@ import (
 
 // Minerva protocol constants.
 var (
-	FrontierBlockReward = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
-	//ByzantiumBlockReward = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
-
-	//maxUncles              = 2                // Maximum number of uncles allowed in a single block
 	allowedFutureBlockTime = 15 * time.Second // Max time from current time allowed for blocks, before they're considered future blocks
 )
 
@@ -49,12 +45,8 @@ var (
 // codebase, inherently breaking if the engine is swapped out. Please put common
 // error types into the consensus package.
 var (
-	errLargeBlockTime = errors.New("timestamp too big")
-	errZeroBlockTime  = errors.New("timestamp equals parent's")
-	//errTooManyUncles     = errors.New("too many uncles")
-	//errDuplicateUncle    = errors.New("duplicate uncle")
-	//errUncleIsAncestor   = errors.New("uncle is ancestor")
-	//errDanglingUncle     = errors.New("uncle's parent is not ancestor")
+	errLargeBlockTime    = errors.New("timestamp too big")
+	errZeroBlockTime     = errors.New("timestamp equals parent's")
 	errInvalidDifficulty = errors.New("non-positive difficulty")
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")

@@ -18,6 +18,8 @@ package etrue
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -31,13 +33,12 @@ import (
 )
 
 func init() {
-	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 }
 
 var testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 
 // Tests that handshake failures are detected and reported correctly.
-func TestStatusMsgErrors62(t *testing.T) { testStatusMsgErrors(t, 62) }
 func TestStatusMsgErrors63(t *testing.T) { testStatusMsgErrors(t, 63) }
 
 func testStatusMsgErrors(t *testing.T, protocol int) {
@@ -96,13 +97,11 @@ func testStatusMsgErrors(t *testing.T, protocol int) {
 }
 
 // This test checks that received transactions are added to the local pool.
-func TestRecvTransactions62(t *testing.T) { testRecvTransactions(t, 62) }
 func TestRecvTransactions63(t *testing.T) { testRecvTransactions(t, 63) }
 
 func testRecvTransactions(t *testing.T, protocol int) {
 	txAdded := make(chan []*types.Transaction)
-	ftAdded := make(chan []*types.SnailBlock)
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, txAdded, ftAdded)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, txAdded, nil)
 	pm.acceptTxs = 1 // mark synced to accept transactions
 	p, _ := newTestPeer("peer", protocol, pm, true)
 	defer pm.Stop()
@@ -125,7 +124,6 @@ func testRecvTransactions(t *testing.T, protocol int) {
 }
 
 // This test checks that pending transactions are sent.
-func TestSendTransactions62(t *testing.T) { testSendTransactions(t, 62) }
 func TestSendTransactions63(t *testing.T) { testSendTransactions(t, 63) }
 
 func testSendTransactions(t *testing.T, protocol int) {
@@ -133,13 +131,11 @@ func testSendTransactions(t *testing.T, protocol int) {
 	defer pm.Stop()
 
 	// Fill the pool with big transactions.
-	const txsize = 0
+	const txsize = txsyncPackSize / 10
 	alltxs := make([]*types.Transaction, 100)
 	for nonce := range alltxs {
 		alltxs[nonce] = newTestTransaction(testAccount, uint64(nonce), txsize)
-		fmt.Println("size", alltxs[nonce].Size())
 	}
-	fmt.Println("over ")
 
 	pm.txpool.AddRemotes(alltxs)
 
@@ -202,8 +198,8 @@ func TestGetBlockHeadersDataEncodeDecode(t *testing.T) {
 		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}}},
 
 		// Providing arbitrary query field should also work
-		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Number: 314}, Amount: 314, Skip: 1, Reverse: true}},
-		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: 314, Skip: 1, Reverse: true}},
+		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Number: 314}, Amount: 314, Skip: 1, Reverse: true, Call: types.FetcherCall}},
+		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: 314, Skip: 1, Reverse: true, Call: types.DownloaderCall}},
 
 		// Providing both the origin hash and origin number must fail
 		{fail: true, packet: &getBlockHeadersData{Origin: hashOrNumber{Hash: hash, Number: 314}}},
@@ -222,7 +218,7 @@ func TestGetBlockHeadersDataEncodeDecode(t *testing.T) {
 				t.Fatalf("test %d: failed to decode packet: %v", i, err)
 			}
 			if packet.Origin.Hash != tt.packet.Origin.Hash || packet.Origin.Number != tt.packet.Origin.Number || packet.Amount != tt.packet.Amount ||
-				packet.Skip != tt.packet.Skip || packet.Reverse != tt.packet.Reverse {
+				packet.Skip != tt.packet.Skip || packet.Reverse != tt.packet.Reverse || packet.Call != tt.packet.Call {
 				t.Fatalf("test %d: encode decode mismatch: have %+v, want %+v", i, packet, tt.packet)
 			}
 		}

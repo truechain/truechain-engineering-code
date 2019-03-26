@@ -37,6 +37,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
+const (
+	electionChanSize = 16
+)
+
 // Backend wraps all methods required for mining.
 type Backend interface {
 	AccountManager() *accounts.Manager
@@ -93,7 +97,7 @@ var committeemembers []*types.CommitteeMember
 
 // New is create a miner object
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
-	election CommitteeElection, mineFruit bool, singleNode bool) *Miner {
+	election CommitteeElection, mineFruit bool, singleNode bool, remoteMining bool) *Miner {
 	miner := &Miner{
 		truechain:  truechain,
 		mux:        mux,
@@ -101,20 +105,24 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		election:   election,
 		fruitOnly:  mineFruit, // set fruit only
 		singleNode: singleNode,
-		electionCh: make(chan types.ElectionEvent, fruitChanSize),
 		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
 		commitFlag: 1,
 		canStart:   1,
 	}
 
-	miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
-	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
+	if !remoteMining {
+		miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
+	}
 
 	go miner.SetFruitOnly(mineFruit)
 
-	// single node not need care about the election
-	if !miner.singleNode {
-		go miner.loop()
+	// single node and remote agent not need care about the election
+	if !remoteMining {
+		if !miner.singleNode {
+			miner.electionCh = make(chan types.ElectionEvent, electionChanSize)
+			miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
+			go miner.loop()
+		}
 	}
 
 	go miner.update()
@@ -170,8 +178,8 @@ func (miner *Miner) update() {
 				atomic.StoreInt32(&miner.canStart, 0)
 				if miner.Mining() {
 					miner.Stop()
+					atomic.StoreInt32(&miner.shouldStart, 1)
 				}
-				atomic.StoreInt32(&miner.shouldStart, 1)
 				log.Info("Mining aborted due to sync")
 
 			case downloader.DoneEvent, downloader.FailedEvent:
@@ -199,8 +207,10 @@ func (miner *Miner) update() {
 				} else {
 					log.Info("Miner update not in commiteer munber so start to miner")
 					atomic.StoreInt32(&miner.commitFlag, 1)
-
-					miner.Start(miner.coinbase)
+					shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
+					if shouldStart {
+						miner.Start(miner.coinbase)
+					}
 
 				}
 				log.Info("Miner update get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "mining", miner.commitFlag)
@@ -311,6 +321,7 @@ func (miner *Miner) PendingBlock() *types.Block {
 // simultaneously, please use Pending(), as the pending state can
 // change between multiple method calls
 func (miner *Miner) PendingSnailBlock() *types.SnailBlock {
+
 	return miner.worker.pendingSnailBlock()
 }
 

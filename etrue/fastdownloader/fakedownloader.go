@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	minerva "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	dtypes "github.com/truechain/truechain-engineering-code/etrue/types"
@@ -178,7 +178,7 @@ func (dl *DownloadTester) makeChainFork(n, f int, parent *types.Block, parentRec
 
 // terminate aborts any operations on the embedded downloader and releases all
 // held resources.
-func (dl *DownloadTester) terminate() {
+func (dl *DownloadTester) Terminate() {
 	dl.downloader.Terminate()
 }
 

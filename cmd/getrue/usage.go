@@ -93,14 +93,13 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.EnableElectionFlag,
 		},
 	},
-	{Name: "PBFT COMMITTEE",
+	{Name: "TBFT COMMITTEE",
 		Flags: []cli.Flag{
 			utils.BFTIPFlag,
 			utils.BFTPortFlag,
 			utils.BFTStandbyPortFlag,
 			utils.BftKeyFileFlag,
 			utils.BftKeyHexFlag,
-			utils.BftKeyFileFlag,
 		},
 	},
 
@@ -186,6 +185,7 @@ var AppHelpFlagGroups = []flagGroup{
 		Flags: []cli.Flag{
 			utils.MiningEnabledFlag,
 			utils.MineFruitFlag,
+			utils.MiningRemoteEnableFlag,
 			utils.MinerThreadsFlag,
 			utils.CoinbaseFlag,
 			utils.TargetGasLimitFlag,

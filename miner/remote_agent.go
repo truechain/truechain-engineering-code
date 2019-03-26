@@ -119,11 +119,11 @@ func (a *RemoteAgent) GetHashRate() (tot int64) {
 }
 
 //GetWork return the current block hash without nonce
-func (a *RemoteAgent) GetWork() ([3]string, error) {
+func (a *RemoteAgent) GetWork() ([4]string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	var res [3]string
+	var res [4]string
 
 	if a.currentWork != nil {
 		block := a.currentWork.Block
@@ -132,14 +132,8 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 		DatasetHash := a.engine.DataSetHash(block.NumberU64())
 		res[1] = hex.EncodeToString(DatasetHash)
 		// Calculate the "target" to be returned to the external miner
-		/*n := big.NewInt(1)
-		n.Lsh(n, 255)
-		n.Div(n, block.BlockDifficulty())
-		n.Lsh(n, 1)
-		res[2] = common.BytesToHash(n.Bytes()).Hex()*/
-		//log.Info("------diff", "is", block.BlockDifficulty())
 		res[2] = common.BytesToHash(block.FruitDifficulty().Bytes()).Hex()
-		//log.Info("------res[2]", "is", res[2])
+		res[3] = common.BytesToHash(block.BlockDifficulty().Bytes()).Hex()
 		a.work[block.HashNoNonce()] = a.currentWork
 		return res, nil
 	}
@@ -153,7 +147,8 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	log.Info("--------get submit work", "nonce", nonce, "mixDigest", mixDigest, "hash", hash)
+	var isFinish bool
+	var isFruit bool
 
 	// Make sure the work submitted is present
 	work := a.work[hash]
@@ -166,23 +161,57 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	result.Nonce = nonce
 	result.MixDigest = mixDigest
 
-	//pointer := a.snailchain.GetHeaderByHash(result.PointerHash)
-	if err := a.engine.VerifySnailSeal(a.snailchain, result, false); err != nil {
-		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
+	errFruit := a.engine.VerifySnailSeal(a.snailchain, result, true)
+
+	errBlock := a.engine.VerifySnailSeal(a.snailchain, result, false)
+
+	if errBlock != nil && errFruit != nil {
+		// not find fruit or block for mine
+		log.Warn("Invalid proof-of-work submitted", "hash", hash, "errBlock", errBlock, "errFruit", errFruit)
 		return false
+	} else {
+
+		if work.Block.IsFruit() {
+			// only fruit
+			if errFruit != nil {
+				log.Warn("Invalid proof-of-work submitted", "hash", hash, "errFruit", errFruit)
+				return false
+			}
+			isFruit = true
+			isFinish = true
+		} else {
+			// fruit or block
+			if errFruit == nil {
+				// mine
+				isFruit = true
+			} else {
+				if errBlock == nil {
+					// mine block
+					isFruit = false
+					isFinish = true
+				} else {
+					log.Warn("Invalid proof-of-work submitted not all", "hash", hash, "errBlock", errBlock, "errFruit", errFruit)
+
+				}
+			}
+
+		}
+
 	}
+
 	block := work.Block.WithSeal(result)
 
-	//neo for result struct add fruit result with to change the fun
-	//fruit :=work.Block.WithSeal(result)
+	if isFruit {
+		block.SetSnailBlockFruits(nil)
+	} else {
+		block.SetSnailBlockSigns(nil)
+	}
 
-	// Solutions seems to be valid, return to the miner and notify acceptance
-	//a.returnCh <- &Result{work, block}
-
-	//Neo 20180624
 	a.returnCh <- &Result{work, block}
 
-	delete(a.work, hash)
+	if isFinish {
+		delete(a.work, hash)
+	}
 
 	return true
 }
@@ -204,7 +233,7 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH][]byte, error) {
 		for i := 0; i < DATASETHEADLENGH; i++ {
 			header := a.snailchain.GetHeaderByNumber(uint64(i) + st_block_num)
 			if header == nil {
-				//log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", (uint64(i) + st_block_num))
+				log.Error("header is nill  ", "blockNum is:  ", (uint64(i) + st_block_num))
 				return res, errors.New("GetDataset get heard fial")
 			}
 			res[i] = header.Hash().Bytes()
@@ -236,7 +265,7 @@ func (a *RemoteAgent) loop(workCh chan *Work, quitCh chan struct{}) {
 			// cleanup
 			a.mu.Lock()
 			for hash, work := range a.work {
-				if time.Since(work.createdAt) > 7*(12*time.Second) {
+				if time.Since(work.createdAt) > 6*(600*time.Second) {
 					delete(a.work, hash)
 				}
 			}

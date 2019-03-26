@@ -80,11 +80,6 @@ func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock
 		// Outside abort, stop all miner threads
 		close(abort)
 		//TODO found function
-		/*
-			case result = <-found:
-				// One of the threads found a block, abort all others
-				close(abort)
-		*/
 	case <-m.update:
 		// Thread count was changed on user request, restart
 		close(abort)
@@ -289,7 +284,7 @@ search:
 	runtime.KeepAlive(dataset)
 }
 
-func (m *Minerva) truehashTableInit(tableLookup []uint64) {
+func (d *Dataset) truehashTableInit(tableLookup []uint64) {
 
 	log.Debug("truehashTableInit start ")
 	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
@@ -303,65 +298,48 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 	genLookupTable(tableLookup[:], table[:])
 }
 
-func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []uint64, string) {
+func (d *Dataset) updateLookupTBL(plookupTbl []uint64, headershash *[STARTUPDATENUM][]byte) (bool, []uint64, string) {
 	const offsetCnst = 0x7
 	const skipCnst = 0x3
 	var offset [OFF_SKIP_LEN]int
 	var skip [OFF_SKIP_LEN]int
 	var cont string
 
-	log.Info("updateupTBL start ，", "epoch", epoch)
-	if epoch <= 0 {
-		log.Error("The value is less than the reservation value ", "epoch", epoch)
+	//local way
+	if len(headershash[0]) == 0 {
+		log.Error("snail block head hash  is nil  ")
 		return false, nil, ""
-	}
 
-	sblockchain := m.sbc
-	if sblockchain == nil {
-		log.Error("snail block chain is nil  ", "epoch", epoch)
-		return false, nil, ""
 	}
-
-	// each epoch need start to 1 to 10240
-	st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
-	//log.Info("------st_block_num ", "is ", st_block_num)
 
 	//get offset cnst  8192 lenght
 	for i := 0; i < OFF_CYCLE_LEN; i++ {
+		var val []byte
+		val = headershash[i]
 
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num)
-		if header == nil {
-			log.Error("updateTBL the offset is nil ", "blockNum", (uint64(i) + st_block_num))
-			return false, nil, ""
-		}
-		val := header.Hash().Bytes()
 		offset[i*4] = (int(val[0]) & offsetCnst) - 4
 		offset[i*4+1] = (int(val[1]) & offsetCnst) - 4
 		offset[i*4+2] = (int(val[2]) & offsetCnst) - 4
 		offset[i*4+3] = (int(val[3]) & offsetCnst) - 4
-		cont += header.Hash().String()
+		//cont += header.Hash().String()
 	}
 
 	//get skip cnst 2048 lenght
 	for i := 0; i < SKIP_CYCLE_LEN; i++ {
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(OFF_CYCLE_LEN))
-		if header == nil {
-			log.Error("updateTBL the skip is nil", "blockNum", (uint64(i) + st_block_num))
-			return false, nil, ""
-		}
-		val := header.Hash().Bytes()
+		var val []byte
+		val = headershash[i+OFF_CYCLE_LEN]
+
 		for k := 0; k < 16; k++ {
 			skip[i*16+k] = (int(val[k]) & skipCnst) + 1
 		}
-		cont += header.Hash().String()
 	}
 
-	ds := m.UpdateTBL(offset, skip, plookupTbl)
+	ds := d.UpdateTBL(offset, skip, plookupTbl)
 	return true, ds, cont
 }
 
 //UpdateTBL Update dataset information
-func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookupTbl []uint64) []uint64 {
+func (d *Dataset) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookupTbl []uint64) []uint64 {
 
 	lktWz := uint32(DATALENGTH / 64)
 	lktSz := uint32(DATALENGTH) * lktWz

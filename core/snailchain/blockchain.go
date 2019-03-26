@@ -43,7 +43,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 var (
@@ -59,19 +58,7 @@ const (
 	maxFutureBlocks     = 256
 	maxTimeFutureBlocks = 30
 	badBlockLimit       = 10
-	triesInMemory       = 128
-
-	// SnailBlockChainVersion ensures that an incompatible database forces a resync from scratch.
-	SnailBlockChainVersion = 3
 )
-
-// CacheConfig contains the configuration values for the trie caching/pruning
-// that's resident in a blockchain.
-type CacheConfig struct {
-	Disabled      bool          // Whether to disable trie write caching (archive node)
-	TrieNodeLimit int           // Memory limit (MB) at which to flush the current in-memory trie to disk
-	TrieTimeLimit time.Duration // Time limit after which to flush the current in-memory trie to disk
-}
 
 // SnailBlockChain represents the canonical chain given a database with a genesis
 // block. The Blockchain manages chain imports, reverts, chain reorganisations.
@@ -89,14 +76,9 @@ type CacheConfig struct {
 // canonical chain.
 type SnailBlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
-	cacheConfig *CacheConfig        // Cache configuration for pruning
-
-	db     etruedb.Database // Low level persistent database to store final content in
-	triegc *prque.Prque     // Priority queue mapping block numbers to tries to gc
-	gcproc time.Duration    // Accumulates canonical block processing for trie dumping
+	db          etruedb.Database    // Low level persistent database to store final content in
 
 	hc            *HeaderChain
-	rmLogsFeed    event.Feed
 	chainFeed     event.Feed
 	chainSideFeed event.Feed
 	chainHeadFeed event.Feed
@@ -106,7 +88,6 @@ type SnailBlockChain struct {
 	scope         event.SubscriptionScope
 	genesisBlock  *types.SnailBlock
 
-	mu      sync.RWMutex // global mutex for locking chain operations
 	chainmu sync.RWMutex // blockchain insertion lock
 	procmu  sync.RWMutex // block processor lock
 
@@ -149,7 +130,6 @@ func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, en
 	bc := &SnailBlockChain{
 		chainConfig:  chainConfig,
 		db:           db,
-		triegc:       prque.New(),
 		quit:         make(chan struct{}),
 		bodyCache:    bodyCache,
 		bodyRLPCache: bodyRLPCache,
@@ -218,7 +198,7 @@ func (bc *SnailBlockChain) loadLastState() error {
 	remove := make(types.Fruits, 0, len(currentBlock.Fruits()))
 	maxFruitNumber := currentBlock.Fruits()[len(currentBlock.Fruits())-1].FastNumber()
 	for maxFruitNumber != nil && maxFruitNumber.Cmp(bc.blockchain.CurrentBlock().Number()) > 0 {
-		log.Info("rollback snailBlock", "snailBlock number", currentBlock.Number(), "maxFruitNumber", maxFruitNumber, "current fastblock number", bc.blockchain.CurrentBlock().Number())
+		log.Debug("rollback snailBlock", "snailBlock number", currentBlock.Number(), "maxFruitNumber", maxFruitNumber, "current fastblock number", bc.blockchain.CurrentBlock().Number())
 		parentHash := currentBlock.ParentHash()
 		for _, ft := range currentBlock.Fruits() {
 			remove = append(remove, ft)
@@ -228,6 +208,7 @@ func (bc *SnailBlockChain) loadLastState() error {
 		maxFruitNumber = currentBlock.Fruits()[len(currentBlock.Fruits())-1].FastNumber()
 	}
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
+	rawdb.WriteHeadHeaderHash(bc.db, currentBlock.Header().Hash())
 	rawdb.WriteHeadFastBlockHash(bc.db, bc.blockchain.CurrentBlock().Hash())
 	batch := bc.db.NewBatch()
 	for _, ft := range remove {
@@ -274,15 +255,22 @@ func (bc *SnailBlockChain) loadLastState() error {
 // nodes after a fast sync).
 func (bc *SnailBlockChain) SetHead(head uint64) error {
 	log.Warn("Rewinding blockchain", "target", head)
-
-	err := bc.Validator().ValidateRewarded(head + 1)
-	if err != nil {
-		log.Error("the hight can't set,because it's next block is already rewarded", "hight", head)
+	if head > bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64() {
+		log.Error("the height can't set,because it is higher than current height", "height", head, "current height", bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64())
+		return errors.New("the height you give is too high,can not be set")
+	}
+	/*	err := bc.Validator().ValidateRewarded(head + 1)
+		if err != nil {
+			log.Error("the hight can't set,because it's next block is already rewarded", "hight", head)
+			return err
+		}*/
+	bc.chainmu.Lock()
+	defer bc.chainmu.Unlock()
+	//retroversion fastchain
+	fastNumber := bc.GetBlockByNumber(head).Fruits()[len(bc.GetBlockByNumber(head).Fruits())-1].FastNumber()
+	if err := bc.blockchain.SetHead(fastNumber.Uint64()); err != nil {
 		return err
 	}
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-
 	// Rewind the header chain, deleting all block bodies and FtLookupEntry until then
 	delFn := func(db rawdb.DatabaseDeleter, hash common.Hash, num uint64) {
 		rawdb.DeleteBody(db, hash, num)
@@ -327,7 +315,7 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 	lastCanon := bc.GetBlockByNumber(head)
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
 		events := make([]interface{}, 0, 1)
-		events = append(events, types.ChainSnailHeadEvent{lastCanon})
+		events = append(events, types.SnailChainHeadEvent{lastCanon})
 		bc.PostChainEvents(events)
 	}
 
@@ -345,9 +333,9 @@ func (bc *SnailBlockChain) FastSyncCommitHead(hash common.Hash) error {
 	}
 
 	// If all checks out, manually set the head block
-	bc.mu.Lock()
+	bc.chainmu.Lock()
 	bc.currentBlock.Store(block)
-	bc.mu.Unlock()
+	bc.chainmu.Unlock()
 
 	log.Info("Committed new head block", "number", block.Number(), "hash", hash)
 	return nil
@@ -396,8 +384,8 @@ func (bc *SnailBlockChain) ResetWithGenesisBlock(genesis *types.SnailBlock) erro
 	if err := bc.SetHead(0); err != nil {
 		return err
 	}
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
+	bc.chainmu.Lock()
+	defer bc.chainmu.Unlock()
 
 	// Prepare the genesis block and reinitialise the chain
 	/*if err := bc.hc.WriteSnailTd(genesis.Hash(), genesis.NumberU64(), genesis.Difficulty()); err != nil {
@@ -435,8 +423,8 @@ func (bc *SnailBlockChain) Export(w io.Writer) error {
 
 // ExportN writes a subset of the active chain to the given writer.
 func (bc *SnailBlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
+	bc.chainmu.RLock()
+	defer bc.chainmu.RUnlock()
 
 	if first > last {
 		return fmt.Errorf("export failed: first (%d) is greater than last (%d)", first, last)
@@ -689,8 +677,8 @@ const (
 // Rollback is designed to remove a chain of links from the database that aren't
 // certain enough to be valid.
 func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
+	bc.chainmu.Lock()
+	defer bc.chainmu.Unlock()
 
 	for i := len(chain) - 1; i >= 0; i-- {
 		hash := chain[i]
@@ -733,8 +721,15 @@ func (bc *SnailBlockChain) WriteBlock(block *types.SnailBlock, td *big.Int) (err
 	return nil
 }
 
-// WriteCanonicalBlock writes the block and all associated state to the database.
-func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status WriteStatus, err error) {
+// WriteMinedCanonicalBlock writes the minedblock to the database.
+func (bc *SnailBlockChain) WriteMinedCanonicalBlock(block *types.SnailBlock) (status WriteStatus, err error) {
+	bc.chainmu.Lock()
+	bc.chainmu.Unlock()
+	log.Debug("WriteMinedCanonicalBlock", "number", block.Number(), "hash", block.Hash())
+	return bc.writeCanonicalBlock(block)
+}
+
+func (bc *SnailBlockChain) writeCanonicalBlock(block *types.SnailBlock) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -745,8 +740,6 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 		return NonStatTy, consensus.ErrUnknownAncestor
 	}
 	// Make sure no inconsistent state is leaked during insertion
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
 
 	currentBlock := bc.CurrentBlock()
 	localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
@@ -933,10 +926,9 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 			return it.index, events, ErrBlacklistedHash
 		}
 		t0 := time.Now()
-		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
-		status, err := bc.WriteCanonicalBlock(block)
+		status, err := bc.writeCanonicalBlock(block)
 		t1 := time.Now()
 		if err != nil {
 			log.Info("Write new snail canonical block error", "number", block.Number(), "hash", block.Hash(), "err", err)
@@ -952,11 +944,8 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 			//coalescedLogs = append(coalescedLogs, logs...)
 
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, types.ChainSnailEvent{block, block.Hash()})
+			events = append(events, types.SnailChainEvent{block, block.Hash()})
 			lastCanon = block
-
-			// Only count canonical blocks for GC processing time
-			bc.gcproc += proctime
 
 		case SideStatTy:
 
@@ -964,7 +953,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 				common.PrettyDuration(time.Since(bstart)), "fts", len(block.Fruits()))
 
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, types.ChainSnailSideEvent{block})
+			events = append(events, types.SnailChainSideEvent{block})
 		}
 		stats.processed++
 
@@ -989,7 +978,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, types.ChainSnailHeadEvent{lastCanon})
+		events = append(events, types.SnailChainHeadEvent{lastCanon})
 	}
 	return it.index, events, err
 }
@@ -1182,7 +1171,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	if len(oldChain) > 0 {
 		go func() {
 			for _, block := range oldChain {
-				bc.chainSideFeed.Send(types.ChainSnailSideEvent{Block: block})
+				bc.chainSideFeed.Send(types.SnailChainSideEvent{Block: block})
 			}
 		}()
 	}
@@ -1191,7 +1180,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		go func() {
 			for i := len(newChain) - 1; i > 0; i-- {
 				log.Info("reorg snail block", "number", newChain[i].Number(), "hash", newChain[i].Hash())
-				bc.chainFeed.Send(types.ChainSnailEvent{Block: newChain[i]})
+				bc.chainFeed.Send(types.SnailChainEvent{Block: newChain[i]})
 			}
 		}()
 	}
@@ -1223,13 +1212,13 @@ func (bc *SnailBlockChain) ftDifference(a, b types.Fruits) (keep types.Fruits) {
 func (bc *SnailBlockChain) PostChainEvents(events []interface{}) {
 	for _, event := range events {
 		switch ev := event.(type) {
-		case types.ChainSnailEvent:
+		case types.SnailChainEvent:
 			bc.chainFeed.Send(ev)
 
-		case types.ChainSnailHeadEvent:
+		case types.SnailChainHeadEvent:
 			bc.chainHeadFeed.Send(ev)
 
-		case types.ChainSnailSideEvent:
+		case types.SnailChainSideEvent:
 			bc.chainSideFeed.Send(ev)
 
 		case types.NewFastBlocksEvent:
@@ -1310,9 +1299,6 @@ func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, checkFr
 	defer bc.wg.Done()
 
 	whFunc := func(header *types.SnailHeader) error {
-		bc.mu.Lock()
-		defer bc.mu.Unlock()
-
 		_, err := bc.hc.WriteHeader(header)
 		return err
 	}
@@ -1406,23 +1392,18 @@ func (bc *SnailBlockChain) Config() *params.ChainConfig { return bc.chainConfig 
 // Engine retrieves the blockchain's consensus engine.
 func (bc *SnailBlockChain) Engine() consensus.Engine { return bc.engine }
 
-// SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
-func (bc *SnailBlockChain) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
-	return bc.scope.Track(bc.rmLogsFeed.Subscribe(ch))
-}
-
-// SubscribeChainEvent registers a subscription of ChainSnailEvent.
-func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription {
+// SubscribeChainEvent registers a subscription of SnailChainEvent.
+func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- types.SnailChainEvent) event.Subscription {
 	return bc.scope.Track(bc.chainFeed.Subscribe(ch))
 }
 
-// SubscribeChainHeadEvent registers a subscription of types.ChainSnailHeadEvent.
-func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription {
+// SubscribeChainHeadEvent registers a subscription of types.SnailChainHeadEvent.
+func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- types.SnailChainHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
 
-// SubscribeChainSideEvent registers a subscription of types.ChainSnailSideEvent.
-func (bc *SnailBlockChain) SubscribeChainSideEvent(ch chan<- types.ChainSnailSideEvent) event.Subscription {
+// SubscribeChainSideEvent registers a subscription of types.SnailChainSideEvent.
+func (bc *SnailBlockChain) SubscribeChainSideEvent(ch chan<- types.SnailChainSideEvent) event.Subscription {
 	return bc.scope.Track(bc.chainSideFeed.Subscribe(ch))
 }
 

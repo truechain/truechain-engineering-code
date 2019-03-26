@@ -19,6 +19,7 @@ package snailchain
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -29,9 +30,14 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 )
+
+func init() {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+}
 
 // So we can deterministically seed different blockchains
 var (
@@ -42,19 +48,19 @@ var (
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
-func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *SnailBlockChain, *core.BlockChain, error) {
+func newCanonical(engine consensus.Engine, n int, full bool, snail bool) (etruedb.Database, *SnailBlockChain, *core.BlockChain, error) {
 	var (
 		db            = etruedb.NewMemDatabase()
 		commonGenesis = core.DefaultGenesisBlock()
-		_             = commonGenesis.MustSnailCommit(db)
+		snailGenesis  = commonGenesis.MustSnailCommit(db)
 		fastGenesis   = commonGenesis.MustFastCommit(db)
 	)
 
 	fastChain, _ := core.NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{}, fastchain)
-	blockchain.SetValidator(NewBlockValidator(chainConfig, fastChain, blockchain, engine))
+	blockchain, _ := NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{}, fastChain)
+	//blockchain.SetValidator(NewBlockValidator(chainConfig, fastChain, blockchain, engine))
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, fastChain, nil
@@ -64,9 +70,12 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 			b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 		})
 		fastChain.InsertChain(fastBlocks)
-		// Full block-chain requested
-		//blocks := makeBlockChain(fastChain, genesis, n, engine, db, canonicalSeed)
-		//_, err := blockchain.InsertChain(blocks)
+		if snail {
+			// Full block-chain requested
+			blocks := makeBlockChain(fastChain, snailGenesis, n, engine, db, canonicalSeed)
+			_, err := blockchain.InsertChain(blocks)
+			return db, blockchain, fastChain, err
+		}
 		return db, blockchain, fastChain, nil
 	}
 	// Header-only chain requested
@@ -76,7 +85,9 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 }
 
 func TestMakeChain(t *testing.T) {
-	chain, _ := MakeChain(180, 3)
+	genesis := core.DefaultGenesisBlock()
+	chain, _ := MakeChain(180, 3, genesis, minerva.NewFaker())
+	log.Info("TestMakeChain", "number", chain.CurrentBlock().Number(), "fast number", chain.CurrentFastBlock().Number())
 	blocks := chain.GetBlocksFromNumber(1)
 
 	for _, block := range blocks {
@@ -93,9 +104,9 @@ func TestMakeChain(t *testing.T) {
 }
 
 // Test fork of length N starting from block i
-func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, comparator func(td1, td2 *big.Int)) {
+func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, comparator func(td1, td2 *big.Int), engine consensus.Engine, snail bool) {
 	// Copy old chain up to #i into a new db
-	db, blockchain2, fastChain, err := newCanonical(minerva.NewFaker(), i, full)
+	db, blockchain2, fastChain, err := newCanonical(engine, i, full, snail)
 	if err != nil {
 		t.Fatal("could not make new canonical in testFork", err)
 	}
@@ -119,12 +130,12 @@ func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, co
 		headerChainB []*types.SnailHeader
 	)
 	if full {
-		blockChainB = makeBlockChain(fastChain, blockchain2.CurrentBlock(), n, minerva.NewFaker(), db, forkSeed)
+		blockChainB = makeBlockChain(fastChain, blockchain2.CurrentBlock(), n, engine, db, forkSeed)
 		if _, err := blockchain2.InsertChain(blockChainB); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
 	} else {
-		headerChainB = makeHeaderChain(fastChain, blockchain2.CurrentHeader(), n, minerva.NewFaker(), db, forkSeed)
+		headerChainB = makeHeaderChain(fastChain, blockchain2.CurrentHeader(), n, engine, db, forkSeed)
 		if _, err := blockchain2.InsertHeaderChain(headerChainB, 1); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
@@ -149,13 +160,6 @@ func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, co
 	comparator(tdPre, tdPost)
 }
 
-func printChain(bc *SnailBlockChain) {
-	for i := bc.CurrentBlock().Number().Uint64(); i > 0; i-- {
-		b := bc.GetBlockByNumber(uint64(i))
-		fmt.Printf("\t%x %v\n", b.Hash(), b.Difficulty())
-	}
-}
-
 // testBlockChainImport tries to process a chain of blocks, writing them into
 // the database if successful.
 func testBlockChainImport(chain types.SnailBlocks, blockchain *SnailBlockChain) error {
@@ -171,10 +175,10 @@ func testBlockChainImport(chain types.SnailBlocks, blockchain *SnailBlockChain) 
 			}
 			return err
 		}
-		blockchain.mu.Lock()
+		blockchain.chainmu.Lock()
 		rawdb.WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(block.Difficulty(), blockchain.GetTdByHash(block.ParentHash())))
 		rawdb.WriteBlock(blockchain.db, block)
-		blockchain.mu.Unlock()
+		blockchain.chainmu.Unlock()
 	}
 	return nil
 }
@@ -188,10 +192,10 @@ func testHeaderChainImport(chain []*types.SnailHeader, blockchain *SnailBlockCha
 			return err
 		}
 		// Manually insert the header into the database, but don't reorganise (allows subsequent testing)
-		blockchain.mu.Lock()
+		blockchain.chainmu.Lock()
 		rawdb.WriteTd(blockchain.db, header.Hash(), header.Number.Uint64(), new(big.Int).Add(header.Difficulty, blockchain.GetTdByHash(header.ParentHash)))
 		rawdb.WriteHeader(blockchain.db, header)
-		blockchain.mu.Unlock()
+		blockchain.chainmu.Unlock()
 	}
 	return nil
 }
@@ -206,15 +210,16 @@ func insertChain(done chan bool, blockchain *SnailBlockChain, chain types.SnailB
 }
 
 func TestLastBlock(t *testing.T) {
-	_, blockchain, _, err := newCanonical(minerva.NewFaker(), 3, true)
+	engine := minerva.NewFaker()
+	_, blockchain, _, err := newCanonical(engine, 3, true, false)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
-	chain, _ := MakeSnailChain(3)
+	chain, _ := MakeSnailChain(1, core.DefaultGenesisBlock(), engine)
 	blocks := chain.GetBlocksFromNumber(1)
-
+	defer chain.Stop()
 	for _, block := range blocks {
 		fmt.Printf("%d => %x\n", block.Number(), block.Hash())
 	}
@@ -232,19 +237,20 @@ func TestLastBlock(t *testing.T) {
 
 // Tests that given a starting canonical chain of a given size, it can be extended
 // with various length chains.
-func TestExtendCanonicalHeaders(t *testing.T) { testExtendCanonical(t, false) }
-func TestExtendCanonicalBlocks(t *testing.T)  { testExtendCanonical(t, true) }
+func TestExtendCanonicalHeaders(t *testing.T) { testExtendCanonical(t, false, false) }
+func TestExtendCanonicalBlocks(t *testing.T)  { testExtendCanonical(t, true, true) }
 
-func testExtendCanonical(t *testing.T, full bool) {
+func testExtendCanonical(t *testing.T, full bool, snail bool) {
 	length := 5
-
+	engine := minerva.NewFaker()
 	// Make first chain starting from genesis
-	_, processor, _, err := newCanonical(minerva.NewFaker(), length, full)
+	_, processor, _, err := newCanonical(engine, length, full, snail)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
 	defer processor.Stop()
-
+	//hash1 := processor.GetBlockByNumber(uint64(1)).Hash()
+	//log.Info("hash", "hash1", hash1)
 	// Define the difficulty comparator
 	better := func(td1, td2 *big.Int) {
 		if td2.Cmp(td1) <= 0 {
@@ -252,22 +258,22 @@ func testExtendCanonical(t *testing.T, full bool) {
 		}
 	}
 	// Start fork from current height
-	testFork(t, processor, length, 1, full, better)
-	testFork(t, processor, length, 2, full, better)
-	testFork(t, processor, length, 5, full, better)
-	testFork(t, processor, length, 10, full, better)
+	testFork(t, processor, length, 1, full, better, engine, snail)
+	/*testFork(t, processor, length, 2, full, better, engine)
+	testFork(t, processor, length, 5, full, better, engine)
+	testFork(t, processor, length, 10, full, better, engine)*/
 }
 
 // Tests that given a starting canonical chain of a given size, creating shorter
 // forks do not take canonical ownership.
-func TestShorterForkHeaders(t *testing.T) { testShorterFork(t, false) }
-func TestShorterForkBlocks(t *testing.T)  { testShorterFork(t, true) }
+func TestShorterForkHeaders(t *testing.T) { testShorterFork(t, false, false) }
+func TestShorterForkBlocks(t *testing.T)  { testShorterFork(t, true, true) }
 
-func testShorterFork(t *testing.T, full bool) {
+func testShorterFork(t *testing.T, full bool, snail bool) {
 	length := 10
-
+	engine := minerva.NewFaker()
 	// Make first chain starting from genesis
-	_, processor, _, err := newCanonical(minerva.NewFaker(), length, full)
+	_, processor, _, err := newCanonical(engine, length, full, snail)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -280,24 +286,24 @@ func testShorterFork(t *testing.T, full bool) {
 		}
 	}
 	// Sum of numbers must be less than `length` for this to be a shorter fork
-	testFork(t, processor, 0, 3, full, worse)
-	testFork(t, processor, 0, 7, full, worse)
-	testFork(t, processor, 1, 1, full, worse)
-	testFork(t, processor, 1, 7, full, worse)
-	testFork(t, processor, 5, 3, full, worse)
-	testFork(t, processor, 5, 4, full, worse)
+	testFork(t, processor, 0, 3, full, worse, engine, snail)
+	testFork(t, processor, 0, 7, full, worse, engine, snail)
+	testFork(t, processor, 1, 1, full, worse, engine, snail)
+	testFork(t, processor, 1, 7, full, worse, engine, snail)
+	testFork(t, processor, 5, 3, full, worse, engine, snail)
+	testFork(t, processor, 5, 4, full, worse, engine, snail)
 }
 
 // Tests that given a starting canonical chain of a given size, creating longer
 // forks do take canonical ownership.
-func TestLongerForkHeaders(t *testing.T) { testLongerFork(t, false) }
-func TestLongerForkBlocks(t *testing.T)  { testLongerFork(t, true) }
+func TestLongerForkHeaders(t *testing.T) { testLongerFork(t, false, false) }
+func TestLongerForkBlocks(t *testing.T)  { testLongerFork(t, true, true) }
 
-func testLongerFork(t *testing.T, full bool) {
+func testLongerFork(t *testing.T, full bool, snail bool) {
 	length := 10
-
+	engine := minerva.NewFaker()
 	// Make first chain starting from genesis
-	_, processor, _, err := newCanonical(minerva.NewFaker(), length, full)
+	_, processor, _, err := newCanonical(engine, length, full, false)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -310,24 +316,24 @@ func testLongerFork(t *testing.T, full bool) {
 		}
 	}
 	// Sum of numbers must be greater than `length` for this to be a longer fork
-	testFork(t, processor, 0, 11, full, better)
-	testFork(t, processor, 0, 15, full, better)
-	testFork(t, processor, 1, 10, full, better)
-	testFork(t, processor, 1, 12, full, better)
-	testFork(t, processor, 5, 6, full, better)
-	testFork(t, processor, 5, 8, full, better)
+	testFork(t, processor, 0, 11, full, better, engine, snail)
+	testFork(t, processor, 0, 15, full, better, engine, snail)
+	testFork(t, processor, 1, 10, full, better, engine, snail)
+	testFork(t, processor, 1, 12, full, better, engine, snail)
+	testFork(t, processor, 5, 6, full, better, engine, snail)
+	testFork(t, processor, 5, 8, full, better, engine, snail)
 }
 
 // Tests that given a starting canonical chain of a given size, creating equal
 // forks do take canonical ownership.
-func TestEqualForkHeaders(t *testing.T) { testEqualFork(t, false) }
-func TestEqualForkBlocks(t *testing.T)  { testEqualFork(t, true) }
+func TestEqualForkHeaders(t *testing.T) { testEqualFork(t, false, true) }
+func TestEqualForkBlocks(t *testing.T)  { testEqualFork(t, true, true) }
 
-func testEqualFork(t *testing.T, full bool) {
+func testEqualFork(t *testing.T, full bool, snail bool) {
 	length := 10
-
+	engine := minerva.NewFaker()
 	// Make first chain starting from genesis
-	_, processor, _, err := newCanonical(minerva.NewFaker(), length, full)
+	_, processor, _, err := newCanonical(engine, length, full, snail)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -340,12 +346,12 @@ func testEqualFork(t *testing.T, full bool) {
 		}
 	}
 	// Sum of numbers must be equal to `length` for this to be an equal fork
-	testFork(t, processor, 0, 10, full, equal)
-	testFork(t, processor, 1, 9, full, equal)
-	testFork(t, processor, 2, 8, full, equal)
-	testFork(t, processor, 5, 5, full, equal)
-	testFork(t, processor, 6, 4, full, equal)
-	testFork(t, processor, 9, 1, full, equal)
+	testFork(t, processor, 0, 10, full, equal, engine, snail)
+	testFork(t, processor, 1, 9, full, equal, engine, snail)
+	testFork(t, processor, 2, 8, full, equal, engine, snail)
+	testFork(t, processor, 5, 5, full, equal, engine, snail)
+	testFork(t, processor, 6, 4, full, equal, engine, snail)
+	testFork(t, processor, 9, 1, full, equal, engine, snail)
 }
 
 // Tests that chains missing links do not get accepted by the processor.
@@ -354,7 +360,7 @@ func TestBrokenBlockChain(t *testing.T)  { testBrokenChain(t, true) }
 
 func testBrokenChain(t *testing.T, full bool) {
 	// Make chain starting from genesis
-	db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 10, full)
+	db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 10, full, false)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -405,17 +411,17 @@ func testReorgShort(t *testing.T, full bool) {
 
 func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	// Create a pristine chain and database
-	db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, full)
+	_, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, full, false)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
 	// Insert an easy and a difficult chain afterwards
-	easyBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.CurrentBlock(), minerva.NewFaker(), db, len(first), func(i int, b *BlockGen) {
+	easyBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.CurrentBlock(), len(first), 7, func(i int, b *BlockGen) {
 		b.OffsetTime(first[i])
 	})
-	diffBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.CurrentBlock(), minerva.NewFaker(), db, len(second), func(i int, b *BlockGen) {
+	diffBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.CurrentBlock(), 7, len(second), func(i int, b *BlockGen) {
 		b.OffsetTime(second[i])
 	})
 	if full {
@@ -476,7 +482,7 @@ func TestBadBlockHashes(t *testing.T)  { testBadHashes(t, true) }
 
 func testBadHashes(t *testing.T, full bool) {
 	// Create a pristine chain and database
-	db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, full)
+	db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, full, false)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
@@ -510,7 +516,7 @@ func TestReorgBadBlockHashes(t *testing.T)  { testReorgBadHashes(t, true) }
 
 func testReorgBadHashes(t *testing.T, full bool) {
 	// Create a pristine chain and database
-	db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, full)
+	db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, full, false)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
@@ -540,7 +546,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 	blockchain.Stop()
 
 	// Create a new BlockChain and check that it rolled back the state.
-	ncm, err := NewSnailBlockChain(blockchain.db, blockchain.chainConfig, minerva.NewFaker(), vm.Config{}, fastchain)
+	ncm, err := NewSnailBlockChain(blockchain.db, blockchain.chainConfig, minerva.NewFaker(), vm.Config{}, fastChain)
 	if err != nil {
 		t.Fatalf("failed to create new chain manager: %v", err)
 	}
@@ -563,7 +569,7 @@ func TestBlocksInsertNonceError(t *testing.T)  { testInsertNonceError(t, true) }
 func testInsertNonceError(t *testing.T, full bool) {
 	for i := 1; i < 25 && !t.Failed(); i++ {
 		// Create a pristine chain and database
-		db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, full)
+		db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, full, false)
 		if err != nil {
 			t.Fatalf("failed to create pristine chain: %v", err)
 		}
@@ -983,13 +989,13 @@ done:
 */
 // Tests if the canonical block can be fetched from the database during chain insertion.
 func TestCanonicalBlockRetrieval(t *testing.T) {
-	_, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, true)
+	_, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, true, false)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
-	chain := GenerateChain(blockchain.chainConfig, fastChain, blockchain.genesisBlock, minerva.NewFaker(), blockchain.db, 10, func(i int, gen *BlockGen) {})
+	chain := GenerateChain(blockchain.chainConfig, fastChain, blockchain.genesisBlock, 10, 7, func(i int, gen *BlockGen) {})
 
 	var pend sync.WaitGroup
 	pend.Add(len(chain))
@@ -1202,8 +1208,8 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 
 	db := etruedb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
-	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
-	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	_, fastChain, _ := core.NewCanonical(engine, 0, true)
+	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, 64, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
 	forks := make([]*types.SnailBlock, len(blocks))
@@ -1212,7 +1218,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 		if i > 0 {
 			parent = blocks[i-1]
 		}
-		fork := GenerateChain(params.TestChainConfig, fastChain, parent, engine, db, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+		fork := GenerateChain(params.TestChainConfig, fastChain, parent, 1, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
 		forks[i] = fork[0]
 	}
 	// Import the canonical and fork chain side by side, verifying the current block
@@ -1220,7 +1226,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	diskdb := etruedb.NewMemDatabase()
 	new(core.Genesis).MustSnailCommit(diskdb)
 
-	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1249,7 +1255,7 @@ func TestTrieForkGC(t *testing.T) {
 	db := etruedb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
 	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
-	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, 256, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
 	forks := make([]*types.SnailBlock, len(blocks))
@@ -1258,14 +1264,14 @@ func TestTrieForkGC(t *testing.T) {
 		if i > 0 {
 			parent = blocks[i-1]
 		}
-		fork := GenerateChain(params.TestChainConfig, fastChain, parent, engine, db, 1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+		fork := GenerateChain(params.TestChainConfig, fastChain, parent, 1, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
 		forks[i] = fork[0]
 	}
 	// Import the canonical and fork chain side by side, forcing the trie cache to cache both
 	diskdb := etruedb.NewMemDatabase()
 	new(core.Genesis).MustSnailCommit(diskdb)
 
-	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1289,15 +1295,15 @@ func TestLargeReorgTrieGC(t *testing.T) {
 	genesis := new(core.Genesis).MustSnailCommit(db)
 
 	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
-	shared := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
-	original := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
-	competitor := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], engine, db, 2*triesInMemory+1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
+	shared := GenerateChain(params.TestChainConfig, fastChain, genesis, 64, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	original := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], 256, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+	competitor := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], 256+1, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
 
 	// Import the shared chain and the original canonical one
 	diskdb := etruedb.NewMemDatabase()
 	new(core.Genesis).MustSnailCommit(diskdb)
 
-	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1359,7 +1365,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		}*/
 	}
 	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
-	shared := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, numBlocks, blockGenerator)
+	shared := GenerateChain(params.TestChainConfig, fastChain, genesis, numBlocks, 7, blockGenerator)
 	b.StopTimer()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1367,7 +1373,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		diskdb := etruedb.NewMemDatabase()
 		gspec.MustSnailCommit(diskdb)
 
-		chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+		chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
 		if err != nil {
 			b.Fatalf("failed to create tester chain: %v", err)
 		}

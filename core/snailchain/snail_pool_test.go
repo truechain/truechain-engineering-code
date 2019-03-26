@@ -26,7 +26,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -37,38 +37,38 @@ import (
 // testSnailPoolConfig is a fruit pool configuration without stateful disk
 // sideeffects used during testing.
 var testSnailPoolConfig SnailPoolConfig
-var fastchain *core.BlockChain
+var fastchainpool *core.BlockChain
 var snailblockchain *SnailBlockChain
-var engine consensus.Engine
-var chainConfig *params.ChainConfig
-var peerDb etruedb.Database // Database of the peers containing all data
-var genesis *core.Genesis
+var enginepool consensus.Engine
+var chainConfigpool *params.ChainConfig
+var peerDbpool etruedb.Database // Database of the peers containing all data
+var genesispool *core.Genesis
 var snailGenesis *types.SnailBlock
 
-func init() {
-	peerDb = etruedb.NewMemDatabase()
+func poolinit() {
+	peerDbpool = etruedb.NewMemDatabase()
 	testSnailPoolConfig = DefaultSnailPoolConfig
-	chainConfig = params.TestChainConfig
+	chainConfigpool = params.TestChainConfig
 	testSnailPoolConfig.Journal = ""
-	engine = ethash.NewFaker()
-	genesis = core.DefaultGenesisBlock()
+	enginepool = minerva.NewFaker()
+	genesispool = core.DefaultGenesisBlock()
 
 	cache := &core.CacheConfig{}
 
-	fastGenesis := genesis.MustFastCommit(peerDb)
-	fastchain, _ = core.NewBlockChain(peerDb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	fastGenesis := genesispool.MustFastCommit(peerDbpool)
+	fastchainpool, _ = core.NewBlockChain(peerDbpool, cache, params.AllMinervaProtocolChanges, enginepool, vm.Config{})
 
-	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, peerDb, 300, func(i int, b *core.BlockGen) {
+	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, enginepool, peerDbpool, 300, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
-	fastchain.InsertChain(fastblocks)
+	fastchainpool.InsertChain(fastblocks)
 
-	snailGenesis = genesis.MustSnailCommit(peerDb)
-	snailblockchain, _ = NewSnailBlockChain(peerDb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+	snailGenesis = genesispool.MustSnailCommit(peerDbpool)
+	snailblockchain, _ = NewSnailBlockChain(peerDbpool, params.TestChainConfig, enginepool, vm.Config{}, fastchainpool)
 	/*if err != nil{
 		fmt.Print(err)
 	}*/
-	blocks1, _ := MakeSnailBlockFruits(snailblockchain, fastchain, 1, 3, 1, 180, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
+	blocks1, _ := MakeSnailBlockFruits(snailblockchain, fastchainpool, 1, 3, 1, 180, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
 	snailblockchain.InsertChain(blocks1)
 
 }
@@ -76,13 +76,13 @@ func init() {
 func fruit(fastNumber int, fruitDifficulty *big.Int) *types.SnailBlock {
 	var fruit *types.SnailBlock
 
-	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastchain.CurrentBlock(), engine, peerDb, 1, func(i int, b *core.BlockGen) {
+	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastchainpool.CurrentBlock(), enginepool, peerDbpool, 1, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 
-	fastchain.InsertChain(fastblocks)
+	fastchainpool.InsertChain(fastblocks)
 
-	fruit, err := makeSnailFruit(snailblockchain, fastchain, 1, fastNumber, 1, snailGenesis.PublicKey(), snailGenesis.Coinbase(), false, fruitDifficulty)
+	fruit, err := makeSnailFruit(snailblockchain, fastchainpool, 1, fastNumber, 1, snailGenesis.PublicKey(), snailGenesis.Coinbase(), false, fruitDifficulty)
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -90,7 +90,7 @@ func fruit(fastNumber int, fruitDifficulty *big.Int) *types.SnailBlock {
 	return fruit
 }
 
-func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeStartFastNum int, makeFruitSize int,
+func makeSnailFruit(chain *SnailBlockChain, fastchainpool *core.BlockChain, makeBlockNum int, makeStartFastNum int, makeFruitSize int,
 	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) (*types.SnailBlock, error) {
 
 	var fruitsetCopy []*types.SnailBlock
@@ -134,7 +134,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 			FastNumber:      fastNumber,
 			Difficulty:      diff,
 			FruitDifficulty: fruitDiff,
-			FastHash:        fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
+			FastHash:        fastchainpool.GetBlockByNumber(fastNumber.Uint64()).Hash(),
 		}
 
 		pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
@@ -184,7 +184,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 	// creat fruits
 	if isBlock {
 		for i := makeStartFastNum; i < makeStartFastNum+makeFruitSize; i++ {
-			fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(i)), pubkey, coinbaseAddr)
+			fruit, err := makeFruit(chain, fastchainpool, new(big.Int).SetInt64(int64(i)), pubkey, coinbaseAddr)
 			if err != nil {
 				return nil, err
 			}
@@ -194,7 +194,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 			return nil, fmt.Errorf("fruits make fail the length less then makeFruitSize")
 		}
 
-		fSign, err := copySignsByFastNum(fastchain, new(big.Int).SetUint64(uint64(makeStartFastNum)))
+		fSign, err := copySignsByFastNum(fastchainpool, new(big.Int).SetUint64(uint64(makeStartFastNum)))
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +208,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 		return block, nil
 
 	}
-	fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(makeStartFastNum)), pubkey, coinbaseAddr)
+	fruit, err := makeFruit(chain, fastchainpool, new(big.Int).SetInt64(int64(makeStartFastNum)), pubkey, coinbaseAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 
 func setupSnailPool() *SnailPool {
 
-	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
+	pool := NewSnailPool(testSnailPoolConfig, fastchainpool, snailblockchain, enginepool)
 	return pool
 }
 
@@ -264,6 +264,7 @@ func validateFruitEvents(events chan types.NewFruitsEvent, count int) error {
 }
 
 func TestInvalidFruits(t *testing.T) {
+	poolinit()
 	t.Parallel()
 	var header *types.SnailHeader
 	header = &types.SnailHeader{
@@ -294,6 +295,7 @@ func TestInvalidFruits(t *testing.T) {
 }
 
 func TestFruitQueue(t *testing.T) {
+	poolinit()
 	t.Parallel()
 
 	pool := setupSnailPool()
@@ -301,7 +303,7 @@ func TestFruitQueue(t *testing.T) {
 
 	ft := fruit(181, big.NewInt(2000))
 	pool.addFruit(ft)
-	//if fastNumber is bigger than pool.fastchain.CurrentBlock().Number() will only add to allFruits
+	//if fastNumber is bigger than pool.fastchainpool.CurrentBlock().Number() will only add to allFruits
 	if len(pool.allFruits) != 1 {
 		t.Error("expected allFruits to be 1 is", len(pool.allFruits))
 	}
@@ -329,6 +331,7 @@ func TestFruitQueue(t *testing.T) {
 }
 
 func TestFruitDropping(t *testing.T) {
+	poolinit()
 	t.Parallel()
 
 	pool := setupSnailPool()
@@ -363,6 +366,7 @@ func TestFruitDropping(t *testing.T) {
 // Tests that the pool rejects replacement fruits that a new is difficulty
 // than old one.
 func TestFruitReplacement(t *testing.T) {
+	poolinit()
 	t.Parallel()
 
 	// Create a test account and fund it
@@ -394,7 +398,7 @@ func TestFruitReplacement(t *testing.T) {
 
 // Tests that local fruits are journaled to disk, but remote fruits
 // get discarded between restarts.
-func TestFruitJournaling(t *testing.T) { testFruitJournaling(t) }
+func TestFruitJournaling(t *testing.T) { poolinit(); testFruitJournaling(t) }
 
 func testFruitJournaling(t *testing.T) {
 	t.Parallel()
@@ -445,7 +449,7 @@ func testFruitJournaling(t *testing.T) {
 	// Terminate the old pool,create a new pool and ensure relevant fruit survive
 	pool.Stop()
 
-	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
+	pool = NewSnailPool(testSnailPoolConfig, fastchainpool, snailblockchain, enginepool)
 
 	pending, unverified = pool.Stats()
 	if unverified != 0 {
@@ -458,7 +462,7 @@ func testFruitJournaling(t *testing.T) {
 	time.Sleep(2 * config.Rejournal)
 	pool.Stop()
 
-	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
+	pool = NewSnailPool(testSnailPoolConfig, fastchainpool, snailblockchain, enginepool)
 	pending, unverified = pool.Stats()
 	if pending != 0 {
 		t.Fatalf("pending fruits mismatched: have %d, want %d", pending, 0)
@@ -471,6 +475,7 @@ func testFruitJournaling(t *testing.T) {
 
 // Benchmarks the speed of iterative fruit insertion.
 func BenchmarkSnailPoolInsert(b *testing.B) {
+	poolinit()
 	// Generate a batch of fruits to enqueue into the pool
 	pool := setupSnailPool()
 	defer pool.Stop()
@@ -487,9 +492,18 @@ func BenchmarkSnailPoolInsert(b *testing.B) {
 }
 
 // Benchmarks the speed of batched fruit insertion.
-func BenchmarkSnailPoolBatchInsert100(b *testing.B)   { benchmarkSnailPoolBatchInsert(b, 100) }
-func BenchmarkSnailPoolBatchInsert1000(b *testing.B)  { benchmarkSnailPoolBatchInsert(b, 1000) }
-func BenchmarkSnailPoolBatchInsert10000(b *testing.B) { benchmarkSnailPoolBatchInsert(b, 10000) }
+func BenchmarkSnailPoolBatchInsert100(b *testing.B) {
+	poolinit()
+	benchmarkSnailPoolBatchInsert(b, 100)
+}
+func BenchmarkSnailPoolBatchInsert1000(b *testing.B) {
+	poolinit()
+	benchmarkSnailPoolBatchInsert(b, 1000)
+}
+func BenchmarkSnailPoolBatchInsert10000(b *testing.B) {
+	poolinit()
+	benchmarkSnailPoolBatchInsert(b, 10000)
+}
 
 func benchmarkSnailPoolBatchInsert(b *testing.B, size int) {
 	// Generate a batch of fruits to enqueue into the pool

@@ -2,14 +2,15 @@ package types
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"golang.org/x/crypto/sha3"
 	"io"
 	"math/big"
 	"strings"
@@ -125,6 +126,31 @@ type CommitteeNode struct {
 	Publickey []byte
 }
 
+//
+type TransportCommitteeNode struct {
+	IP    string
+	Port  uint32
+	Port2 uint32
+	EXT   []byte
+}
+
+func (tcn *TransportCommitteeNode) ConvertTransportToCommitteeNode(pubKey *ecdsa.PublicKey) *CommitteeNode {
+	return &CommitteeNode{
+		IP:        tcn.IP,
+		Port:      tcn.Port,
+		Port2:     tcn.Port2,
+		Publickey: crypto.FromECDSAPub(pubKey),
+	}
+}
+
+func (cn *CommitteeNode) ConvertCommitteeNodeToTransport() *TransportCommitteeNode {
+	return &TransportCommitteeNode{
+		IP:    cn.IP,
+		Port:  cn.Port,
+		Port2: cn.Port2,
+	}
+}
+
 func (c *CommitteeNode) String() string {
 	return fmt.Sprintf("NodeInfo:{IP:%s,P1:%v,P2:%v,Coinbase:%s,P:%s}", c.IP, c.Port, c.Port2,
 		hexutil.Encode(c.Coinbase[:]), hexutil.Encode(c.Publickey))
@@ -137,12 +163,44 @@ type PbftSign struct {
 	FastHash   common.Hash // fastblock hash
 	Result     uint32      // 0--against,1--agree
 	Sign       []byte      // sign for fastblock height + hash + result
+
+	// caches
+	size atomic.Value
+}
+
+// "external" PbftSign encoding. used for etrue protocol, etc.
+type extPbftSign struct {
+	FastHeight *big.Int
+	FastHash   common.Hash // fastblock hash
+	Result     uint32      // 0--against,1--agree
+	Sign       []byte      //sign msg
+}
+
+// DecodeRLP decodes the truechain
+func (c *PbftSign) DecodeRLP(s *rlp.Stream) error {
+	var ep extPbftSign
+	_, size, _ := s.Kind()
+	if err := s.Decode(&ep); err != nil {
+		return err
+	}
+	c.FastHeight, c.FastHash, c.Result, c.Sign = ep.FastHeight, ep.FastHash, ep.Result, ep.Sign
+	c.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+
+// EncodeRLP serializes b into the truechain RLP block format.
+func (p *PbftSign) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extPbftSign{
+		FastHeight: p.FastHeight,
+		FastHash:   p.FastHash,
+		Result:     p.Result,
+		Sign:       p.Sign,
+	})
 }
 
 type PbftAgentProxy interface {
 	FetchFastBlock(committeeId *big.Int, infos []*CommitteeMember) (*Block, error)
 	VerifyFastBlock(*Block, bool) (*PbftSign, error)
-	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
 	GetCurrentHeight() *big.Int
 	GetSeedMember() []*CommitteeMember
@@ -294,7 +352,7 @@ func (c *CommitteeNodeTag) Hash() common.Hash {
 }
 
 func RlpHash(x interface{}) (h common.Hash) {
-	hw := sha3.NewKeccak256()
+	hw := sha3.NewLegacyKeccak256()
 	if e := rlp.Encode(hw, x); e != nil {
 		log.Warn("RlpHash", "error", e.Error())
 	}

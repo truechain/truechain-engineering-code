@@ -46,6 +46,7 @@ import (
 var (
 	testBankKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testBank       = crypto.PubkeyToAddress(testBankKey.PublicKey)
+	engine         = ethash.NewFaker()
 )
 
 // newTestProtocolManager creates a new protocol manager for testing purposes,
@@ -53,12 +54,12 @@ var (
 // channels for different events.
 func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func(int, *core.BlockGen), snailGenerator func(int, *snailchain.BlockGen), newtx chan<- []*types.Transaction, newft chan<- []*types.SnailBlock) (*ProtocolManager, *etruedb.MemDatabase, error) {
 	var (
-		evmux  = new(event.TypeMux)
-		engine = ethash.NewFaker()
-		db     = etruedb.NewMemDatabase()
-		gspec  = &core.Genesis{
-			Config: params.TestChainConfig,
-			Alloc:  types.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+		evmux = new(event.TypeMux)
+		db    = etruedb.NewMemDatabase()
+		gspec = &core.Genesis{
+			Config:     params.TestChainConfig,
+			Alloc:      types.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Difficulty: big.NewInt(20000),
 		}
 		genesis       = gspec.MustFastCommit(db)
 		blockchain, _ = core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
@@ -80,12 +81,12 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			committeeNode: committeeNode,
 		}
 	)
-	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, blocks, generator)
+	chain, _ := core.GenerateChain(gspec.Config, genesis, engine, db, blocks, generator)
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		panic(err)
 	}
 
-	schain := snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, ethash.NewFaker(), db, blocks, snailGenerator)
+	schain := snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, blocks, 7, snailGenerator)
 	if _, err := snailChain.InsertChain(schain); err != nil {
 		panic(err)
 	}
@@ -96,6 +97,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		return nil, nil, err
 	}
 	pm.Start(1000)
+	pm.Start2(1000)
 	return pm, db, nil
 }
 
@@ -235,24 +237,29 @@ func newTestPeer(name string, version int, pm *ProtocolManager, shake bool) (*te
 	// Execute any implicitly requested handshakes and return
 	if shake {
 		var (
-			genesis = pm.blockchain.Genesis()
-			head    = pm.blockchain.CurrentHeader()
-			td      = pm.blockchain.GetTd(head.Hash(), head.Number.Uint64())
+			genesis    = pm.snailchain.Genesis()
+			head       = pm.snailchain.CurrentHeader()
+			td         = pm.snailchain.GetTd(head.Hash(), head.Number.Uint64())
+			fastHead   = pm.blockchain.CurrentHeader()
+			fastHash   = fastHead.Hash()
+			fastHeight = pm.blockchain.CurrentBlock().Number()
 		)
-		tp.handshake(nil, td, head.Hash(), genesis.Hash())
+		tp.handshake(nil, td, head.Hash(), genesis.Hash(), fastHeight, fastHash)
 	}
 	return tp, errc
 }
 
 // handshake simulates a trivial handshake that expects the same state from the
 // remote side as we are simulating locally.
-func (p *testPeer) handshake(t *testing.T, td *big.Int, head common.Hash, genesis common.Hash) {
+func (p *testPeer) handshake(t *testing.T, td *big.Int, head common.Hash, genesis common.Hash, fastHeight *big.Int, fasthead common.Hash) {
 	msg := &statusData{
-		ProtocolVersion: uint32(p.version),
-		NetworkId:       DefaultConfig.NetworkId,
-		TD:              td,
-		CurrentBlock:    head,
-		GenesisBlock:    genesis,
+		ProtocolVersion:  uint32(p.version),
+		NetworkId:        DefaultConfig.NetworkId,
+		TD:               td,
+		FastHeight:       fastHeight,
+		CurrentBlock:     head,
+		GenesisBlock:     genesis,
+		CurrentFastBlock: fasthead,
 	}
 	if err := p2p.ExpectMsg(p.app, StatusMsg, msg); err != nil {
 		t.Fatalf("status recv: %v", err)

@@ -1,6 +1,6 @@
 {
   "config": {
-    "chainId": 314590,
+    "chainId": 18928,
     "minerva":{
 	  "durationLimit" : "0x78",
       "minimumDifficulty":"0xc8",
@@ -8,7 +8,7 @@
       }
   },
   "alloc":{
-    "0xbd54a6c8298a70e9636d0555a77ffa412abdd71a" : { "balance" : "0x130ee8e7179044000000"},// equals 90000000000000000000000
+    "0xbd54a6c8298a70e9636d0555a77ffa412abdd71a" : { "balance" : "0x130ee8e7179044000000"},
     "0x3c2e0a65a023465090aaedaa6ed2975aec9ef7f9" : { "balance" : "0x130ee8e7179044000000"},
     "0x7c357530174275dd30e46319b89f71186256e4f7" : { "balance" : "0x130ee8e7179044000000"},
     "0xeeb69c67751e9f4917b605840fa9a28be4517871" : { "balance" : "0x130ee8e7179044000000"},

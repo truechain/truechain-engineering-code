@@ -233,7 +233,7 @@ func (pm *ProtocolManager) syncer() {
 	defer pm.fetcherFast.Stop()
 	defer pm.fetcherSnail.Stop()
 	defer pm.downloader.Terminate()
-	//defer pm.fdownloader.Terminate()
+	defer pm.fdownloader.Terminate()
 
 	// Wait for different events to fire synchronisation operations
 	forceSync := time.NewTicker(forceSyncCycle)
@@ -291,7 +291,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	_, fastHeight := peer.fastHead, peer.fastHeight.Uint64()
 
-	log.Info("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHead", peer.fastHead, "fastHeight", fastHeight)
+	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHead", peer.fastHead, "fastHeight", fastHeight)
 
 	if pTd.Cmp(td) <= 0 {
 
@@ -318,16 +318,18 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		mode = downloader.FastSync
 	} else if atomic.LoadUint32(&pm.snapSync) == 1 {
 		mode = downloader.SnapShotSync
-	} else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
-		// The database  seems empty as the current block is the genesis. Yet the fast
-		// block is ahead, so fast sync was enabled for this node at a certain point.
-		// The only scenario where this can happen is if the user manually (or via a
-		// bad block) rolled back a fast sync node below the sync point. In this case
-		// however it's safe to reenable fast sync.
-		atomic.StoreUint32(&pm.fastSync, 1)
-		mode = downloader.FastSync
-
 	}
+	// TODO :
+	//else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+	//	// The database  seems empty as the current block is the genesis. Yet the fast
+	//	// block is ahead, so fast sync was enabled for this node at a certain point.
+	//	// The only scenario where this can happen is if the user manually (or via a
+	//	// bad block) rolled back a fast sync node below the sync point. In this case
+	//	// however it's safe to reenable fast sync.
+	//	atomic.StoreUint32(&pm.fastSync, 1)
+	//	mode = downloader.FastSync
+	//
+	//}
 
 	if mode == downloader.FastSync || mode == downloader.SnapShotSync {
 		var pivotHeader *types.Header

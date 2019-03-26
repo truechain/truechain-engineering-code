@@ -89,11 +89,14 @@ func (s *PublicTrueAPI) Syncing() (interface{}, error) {
 	}
 	// Otherwise gather the block sync stats
 	return map[string]interface{}{
-		"startingBlock": hexutil.Uint64(progress.StartingBlock),
-		"currentBlock":  hexutil.Uint64(progress.CurrentBlock),
-		"highestBlock":  hexutil.Uint64(progress.HighestBlock),
-		"pulledStates":  hexutil.Uint64(progress.PulledStates),
-		"knownStates":   hexutil.Uint64(progress.KnownStates),
+		"startingSnailBlock": hexutil.Uint64(progress.StartingSnailBlock),
+		"currentSnailBlock":  hexutil.Uint64(progress.CurrentSnailBlock),
+		"highestSnailBlock":  hexutil.Uint64(progress.HighestSnailBlock),
+		"startingBlock":      hexutil.Uint64(progress.StartingBlock),
+		"currentBlock":       hexutil.Uint64(progress.CurrentBlock),
+		"highestBlock":       hexutil.Uint64(progress.HighestBlock),
+		"pulledStates":       hexutil.Uint64(progress.PulledStates),
+		"knownStates":        hexutil.Uint64(progress.KnownStates),
 	}, nil
 }
 
@@ -1078,6 +1081,7 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		"nonce":           head.Nonce,
 		"mixHash":         head.MixDigest,
 		"miner":           head.Coinbase,
+		"publicKey":       hexutil.Bytes(head.Publickey),
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
@@ -1862,11 +1866,6 @@ func (api *PrivateDebugAPI) ChaindbCompact() error {
 
 // SetHead rewinds the head of the blockchain to a previous block.
 func (api *PrivateDebugAPI) SetHead(number hexutil.Uint64) {
-	api.b.SetHead(uint64(number))
-}
-
-// SetSnailHead rewinds the head of the snail blockchain to a previous block.
-func (api *PrivateDebugAPI) SetSnailHead(number hexutil.Uint64) {
 	api.b.SetSnailHead(uint64(number))
 }
 

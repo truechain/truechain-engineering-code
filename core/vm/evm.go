@@ -207,6 +207,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	contract := NewContract(caller, to, value, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
+	// Even if the account has no code, we need to continue because it might be a precompile
 	start := time.Now()
 
 	// Capture the tracer start/end events in debug mode
@@ -356,8 +357,6 @@ func (c *codeAndHash) Hash() common.Hash {
 	}
 	return c.hash
 }
-
-//func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int, fee *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 
 // create creates a new contract using code as deployment code.
 func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64, value *big.Int, address common.Address, fee *big.Int) ([]byte, common.Address, uint64, error) {

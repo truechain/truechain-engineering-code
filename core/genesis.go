@@ -256,6 +256,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		}
 	}
 	root := statedb.IntermediateRoot(false)
+
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Time:       new(big.Int).SetUint64(g.Timestamp),
@@ -268,7 +269,6 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
-
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
@@ -416,22 +416,19 @@ func DefaultGenesisBlock() *Genesis {
 
 	return &Genesis{
 		Config:     params.MainnetChainConfig,
-		Nonce:      928,
+		Nonce:      330,
 		ExtraData:  nil,
-		GasLimit:   88080384,
-		Difficulty: big.NewInt(20000),
+		GasLimit:   16777216,
+		Difficulty: big.NewInt(2147483648),
+		Timestamp:  1553918400,
+		Coinbase:   common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		Mixhash:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		ParentHash: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		//Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
 			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
 			common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: i},
 			common.HexToAddress("0x04d2252a3e0ca7c2aa81247ca33060855a34a808"): {Balance: i},
-			common.HexToAddress("0x05712ff78d08eaf3e0f1797aaf4421d9b24f8679"): {Balance: i},
-			common.HexToAddress("0x764727f61dd0717a48236842435e9aefab6723c3"): {Balance: i},
-			common.HexToAddress("0x764986534dba541d5061e04b9c561abe3f671178"): {Balance: i},
-			common.HexToAddress("0x0fd0bbff2e5b3ddb4f030ff35eb0fe06658646cf"): {Balance: i},
-			common.HexToAddress("0x40b3a743ba285a20eaeee770d37c093276166568"): {Balance: i},
-			common.HexToAddress("0x9d3c4a33d3bcbd2245a1bebd8e989b696e561eae"): {Balance: i},
-			common.HexToAddress("0x35c9d83c3de709bbd2cb4a8a42b89e0317abe6d4"): {Balance: i},
 		},
 		Committee: []*types.CommitteeMember{
 			&types.CommitteeMember{Coinbase: common.HexToAddress("0x76ea2f3a002431fede1141b660dbb75c26ba6d97"), Publickey: key1},

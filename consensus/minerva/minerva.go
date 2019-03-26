@@ -20,22 +20,10 @@ package minerva
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
-	"math/big"
-	"math/rand"
-	"os"
-	"path/filepath"
-	"reflect"
-	"strconv"
-	"sync"
-	"time"
-	"unsafe"
-
-	"encoding/binary"
-	"github.com/edsrzf/mmap-go"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hashicorp/golang-lru/simplelru"
@@ -44,28 +32,22 @@ import (
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
+	"golang.org/x/crypto/sha3"
+	"math/big"
+	"math/rand"
+	"sync"
+	"time"
 )
 
 // ErrInvalidDumpMagic errorinfo
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")
 
 var (
-	// maxUint256 is a big integer representing 2^256-1
-	maxUint256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
-
+	// maxUint218 is a big integer representing 2^218-1
 	maxUint128 = new(big.Int).Exp(big.NewInt(2), big.NewInt(128), big.NewInt(0))
 
 	// sharedMinerva is a full instance that can be shared between multiple users.
 	sharedMinerva = New(Config{"", 3, 0, "", 1, 0, ModeNormal})
-
-	// algorithmRevision is the data structure version used for file naming.
-	algorithmRevision = 1
-
-	// dumpMagic is a dataset dump header to sanity check a data dump.
-	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
-
-	//SnailBlockRewardsInitial Snail block rewards initial 116.48733*10^18
-	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(11648733), big.NewInt(1e13))
 
 	//SnailBlockRewardsBase Snail block rewards base value is 115.555555555555 * 10^12
 	SnailBlockRewardsBase = 115555555555555
@@ -94,112 +76,12 @@ var (
 
 	//SqrtMax ...
 	SqrtMax = 6400
-
-	//SnailBlockBodyFruitInitial Snail block body fruit initial 30*10^15
-	SnailBlockBodyFruitInitial = new(big.Int).Mul(big.NewInt(30), big.NewInt(1e15))
-
-	//SnailBlockRewardsFruitRatio Snail block rewards fruit ratio  10%
-	SnailBlockRewardsFruitRatio = 0.1
-
-	//CommitteesCount Number of committees
-	CommitteesCount = new(big.Int).SetInt64(1)
-
-	//MinerCount Miner quantity
-	MinerCount = new(big.Int).SetInt64(1)
 )
 
 // ConstSqrt ...
 type ConstSqrt struct {
 	Num  int     `json:"num"`
 	Sqrt float64 `json:"sqrt"`
-}
-
-// isLittleEndian returns whether the local system is running in little or big
-// endian byte order.
-func isLittleEndian() bool {
-	n := uint32(0x01020304)
-	return *(*byte)(unsafe.Pointer(&n)) == 0x04
-}
-
-// memoryMap tries to memory map a file of uint32s for read only access.
-func memoryMap(path string) (*os.File, mmap.MMap, []uint32, error) {
-	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	mem, buffer, err := memoryMapFile(file, false)
-	if err != nil {
-		file.Close()
-		return nil, nil, nil, err
-	}
-	for i, magic := range dumpMagic {
-		if buffer[i] != magic {
-			mem.Unmap()
-			file.Close()
-			return nil, nil, nil, ErrInvalidDumpMagic
-		}
-	}
-	return file, mem, buffer[len(dumpMagic):], err
-}
-
-// memoryMapFile tries to memory map an already opened file descriptor.
-func memoryMapFile(file *os.File, write bool) (mmap.MMap, []uint32, error) {
-	// Try to memory map the file
-	flag := mmap.RDONLY
-	if write {
-		flag = mmap.RDWR
-	}
-	mem, err := mmap.Map(file, flag, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-	// Yay, we managed to memory map the file, here be dragons
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&mem))
-	header.Len /= 4
-	header.Cap /= 4
-
-	return mem, *(*[]uint32)(unsafe.Pointer(&header)), nil
-}
-
-// memoryMapAndGenerate tries to memory map a temporary file of uint32s for write
-// access, fill it with the data from a generator and then move it into the final
-// path requested.
-func memoryMapAndGenerate(path string, size uint64, generator func(buffer []uint32)) (*os.File, mmap.MMap, []uint32, error) {
-	// Ensure the data folder exists
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return nil, nil, nil, err
-	}
-	// Create a huge temporary empty file to fill with data
-	temp := path + "." + strconv.Itoa(rand.Int())
-
-	dump, err := os.Create(temp)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if err = dump.Truncate(int64(len(dumpMagic))*4 + int64(size)); err != nil {
-		return nil, nil, nil, err
-	}
-	// Memory map the file for writing and fill it with the generator
-	mem, buffer, err := memoryMapFile(dump, true)
-	if err != nil {
-		dump.Close()
-		return nil, nil, nil, err
-	}
-	copy(buffer, dumpMagic)
-
-	data := buffer[len(dumpMagic):]
-	generator(data)
-
-	if err := mem.Unmap(); err != nil {
-		return nil, nil, nil, err
-	}
-	if err := dump.Close(); err != nil {
-		return nil, nil, nil, err
-	}
-	if err := os.Rename(temp, path); err != nil {
-		return nil, nil, nil, err
-	}
-	return memoryMap(path)
 }
 
 // lru tracks caches or datasets by their last use time, keeping at most N of them.
@@ -262,7 +144,7 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 }
 
 // dataset wraps an truehash dataset with some metadata to allow easier concurrent use.
-type dataset struct {
+type Dataset struct {
 	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
@@ -274,9 +156,9 @@ type dataset struct {
 }
 
 // newDataset creates a new truehash mining dataset
-func newDataset(epoch uint64) interface{} {
+func NewDataset(epoch uint64) interface{} {
 
-	ds := &dataset{
+	ds := &Dataset{
 		epoch:    epoch,
 		dateInit: 0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
@@ -284,6 +166,14 @@ func newDataset(epoch uint64) interface{} {
 	log.Info("create a new dateset", "epoch", epoch)
 
 	return ds
+}
+
+func (d *Dataset) GetDataSetEpoch() uint64 {
+	return d.epoch
+}
+
+func (d *Dataset) GetDataSet() []uint64 {
+	return d.dataset
 }
 
 // Mode defines the type and amount of PoW verification an minerva engine makes.
@@ -351,23 +241,7 @@ func New(config Config) *Minerva {
 	minerva := &Minerva{
 		config: config,
 		//caches:   newlru("cache", config.CachesInMem, newCache),
-		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
-		update:   make(chan struct{}),
-		hashrate: metrics.NewMeter(),
-	}
-
-	//MinervaLocal.CheckDataSetState(1)
-	minerva.getDataset(1)
-
-	return minerva
-}
-
-func New2() *Minerva {
-
-	minerva := &Minerva{
-		//config: config,
-		//caches:   newlru("cache", config.CachesInMem, newCache),
-		datasets: newlru("dataset", 1, newDataset),
+		datasets: newlru("dataset", config.DatasetsInMem, NewDataset),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
 	}
@@ -384,22 +258,55 @@ func (m *Minerva) NewTestData(block uint64) {
 }
 
 // dataset tries to retrieve a mining dataset for the specified block number
-func (m *Minerva) getDataset(block uint64) *dataset {
+func (m *Minerva) getDataset(block uint64) *Dataset {
+
+	var headerHash [STARTUPDATENUM][]byte
 	// Retrieve the requested ethash dataset
 	//each 12000 change the mine algorithm block -1 is make sure the 12000 is use epoch 0
 	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
 	currentI, futureI := m.datasets.get(epoch)
-	current := currentI.(*dataset)
+	current := currentI.(*Dataset)
 
-	current.generate(epoch, m)
+	getHashList := func(headershash *[STARTUPDATENUM][]byte, epoch uint64) bool {
+		st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
+
+		//get header hash
+		if m.sbc == nil {
+			log.Error("snail block chain is nil  ", "epoch", epoch)
+			return false
+		}
+
+		for i := 0; i < STARTUPDATENUM; i++ {
+			header := m.sbc.GetHeaderByNumber(uint64(i) + st_block_num)
+			if header == nil {
+				log.Error(" getDataset function getHead hash fail ", "blockNum is:  ", (uint64(i) + st_block_num))
+				return false
+			}
+			headerHash[i] = header.Hash().Bytes()
+		}
+		return true
+	}
+
+	if current.dateInit == 0 && epoch > 0 {
+		if !getHashList(&headerHash, epoch) {
+			return nil
+		}
+	}
+
+	current.Generate(epoch, &headerHash)
 
 	// when change the algorithm before 12000*n
 	if block >= (epoch+1)*UPDATABLOCKLENGTH-OFF_STATR {
+
 		go func() {
 			//log.Info("start to create a future dataset")
 			if futureI != nil {
-				future := futureI.(*dataset)
-				future.generate(m.datasets.future, m)
+				future := futureI.(*Dataset)
+
+				if !getHashList(&headerHash, epoch+1) {
+					return
+				}
+				future.Generate(m.datasets.future, &headerHash)
 			}
 		}()
 	}
@@ -409,22 +316,22 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	return current
 }
 
-func (d *dataset) Hash() common.Hash {
+func (d *Dataset) Hash() common.Hash {
 	return rlpHash(d.dataset)
 }
 
 // generate ensures that the dataset content is generated before use.
-func (d *dataset) generate(epoch uint64, m *Minerva) {
+func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 	d.once.Do(func() {
 		if d.dateInit == 0 {
 			if epoch <= 0 {
 				log.Info("TableInit is start", "epoch", epoch)
-				m.truehashTableInit(d.dataset)
+				d.truehashTableInit(d.dataset)
 				d.datasetHash = d.Hash()
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
 				log.Info("updateLookupTBL is start", "epoch", epoch)
-				flag, _, cont := m.updateLookupTBL(epoch, d.dataset)
+				flag, _, cont := d.updateLookupTBL(d.dataset, headershash)
 				if flag {
 					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))
@@ -484,6 +391,7 @@ func NewFakeFailer(fail uint64) *Minerva {
 			PowMode: ModeFake,
 		},
 		fakeFail: fail,
+		election: newFakeElection(),
 	}
 }
 
@@ -496,6 +404,7 @@ func NewFakeDelayer(delay time.Duration) *Minerva {
 			PowMode: ModeFake,
 		},
 		fakeDelay: delay,
+		election:  newFakeElection(),
 	}
 }
 
@@ -572,7 +481,7 @@ func (m *Minerva) DataSetHash(block uint64) []byte {
 	output := make([]byte, DGSTSIZE)
 	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
 	currentI, _ := m.datasets.get(epoch)
-	current := currentI.(*dataset)
+	current := currentI.(*Dataset)
 
 	//getDataset
 	sha256 := makeHasher(sha3.New256())
@@ -662,7 +571,7 @@ func (e *fakeElection) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, er
 
 // for hash
 func rlpHash(x interface{}) (h common.Hash) {
-	hw := sha3.NewKeccak256()
+	hw := sha3.NewLegacyKeccak256()
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h

@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	// "github.com/ethereum/go-ethereum/crypto/sha3"
+	// "golang.org/x/crypto/sha3"
 	// "github.com/ethereum/go-ethereum/rlp"
 	// "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"

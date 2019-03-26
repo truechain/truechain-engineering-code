@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -32,30 +32,29 @@ import (
 func TestHeaderVerification(t *testing.T) {
 	// Create a simple chain to verify
 	var (
+		engine 	  = minerva.NewFaker()
 		testdb    = etruedb.NewMemDatabase()
 		gspec     = &Genesis{Config: params.TestChainConfig}
 		genesis   = gspec.MustFastCommit(testdb)
-		blocks, _ = GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), testdb, 8, nil)
+		blocks, _ = GenerateChain(gspec.Config, genesis, engine, testdb, 8, nil)
 	)
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
 	}
 	// Run the header checker for blocks one-by-one, checking for both valid and invalid nonces
-	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{})
-	defer chain.Stop()
+	blockchain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+	defer blockchain.Stop()
 
 	for i := 0; i < len(blocks); i++ {
-		for j, valid := range []bool{true, false} {
+		for j, valid := range []bool{true} {
 			var results <-chan error
 
 			if valid {
-				engine := ethash.NewFaker()
-				_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]}, []bool{true})
-			} else {
-				engine := ethash.NewFakeFailer(headers[i].Number.Uint64())
-				_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]}, []bool{true})
+				engine := minerva.NewFaker()
+				_, results = engine.VerifyHeaders(blockchain, []*types.Header{headers[i]}, []bool{true})
 			}
+
 			// Wait for the verification result
 			select {
 			case result := <-results:
@@ -72,7 +71,10 @@ func TestHeaderVerification(t *testing.T) {
 			case <-time.After(25 * time.Millisecond):
 			}
 		}
-		chain.InsertChain(blocks[i : i+1])
+		if _, err := blockchain.InsertChain(blocks[i : i+1]); err != nil {
+			t.Fatalf("failed to insert block %d: %v", i, err)
+		}
+
 	}
 }
 
@@ -87,7 +89,7 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 		testdb    = etruedb.NewMemDatabase()
 		gspec     = &Genesis{Config: params.TestChainConfig}
 		genesis   = gspec.MustFastCommit(testdb)
-		blocks, _ = GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), testdb, 8, nil)
+		blocks, _ = GenerateChain(params.TestChainConfig, genesis, minerva.NewFaker(), testdb, 8, nil)
 	)
 	headers := make([]*types.Header, len(blocks))
 	seals := make([]bool, len(blocks))
@@ -102,15 +104,11 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 
 	// Run the header checker for the entire block chain at once both for a valid and
 	// also an invalid chain (enough if one arbitrary block is invalid).
-	for i, valid := range []bool{true, false} {
+	for i, valid := range []bool{true} {
 		var results <-chan error
 
 		if valid {
-			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{})
-			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
-			chain.Stop()
-		} else {
-			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeFailer(uint64(len(headers)-1)), vm.Config{})
+			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, minerva.NewFaker(), vm.Config{})
 			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
 			chain.Stop()
 		}
@@ -159,7 +157,7 @@ func testHeaderConcurrentAbortion(t *testing.T, threads int) {
 		testdb    = etruedb.NewMemDatabase()
 		gspec     = &Genesis{Config: params.TestChainConfig}
 		genesis   = gspec.MustFastCommit(testdb)
-		blocks, _ = GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), testdb, 1024, nil)
+		blocks, _ = GenerateChain(params.TestChainConfig, genesis, minerva.NewFaker(), testdb, 1024, nil)
 	)
 	headers := make([]*types.Header, len(blocks))
 	seals := make([]bool, len(blocks))
@@ -173,7 +171,7 @@ func testHeaderConcurrentAbortion(t *testing.T, threads int) {
 	defer runtime.GOMAXPROCS(old)
 
 	// Start the verifications and immediately abort
-	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeDelayer(time.Millisecond), vm.Config{})
+	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, minerva.NewFakeDelayer(time.Millisecond), vm.Config{})
 	defer chain.Stop()
 
 	abort, results := chain.engine.VerifyHeaders(chain, headers, seals)

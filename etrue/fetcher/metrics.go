@@ -28,17 +28,13 @@ var (
 	propAnnounceDropMeter = metrics.NewRegisteredMeter("etrue/fetcher/prop/announces/drop", nil)
 	propAnnounceDOSMeter  = metrics.NewRegisteredMeter("etrue/fetcher/prop/announces/dos", nil)
 
-	propBroadcastInMeter   = metrics.NewRegisteredMeter("etrue/fetcher/prop/broadcasts/in", nil)
-	propBroadcastOutTimer  = metrics.NewRegisteredTimer("etrue/fetcher/prop/broadcasts/out", nil)
-	propBroadcastDropMeter = metrics.NewRegisteredMeter("etrue/fetcher/prop/broadcasts/drop", nil)
+	propBroadcastInMeter      = metrics.NewRegisteredMeter("etrue/fetcher/prop/broadcasts/in", nil)
+	propBroadcastOutTimer     = metrics.NewRegisteredTimer("etrue/fetcher/prop/broadcasts/out", nil)
+	propBroadcastDropMeter    = metrics.NewRegisteredMeter("etrue/fetcher/prop/broadcasts/drop", nil)
 	propBroadcastInvaildMeter = metrics.NewRegisteredMeter("etrue/fetcher/prop/broadcasts/invaild", nil)
 	propBroadcastDOSMeter     = metrics.NewRegisteredMeter("etrue/fetcher/prop/broadcasts/dos", nil)
 
-	propSignInMeter   = metrics.NewRegisteredMeter("etrue/fetcher/prop/signs/in", nil)
-	propSignOutTimer     = metrics.NewRegisteredMeter("etrue/fetcher/prop/signs/out", nil)
-	propSignDropMeter = metrics.NewRegisteredMeter("etrue/fetcher/prop/signs/drop", nil)
 	propSignInvaildMeter = metrics.NewRegisteredMeter("etrue/fetcher/prop/signs/invaild", nil)
-	propSignDOSMeter  = metrics.NewRegisteredMeter("etrue/fetcher/prop/signs/dos", nil)
 
 	headerFetchMeter = metrics.NewRegisteredMeter("etrue/fetcher/fetch/headers", nil)
 	bodyFetchMeter   = metrics.NewRegisteredMeter("etrue/fetcher/fetch/bodies", nil)

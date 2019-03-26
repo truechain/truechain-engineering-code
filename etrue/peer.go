@@ -496,9 +496,9 @@ func (p *peer) AsyncSendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int)
 	}
 }
 
-// SendSnailFastBlockHeaders sends a batch of block headers to the remote peer.
-func (p *peer) SendBlockHeaders(headerData *BlockHeadersData) error {
-	if headerData.Headers != nil {
+// SendBlockHeaders sends a batch of block headers to the remote peer.
+func (p *peer) SendBlockHeaders(headerData *BlockHeadersData, fast bool) error {
+	if fast {
 		return p.Send(FastBlockHeadersMsg, headerData)
 	} else {
 		return p.Send(SnailBlockHeadersMsg, headerData)

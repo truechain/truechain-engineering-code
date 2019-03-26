@@ -110,7 +110,7 @@ func makeChain(n int, i int) (*SnailBlockChain, *core.BlockChain, *types.SnailBl
 }
 
 func makeSnail(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailBlock {
-	blocks := GenerateChain(params.TestChainConfig, fastChain, parent, engine, db, n, func(i int, b *BlockGen) {
+	blocks := GenerateChain(params.TestChainConfig, fastChain, parent, n, 7, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 	return blocks

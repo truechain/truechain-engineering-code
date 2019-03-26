@@ -5539,6 +5539,12 @@ var methods = function () {
         params: 0
     });
 
+    var submitHashrate = new Method({
+        name: 'submitHashrate',
+        call: 'etrue_submitHashrate',
+        params: 0
+    });
+
     return [
         getBalance,
         getStorageAt,
@@ -5569,7 +5575,8 @@ var methods = function () {
         getWork,
         getCommittee,
         getCurrentState,
-        getDataset
+        getDataset,
+        submitHashrate
     ];
 };
 

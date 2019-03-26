@@ -66,14 +66,14 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	var (
 		db = etruedb.NewMemDatabase()
 	)
-	snailChainLocal, fastChainLocal = snailchain.MakeChain(fastChainHight, blockNum)
-	sv := snailchain.NewBlockValidator(chainConfig, fastChainLocal, snailChainLocal, engine)
+	snailChainLocal, fastChainLocal = snailchain.MakeChain(fastChainHight, blockNum, minerva.NewFaker())
+	//sv := snailchain.NewBlockValidator(chainConfig, fastChainLocal, snailChainLocal, engine)
 
 	return &testWorkerBackend{
 		db:        db,
 		chain:     snailChainLocal,
 		fastchain: fastChainLocal,
-		snailPool: snailchain.NewSnailPool(snailchain.DefaultSnailPoolConfig, fastChainLocal, snailChainLocal, engine, sv),
+		snailPool: snailchain.NewSnailPool(snailchain.DefaultSnailPoolConfig, fastChainLocal, snailChainLocal, engine),
 	}
 }
 
@@ -105,7 +105,7 @@ func TestCommitFastBlock(t *testing.T) {
 	engine := minerva.NewFaker()
 
 	chainDb := etruedb.NewMemDatabase()
-	chainConfig, _, _, _, _, _ := core.SetupGenesisBlock(chainDb, core.DefaultGenesisBlock())
+	chainConfig, _, _, _ := core.SetupGenesisBlock(chainDb, core.DefaultGenesisBlock())
 	//Miner := New(snailChainLocal, nil, nil, snailChainLocal.Engine(), nil, false, nil)
 	worker, _ := newTestWorker(t, chainConfig, engine, 1)
 
@@ -121,7 +121,8 @@ func TestCommitFastBlock(t *testing.T) {
 
 	// situation 2   1 2 3 4
 	for i := startFastNum; i < (10 + startFastNum); i++ {
-		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, 1, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
+
+		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 		if fruit == nil {
 			fmt.Errorf("fruit is nil  2")
 		}
@@ -140,7 +141,7 @@ func TestCommitFastBlock(t *testing.T) {
 		if j == 10 {
 			continue
 		}
-		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, 1, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
+		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 		if fruit == nil {
 			fmt.Errorf("fruit is nil  3")
 		}
@@ -154,7 +155,7 @@ func TestCommitFastBlock(t *testing.T) {
 	// situation 4   1 2 3...60
 	for i := startFastNum; i < startFastNum+60; i++ {
 
-		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, 1, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
+		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 		if fruit == nil {
 			fmt.Errorf("fruit is nil 4 ")
 		}
@@ -168,7 +169,7 @@ func TestCommitFastBlock(t *testing.T) {
 	// situation 5   10000 10001...
 	for i := fastChainHight; i < startFastNum+60; i++ {
 
-		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, 1, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
+		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 		if fruit == nil {
 			fmt.Errorf("fruit is nil  5")
 		}
@@ -191,7 +192,7 @@ func TestCommitFruits(t *testing.T) {
 	engine := minerva.NewFaker()
 
 	chainDb := etruedb.NewMemDatabase()
-	chainConfig, _, _, _, _, _ := core.SetupGenesisBlock(chainDb, core.DefaultGenesisBlock())
+	chainConfig, _, _, _ := core.SetupGenesisBlock(chainDb, core.DefaultGenesisBlock())
 	//Miner := New(snailChainLocal, nil, nil, snailChainLocal.Engine(), nil, false, nil)
 	worker, _ := newTestWorker(t, chainConfig, engine, 1)
 
@@ -200,10 +201,10 @@ func TestCommitFruits(t *testing.T) {
 
 	//create some fruits but less then cureent block
 
-	fruitNofresh, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, 1, startFastNum+params.MinimumFruits+1, 1, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
+	fruitNofresh, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, 1, startFastNum+params.MinimumFruits+1, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 
 	for i := startFastNum; i < startFastNum+params.MinimumFruits; i++ {
-		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, startFastNum, i, 1, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
+		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, startFastNum, i, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 		fruitset = append(fruitset, fruit)
 	}
 	fruitset = append(fruitset, fruitNofresh)

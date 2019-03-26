@@ -68,7 +68,7 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		blockReward := fv.bc.GetBlockReward(snailNumber)
 
 		if blockReward != nil && block.NumberU64() != blockReward.FastNumber.Uint64() {
-			log.Error("validateRewardError", "snailNumber", blockReward.FastNumber.Uint64(),
+			log.Error("validateRewardError", "rewardFastNumber", blockReward.FastNumber.Uint64(),
 				"currentNumber", block.NumberU64(), "err", ErrSnailNumberAlreadyRewarded)
 			return ErrSnailNumberAlreadyRewarded
 		} else {
@@ -87,7 +87,7 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
 
-	if  hash := types.RlpHash(block.SwitchInfos()) ;hash!= header.CommitteeHash {
+	if hash := types.RlpHash(block.SwitchInfos()); hash != header.CommitteeHash {
 		return fmt.Errorf("SwitchInfos root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
 

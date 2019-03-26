@@ -255,9 +255,9 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 	current := d.blockchain.CurrentBlock().NumberU64()
 
 	return truechain.SyncProgress{
-		StartingBlock: d.syncStatsChainOrigin,
-		CurrentBlock:  current,
-		HighestBlock:  d.syncStatsChainHeight,
+		StartingSnailBlock: d.syncStatsChainOrigin,
+		CurrentSnailBlock:  current,
+		HighestSnailBlock:  d.syncStatsChainHeight,
 		PulledStates:  d.syncStatsState.processed,
 		KnownStates:   d.syncStatsState.processed + d.syncStatsState.pending,
 	}
@@ -270,8 +270,8 @@ func (d *Downloader) Synchronising() bool {
 
 // RegisterPeer injects a new download peer into the set of block source to be
 // used for fetching hashes and blocks from.
-func (d *Downloader) RegisterPeer(id string, version int, peer etrue.Peer) error {
-	logger := log.New("peer", id)
+func (d *Downloader) RegisterPeer(id string, version int, ip string, peer etrue.Peer) error {
+	logger := log.New("peer", ip)
 	logger.Trace("Registering sync peer")
 
 	if err := d.peers.Register(newPeerConnection(id, version, peer, logger)); err != nil {
@@ -284,8 +284,8 @@ func (d *Downloader) RegisterPeer(id string, version int, peer etrue.Peer) error
 }
 
 // RegisterLightPeer injects a light client peer, wrapping it so it appears as a regular peer.
-func (d *Downloader) RegisterLightPeer(id string, version int, peer etrue.LightPeer) error {
-	return d.RegisterPeer(id, version, &lightPeerWrapper{peer})
+func (d *Downloader) RegisterLightPeer(id string, version int, ip string, peer etrue.LightPeer) error {
+	return d.RegisterPeer(id, version, ip, &lightPeerWrapper{peer})
 }
 
 // UnregisterPeer remove a peer from the known list, preventing any action from
@@ -316,7 +316,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode) error {
 	err := d.synchronise(id, head, td, mode)
-	defer log.Info("snail Synchronise exit")
+	defer log.Debug("snail Synchronise exit")
 	switch err {
 	case nil:
 	case errBusy:
@@ -354,9 +354,9 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	defer atomic.StoreInt32(&d.synchronising, 0)
 
 	// Post a user notification of the sync (only once per session)
-	//if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
+	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
 		log.Info("snail Block synchronisation started")
-	//}
+	}
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()
 	d.peers.Reset()
@@ -513,6 +513,7 @@ func (d *Downloader) cancel() {
 // finish before returning.
 func (d *Downloader) Cancel() {
 	d.cancel()
+	d.fastDown.Cancel()
 	d.cancelWg.Wait()
 }
 
@@ -1135,7 +1136,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 							peer.GetLog().Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
-							peer.GetLog().Warn("drop peer snail fetchParts", "id", peer.GetID(), "type", kind, "fails", fails)
+							peer.GetLog().Warn("drop peer snail fetchParts", "id", peer.GetPeer(), "type", kind, "fails", fails)
 							d.dropPeer(pid)
 						}
 					}

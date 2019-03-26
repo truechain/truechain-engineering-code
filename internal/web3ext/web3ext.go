@@ -198,11 +198,6 @@ web3._extend({
 			params: 1
 		}),
 		new web3._extend.Method({
-			name: 'setSnailHead',
-			call: 'debug_setSnailHead',
-			params: 1
-		}),
-		new web3._extend.Method({
 			name: 'seedHash',
 			call: 'debug_seedHash',
 			params: 1

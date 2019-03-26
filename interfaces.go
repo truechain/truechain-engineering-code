@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
@@ -81,6 +80,10 @@ type ChainStateReader interface {
 // SyncProgress gives progress indications when the node is synchronising with
 // the Truechain network.
 type SyncProgress struct {
+	StartingSnailBlock uint64 // Snail Block number where sync began
+	CurrentSnailBlock  uint64 // Current block number where sync is at
+	HighestSnailBlock  uint64 // Highest alleged block number in the chain
+
 	StartingBlock uint64 // Block number where sync began
 	CurrentBlock  uint64 // Current block number where sync is at
 	HighestBlock  uint64 // Highest alleged block number in the chain

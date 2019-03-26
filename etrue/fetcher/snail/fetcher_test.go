@@ -18,22 +18,78 @@ package snailfetcher
 
 import (
 	"errors"
+	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus/election"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/vm"
+	"math/big"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/consensus/election"
-	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
+
+func init() {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+}
+
+var (
+	testdb       = etruedb.NewMemDatabase()
+	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testAddress  = crypto.PubkeyToAddress(testKey.PublicKey)
+	genesis      = core.GenesisSnailBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
+	unknownBlock = types.NewSnailBlock(&types.SnailHeader{Number: big.NewInt(1), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(3), FastNumber: big.NewInt(2)}, nil, nil, nil)
+
+	gspec = &core.Genesis{
+		Config: params.TestChainConfig,
+		Alloc:  types.GenesisAlloc{testAddress: {Balance: big.NewInt(1000000)}},
+	}
+	fastgenesis = gspec.MustFastCommit(testdb)
+)
+
+// makeChain creates a chain of n blocks starting at and including parent.
+// the returned hash chain is ordered head->parent. In addition, every 3rd block
+// contains a transaction and every 5th an uncle to allow testing correct block
+// reassembly.
+//func makeChain(n int, seed byte, parent *types.SnailBlock) ([]common.Hash, map[common.Hash]*types.SnailBlock) {
+//
+//	blockchain, _ := core.NewBlockChain(testdb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+//	chain, _ := core.GenerateChain(gspec.Config, fastgenesis, ethash.NewFaker(), testdb, n, nil)
+//	if _, err := blockchain.InsertChain(chain); err != nil {
+//		panic(err)
+//	}
+//
+//	blocks := snailchain.GenerateChain(params.TestChainConfig, blockchain,parent, ethash.NewFaker(), testdb, n, func(i int, block *snailchain.BlockGen) {
+//		block.SetCoinbase(common.Address{seed})
+//
+//		// If the block number is multiple of 3, send a bonus transaction to the miner
+//		if parent == genesis && i%3 == 0 {
+//		}
+//		// If the block number is a multiple of 5, add a bonus uncle to the block
+//		if i%5 == 0 {
+//		}
+//	})
+//	hashes := make([]common.Hash, n+1)
+//	hashes[len(hashes)-1] = parent.Hash()
+//	blockm := make(map[common.Hash]*types.SnailBlock, n+1)
+//	blockm[parent.Hash()] = parent
+//	for i, b := range blocks {
+//		hashes[len(hashes)-i-2] = b.Hash()
+//		blockm[b.Hash()] = b
+//	}
+//	return hashes, blockm
+//}
 
 var (
 	canonicalSeed = 1
@@ -54,7 +110,7 @@ func makeFast(parent *types.Block, n int, engine consensus.Engine, db etruedb.Da
 // the returned hash chain is ordered head->parent. In addition, every 3rd block
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
-func makeChain(n int) ([]*types.SnailBlock, *types.SnailBlock) {
+func makeChain(n int, seed byte, parent *types.SnailBlock) ([]common.Hash, map[common.Hash]*types.SnailBlock) {
 	var (
 		testdb  = etruedb.NewMemDatabase()
 		genesis = core.DefaultGenesisBlock()
@@ -71,11 +127,11 @@ func makeChain(n int) ([]*types.SnailBlock, *types.SnailBlock) {
 	fastchain.InsertChain(fastblocks)
 
 	snailGenesis := genesis.MustSnailCommit(testdb)
-	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, nil)
 
-	blocks1, _ := snailchain.MakeSnailBlockFruitsWithoutInsert(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
+	_, _ = snailchain.MakeSnailBlockFruitsWithoutInsert(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
 
-	return blocks1, snailGenesis
+	return nil, nil
 }
 
 // fetcherTester is a test simulator for mocking out local block chain.
@@ -90,7 +146,7 @@ type fetcherTester struct {
 }
 
 // newTester creates a new fetcher test mocker.
-func newTester(genesis *types.SnailBlock) *fetcherTester {
+func newTester() *fetcherTester {
 	tester := &fetcherTester{
 		hashes: []common.Hash{genesis.Hash()},
 		blocks: map[common.Hash]*types.SnailBlock{genesis.Hash(): genesis},
@@ -157,8 +213,42 @@ func (f *fetcherTester) dropPeer(peer string) {
 	f.drops[peer] = true
 }
 
+// verifyFetchingEvent verifies that one single event arrive on a fetching channel.
+func verifyFetchingEvent(t *testing.T, fetching chan []common.Hash, arrive bool) {
+	if arrive {
+		select {
+		case <-fetching:
+		case <-time.After(time.Second):
+			t.Fatalf("fetching timeout")
+		}
+	} else {
+		select {
+		case <-fetching:
+			t.Fatalf("fetching invoked")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+// verifyCompletingEvent verifies that one single event arrive on an completing channel.
+func verifyCompletingEvent(t *testing.T, completing chan []common.Hash, arrive bool) {
+	if arrive {
+		select {
+		case <-completing:
+		case <-time.After(time.Second):
+			t.Fatalf("completing timeout")
+		}
+	} else {
+		select {
+		case <-completing:
+			t.Fatalf("completing invoked")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
 // verifyImportEvent verifies that one single event arrive on an import channel.
-func verifyImportEvent(t *testing.T, imported chan *types.Block, arrive bool) {
+func verifyImportEvent(t *testing.T, imported chan *types.SnailBlock, arrive bool) {
 	if arrive {
 		select {
 		case <-imported:
@@ -169,38 +259,117 @@ func verifyImportEvent(t *testing.T, imported chan *types.Block, arrive bool) {
 		select {
 		case <-imported:
 			t.Fatalf("import invoked")
-		case <-time.After(10 * time.Millisecond):
+		case <-time.After(20 * time.Millisecond):
 		}
 	}
 }
 
-// Tests that blocks arriving from various sources (multiple propagations, hash
-// announces, etc) do not get scheduled for import multiple times.
-func TestImportDeduplication62(t *testing.T) { testImportDeduplication(t, 62) }
-func TestImportDeduplication63(t *testing.T) { testImportDeduplication(t, 63) }
-func TestImportDeduplication64(t *testing.T) { testImportDeduplication(t, 64) }
-
-func testImportDeduplication(t *testing.T, protocol int) {
-	// Create two blocks to import (one for duplication, the other for stalling)
-	blocks, snailGenesis := makeChain(1)
-
-	// Create the tester and wrap the importer with a counter
-	tester := newTester(snailGenesis)
-
-	counter := uint32(0)
-	tester.fetcher.insertChain = func(blocks types.SnailBlocks) (int, error) {
-		atomic.AddUint32(&counter, uint32(len(blocks)))
-		return tester.insertChain(blocks)
+// verifyImportCount verifies that exactly count number of events arrive on an
+// import hook channel.
+func verifyImportCount(t *testing.T, imported chan *types.SnailBlock, count int) {
+	for i := 0; i < count; i++ {
+		select {
+		case <-imported:
+		case <-time.After(time.Second * 3):
+			t.Fatalf("block %d: import timeout", i+1)
+		}
 	}
+	verifyImportDone(t, imported)
+}
 
-	tester.fetcher.Enqueue("valid", blocks[0])
-	tester.fetcher.Enqueue("valid", blocks[0])
-	tester.fetcher.Enqueue("valid", blocks[0])
-
-	// Fill the missing block directly as if propagated, and check import uniqueness
-	//tester.fetcher.Enqueue("valid", blocks[1])
-
-	if len(tester.blocks) != 2 {
-		t.Fatalf("import invocation count mismatch: have %v, want %v", counter, 2)
+// verifyImportDone verifies that no more events are arriving on an import channel.
+func verifyImportDone(t *testing.T, imported chan *types.SnailBlock) {
+	select {
+	case <-imported:
+		t.Fatalf("extra block imported")
+	case <-time.After(50 * time.Millisecond):
 	}
+}
+
+// Tests that blocks with numbers much lower or higher than out current head get
+// discarded to prevent wasting resources on useless blocks from faulty peers.
+func TestDistantPropagationDiscarding(t *testing.T) {
+	// Create a long chain to import and define the discard boundaries
+	hashes, blocks := makeChain(3*maxQueueDist, 0, genesis)
+	head := hashes[len(hashes)/2]
+
+	low, high := len(hashes)/2+maxUncleDist+1, len(hashes)/2-maxQueueDist-1
+
+	// Create a tester and simulate a head block being the middle of the above chain
+	tester := newTester()
+
+	tester.lock.Lock()
+	tester.hashes = []common.Hash{head}
+	tester.blocks = map[common.Hash]*types.SnailBlock{head: blocks[head]}
+	tester.lock.Unlock()
+
+	// Ensure that a block with a lower number than the threshold is discarded
+	tester.fetcher.Enqueue("lower", blocks[hashes[low]])
+	time.Sleep(10 * time.Millisecond)
+	if !tester.fetcher.queue.Empty() {
+		t.Fatalf("fetcher queued stale block")
+	}
+	// Ensure that a block with a higher number than the threshold is discarded
+	tester.fetcher.Enqueue("higher", blocks[hashes[high]])
+	time.Sleep(10 * time.Millisecond)
+	if !tester.fetcher.queue.Empty() {
+		t.Fatalf("fetcher queued future block")
+	}
+}
+
+// Tests that blocks sent to the fetcher (either through propagation or via hash
+// announces and retrievals) don't pile up indefinitely, exhausting available
+// system memory.
+func TestBlockMemoryExhaustionAttack(t *testing.T) {
+	// Create a tester with instrumented import hooks
+	tester := newTester()
+
+	imported, enqueued := make(chan *types.SnailBlock), int32(0)
+	tester.fetcher.importedHook = func(block *types.SnailBlock) { imported <- block }
+	tester.fetcher.queueChangeHook = func(hash common.Hash, added bool) {
+		if added {
+			atomic.AddInt32(&enqueued, 1)
+		} else {
+			atomic.AddInt32(&enqueued, -1)
+		}
+	}
+	// Create a valid chain and a batch of dangling (but in range) blocks
+	targetBlocks := 2 * maxQueueDist
+	hashes, blocks := makeChain(targetBlocks, 0, genesis)
+	attack := make(map[common.Hash]*types.SnailBlock)
+	for i := byte(0); len(attack) < blockLimit+2*maxQueueDist; i++ {
+		hashes, blocks := makeChain(maxQueueDist-1, i, unknownBlock)
+		for _, hash := range hashes[:maxQueueDist-2] {
+			attack[hash] = blocks[hash]
+		}
+	}
+	// Try to feed all the attacker blocks make sure only a limited batch is accepted
+	for _, block := range attack {
+		tester.fetcher.Enqueue("attacker", block)
+	}
+	time.Sleep(200 * time.Millisecond)
+	queued := atomic.LoadInt32(&enqueued)
+	fmt.Println("TestBlockMemoryExhaustionAttack", "queued", queued, "attack", len(attack), "hashes", len(hashes))
+	log.Trace("TestBlockMemoryExhaustionAttack", "queued", queued, "attack", len(attack), "hashes", len(hashes))
+	if queued != blockLimit {
+		t.Fatalf("queued block count mismatch: have %d, want %d", queued, blockLimit)
+	}
+	// Queue up a batch of valid blocks, and check that a new peer is allowed to do so
+	for i := 0; i < maxQueueDist-1; i++ {
+		tester.fetcher.Enqueue("valid", blocks[hashes[len(hashes)-3-i]])
+	}
+	time.Sleep(100 * time.Millisecond)
+	if queued := atomic.LoadInt32(&enqueued); queued != blockLimit+maxQueueDist-1 {
+		t.Fatalf("queued block count mismatch: have %d, want %d", queued, blockLimit+maxQueueDist-1)
+	}
+	// Insert the missing piece (and sanity check the import)
+	tester.fetcher.Enqueue("valid", blocks[hashes[len(hashes)-2]])
+	verifyImportCount(t, imported, maxQueueDist)
+
+	// Insert the remaining blocks in chunks to ensure clean DOS protection
+	for i := maxQueueDist; i < len(hashes)-1; i++ {
+		tester.fetcher.Enqueue("valid", blocks[hashes[len(hashes)-2-i]])
+		verifyImportEvent(t, imported, true)
+	}
+	verifyImportDone(t, imported)
 }

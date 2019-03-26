@@ -109,6 +109,8 @@ var (
 
 	MinimumFruits int = 60
 	MaximumFruits int = 600
+
+	MinTimeGap = big.NewInt(360)
 )
 
 var (
@@ -116,7 +118,9 @@ var (
 
 	SnailRewardInterval = big.NewInt(14)
 
-	FastToFruitSpace = big.NewInt(1200)
+	SnailMaximumRewardInterval = big.NewInt(20)
+
+	FastToFruitSpace = big.NewInt(1500)
 
 	ElectionPeriodNumber     = big.NewInt(180) // snail block period number
 	ElectionSwitchoverNumber = big.NewInt(9600)

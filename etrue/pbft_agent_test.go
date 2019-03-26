@@ -22,7 +22,9 @@ const (
 	backMemberNumber = 14
 )
 
-var agent *PbftAgent
+var (
+	agent *PbftAgent
+)
 
 func init() {
 	agent = NewPbftAgetTest()
@@ -95,7 +97,8 @@ func TestSendAndReceiveCommitteeNode(t *testing.T) {
 	t.Log(agent.committeeNode)
 	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
 	t.Log(len(cryNodeInfo.Nodes))
-	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
+	pk := &agent.privateKey.PublicKey // received pk
+	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey, pk)
 	t.Log(receivedCommitteeNode)
 }
 
@@ -103,7 +106,8 @@ func TestSendAndReceiveCommitteeNode2(t *testing.T) {
 	committeeInfo, _ := initCommitteeInfo()
 	t.Log(agent.committeeNode)
 	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
-	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
+	pk := &agent.privateKey.PublicKey // received pk
+	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey, pk)
 	t.Log(receivedCommitteeNode)
 }
 

@@ -39,9 +39,10 @@ import (
 
 const (
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
-	chainHeadChanSize = 10
-	defaultGasPrice   = 1
-	txChanSize        = 2048
+	chainHeadChanSize     = 10
+	defaultGasPrice       = 1000000
+	txChanSize            = 2048
+	MinimumGasPrice_local = 0
 )
 
 var (
@@ -139,7 +140,7 @@ type blockChain interface {
 	GetBlock(hash common.Hash, number uint64) *types.Block
 	StateAt(root common.Hash) (*state.StateDB, error)
 
-	SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -229,7 +230,7 @@ type TxPool struct {
 	gasPrice     *big.Int
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
-	chainHeadCh  chan types.ChainFastHeadEvent
+	chainHeadCh  chan types.FastChainHeadEvent
 	chainHeadSub event.Subscription
 	signer       types.Signer
 	mu           sync.RWMutex
@@ -269,7 +270,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		queue:       make(map[common.Address]*txList),
 		beats:       make(map[common.Address]time.Time),
 		all:         newTxLookup(),
-		chainHeadCh: make(chan types.ChainFastHeadEvent, chainHeadChanSize),
+		chainHeadCh: make(chan types.FastChainHeadEvent, chainHeadChanSize),
 		newTxsCh:    make(chan []*types.Transaction, txChanSize),
 		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
 	}
@@ -655,7 +656,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
-	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
+	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 || tx.GasPrice().Cmp(big.NewInt(MinimumGasPrice_local)) < 1 {
 		return ErrUnderpriced
 	}
 	// Ensure the transaction adheres to nonce ordering
@@ -885,7 +886,7 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 	errs := make([]error, len(txs))
 	lenTx := pool.remoteTxlen.Load().(uint64) + 1
 	if lenTx > 0 && lenTx%1000 == 0 {
-		log.Warn("AddRemotes", "txs", len(txs), "newTxsCh", len(pool.newTxsCh), "lenTx", lenTx)
+		//log.Warn("AddRemotes", "txs", len(txs), "newTxsCh", len(pool.newTxsCh), "lenTx", lenTx)
 	}
 	pool.remoteTxlen.Store(lenTx)
 	select {

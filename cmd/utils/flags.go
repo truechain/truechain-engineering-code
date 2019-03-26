@@ -40,7 +40,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -132,7 +132,7 @@ var (
 	}
 	NetworkIdFlag = cli.Uint64Flag{
 		Name:  "networkid",
-		Usage: "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+		Usage: "Network identifier",
 		Value: etrue.DefaultConfig.NetworkId,
 	}
 	TestnetFlag = cli.BoolFlag{
@@ -180,10 +180,12 @@ var (
 	BFTPortFlag = cli.Uint64Flag{
 		Name:  "bftport",
 		Usage: "committee node port ",
+		Value: uint64(etrue.DefaultConfig.Port),
 	}
 	BFTStandbyPortFlag = cli.Uint64Flag{
 		Name:  "bftport2",
 		Usage: "committee node standby port ",
+		Value: uint64(etrue.DefaultConfig.StandbyPort),
 	}
 	BftKeyFileFlag = cli.StringFlag{
 		Name:  "bftkey",
@@ -193,15 +195,11 @@ var (
 		Name:  "bftkeyhex",
 		Usage: "committee generate bft_privatekey as hex (for testing)",
 	}
-	OldTbftFlag = cli.BoolFlag{
-		Name:  "oldbft",
-		Usage: "run bft use http",
-	}
 
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
 		Name:  "syncmode",
-		Usage: `Blockchain sync mode ("fast", "full", "light",or "snapshot")`,
+		Usage: `Blockchain sync mode ("full", or "snapshot")`,
 		Value: &defaultSyncMode,
 	}
 	GCModeFlag = cli.StringFlag{
@@ -339,6 +337,12 @@ var (
 		Name:  "mine",
 		Usage: "Enable mining",
 	}
+
+	MiningRemoteEnableFlag = cli.BoolFlag{
+		Name:  "remote",
+		Usage: "Enable remote mining",
+	}
+
 	MineFruitFlag = cli.BoolFlag{
 		Name:  "minefruit",
 		Usage: "only mine fruit",
@@ -802,19 +806,15 @@ func setIPC(ctx *cli.Context, cfg *node.Config) {
 // makeDatabaseHandles raises out the number of allowed file handles per process
 // for Getrue and returns half of the allowance to assign to the database.
 func makeDatabaseHandles() int {
-	limit, err := fdlimit.Current()
+	limit, err := fdlimit.Maximum()
 	if err != nil {
 		Fatalf("Failed to retrieve file descriptor allowance: %v", err)
 	}
-	if limit < 2048 {
-		if err := fdlimit.Raise(2048); err != nil {
-			Fatalf("Failed to raise file descriptor allowance: %v", err)
-		}
+	raised, err := fdlimit.Raise(uint64(limit))
+	if err != nil {
+		Fatalf("Failed to raise file descriptor allowance: %v", err)
 	}
-	if limit > 2048 { // cap database file descriptors even if more is available
-		limit = 2048
-	}
-	return limit / 2 // Leave half for networking and other stuff
+	return int(raised / 2) // Leave half for networking and other stuff
 }
 
 // MakeAddress converts an account specified directly as a hex encoded string or
@@ -1099,8 +1099,8 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalBool(MiningEnabledFlag.Name) {
 		cfg.Mine = true
 	}
-	if ctx.GlobalBool(OldTbftFlag.Name) {
-		cfg.OldTbft = true
+	if ctx.GlobalBool(MiningRemoteEnableFlag.Name) {
+		cfg.RemoteMine = true
 	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
@@ -1328,18 +1328,17 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	// 	//TODO not need clique
 	// 	//engine = clique.New(config.Clique, chainDb)
 	// } else {
-	engine = ethash.NewFaker()
+	engine = minerva.NewFaker()
 	if !ctx.GlobalBool(FakePoWFlag.Name) {
-		engine = ethash.New(ethash.Config{
-			CacheDir:       stack.ResolvePath(etrue.DefaultConfig.Ethash.CacheDir),
-			CachesInMem:    etrue.DefaultConfig.Ethash.CachesInMem,
-			CachesOnDisk:   etrue.DefaultConfig.Ethash.CachesOnDisk,
-			DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.Ethash.DatasetDir),
-			DatasetsInMem:  etrue.DefaultConfig.Ethash.DatasetsInMem,
-			DatasetsOnDisk: etrue.DefaultConfig.Ethash.DatasetsOnDisk,
+		engine = minerva.New(minerva.Config{
+			CacheDir:       stack.ResolvePath(etrue.DefaultConfig.MinervaHash.CacheDir),
+			CachesInMem:    etrue.DefaultConfig.MinervaHash.CachesInMem,
+			CachesOnDisk:   etrue.DefaultConfig.MinervaHash.CachesOnDisk,
+			DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.MinervaHash.DatasetDir),
+			DatasetsInMem:  etrue.DefaultConfig.MinervaHash.DatasetsInMem,
+			DatasetsOnDisk: etrue.DefaultConfig.MinervaHash.DatasetsOnDisk,
 		})
 	}
-	// }
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}

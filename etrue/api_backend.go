@@ -200,15 +200,15 @@ func (b *TrueAPIBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEv
 	return b.etrue.BlockChain().SubscribeRemovedLogsEvent(ch)
 }
 
-func (b *TrueAPIBackend) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeChainEvent(ch chan<- types.FastChainEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainEvent(ch)
 }
 
-func (b *TrueAPIBackend) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainHeadEvent(ch)
 }
 
-func (b *TrueAPIBackend) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainSideEvent(ch)
 }
 
@@ -224,7 +224,7 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 }
 
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
-	return b.etrue.election.GetComitteeById(big.NewInt(number.Int64())), nil
+	return b.etrue.election.GetCommitteeById(big.NewInt(number.Int64())), nil
 }
 
 func (b *TrueAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
