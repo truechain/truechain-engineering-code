@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
+	"math/big"
 )
 
 var (
@@ -118,7 +119,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	fruits := block.Fruits()
 	maxfb := v.fastchain.GetHeader(fruits[len(fruits)-1].FastHash(), fruits[len(fruits)-1].FastNumber().Uint64())
 	minfb := v.fastchain.GetHeader(fruits[0].FastHash(), fruits[0].FastNumber().Uint64())
-	gap := maxfb.Time.Sub(maxfb.Time, minfb.Time)
+	gap := new(big.Int).Sub(maxfb.Time, minfb.Time)
 	if gap.Cmp(params.MinTimeGap) < 0 {
 		log.Info("ValidateBody snail validate time gap error", "block", block.Number(), "first fb number", minfb.Number, "first fb time", minfb.Time, "last fb number", maxfb.Number, "last fb time", maxfb.Time, "tim gap", gap)
 		return ErrGapFruits
