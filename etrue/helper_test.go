@@ -46,6 +46,7 @@ import (
 var (
 	testBankKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testBank       = crypto.PubkeyToAddress(testBankKey.PublicKey)
+	engine         = ethash.NewFaker()
 )
 
 // newTestProtocolManager creates a new protocol manager for testing purposes,
@@ -53,10 +54,9 @@ var (
 // channels for different events.
 func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func(int, *core.BlockGen), snailGenerator func(int, *snailchain.BlockGen), newtx chan<- []*types.Transaction, newft chan<- []*types.SnailBlock) (*ProtocolManager, *etruedb.MemDatabase, error) {
 	var (
-		evmux  = new(event.TypeMux)
-		engine = ethash.NewFaker()
-		db     = etruedb.NewMemDatabase()
-		gspec  = &core.Genesis{
+		evmux = new(event.TypeMux)
+		db    = etruedb.NewMemDatabase()
+		gspec = &core.Genesis{
 			Config:     params.TestChainConfig,
 			Alloc:      types.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
 			Difficulty: big.NewInt(20000),

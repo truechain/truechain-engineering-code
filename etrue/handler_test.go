@@ -349,12 +349,12 @@ func testGetNodeData(t *testing.T, protocol int) {
 			hashes = append(hashes, common.BytesToHash(key))
 		}
 	}
-	p2p.Send(peer.app, 0x0d, hashes)
+	p2p.Send(peer.app, 0x0f, hashes)
 	msg, err := peer.app.ReadMsg()
 	if err != nil {
 		t.Fatalf("failed to read node data response: %v", err)
 	}
-	if msg.Code != 0x0e {
+	if msg.Code != 0x10 {
 		t.Fatalf("response packet code mismatch: have %x, want %x", msg.Code, 0x0c)
 	}
 	var data [][]byte
@@ -441,8 +441,8 @@ func testGetReceipt(t *testing.T, protocol int) {
 		receipts = append(receipts, pm.blockchain.GetReceiptsByHash(block.Hash()))
 	}
 	// Send the hash request and verify the response
-	p2p.Send(peer.app, 0x0f, hashes)
-	if err := p2p.ExpectMsg(peer.app, 0x10, receipts); err != nil {
+	p2p.Send(peer.app, 0x11, hashes)
+	if err := p2p.ExpectMsg(peer.app, 0x12, receipts); err != nil {
 		t.Errorf("receipts mismatch: %v", err)
 	}
 }
