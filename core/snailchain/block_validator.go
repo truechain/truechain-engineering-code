@@ -120,7 +120,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	maxfb := v.fastchain.GetHeader(fruits[len(fruits)-1].FastHash(), fruits[len(fruits)-1].FastNumber().Uint64())
 	minfb := v.fastchain.GetHeader(fruits[0].FastHash(), fruits[0].FastNumber().Uint64())
 	if minfb == nil || maxfb == nil {
-		return ErrInvalidFruits
+		return consensus.ErrFutureBlock
 	}
 	gap := new(big.Int).Sub(maxfb.Time, minfb.Time)
 	if gap.Cmp(params.MinTimeGap) < 0 {
@@ -131,7 +131,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		if fruit.FastNumber().Uint64()-temp != 1 {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "first", fruits[0].FastNumber(), "count", len(fruits),
 				"fruit", fruit.FastNumber(), "pre", temp)
-			return consensus.ErrFutureBlock
+			return ErrInvalidFruits
 		}
 		if err := v.ValidateFruit(fruit, block, false); err != nil {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "hash", fruit.FastHash(), "err", err)
