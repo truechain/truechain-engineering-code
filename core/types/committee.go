@@ -240,6 +240,11 @@ type CommitteeInfo struct {
 	BackMembers []*CommitteeMember
 }
 
+func CopyCommitteeInfo(committeeInfo *CommitteeInfo) *CommitteeInfo {
+	committeeInfo_copy := *committeeInfo
+	return &committeeInfo_copy
+}
+
 func (c *CommitteeInfo) GetAllMembers() []*CommitteeMember {
 	var members []*CommitteeMember
 	members = append(members, c.Members...)

@@ -356,7 +356,7 @@ func (agent *PbftAgent) loop() {
 				if !agent.verifyCommitteeID(ch.Option, committeeID) {
 					continue
 				}
-				agent.setCommitteeInfo(currentCommittee, agent.nextCommitteeInfo)
+				agent.setCommitteeInfo(currentCommittee, types.CopyCommitteeInfo(agent.nextCommitteeInfo))
 				if agent.isCommitteeMember(agent.currentCommitteeInfo) {
 					agent.isCurrentCommitteeMember = true
 					go help.CheckAndPrintError(agent.server.Notify(committeeID, int(ch.Option)))
@@ -380,12 +380,13 @@ func (agent *PbftAgent) loop() {
 				if len(ch.CommitteeMembers) == 0 {
 					log.Error("CommitteeSwitchover receivedMembers is nil ", "committeeId", committeeID)
 				}
-				receivedCommitteeInfo := &types.CommitteeInfo{
+				rawCommitteeInfo := &types.CommitteeInfo{
 					Id:          committeeID,
 					StartHeight: ch.BeginFastNumber,
 					Members:     ch.CommitteeMembers,
 					BackMembers: ch.BackupMembers,
 				}
+				receivedCommitteeInfo := types.CopyCommitteeInfo(rawCommitteeInfo)
 				agent.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 
 				if agent.IsUsedOrUnusedMember(receivedCommitteeInfo, agent.committeeNode.Publickey) {
@@ -397,13 +398,15 @@ func (agent *PbftAgent) loop() {
 				}
 			case types.CommitteeUpdate:
 				committeeID := copyCommitteeID(ch.CommitteeID)
-				receivedCommitteeInfo := &types.CommitteeInfo{
+				rawCommitteeInfo := &types.CommitteeInfo{
 					Id:          ch.CommitteeID,
 					StartHeight: ch.BeginFastNumber,
 					EndHeight:   ch.EndFastNumber,
 					Members:     ch.CommitteeMembers,
 					BackMembers: ch.BackupMembers,
 				}
+				receivedCommitteeInfo := types.CopyCommitteeInfo(rawCommitteeInfo)
+
 				agent.updateCommittee(receivedCommitteeInfo)
 				flag := agent.getMemberFlagFromCommittee(receivedCommitteeInfo)
 				// flag : used  start  removed  stop
