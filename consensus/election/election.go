@@ -937,40 +937,10 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	if candidates == nil {
 		log.Warn("can't get election candidates, retain default committee", "begin", snailBeginNumber, "end", snailEndNumber)
 	} else {
-		var (
-			all []*types.CommitteeMember
-			addrs = make(map[common.Address]*types.CommitteeMember)
-			defaults = make(map[common.Address]*types.CommitteeMember)
-		)
-		for _, g := range e.defaultMembers {
-			defaults[g.CommitteeBase] = g
-		}
-		for _, cm := range candidates {
-			if _, ok := defaults[cm.address]; ok {
-				// Filter default committee members
-				continue
-			}
-			if _, ok := addrs[cm.address]; ok {
-				continue
-			}
-			addrs[cm.address] = &types.CommitteeMember{
-				Coinbase:      cm.coinbase,
-				CommitteeBase: crypto.PubkeyToAddress(*cm.publickey),
-				Publickey:     crypto.FromECDSAPub(cm.publickey),
-				Flag:          types.StateUnusedFlag,
-			}
-			all = append(all, addrs[cm.address])
-		}
-		if len(all) > params.ProposalCommitteeNumber {
-			members = e.elect(candidates, seed)
-		} else {
-			// Apply the whole candidates
-			log.Info("Apply all candidates", "begin", snailBeginNumber, "end", snailEndNumber)
-			members = all
-		}
+		members = e.elect(candidates, seed)
 	}
+	// Select the first ProposalCommitteeNumber candidates to be working committee
 	if len(members) > params.ProposalCommitteeNumber {
-		// Split elected candidates into members and backups
 		committee.Members = members[:params.ProposalCommitteeNumber]
 		committee.Backups = members[params.ProposalCommitteeNumber:]
 	} else {
@@ -1332,6 +1302,6 @@ func printCommittee(c *committee) {
 		log.Info("Committee member: ", "PKey", hex.EncodeToString(member.Publickey), "coinbase", member.Coinbase)
 	}
 	for _, member := range c.backupMembers {
-		log.Info("Committee backup: ", "PKey", hex.EncodeToString(member.Publickey), "coinbase", member.Coinbase)
+		log.Info("Committee backup member: ", "PKey", hex.EncodeToString(member.Publickey), "coinbase", member.Coinbase)
 	}
 }
