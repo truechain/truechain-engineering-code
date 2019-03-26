@@ -19,17 +19,18 @@ package miner
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	//	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	//"github.com/truechain/truechain-engineering-code/core/vm"
+	//"crypto/rand"
 	"github.com/ethereum/go-ethereum/log"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -50,6 +51,7 @@ const (
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
 	chainSideChanSize     = 64
 	fastchainHeadChanSize = 1024
+	fastblockTimeInterval = 5 * 60 //second
 )
 
 var (
@@ -574,7 +576,7 @@ func (w *worker) commitNewWork() {
 
 	// only miner fruit if not fruit set only miner the fruit
 	if !w.fruitOnly {
-		w.CommitFruits(pendingFruits, w.chain, w.engine)
+		w.CommitFruits(pendingFruits, w.chain, w.fastchain, w.engine)
 	}
 
 	if work.fruits != nil {
@@ -697,12 +699,15 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 }
 
 // CommitFruits find all fruits and start to the last parent fruits number and end continue fruit list
-func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
+func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
 
+	rand.Seed(time.Now().UnixNano())
+
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
+	fastHight := fc.CurrentHeader().Number
 
 	if len(fs) > 0 {
 		currentFastNumber = fs[len(fs)-1].FastNumber()
@@ -751,11 +756,26 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 			}
 			currentFastNumber.Add(currentFastNumber, common.Big1)
 		}
+		if len(fruitset) >= params.MinimumFruits {
+			// need add the time interval
+			startTime := fc.GetHeaderByNumber(fruitset[0].FastNumber().Uint64()).Time
+			endTime := fc.GetHeaderByNumber(fruitset[len(fruitset)-1].FastNumber().Uint64()).Time
+			timeinterval := new(big.Int).Sub(endTime, startTime)
 
-		if len(fruitset) > 0 {
-			w.current.fruits = fruitset
+			unmineFruitLen := new(big.Int).Sub(fastHight, fruitset[len(fruitset)-1].FastNumber())
+			waitmine := rand.Intn(1200)
+
+			if timeinterval.Cmp(new(big.Int).SetInt64(fastblockTimeInterval)) > 0 || (waitmine > int(unmineFruitLen.Int64())) {
+				// must big then 5min
+				w.current.fruits = fruitset
+			}
 
 		}
+		// need add the time interval
+		/*if len(fruitset) > 0 {
+			w.current.fruits = fruitset
+
+		}*/
 	} else {
 		// make the fruits to nil if not find the fruitset
 		w.current.fruits = nil
