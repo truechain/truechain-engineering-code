@@ -131,7 +131,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		if fruit.FastNumber().Uint64()-temp != 1 {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "first", fruits[0].FastNumber(), "count", len(fruits),
 				"fruit", fruit.FastNumber(), "pre", temp)
-			return ErrInvalidFruits
+			return consensus.ErrFutureBlock
 		}
 		if err := v.ValidateFruit(fruit, block, false); err != nil {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "hash", fruit.FastHash(), "err", err)
