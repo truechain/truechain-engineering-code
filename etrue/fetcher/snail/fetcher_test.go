@@ -18,11 +18,8 @@ package snailfetcher
 
 import (
 	"errors"
-	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -46,92 +43,46 @@ func init() {
 
 var (
 	testdb       = etruedb.NewMemDatabase()
+	engine       = minerva.NewFaker()
 	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress  = crypto.PubkeyToAddress(testKey.PublicKey)
-	genesis      = core.GenesisSnailBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
 	unknownBlock = types.NewSnailBlock(&types.SnailHeader{Number: big.NewInt(1), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(3), FastNumber: big.NewInt(2)}, nil, nil, nil)
 
 	gspec = &core.Genesis{
-		Config: params.TestChainConfig,
-		Alloc:  types.GenesisAlloc{testAddress: {Balance: big.NewInt(1000000)}},
+		Config:     params.TestChainConfig,
+		Alloc:      types.GenesisAlloc{testAddress: {Balance: big.NewInt(1000000)}},
+		Difficulty: big.NewInt(20000),
 	}
 	fastgenesis = gspec.MustFastCommit(testdb)
+	genesis     = gspec.MustSnailCommit(testdb)
+
+	blockchain, _ = core.NewBlockChain(testdb, nil, gspec.Config, engine, vm.Config{})
 )
 
-// makeChain creates a chain of n blocks starting at and including parent.
-// the returned hash chain is ordered head->parent. In addition, every 3rd block
-// contains a transaction and every 5th an uncle to allow testing correct block
-// reassembly.
-//func makeChain(n int, seed byte, parent *types.SnailBlock) ([]common.Hash, map[common.Hash]*types.SnailBlock) {
-//
-//	blockchain, _ := core.NewBlockChain(testdb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
-//	chain, _ := core.GenerateChain(gspec.Config, fastgenesis, ethash.NewFaker(), testdb, n, nil)
-//	if _, err := blockchain.InsertChain(chain); err != nil {
-//		panic(err)
-//	}
-//
-//	blocks := snailchain.GenerateChain(params.TestChainConfig, blockchain,parent, ethash.NewFaker(), testdb, n, func(i int, block *snailchain.BlockGen) {
-//		block.SetCoinbase(common.Address{seed})
-//
-//		// If the block number is multiple of 3, send a bonus transaction to the miner
-//		if parent == genesis && i%3 == 0 {
-//		}
-//		// If the block number is a multiple of 5, add a bonus uncle to the block
-//		if i%5 == 0 {
-//		}
-//	})
-//	hashes := make([]common.Hash, n+1)
-//	hashes[len(hashes)-1] = parent.Hash()
-//	blockm := make(map[common.Hash]*types.SnailBlock, n+1)
-//	blockm[parent.Hash()] = parent
-//	for i, b := range blocks {
-//		hashes[len(hashes)-i-2] = b.Hash()
-//		blockm[b.Hash()] = b
-//	}
-//	return hashes, blockm
-//}
+//makeChain creates a chain of n blocks starting at and including parent.
+//the returned hash chain is ordered head->parent. In addition, every 3rd block
+//contains a transaction and every 5th an uncle to allow testing correct block
+//reassembly.
+func makeChain(n int, seed byte, parent *types.SnailBlock) ([]common.Hash, map[common.Hash]*types.SnailBlock) {
 
-var (
-	canonicalSeed = 1
-	forkSeed      = 2
-)
+	chain, _ := core.GenerateChain(gspec.Config, fastgenesis, engine, testdb, n, nil)
+	if _, err := blockchain.InsertChain(chain); err != nil {
+		panic(err)
+	}
 
-// makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeFast(parent *types.Block, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.Block {
-	engine.SetElection(election.NewFakeElection())
-	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
-		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
+	blocks := snailchain.GenerateChain(params.TestChainConfig, blockchain, parent, n, 7, func(i int, block *snailchain.BlockGen) {
+		block.SetCoinbase(common.Address{seed})
 	})
 
-	return blocks
-}
-
-// makeChain creates a chain of n blocks starting at and including parent.
-// the returned hash chain is ordered head->parent. In addition, every 3rd block
-// contains a transaction and every 5th an uncle to allow testing correct block
-// reassembly.
-func makeChain(n int, seed byte, parent *types.SnailBlock) ([]common.Hash, map[common.Hash]*types.SnailBlock) {
-	var (
-		testdb  = etruedb.NewMemDatabase()
-		genesis = core.DefaultGenesisBlock()
-		engine  = minerva.NewFaker()
-		// genesis = new(core.Genesis).MustSnailCommit(testdb)
-
-	)
-
-	//blocks := make(types.SnailBlocks, 2)
-	cache := &core.CacheConfig{}
-	fastGenesis := genesis.MustFastCommit(testdb)
-	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
-	fastblocks := makeFast(fastGenesis, n*params.MinimumFruits, engine, testdb, canonicalSeed)
-	fastchain.InsertChain(fastblocks)
-
-	snailGenesis := genesis.MustSnailCommit(testdb)
-	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, nil)
-
-	_, _ = snailchain.MakeSnailBlockFruitsWithoutInsert(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
-
-	return nil, nil
+	hashes := make([]common.Hash, n+1)
+	hashes[len(hashes)-1] = parent.Hash()
+	blockm := make(map[common.Hash]*types.SnailBlock, n+1)
+	blockm[parent.Hash()] = parent
+	for i, b := range blocks {
+		hashes[len(hashes)-i-2] = b.Hash()
+		blockm[b.Hash()] = b
+	}
+	return hashes, blockm
 }
 
 // fetcherTester is a test simulator for mocking out local block chain.
@@ -349,7 +300,6 @@ func TestBlockMemoryExhaustionAttack(t *testing.T) {
 	}
 	time.Sleep(200 * time.Millisecond)
 	queued := atomic.LoadInt32(&enqueued)
-	fmt.Println("TestBlockMemoryExhaustionAttack", "queued", queued, "attack", len(attack), "hashes", len(hashes))
 	log.Trace("TestBlockMemoryExhaustionAttack", "queued", queued, "attack", len(attack), "hashes", len(hashes))
 	if queued != blockLimit {
 		t.Fatalf("queued block count mismatch: have %d, want %d", queued, blockLimit)

@@ -174,7 +174,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 		block := genblock(i, parent, blocks)
 		blocks = append(blocks, block)
 		parent = block
-		log.Info("GenerateChain", "blocks", len(blocks), "number", parent.Number(), "n", n)
+		log.Info("Make snail block", "blocks", len(blocks[1:]), "number", parent.Number(), "i", i)
 	}
 	return blocks[1:]
 }
