@@ -560,7 +560,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send snail block headers", "headers", len(headers), "time", time.Now().Sub(now), "peer", p.id, "number", query.Origin.Number, "hash", query.Origin.Hash)
-		return p.SendBlockHeaders(&BlockHeadersData{SnailHeaders: headers})
+		return p.SendBlockHeaders(&BlockHeadersData{SnailHeaders: headers}, false)
 
 	case msg.Code == SnailBlockHeadersMsg:
 		// A batch of headers arrived to one of our previous requests
@@ -666,7 +666,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id, "call", query.Call)
-		return p.SendBlockHeaders(&BlockHeadersData{Headers: headers, Call: query.Call})
+		return p.SendBlockHeaders(&BlockHeadersData{Headers: headers, Call: query.Call}, true)
 
 	case msg.Code == FastBlockHeadersMsg:
 
