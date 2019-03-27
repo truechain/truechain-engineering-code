@@ -199,7 +199,7 @@ func (miner *Miner) update() {
 
 					if miner.Mining() {
 						miner.Stop()
-						//atomic.StoreInt32(&miner.shouldStart, 1)
+						atomic.StoreInt32(&miner.shouldStart, 1)
 						log.Info("Mining aborted due to CommitteeUpdate")
 					}
 
