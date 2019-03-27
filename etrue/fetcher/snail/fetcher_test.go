@@ -70,7 +70,7 @@ func makeChain(n int, seed byte, parent *types.SnailBlock) ([]common.Hash, map[c
 		panic(err)
 	}
 
-	blocks := snailchain.GenerateChain(params.TestChainConfig, blockchain, parent, n, 7, func(i int, block *snailchain.BlockGen) {
+	blocks := snailchain.GenerateChain(params.TestChainConfig, blockchain, []*types.SnailBlock{parent}, n, 7, func(i int, block *snailchain.BlockGen) {
 		block.SetCoinbase(common.Address{seed})
 	})
 

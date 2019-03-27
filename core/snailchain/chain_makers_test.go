@@ -71,7 +71,7 @@ func testExampleGenerateChain(t *testing.T, n int) {
 	// This call generates a chain of 5 blocks. The function runs for
 	// each block and adds different features to gen based on the
 	// block index.
-	schain := GenerateChain(gspec.Config, blockchain, snailGenesis, n, 7, nil)
+	schain := GenerateChain(gspec.Config, blockchain, []*types.SnailBlock{snailGenesis}, n, 7, nil)
 	if _, err := snailChain.InsertChain(schain); err != nil {
 		panic(err)
 	}

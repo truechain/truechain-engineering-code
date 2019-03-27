@@ -119,12 +119,13 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, parent *types.SnailBlock, n int, freshPoint int, gen func(int, *BlockGen)) []*types.SnailBlock {
+func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, parents []*types.SnailBlock, n int, freshPoint int, gen func(int, *BlockGen)) []*types.SnailBlock {
 	if config == nil {
 		config = params.TestChainConfig
 	}
 	var blocks []*types.SnailBlock
-	blocks = append(blocks, parent)
+	blocks = append(blocks, parents...)
+	parent := parents[len(parents)-1]
 	log.Info("GenerateChain", "blocks", len(blocks), "number", parent.Number(), "n", n)
 
 	genblock := func(i int, parent *types.SnailBlock, chain []*types.SnailBlock) *types.SnailBlock {
@@ -422,7 +423,7 @@ func makeBlockHead(chain *SnailBlockChain, fastchain *core.BlockChain, parent *t
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
 func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailHeader {
-	blocks := makeBlockChain(fastChain, types.NewSnailBlockWithHeader(parent), n, engine, db, seed)
+	blocks := makeBlockChain(fastChain, []*types.SnailBlock{types.NewSnailBlockWithHeader(parent)}, n, engine, db, seed)
 	headers := make([]*types.SnailHeader, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
@@ -431,7 +432,7 @@ func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n in
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailBlock {
+func makeBlockChain(fastChain *core.BlockChain, parents []*types.SnailBlock, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailBlock {
 	if fastChain.CurrentBlock().NumberU64() == 0 {
 		fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastChain.CurrentBlock(), engine, db, n*params.MinimumFruits, func(i int, b *core.BlockGen) {
 			b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
@@ -439,7 +440,7 @@ func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int,
 
 		fastChain.InsertChain(fastblocks)
 	}
-	blocks := GenerateChain(params.TestChainConfig, fastChain, parent, n, 7, func(i int, b *BlockGen) {
+	blocks := GenerateChain(params.TestChainConfig, fastChain, parents, n, 7, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 
