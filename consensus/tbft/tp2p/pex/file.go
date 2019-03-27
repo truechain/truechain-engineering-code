@@ -16,7 +16,7 @@ type addrBookJSON struct {
 }
 
 func (a *addrBook) saveToFile(filePath string) {
-	log.Info("Saving AddrBook to file", "size", a.Size())
+	log.Debug("Saving AddrBook to file", "size", a.Size())
 
 	a.mtx.Lock()
 	defer a.mtx.Unlock()

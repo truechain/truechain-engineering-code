@@ -109,7 +109,6 @@ func (s *service) start(cid *big.Int, node *Node) error {
 
 	s.sw.SetNodeInfo(nodeinfo)
 	s.sw.SetNodeKey(&node.nodekey)
-	log.Info("commitee start", "node info", nodeinfo.String())
 	l := tp2p.NewDefaultListener(
 		lstr,
 		node.config.P2P.ExternalAddress,
@@ -233,7 +232,7 @@ func (s *service) connTo(node *nodeInfo) {
 	if node.Enable {
 		return
 	}
-	log.Info("[put nodes]connTo", "addr", node.Adrress)
+	log.Debug("[put nodes]connTo", "addr", node.Adrress)
 	errDialErr := s.sw.DialPeerWithAddress(node.Adrress, true)
 	if errDialErr != nil {
 		if strings.HasPrefix(errDialErr.Error(), "Duplicate peer ID") {
@@ -310,10 +309,8 @@ func (n *Node) OnStart() error {
 func (n *Node) OnStop() {
 	n.lock.Lock()
 	defer n.lock.Unlock()
-	for i, v := range n.services {
-		log.Info("begin stop tbft server ", "id", i)
+	for _, v := range n.services {
 		help.CheckAndPrintError(v.stop())
-		log.Info("end stop tbft server ", "id", i)
 	}
 	help.EndWatchMgr()
 	// first stop the non-reactor services
@@ -371,19 +368,19 @@ func (n *Node) Notify(id *big.Int, action int) error {
 				}
 				n.servicePre = id.Uint64()
 			}
-			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Debug("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			help.CheckAndPrintError(server.start(id, n))
-			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Debug("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			return nil
 		}
 		return errors.New("wrong conmmitt ID:" + id.String())
 
 	case Stop:
 		if server, ok := n.services[id.Uint64()]; ok {
-			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
+			log.Debug("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 			help.CheckAndPrintError(server.stop())
 			//delete(n.services, id.Uint64())
-			log.Info("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
+			log.Debug("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 		}
 		return nil
 	case Switch:
@@ -405,7 +402,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if _, ok := n.services[id.Uint64()]; ok {
 		return errors.New("repeat ID:" + id.String())
 	}
-	log.Info("pbft PutCommittee", "info", committeeInfo.String())
+	log.Debug("pbft PutCommittee", "info", committeeInfo.String())
 	// Make StateAgent
 	startHeight := committeeInfo.StartHeight.Uint64()
 	cid := id.Uint64()
@@ -425,7 +422,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	service.consensusState.SetHealthMgr(service.healthMgr)
 	service.consensusState.SetCommitteeInfo(committeeInfo)
 	nodeInfo := makeCommitteeMembers(service, committeeInfo)
-	log.Info("put committee", "nodeinfo", nodeInfo)
+	log.Debug("put committee", "nodeinfo", nodeInfo)
 	if nodeInfo == nil {
 		help.CheckAndPrintError(service.stop())
 		return errors.New("make the nil CommitteeMembers")
@@ -515,13 +512,13 @@ func (n *Node) checkValidatorSet(service *service, info *types.CommitteeInfo) (s
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	n.lock.Lock()
 	defer n.lock.Unlock()
-	log.Info("UpdateCommittee", "info", info)
+	log.Debug("UpdateCommittee", "info", info)
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator
 		stop, member := n.checkValidatorSet(service, info)
-		log.Info("UpdateCommittee", "stop", stop, "member", member)
+		log.Debug("UpdateCommittee", "stop", stop, "member", member)
 		val := MakeValidators(info)
-		log.Info("UpdateCommittee", "newValidator", val)
+		log.Debug("UpdateCommittee", "newValidator", val)
 		service.consensusState.UpdateValidatorsSet(val, info.StartHeight.Uint64(), info.EndHeight.Uint64())
 
 		for _, v := range member {
@@ -601,14 +598,14 @@ func makeCommitteeMembers(ss *service, cmm *types.CommitteeInfo) map[tp2p.ID]*no
 			ID:   id,
 			Flag: m.Flag,
 		}
-		log.Info("CommitteeMembers", "index", i, "id", id)
+		log.Debug("CommitteeMembers", "index", i, "id", id)
 	}
 	return tab
 }
 
 //SetCommitteeStop is stop committeeID server
 func (n *Node) SetCommitteeStop(committeeID *big.Int, stop uint64) error {
-	log.Info("SetCommitteeStop", "id", committeeID, "stop", stop)
+	log.Debug("SetCommitteeStop", "id", committeeID, "stop", stop)
 	n.lock.Lock()
 	defer n.lock.Unlock()
 

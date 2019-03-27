@@ -44,7 +44,7 @@ func (ps *PeerSet) Add(peer Peer) error {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	log.Info("add peerIP ", "peerip", peer.NodeInfo().NetAddress())
+	log.Debug("add peerIP ", "peerip", peer.NodeInfo().NetAddress())
 
 	if ps.lookup[peer.ID()] != nil {
 		return ErrSwitchDuplicatePeerID{peer.ID()}
@@ -104,7 +104,7 @@ func (ps *PeerSet) Get(peerKey ID) Peer {
 func (ps *PeerSet) Remove(peer Peer) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
-	log.Info("remove peerIP ", "peerip", peer.NodeInfo().NetAddress())
+	log.Debug("remove peerIP ", "peerip", peer.NodeInfo().NetAddress())
 	item := ps.lookup[peer.ID()]
 	if item == nil {
 		return

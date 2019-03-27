@@ -199,7 +199,7 @@ func (a *addrBook) RemoveAddress(addr *tp2p.NetAddress) {
 	if ka == nil {
 		return
 	}
-	log.Info("Remove address from book", "addr", ka.Addr, "ID", ka.ID())
+	log.Debug("Remove address from book", "addr", ka.Addr, "ID", ka.ID())
 	a.removeFromAllBuckets(ka)
 }
 
@@ -538,7 +538,7 @@ func (a *addrBook) addToNewBucket(ka *knownAddress, bucketIdx int) {
 
 	// Enforce max addresses.
 	if len(bucket) > newBucketSize {
-		log.Info("new bucket is full, expiring new")
+		log.Debug("new bucket is full, expiring new")
 		a.expireNew(bucketIdx)
 	}
 
@@ -688,7 +688,7 @@ func (a *addrBook) expireNew(bucketIdx int) {
 	for addrStr, ka := range a.bucketsNew[bucketIdx] {
 		// If an entry is bad, throw it away
 		if ka.isBad() {
-			log.Info(fmt.Sprintf("expiring bad address %v", addrStr))
+			log.Debug(fmt.Sprintf("expiring bad address %v", addrStr))
 			a.removeFromBucket(ka, bucketTypeNew, bucketIdx)
 			return
 		}

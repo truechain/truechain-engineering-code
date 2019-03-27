@@ -225,7 +225,7 @@ func (sw *Switch) OnStart() error {
 // OnStop implements BaseService. It stops all listeners, peers, and reactors.
 func (sw *Switch) OnStop() {
 	// Stop listeners
-	log.Info("Begin Switch finish")
+	log.Debug("Begin Switch finish")
 	for _, listener := range sw.listeners {
 		help.CheckAndPrintError(listener.Stop())
 	}
@@ -239,7 +239,7 @@ func (sw *Switch) OnStop() {
 	for _, reactor := range sw.reactors {
 		help.CheckAndPrintError(reactor.Stop())
 	}
-	log.Info("End Switch finish")
+	log.Debug("End Switch finish")
 }
 
 //---------------------------------------------------------------------
@@ -321,7 +321,7 @@ func (sw *Switch) GetPeerForID(id string) Peer {
 // StopPeerGracefully disconnects from a peer gracefully.
 // TODO: handle graceful disconnects.
 func (sw *Switch) StopPeerGracefully(peer Peer) {
-	log.Info("Stopping peer gracefully")
+	log.Debug("Stopping peer gracefully")
 	sw.stopAndRemovePeer(peer, nil)
 }
 
@@ -345,7 +345,7 @@ func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 	time.Sleep(time.Second)
 	if sw.peers.Has(addr.ID) {
 		//by jm add
-		log.Info("reconnect peer existed")
+		log.Debug("reconnect peer existed")
 		return
 	}
 
@@ -356,7 +356,7 @@ func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 	defer sw.reconnecting.Delete(string(addr.ID))
 
 	start := time.Now()
-	log.Info("Reconnecting to peer", "addr", addr)
+	log.Debug("Reconnecting to peer", "addr", addr)
 	for i := 0; i < reconnectAttempts; i++ {
 		if !sw.IsRunning() {
 			return
@@ -566,7 +566,7 @@ func (sw *Switch) addInboundPeerWithConfig(
 		help.CheckAndPrintError(conn.Close()) // peer is nil
 		return err
 	}
-	log.Info("add in bound peer")
+	log.Debug("add in bound peer")
 	if err = sw.addPeer(peerConn); err != nil {
 		peerConn.CloseConn()
 		return err
@@ -585,7 +585,7 @@ func (sw *Switch) addOutboundPeerWithConfig(
 	config *config.P2PConfig,
 	persistent bool,
 ) error {
-	log.Info("Dialing peer", "address", addr)
+	log.Debug("Dialing peer", "address", addr)
 	peerConn, err := newOutboundPeerConn(
 		addr,
 		config,
@@ -599,7 +599,7 @@ func (sw *Switch) addOutboundPeerWithConfig(
 		return err
 	}
 
-	log.Info("add out bound peer")
+	log.Debug("add out bound peer")
 	if err := sw.addPeer(peerConn); err != nil {
 		peerConn.CloseConn()
 		return err
@@ -701,7 +701,7 @@ func (sw *Switch) addPeer(pc peerConn) error {
 	if err := sw.peers.Add(peer); err != nil {
 		return err
 	}
-	log.Info("Added peer", "peer", peer)
+	log.Debug("Added peer", "peer", peer)
 	return nil
 }
 

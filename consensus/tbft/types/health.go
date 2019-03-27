@@ -188,7 +188,7 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 	h.BaseService = *help.NewBaseService("HealthMgr", h)
 	hi, lo := cid<<32, uint64(100)
 	h.uid = hi | lo
-	log.Info("HealthMgr init", "cid", cid, "hi", hi, "lo", lo, "uid", h.uid)
+	log.Debug("HealthMgr init", "cid", cid, "hi", hi, "lo", lo, "uid", h.uid)
 	return h
 }
 
@@ -289,7 +289,7 @@ func (h *HealthMgr) healthGoroutine() {
 			sshift, cnt = h.isShiftSV()
 			h.work(sshift)
 			if !sshift && islog {
-				log.Info("Stop Shift Switch Validator, because minimum SV", "Count", cnt, "CID", h.cid)
+				log.Debug("Stop Shift Switch Validator, because minimum SV", "Count", cnt, "CID", h.cid)
 				islog = false
 			}
 		case s := <-h.ChanFrom():
@@ -323,7 +323,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
 				atomic.StoreUint32(&v.State, ctypes.StateSwitchingFlag)
 				h.setCurSV(cur)
-				log.Info("CheckSwitchValidator(remove,add)", "info:", cur, "cid", h.cid)
+				log.Debug("CheckSwitchValidator(remove,add)", "info:", cur, "cid", h.cid)
 				go h.Switch(cur)
 			}
 		}
@@ -333,7 +333,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 			if val0 < HealthOut && sv0.From == 0 {
 				sv1 := *sv0
 				sv1.From = 1
-				log.Info("Restore SwitchValidator", "info", sv1, "cid", h.cid)
+				log.Debug("Restore SwitchValidator", "info", sv1, "cid", h.cid)
 				go h.Switch(&sv1)
 			}
 		}
@@ -430,7 +430,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			}
 		}
 	}
-	log.Info("switchResult", "result:", ss, "res", res, "cid", h.cid)
+	log.Debug("switchResult", "result:", ss, "res", res, "cid", h.cid)
 }
 
 //pickUnuseValidator get a back committee
