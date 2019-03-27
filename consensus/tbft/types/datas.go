@@ -232,7 +232,7 @@ func (blockID BlockID) Key() string {
 
 // String returns a human readable string representation of the BlockID
 func (blockID BlockID) String() string {
-	return fmt.Sprintf(`%v:%v`, help.Fingerprint(blockID.Hash), blockID.PartsHeader)
+	return fmt.Sprintf(`%X:%v`, help.Fingerprint(blockID.Hash), blockID.PartsHeader)
 }
 
 //-------------------------------------------------------
