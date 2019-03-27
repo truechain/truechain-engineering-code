@@ -226,7 +226,7 @@ func (c *MConnection) flush() {
 	log.Debug("Flush", "conn", c)
 	err := c.bufConnWriter.Flush()
 	if err != nil {
-		log.Error("MConnection flush failed", "err", err)
+		log.Debug("MConnection flush failed", "err", err)
 	}
 }
 
