@@ -123,11 +123,6 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 	if config == nil {
 		config = params.TestChainConfig
 	}
-	if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < len(parents) {
-		log.Info("GenerateChain fast block already use over", "parents", len(parents), "number", fastChain.CurrentBlock().Number(), "n", n)
-		return nil
-	}
-
 	var blocks []*types.SnailBlock
 	blocks = append(blocks, parents...)
 	parent := parents[len(parents)-1]
@@ -174,7 +169,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 		return types.NewSnailBlock(b.header, fruitSet, nil, nil)
 	}
 	for i := 0; i < n; i++ {
-		if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < i+len(parents) {
+		if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < i+1 {
 			break
 		}
 		block := genblock(i, parent, blocks)
@@ -295,8 +290,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 		testdb = etruedb.NewMemDatabase()
 	)
 	cache := &core.CacheConfig{
-		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -427,8 +422,12 @@ func makeBlockHead(chain *SnailBlockChain, fastchain *core.BlockChain, parent *t
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailHeader {
-	blocks := makeBlockChain(fastChain, []*types.SnailBlock{types.NewSnailBlockWithHeader(parent)}, n, engine, db, seed)
+func makeHeaderChain(fastChain *core.BlockChain, parents []*types.SnailHeader, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailHeader {
+	oldBlocks := make([]*types.SnailBlock, 0)
+	for i := 0; i < len(parents); i++ {
+		oldBlocks = append(oldBlocks, types.NewSnailBlockWithHeader(parents[i]))
+	}
+	blocks := makeBlockChain(fastChain, oldBlocks, n, engine, db, seed)
 	headers := make([]*types.SnailHeader, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
