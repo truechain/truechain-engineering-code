@@ -663,7 +663,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 	} else {
 		if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
-			log.Warn("validate balance", "from", from, "to", tx.To(), "balance", pool.currentState.GetBalance(from), "cost", tx.Cost())
+			log.Trace("validate balance", "from", from, "to", tx.To(), "balance", pool.currentState.GetBalance(from), "cost", tx.Cost())
 			return ErrInsufficientFunds
 		}
 	}
