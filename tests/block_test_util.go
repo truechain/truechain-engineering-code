@@ -186,22 +186,14 @@ func (t *BlockTest) Run() error {
 	if err != nil {
 		return err
 	}
-
-
-
-	//cmlast := fastChain.CurrentBlock().Hash()
-	//if common.Hash(t.json.BestBlock) != cmlast {
-	//	return fmt.Errorf("last block hash validation mismatch: want: %x, have: %x", t.json.BestBlock, cmlast)
-	//}
-	//
-	//
-	//newDB, err := fastChain.State()
-	//if err != nil {
-	//	return err
-	//}
-	//if err = t.validatePostState(newDB); err != nil {
-	//	return fmt.Errorf("post state validation failed: %v", err)
-	//}
+	
+	newDB, err := fastChain.State()
+	if err != nil {
+		return err
+	}
+	if err = t.validatePostState(newDB); err != nil {
+		return fmt.Errorf("post state validation failed: %v", err)
+	}
 	//return t.validateImportedHeaders(fastChain, validBlocks)
 
 	return nil
