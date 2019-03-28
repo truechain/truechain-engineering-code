@@ -51,11 +51,11 @@ func main() {
 		sString2,_ := json.Marshal(sblock_json)
 		fmt.Println(string(sString2))
 
-		beginFruitNumber := sstr["beginFruitNumber"].(*hexutil.Big)
+		//beginFruitNumber := sstr["beginFruitNumber"].(*hexutil.Big)
 		endFruitNumber := sstr["endFruitNumber"].(*hexutil.Big)
 
 		//
-		for j := beginFruitNumber.ToInt().Uint64() ; j <= endFruitNumber.ToInt().Uint64() ; j++ {
+		for j := uint64(0) ; j <= endFruitNumber.ToInt().Uint64() ; j++ {
 
 			fblock_json := make(map[string]interface{})
 
