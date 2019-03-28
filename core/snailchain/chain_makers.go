@@ -177,7 +177,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 		parent = block
 		log.Info("Make snail block", "blocks", len(blocks[1:]), "number", parent.Number(), "i", i)
 	}
-	return blocks[1:]
+	return blocks[len(parents):]
 }
 
 func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, fast *types.Block) *types.SnailHeader {
