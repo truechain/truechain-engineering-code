@@ -123,6 +123,11 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 	if config == nil {
 		config = params.TestChainConfig
 	}
+	if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < len(parents) {
+		log.Info("GenerateChain fast block already use over", "parents", len(parents), "number", fastChain.CurrentBlock().Number(), "n", n)
+		return nil
+	}
+
 	var blocks []*types.SnailBlock
 	blocks = append(blocks, parents...)
 	parent := parents[len(parents)-1]
@@ -169,7 +174,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 		return types.NewSnailBlock(b.header, fruitSet, nil, nil)
 	}
 	for i := 0; i < n; i++ {
-		if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < i+1 {
+		if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < i+len(parents) {
 			break
 		}
 		block := genblock(i, parent, blocks)
