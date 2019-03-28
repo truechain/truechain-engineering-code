@@ -519,6 +519,7 @@ func DefaultDevGenesisBlock() *Genesis {
 		Difficulty: big.NewInt(20000),
 		//Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
+			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
 			common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: i},
 			common.HexToAddress("0x04d2252a3e0ca7c2aa81247ca33060855a34a808"): {Balance: i},
 			common.HexToAddress("0x05712ff78d08eaf3e0f1797aaf4421d9b24f8679"): {Balance: i},
