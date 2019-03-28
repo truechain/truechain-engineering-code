@@ -138,12 +138,10 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
-	if config.Genesis != nil {
+	/*if config.Genesis != nil {
 		config.MinerGasFloor = config.Genesis.GasLimit * 9 / 10
 		config.MinerGasCeil = config.Genesis.GasLimit * 11 / 10
-	} else {
-		//log.Info("config.Genesis.GasLimit", "GasLimit", config.Genesis)
-	}
+	}*/
 
 	etrue := &Truechain{
 		config:         config,

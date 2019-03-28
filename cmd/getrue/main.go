@@ -94,7 +94,9 @@ var (
 		utils.MineFruitFlag,
 		utils.MiningEnabledFlag,
 		utils.MiningRemoteEnableFlag,
-		utils.TargetGasLimitFlag,
+		utils.GasTargetFlag,
+		utils.GasLimitFlag,
+
 		utils.NATFlag,
 		utils.NoDiscoverFlag,
 		utils.DiscoveryV5Flag,
@@ -213,7 +215,6 @@ func init() {
 		// Start system runtime metrics collection
 		go metrics.CollectProcessMetrics(3 * time.Second)
 
-		utils.SetupNetwork(ctx)
 		return nil
 	}
 
