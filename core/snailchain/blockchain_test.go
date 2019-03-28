@@ -65,7 +65,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 	if n == 0 {
 		return db, blockchain, fastChain, nil
 	}
-	fastBlocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, db, (n+10)*params.MinimumFruits, func(i int, b *core.BlockGen) {
+	fastBlocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, db, (n+20)*params.MinimumFruits, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 	fastChain.InsertChain(fastBlocks)
@@ -126,12 +126,12 @@ func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, co
 		blockChainB  []*types.SnailBlock
 		headerChainB []*types.SnailHeader
 	)
+	commonGenesis := core.DefaultGenesisBlock()
+	fastBlocks, _ := core.GenerateChain(params.TestChainConfig, commonGenesis.MustFastCommit(db), engine, db, (n+i)*params.MinimumFruits, func(i int, b *core.BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
+	})
+	fastChain.InsertChain(fastBlocks)
 	if full {
-		commonGenesis := core.DefaultGenesisBlock()
-		fastBlocks, _ := core.GenerateChain(params.TestChainConfig, commonGenesis.MustFastCommit(db), engine, db, (n+i)*params.MinimumFruits, func(i int, b *core.BlockGen) {
-			b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
-		})
-		fastChain.InsertChain(fastBlocks)
 		blockChainB = makeBlockChain(fastChain, blockchain2.GetBlocksFromNumber(0), n, engine, db, forkSeed)
 		if _, err := blockchain2.InsertChain(blockChainB); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
