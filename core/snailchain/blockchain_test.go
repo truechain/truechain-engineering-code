@@ -214,7 +214,7 @@ func insertChain(done chan bool, blockchain *SnailBlockChain, chain types.SnailB
 
 func TestLastBlock(t *testing.T) {
 	engine := minerva.NewFaker()
-	_, blockchain, _, err := newCanonical(engine, 3, true)
+	_, blockchain, _, err := newCanonical(engine, 3, false)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
