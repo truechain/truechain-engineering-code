@@ -126,7 +126,7 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 	fastChain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
 	fastblocks, receipts := core.GenerateChain(params.TestChainConfig, dl.ftester.GetGenesis(), engine, testdb, n*params.MinimumFruits, func(i int, b *core.BlockGen) {
-		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
+		b.SetNonce(types.BlockNonce{seed})
 	})
 
 	fastChain.InsertChain(fastblocks)
@@ -776,6 +776,7 @@ func testForkedSync(t *testing.T, protocol int, mode SyncMode) {
 
 	tester := newTester()
 	defer tester.terminate()
+	MaxHashFetch = 16
 
 	// Create a long enough forked chain
 	common, fork := MaxHashFetch, 2*MaxHashFetch
