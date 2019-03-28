@@ -247,12 +247,12 @@ loop:
 	p.wg.Wait()
 
 	context := []interface{}{
-		"name", p.ID(), "err", err, "remoteRequested", remoteRequested, "RemoteAddr", p.RemoteAddr(),
+		"name", p.ID(), "remoteRequested", remoteRequested, "RemoteAddr", p.RemoteAddr(), "err", err,
 	}
 	if err != nil && strings.Contains(err.Error(), "Genesis block") {
-		log.Debug("WaitGroup end", context...)
+		log.Debug("Peer quit", context...)
 	} else {
-		log.Info("WaitGroup end", context...)
+		log.Info("Peer quit", context...)
 	}
 	return remoteRequested, err
 }
