@@ -203,6 +203,9 @@ func (api *PrivateMinerAPI) Start(threads *int) error {
 		api.e.lock.RUnlock()
 
 		api.e.txPool.SetGasPrice(price)
+
+		api.e.miner.SetShouldStartMining(true)
+
 		return api.e.StartMining(true)
 	}
 	return nil
@@ -217,6 +220,7 @@ func (api *PrivateMinerAPI) Stop() bool {
 		th.SetThreads(-1)
 	}
 	api.e.miner.SetFruitOnly(false)
+	api.e.miner.SetShouldStartMining(false)
 	api.e.StopMining()
 	return true
 }
@@ -244,6 +248,7 @@ func (api *PrivateMinerAPI) StartFruit(threads *int) error {
 
 		api.e.txPool.SetGasPrice(price)
 		api.e.miner.SetFruitOnly(true)
+		api.e.miner.SetShouldStartMining(true)
 		return api.e.StartMining(true)
 	}
 	return nil
