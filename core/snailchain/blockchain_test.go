@@ -130,7 +130,7 @@ func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, co
 		headerChainB []*types.SnailHeader
 	)
 	if full {
-		blockChainB = makeBlockChain(fastChain, []*types.SnailBlock{blockchain2.CurrentBlock()}, n, engine, db, forkSeed)
+		blockChainB = makeBlockChain(fastChain, blockchain2.GetBlocksFromNumber(blockchain2.CurrentBlock().NumberU64()), n, engine, db, forkSeed)
 		if _, err := blockchain2.InsertChain(blockChainB); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
@@ -368,7 +368,7 @@ func testBrokenChain(t *testing.T, full bool) {
 
 	// Create a forked chain, and try to insert with a missing link
 	if full {
-		chain := makeBlockChain(fastChain, []*types.SnailBlock{blockchain.CurrentBlock()}, 5, minerva.NewFaker(), db, forkSeed)[1:]
+		chain := makeBlockChain(fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), 5, minerva.NewFaker(), db, forkSeed)[1:]
 		if err := testBlockChainImport(chain, blockchain); err == nil {
 			t.Errorf("broken block chain not reported")
 		}
@@ -418,10 +418,10 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	defer blockchain.Stop()
 
 	// Insert an easy and a difficult chain afterwards
-	easyBlocks := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{blockchain.CurrentBlock()}, len(first), 7, func(i int, b *BlockGen) {
+	easyBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), len(first), 7, func(i int, b *BlockGen) {
 		b.OffsetTime(first[i])
 	})
-	diffBlocks := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{blockchain.CurrentBlock()}, 7, len(second), func(i int, b *BlockGen) {
+	diffBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), 7, len(second), func(i int, b *BlockGen) {
 		b.OffsetTime(second[i])
 	})
 	if full {
@@ -490,7 +490,7 @@ func testBadHashes(t *testing.T, full bool) {
 
 	// Create a chain, ban a hash and try to import
 	if full {
-		blocks := makeBlockChain(fastChain, []*types.SnailBlock{blockchain.CurrentBlock()}, 3, minerva.NewFaker(), db, 10)
+		blocks := makeBlockChain(fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), 3, minerva.NewFaker(), db, 10)
 
 		BadHashes[blocks[2].Header().Hash()] = true
 		defer func() { delete(BadHashes, blocks[2].Header().Hash()) }()
@@ -522,7 +522,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 	}
 	// Create a chain, import and ban afterwards
 	headers := makeHeaderChain(fastChain, blockchain.CurrentHeader(), 4, minerva.NewFaker(), db, 10)
-	blocks := makeBlockChain(fastChain, []*types.SnailBlock{blockchain.CurrentBlock()}, 4, minerva.NewFaker(), db, 10)
+	blocks := makeBlockChain(fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), 4, minerva.NewFaker(), db, 10)
 
 	if full {
 		if _, err = blockchain.InsertChain(blocks); err != nil {
@@ -582,7 +582,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 			failNum uint64
 		)
 		if full {
-			blocks := makeBlockChain(fastChain, []*types.SnailBlock{blockchain.CurrentBlock()}, i, minerva.NewFaker(), db, 0)
+			blocks := makeBlockChain(fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), i, minerva.NewFaker(), db, 0)
 
 			failAt = rand.Int() % len(blocks)
 			failNum = blocks[failAt].NumberU64()
@@ -995,7 +995,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 	}
 	defer blockchain.Stop()
 
-	chain := GenerateChain(blockchain.chainConfig, fastChain, []*types.SnailBlock{blockchain.genesisBlock}, 10, 7, func(i int, gen *BlockGen) {})
+	chain := GenerateChain(blockchain.chainConfig, fastChain, blockchain.GetBlocksFromNumber(blockchain.genesisBlock.NumberU64()), 10, 7, func(i int, gen *BlockGen) {})
 
 	var pend sync.WaitGroup
 	pend.Add(len(chain))
@@ -1214,11 +1214,13 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
 	forks := make([]*types.SnailBlock, len(blocks))
 	for i := 0; i < len(forks); i++ {
-		parent := genesis
+		//parent := genesis
+		parents := []*types.SnailBlock{genesis}
 		if i > 0 {
-			parent = blocks[i-1]
+			//parent = blocks[i-1]
+			parents = blocks[0:i]
 		}
-		fork := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{parent}, 1, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+		fork := GenerateChain(params.TestChainConfig, fastChain, parents, 1, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
 		forks[i] = fork[0]
 	}
 	// Import the canonical and fork chain side by side, verifying the current block
