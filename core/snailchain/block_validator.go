@@ -174,7 +174,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	}
 
 	//check fruit's time
-	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 1 {
+	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 {
 		return ErrFruitTime
 	}
 
