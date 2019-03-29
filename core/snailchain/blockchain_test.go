@@ -362,8 +362,9 @@ func TestBrokenHeaderChain(t *testing.T) { testBrokenChain(t, false) }
 func TestBrokenBlockChain(t *testing.T)  { testBrokenChain(t, true) }
 
 func testBrokenChain(t *testing.T, full bool) {
+	engine := minerva.NewFaker()
 	// Make chain starting from genesis
-	db, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 10, full)
+	db, blockchain, fastChain, err := newCanonical(engine, 10, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
 	}
@@ -371,12 +372,12 @@ func testBrokenChain(t *testing.T, full bool) {
 
 	// Create a forked chain, and try to insert with a missing link
 	if full {
-		chain := makeBlockChain(fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), 5, minerva.NewFaker(), db, forkSeed)[1:]
+		chain := makeBlockChain(fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), 5, engine, db, forkSeed)[1:]
 		if err := testBlockChainImport(chain, blockchain); err == nil {
 			t.Errorf("broken block chain not reported")
 		}
 	} else {
-		chain := makeHeaderChain(fastChain, blockchain.GetHeadsFromNumber(0), 5, minerva.NewFaker(), db, forkSeed)[1:]
+		chain := makeHeaderChain(fastChain, blockchain.GetHeadsFromNumber(0), 5, engine, db, forkSeed)[1:]
 		if err := testHeaderChainImport(chain, blockchain); err == nil {
 			t.Errorf("broken header chain not reported")
 		}
