@@ -1050,7 +1050,7 @@ func (bc *SnailBlockChain) insertSidechain(block *types.SnailBlock, it *insertIt
 		numbers = append(numbers, parent.Number.Uint64())
 
 		parent = bc.GetHeader(parent.ParentHash, parent.Number.Uint64()-1)
-		log.Warn("number and hash", "number", parent.Number.Uint64(), "CanonicalHash", rawdb.ReadCanonicalHash(bc.db, parent.Number.Uint64()), "Sidechainhash", parent.Hash())
+		log.Debug("number and hash", "number", parent.Number.Uint64(), "CanonicalHash", rawdb.ReadCanonicalHash(bc.db, parent.Number.Uint64()), "Sidechainhash", parent.Hash())
 	}
 	if parent == nil {
 		return it.index, nil, errors.New("missing parent")
