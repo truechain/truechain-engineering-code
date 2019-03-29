@@ -438,7 +438,7 @@ func DefaultGenesisBlock() *Genesis {
 		//Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
 			common.HexToAddress("0xa5F41eaf51d24c8eDcDF254F200f8a6D818a6836"): {Balance: i},
-			common.HexToAddress("0xBD1edee3bdD812BB5058Df1F1392dDdd99dE58cc"): {Balance: j},
+			common.HexToAddress("0xbD1edee3bdD812BB5058Df1F1392dDdd99dE58cc"): {Balance: j},
 		},
 		Committee: []*types.CommitteeMember{
 			&types.CommitteeMember{Coinbase: common.HexToAddress("0xfC5659050350eB76F9Ebcc6c2b1598C3a2fFc625"), Publickey: key1},
