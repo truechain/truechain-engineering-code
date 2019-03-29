@@ -527,8 +527,6 @@ func (w *worker) commitNewWork() {
 	parent := w.chain.CurrentBlock()
 	w.atCommintNewWoker = true
 
-	log.Debug("------in commitNewWork")
-
 	//can not start miner when  fruits and fast block
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
