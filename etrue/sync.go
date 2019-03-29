@@ -53,10 +53,10 @@ type fruitsync struct {
 func (pm *ProtocolManager) syncTransactions(p *peer) {
 	var txs types.Transactions
 	pending, _ := pm.txpool.Pending()
-	log.Debug("syncTransactions", "len(pending)", len(pending))
 	for _, batch := range pending {
 		txs = append(txs, batch...)
 	}
+	log.Debug("syncTransactions", "len(pending)", len(pending), "len(txs)", len(txs))
 	if len(txs) == 0 {
 		return
 	}
