@@ -753,7 +753,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 			doing = false
 			log.Debug(estr)
 		} else if !cs.isProposer() {
-			estr = fmt.Sprint(estr, "tbft not leader", "round", round, "proposer", hexutil.Encode(cs.Validators.GetProposer().Address)) //, "privValidator", cs.privValidator)
+			estr = fmt.Sprint(estr, "tbft not leader for ", "height: ", height) // "proposer", hexutil.Encode(cs.Validators.GetProposer().Address)) //, "privValidator", cs.privValidator)
 			doing = false
 			log.Info(estr)
 		}
@@ -823,7 +823,7 @@ func (cs *ConsensusState) enterPropose(height uint64, round int, blk *types.Bloc
 	log.Debug("This node is a validator")
 
 	if cs.isProposer() {
-		log.Info("tbft leader", "round", round, "proposer", cs.Validators.GetProposer().Address, "privValidator", cs.privValidator)
+		log.Info("tbft leader for ", "height: ", height) //, "proposer", cs.Validators.GetProposer().Address, "privValidator", cs.privValidator)
 		cs.decideProposal(height, round, blk, bparts)
 	}
 }
