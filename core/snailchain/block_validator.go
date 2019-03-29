@@ -45,8 +45,11 @@ var (
 	//ErrGapFruits is returned if the fruits's fastblock time gap less than 360s
 	ErrGapFruits = errors.New("invalid fruits time gap")
 
-	//ErrFruitTime is returned if the fruits's time less than fastblock's time
+	//ErrFruitTime is returned if the fruit's time less than fastblock's time
 	ErrFruitTime = errors.New("invalid fruit time")
+
+	//ErrBlockTime is returned if the block's time less than the last fruit's time
+	ErrBlockTime = errors.New("invalid block time")
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -124,6 +127,9 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	minfb := v.fastchain.GetHeader(fruits[0].FastHash(), fruits[0].FastNumber().Uint64())
 	if minfb == nil || maxfb == nil {
 		return consensus.ErrFutureBlock
+	}
+	if block.Time().Cmp(fruits[len(fruits)-1].Time()) < 1 {
+		return ErrBlockTime
 	}
 	gap := new(big.Int).Sub(maxfb.Time, minfb.Time)
 	if gap.Cmp(params.MinTimeGap) < 0 {
