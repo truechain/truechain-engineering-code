@@ -36,9 +36,11 @@ func init() {
 }
 
 // This test checks that received transactions are added to the local pool.
-func TestExampleGenerateChain(t *testing.T) { testExampleGenerateChain(t, 5) }
+func TestExampleGenerateChain(t *testing.T) { testExampleGenerateChain(t, 128) }
 
 func testExampleGenerateChain(t *testing.T, n int) {
+	params.MinimumFruits = 1
+	params.MinTimeGap = big.NewInt(0)
 	var (
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)

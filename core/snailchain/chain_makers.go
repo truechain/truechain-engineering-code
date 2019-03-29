@@ -173,7 +173,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 		return types.NewSnailBlock(b.header, fruitSet, nil, nil)
 	}
 	for i := 0; i < n; i++ {
-		if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < i+n {
+		if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < i+len(parents) {
 			break
 		}
 		block := genblock(i, parent, blocks)
@@ -294,8 +294,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 		testdb = etruedb.NewMemDatabase()
 	)
 	cache := &core.CacheConfig{
-	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
