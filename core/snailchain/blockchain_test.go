@@ -422,10 +422,10 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	defer blockchain.Stop()
 
 	// Insert an easy and a difficult chain afterwards
-	easyBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), len(first), 7, func(i int, b *BlockGen) {
+	easyBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.GetBlocksFromNumber(0), len(first), 7, func(i int, b *BlockGen) {
 		b.OffsetTime(first[i])
 	})
-	diffBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.GetBlocksFromNumber(blockchain.CurrentBlock().NumberU64()), 7, len(second), func(i int, b *BlockGen) {
+	diffBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.GetBlocksFromNumber(0), 7, len(second), func(i int, b *BlockGen) {
 		b.OffsetTime(second[i])
 	})
 	if full {
