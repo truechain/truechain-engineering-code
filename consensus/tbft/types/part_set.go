@@ -155,11 +155,8 @@ func (ps *PartSet) HasHeader(header PartSetHeader) bool {
 
 //BitArray return BitArray's Copy
 func (ps *PartSet) BitArray() *help.BitArray {
-	//log.Debug("bitArray", "start", "ok", "ps", ps)
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
-	//defer func() { log.Debug("bitArray", "finish", "ok") }()
-	//prints.PrintStack()
 	return ps.partsBitArray.Copy()
 }
 

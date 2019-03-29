@@ -100,7 +100,7 @@ func (t *timeoutTicker) timeoutRoutine() {
 	for {
 		select {
 		case newti := <-t.tickChan:
-			log.Debug("Received tick", "old_ti", ti, "new_ti", newti)
+			log.Trace("Received tick", "old_ti", ti, "new_ti", newti)
 
 			// ignore tickers for old height/round/step
 			if newti.Wait == 1 {
@@ -125,12 +125,11 @@ func (t *timeoutTicker) timeoutRoutine() {
 			ti = newti
 			t.timer.Reset(ti.Duration)
 			if ti.Wait == 0 {
-				log.Info("Scheduled timeout", "dur", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
-			} else {
 				log.Debug("Scheduled timeout", "dur", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+			} else {
+				log.Trace("Scheduled timeout", "dur", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 			}
 		case <-t.timer.C:
-			log.Info("Timed out", "dur", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 			// go routine here guarantees timeoutRoutine doesn't block.
 			// Determinism comes from playback in the receiveRoutine.
 			// We can eliminate it by merging the timeoutRoutine into receiveRoutine

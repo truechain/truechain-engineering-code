@@ -223,7 +223,6 @@ func (c *MConnection) String() string {
 }
 
 func (c *MConnection) flush() {
-	log.Debug("Flush", "conn", c)
 	err := c.bufConnWriter.Flush()
 	if err != nil {
 		log.Debug("MConnection flush failed", "err", err)
@@ -252,9 +251,6 @@ func (c *MConnection) Send(chID byte, msgBytes []byte) bool {
 	if !c.IsRunning() {
 		return false
 	}
-
-	log.Debug("Send", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
-
 	// Send message to channel.
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
@@ -264,8 +260,6 @@ func (c *MConnection) Send(chID byte, msgBytes []byte) bool {
 
 	success := channel.sendBytes(msgBytes)
 	if success {
-		log.Debug("Send Succ")
-		// Wake up sendRoutine if necessary
 		select {
 		case c.send <- struct{}{}:
 		default:
@@ -282,8 +276,6 @@ func (c *MConnection) TrySend(chID byte, msgBytes []byte) bool {
 	if !c.IsRunning() {
 		return false
 	}
-
-	log.Debug("TrySend", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
 
 	// Send message to channel.
 	channel, ok := c.channelsIdx[chID]
@@ -332,20 +324,18 @@ FOR_LOOP:
 		case <-c.flushTimer.Ch:
 			// NOTE: flushTimer.Set() must be called every time
 			// something is written to .bufConnWriter.
-			log.Debug("flushTimer flush")
+			log.Trace("flushTimer flush")
 			c.flush()
 		case <-c.chStatsTimer.Chan():
 			for _, channel := range c.channels {
 				channel.updateStats()
 			}
 		case <-c.pingTimer.Chan():
-			log.Debug("Send Ping")
 			_n, err = cdc.MarshalBinaryWriter(c.bufConnWriter, PacketPing{})
 			if err != nil {
 				break SELECTION
 			}
 			c.sendMonitor.Update(int(_n))
-			log.Debug("Starting pong timer", "dur", c.config.PongTimeout)
 			c.pongTimer = time.AfterFunc(c.config.PongTimeout, func() {
 				select {
 				case c.pongTimeoutCh <- true:
@@ -355,13 +345,12 @@ FOR_LOOP:
 			c.flush()
 		case timeout := <-c.pongTimeoutCh:
 			if timeout {
-				log.Debug("Pong timeout")
+				log.Trace("Pong timeout")
 				err = errors.New("pong timeout")
 			} else {
 				c.stopPongTimer()
 			}
 		case <-c.pong:
-			log.Debug("Send Pong")
 			_n, err = cdc.MarshalBinaryWriter(c.bufConnWriter, PacketPong{})
 			if err != nil {
 				break SELECTION
@@ -369,11 +358,11 @@ FOR_LOOP:
 			c.sendMonitor.Update(int(_n))
 			c.flush()
 		case <-c.quit:
-			log.Debug("c.quit")
+			log.Trace("c.quit")
 			break FOR_LOOP
 		case <-c.send:
 			// Send some PacketMsgs
-			log.Debug("c.send")
+			log.Trace("c.send")
 			eof := c.sendSomePacketMsgs()
 			if !eof {
 				// Keep sendRoutine awake.
@@ -450,7 +439,7 @@ func (c *MConnection) sendPacketMsg() bool {
 	}
 
 	c.sendMonitor.Update(int(_n))
-	log.Debug("set flush timer")
+	log.Trace("set flush timer")
 	c.flushTimer.Set()
 	return false
 }
@@ -499,14 +488,14 @@ FOR_LOOP:
 		switch pkt := packet.(type) {
 		case PacketPing:
 			// TODO: prevent abuse, as they cause flush()'s.
-			log.Debug("Receive Ping")
+			log.Trace("Receive Ping")
 			select {
 			case c.pong <- struct{}{}:
 			default:
 				// never block
 			}
 		case PacketPong:
-			log.Debug("Receive Pong")
+			log.Trace("Receive Pong")
 			select {
 			case c.pongTimeoutCh <- false:
 			default:
@@ -516,7 +505,7 @@ FOR_LOOP:
 			channel, ok := c.channelsIdx[pkt.ChannelID]
 			if !ok || channel == nil {
 				err := fmt.Errorf("Unknown channel %X", pkt.ChannelID)
-				log.Debug("Connection failed @ recvRoutine", "conn", c, "err", err)
+				log.Trace("Connection failed @ recvRoutine", "conn", c, "err", err)
 				c.stopForError(err)
 				break FOR_LOOP
 			}
@@ -524,20 +513,15 @@ FOR_LOOP:
 			msgBytes, err := channel.recvPacketMsg(pkt)
 			if err != nil {
 				if c.IsRunning() {
-					log.Debug("Connection failed @ recvRoutine", "conn", c, "err", err)
 					c.stopForError(err)
 				}
 				break FOR_LOOP
 			}
 			if msgBytes != nil {
-				log.Debug("Begin...", "addr", c.conn.RemoteAddr().String(), "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
-				// NOTE: This means the reactor.Receive runs in the same thread as the p2p recv routine
 				c.onReceive(pkt.ChannelID, msgBytes)
-				log.Debug("End...", "addr", c.conn.RemoteAddr().String(), "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
 			}
 		default:
 			err := fmt.Errorf("Unknown message type %v", reflect.TypeOf(packet))
-			log.Debug("Connection failed @ recvRoutine", "conn", c, "err", err)
 			c.stopForError(err)
 			break FOR_LOOP
 		}

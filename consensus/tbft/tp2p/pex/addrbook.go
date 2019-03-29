@@ -161,7 +161,6 @@ func (a *addrBook) FilePath() string {
 func (a *addrBook) AddOurAddress(addr *tp2p.NetAddress) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	log.Debug("Add our address to book", "addr", addr)
 	a.ourAddrs[addr.String()] = struct{}{}
 }
 
@@ -557,11 +556,11 @@ func (a *addrBook) addToNewBucket(ka *knownAddress, bucketIdx int) {
 func (a *addrBook) addToOldBucket(ka *knownAddress, bucketIdx int) bool {
 	// Sanity check
 	if ka.isNew() {
-		log.Error(fmt.Sprintf("Cannot add new address to old bucket: %v", ka))
+		log.Debug(fmt.Sprintf("Cannot add new address to old bucket: %v", ka))
 		return false
 	}
 	if len(ka.Buckets) != 0 {
-		log.Error(fmt.Sprintf("Cannot add already old address to another old bucket: %v", ka))
+		log.Debug(fmt.Sprintf("Cannot add already old address to another old bucket: %v", ka))
 		return false
 	}
 
@@ -592,7 +591,7 @@ func (a *addrBook) addToOldBucket(ka *knownAddress, bucketIdx int) bool {
 
 func (a *addrBook) removeFromBucket(ka *knownAddress, bucketType byte, bucketIdx int) {
 	if ka.BucketType != bucketType {
-		log.Error(fmt.Sprintf("Bucket type mismatch: %v", ka))
+		log.Debug(fmt.Sprintf("Bucket type mismatch: %v", ka))
 		return
 	}
 	bucket := a.getBucket(bucketType, bucketIdx)
@@ -705,11 +704,11 @@ func (a *addrBook) expireNew(bucketIdx int) {
 func (a *addrBook) moveToOld(ka *knownAddress) {
 	// Sanity check
 	if ka.isOld() {
-		log.Error(fmt.Sprintf("Cannot promote address that is already old %v", ka))
+		log.Debug(fmt.Sprintf("Cannot promote address that is already old %v", ka))
 		return
 	}
 	if len(ka.Buckets) == 0 {
-		log.Error(fmt.Sprintf("Cannot promote address that isn't in any new buckets %v", ka))
+		log.Debug(fmt.Sprintf("Cannot promote address that isn't in any new buckets %v", ka))
 		return
 	}
 
@@ -731,7 +730,7 @@ func (a *addrBook) moveToOld(ka *knownAddress) {
 		// Finally, add our ka to old bucket again.
 		added = a.addToOldBucket(ka, oldBucketIdx)
 		if !added {
-			log.Error(fmt.Sprintf("Could not re-add ka %v to oldBucketIdx %v", ka, oldBucketIdx))
+			log.Debug(fmt.Sprintf("Could not re-add ka %v to oldBucketIdx %v", ka, oldBucketIdx))
 		}
 	}
 }
