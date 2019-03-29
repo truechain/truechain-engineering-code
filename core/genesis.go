@@ -467,7 +467,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return params.MainnetChainConfig
 	case ghash == params.MainnetSnailGenesisHash:
 		return params.MainnetChainConfig
-	case ghash == params.TestnetGenesisSHash:
+	case ghash == params.TestnetGenesisHash:
 		return params.TestnetChainConfig
 	case ghash == params.TestnetSnailGenesisHash:
 		return params.TestnetChainConfig
