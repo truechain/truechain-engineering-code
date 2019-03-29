@@ -243,7 +243,7 @@ func (a *addrBook) PickAddress(biasTowardsNewAddrs int) *tp2p.NetAddress {
 	bookSize := a.size()
 	if bookSize <= 0 {
 		if bookSize < 0 {
-			log.Error("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
+			log.Debug("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
 		}
 		return nil
 	}
@@ -326,7 +326,7 @@ func (a *addrBook) GetSelection() []*tp2p.NetAddress {
 	bookSize := a.size()
 	if bookSize <= 0 {
 		if bookSize < 0 {
-			log.Error("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
+			log.Debug("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
 		}
 		return nil
 	}
@@ -372,7 +372,7 @@ func (a *addrBook) GetSelectionWithBias(biasTowardsNewAddrs int) []*tp2p.NetAddr
 	bookSize := a.size()
 	if bookSize <= 0 {
 		if bookSize < 0 {
-			log.Error("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
+			log.Debug("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
 		}
 		return nil
 	}
@@ -524,7 +524,7 @@ func (a *addrBook) getBucket(bucketType byte, bucketIdx int) map[string]*knownAd
 func (a *addrBook) addToNewBucket(ka *knownAddress, bucketIdx int) {
 	// Sanity check
 	if ka.isOld() {
-		log.Error("Failed Sanity Check! Cant add old address to new bucket", "ka", ka, "bucket", bucketIdx)
+		log.Debug("Failed Sanity Check! Cant add old address to new bucket", "ka", ka, "bucket", bucketIdx)
 		return
 	}
 

@@ -422,7 +422,7 @@ outerLoop:
 	for {
 		// Manage disconnects from self or peer.
 		if !peer.IsRunning() || !conR.IsRunning() {
-			log.Info("Stopping gossipDataRoutine for peer")
+			log.Debug("Stopping gossipDataRoutine for peer")
 			return
 		}
 		rs := conR.conS.GetRoundState()
@@ -518,7 +518,7 @@ func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
 	if !prs.Proposal {
 		blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)
 		if blockMeta == nil || blockMeta.Proposal == nil {
-			log.Error("Failed to load block meta", "Height", prs.Height, "maxHeight", conR.conS.blockStore.MaxBlockHeight())
+			log.Debug("Failed to load block meta", "Height", prs.Height, "maxHeight", conR.conS.blockStore.MaxBlockHeight())
 			return
 		}
 		msg := &ProposalMessage{Proposal: blockMeta.Proposal}
@@ -532,7 +532,7 @@ func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
 		// Ensure that the peer's PartSetHeader is correct
 		blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)
 		if blockMeta == nil {
-			log.Error("Failed to load block meta",
+			log.Debug("Failed to load block meta",
 				"ourHeight", rs.Height, "blockstoreHeight", conR.conS.blockStore.MaxBlockHeight())
 			time.Sleep(conR.conS.config.PeerGossipSleep())
 			return
@@ -545,7 +545,7 @@ func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
 		// Load the part
 		part := conR.conS.blockStore.LoadBlockPart(prs.Height, index)
 		if part == nil {
-			log.Error("Could not load part", "index", index,
+			log.Debug("Could not load part", "index", index,
 				"blockPartsHeader", blockMeta.BlockID.PartsHeader, "peerBlockPartsHeader", prs.ProposalBlockPartsHeader)
 			time.Sleep(conR.conS.config.PeerGossipSleep())
 			return
@@ -578,7 +578,7 @@ outerLoop:
 	for {
 		// Manage disconnects from self or peer.
 		if !peer.IsRunning() || !conR.IsRunning() {
-			log.Info("Stopping gossipVotesRoutine for peer")
+			log.Debug("Stopping gossipVotesRoutine for peer")
 			return
 		}
 		rs := conR.conS.GetRoundState()

@@ -1699,7 +1699,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 				}
 			}
 			if !have {
-				log.Error("swithResult", v.CommitteeBase, "false")
+				log.Debug("swithResult", v.CommitteeBase, "false")
 			}
 		}
 		return

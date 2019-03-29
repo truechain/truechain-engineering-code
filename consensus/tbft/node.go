@@ -238,7 +238,7 @@ func (s *service) connTo(node *nodeInfo) {
 		if strings.HasPrefix(errDialErr.Error(), "Duplicate peer ID") {
 			node.Enable = true
 		} else {
-			log.Error("[connTo] dail peer " + errDialErr.Error())
+			log.Debug("[connTo] dail peer " + errDialErr.Error())
 		}
 	} else {
 		node.Enable = true

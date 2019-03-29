@@ -258,7 +258,7 @@ func (c *MConnection) Send(chID byte, msgBytes []byte) bool {
 	// Send message to channel.
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
-		log.Error(fmt.Sprintf("Cannot send bytes, unknown channel %X", chID))
+		log.Debug(fmt.Sprintf("Cannot send bytes, unknown channel %X", chID))
 		return false
 	}
 
@@ -288,7 +288,7 @@ func (c *MConnection) TrySend(chID byte, msgBytes []byte) bool {
 	// Send message to channel.
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
-		log.Error(fmt.Sprintf("Cannot send bytes, unknown channel %X", chID))
+		log.Debug(fmt.Sprintf("Cannot send bytes, unknown channel %X", chID))
 		return false
 	}
 
@@ -313,7 +313,7 @@ func (c *MConnection) CanSend(chID byte) bool {
 
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
-		log.Error(fmt.Sprintf("Unknown channel %X", chID))
+		log.Debug(fmt.Sprintf("Unknown channel %X", chID))
 		return false
 	}
 	return channel.canSend()
@@ -388,7 +388,7 @@ FOR_LOOP:
 			break FOR_LOOP
 		}
 		if err != nil {
-			log.Error("Connection failed @ sendRoutine", "conn", c, "err", err)
+			log.Debug("Connection failed @ sendRoutine", "conn", c, "err", err)
 			c.stopForError(err)
 			break FOR_LOOP
 		}
@@ -444,7 +444,7 @@ func (c *MConnection) sendPacketMsg() bool {
 	// Make & send a PacketMsg from this channel
 	_n, err := leastChannel.writePacketMsgTo(c.bufConnWriter)
 	if err != nil {
-		log.Error("Failed to write PacketMsg", "err", err)
+		log.Debug("Failed to write PacketMsg", "err", err)
 		c.stopForError(err)
 		return true
 	}
@@ -489,7 +489,7 @@ FOR_LOOP:
 		c.recvMonitor.Update(int(_n))
 		if err != nil {
 			if c.IsRunning() {
-				log.Error("Connection failed @ recvRoutine (reading byte)", "conn", c, "err", err)
+				log.Debug("Connection failed @ recvRoutine (reading byte)", "conn", c, "err", err)
 				c.stopForError(err)
 			}
 			break FOR_LOOP
@@ -516,7 +516,7 @@ FOR_LOOP:
 			channel, ok := c.channelsIdx[pkt.ChannelID]
 			if !ok || channel == nil {
 				err := fmt.Errorf("Unknown channel %X", pkt.ChannelID)
-				log.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
+				log.Debug("Connection failed @ recvRoutine", "conn", c, "err", err)
 				c.stopForError(err)
 				break FOR_LOOP
 			}
@@ -524,7 +524,7 @@ FOR_LOOP:
 			msgBytes, err := channel.recvPacketMsg(pkt)
 			if err != nil {
 				if c.IsRunning() {
-					log.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
+					log.Debug("Connection failed @ recvRoutine", "conn", c, "err", err)
 					c.stopForError(err)
 				}
 				break FOR_LOOP
@@ -537,7 +537,7 @@ FOR_LOOP:
 			}
 		default:
 			err := fmt.Errorf("Unknown message type %v", reflect.TypeOf(packet))
-			log.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
+			log.Debug("Connection failed @ recvRoutine", "conn", c, "err", err)
 			c.stopForError(err)
 			break FOR_LOOP
 		}

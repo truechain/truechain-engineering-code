@@ -123,7 +123,7 @@ func NewBaseService(name string, impl Service) *BaseService {
 func (bs *BaseService) Start() error {
 	if atomic.CompareAndSwapUint32(&bs.started, 0, 1) {
 		if atomic.LoadUint32(&bs.stopped) == 1 {
-			log.Error("Not starting ", bs.name, " -- already stopped,impl ", bs.impl)
+			log.Debug("Not starting ", bs.name, " -- already stopped,impl ", bs.impl)
 			return ErrAlreadyStopped
 		}
 		log.Debug("Starting ", " impl ", bs.impl)
