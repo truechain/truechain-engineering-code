@@ -1300,7 +1300,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			maxSize := txPackSize * 3
 			txLen := len(txs)
 			if txLen > maxSize {
-				log.Warn("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", txLen)
+				log.Debug("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", txLen)
 
 				for i := 0; i < txLen; {
 					i = i + maxSize

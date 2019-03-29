@@ -191,7 +191,7 @@ func (p *peer) broadcast() {
 			}
 
 			if len(txs) > txPackSize*3 {
-				log.Warn("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
+				log.Debug("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
 			}
 
 			if err := p.SendTransactions(txs); err != nil {
@@ -213,7 +213,7 @@ func (p *peer) broadcast() {
 		//add for fruit
 		case fruits := <-p.queuedFruits:
 			if len(fruits) > fruitPackSize*2 {
-				log.Warn("broadcast", "queuedFruits", len(p.queuedFruits), "fxs", len(fruits))
+				log.Debug("broadcast", "queuedFruits", len(p.queuedFruits), "fxs", len(fruits))
 			}
 			if err := p.SendFruits(fruits); err != nil {
 				return
@@ -538,7 +538,7 @@ func (p *peer) SendReceiptsRLP(receipts []rlp.RawValue) error {
 // single fast header. It is used solely by the fetcher fast.
 func (p *peer) RequestOneFastHeader(hash common.Hash) error {
 	if strings.HasPrefix(hash.String(), "00") {
-		p.Log().Warn("Fetching single header  GetFastBlockHeadersMsg", "hash", hash)
+		p.Log().Info("Fetching single header  GetFastBlockHeadersMsg", "hash", hash)
 	} else {
 		p.Log().Debug("Fetching single header  GetFastBlockHeadersMsg", "hash", hash)
 	}
@@ -550,7 +550,7 @@ func (p *peer) RequestOneFastHeader(hash common.Hash) error {
 func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool, isFastchain bool) error {
 	if isFastchain {
 		if strings.HasPrefix(origin.String(), "00") {
-			p.Log().Warn("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+			p.Log().Info("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 		} else {
 			p.Log().Debug("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 		}
