@@ -113,7 +113,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 		lstr,
 		node.config.P2P.ExternalAddress,
 		node.config.P2P.UPNP,
-		log.New("p2p"))
+		log.New("p2p", "self"))
 	s.sw.AddListener(l)
 
 	privValidator := ttypes.NewPrivValidator(*node.priv)
