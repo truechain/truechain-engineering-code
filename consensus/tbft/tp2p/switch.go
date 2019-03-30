@@ -24,7 +24,7 @@ const (
 
 	// then move into exponential backoff mode for ~1day
 	// ie. 3**10 = 16hrs
-	reconnectBackOffAttempts    = 10
+	reconnectBackOffAttempts    = 1440
 	reconnectBackOffBaseSeconds = 3
 
 	// keep at least this many outbound peers
@@ -225,7 +225,7 @@ func (sw *Switch) OnStart() error {
 // OnStop implements BaseService. It stops all listeners, peers, and reactors.
 func (sw *Switch) OnStop() {
 	// Stop listeners
-	log.Debug("Begin Switch finish")
+	log.Info("Begin Switch finish")
 	for _, listener := range sw.listeners {
 		help.CheckAndPrintError(listener.Stop())
 	}
@@ -239,7 +239,7 @@ func (sw *Switch) OnStop() {
 	for _, reactor := range sw.reactors {
 		help.CheckAndPrintError(reactor.Stop())
 	}
-	log.Debug("End Switch finish")
+	log.Info("End Switch finish")
 }
 
 //---------------------------------------------------------------------
@@ -390,6 +390,9 @@ func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 
 		// sleep an exponentially increasing amount
 		sleepIntervalSeconds := math.Pow(reconnectBackOffBaseSeconds, float64(i))
+		if sleepIntervalSeconds > 60 {
+			sleepIntervalSeconds = 60
+		}
 		sw.randomSleep(time.Duration(sleepIntervalSeconds) * time.Second)
 		err := sw.DialPeerWithAddress(addr, true)
 		if err == nil {
