@@ -13,6 +13,7 @@ to make the chain even more decentralized and fair.
 TrueChain also creates a hybrid consensus incentive model and a stable gas fee mechanism to lower the cost for the developers 
 and operators of DApps, and provide better infrastructure for decentralized eco-system. 
 
+<a href="https://github.com/truechain/truechain-engineering-code/blob/master/COPYING"><img src="https://img.shields.io/badge/license-GPL%20%20truechain-lightgrey.svg"></a>
 
 ## Building the source
 
