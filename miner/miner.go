@@ -97,7 +97,7 @@ var committeemembers []*types.CommitteeMember
 
 // New is create a miner object
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
-	election CommitteeElection, mineFruit bool, singleNode bool, remoteMining bool) *Miner {
+	election CommitteeElection, mineFruit bool, singleNode bool, remoteMining bool, mining bool) *Miner {
 	miner := &Miner{
 		truechain:  truechain,
 		mux:        mux,
@@ -106,18 +106,20 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		fruitOnly:  mineFruit, // set fruit only
 		singleNode: singleNode,
 		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
-		commitFlag: 1,
-		canStart:   1,
+		commitFlag: 0, // not committee
+		canStart:   0, // not start downlad
+		mining:     0,
 	}
 
-	if !remoteMining {
-		miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
+	if mineFruit || remoteMining || mining {
+		atomic.StoreInt32(&miner.shouldStart, 1)
 	}
 
 	go miner.SetFruitOnly(mineFruit)
 
 	// single node and remote agent not need care about the election
 	if !remoteMining {
+		miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
 		if !miner.singleNode {
 			miner.electionCh = make(chan types.ElectionEvent, electionChanSize)
 			miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
@@ -175,42 +177,34 @@ func (miner *Miner) update() {
 			case downloader.StartEvent:
 				log.RedisLog("-----------------get download info startEvent")
 				log.Info("Miner update get download info startEvent", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "commit", miner.commitFlag)
-				atomic.StoreInt32(&miner.canStart, 0)
+				atomic.StoreInt32(&miner.canStart, 1)
 				if miner.Mining() {
 					miner.Stop()
-					atomic.StoreInt32(&miner.shouldStart, 1)
 				}
 				log.Info("Mining aborted due to sync")
 
 			case downloader.DoneEvent, downloader.FailedEvent:
 				log.Info("Miner update get download info DoneEvent,FailedEvent", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "mining", miner.commitFlag)
-				shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
 
-				atomic.StoreInt32(&miner.canStart, 1)
-				if shouldStart {
-					miner.Start(miner.coinbase)
-				}
+				atomic.StoreInt32(&miner.canStart, 0)
+				miner.Start(miner.coinbase)
 
 			case CommitteeStartUpdate:
 				log.Info("Miner update committee start update")
 
 				if miner.election.IsCommitteeMember(committeemembers, miner.publickey) {
 					// i am committee
-					atomic.StoreInt32(&miner.commitFlag, 0)
+					atomic.StoreInt32(&miner.commitFlag, 1)
 
 					if miner.Mining() {
 						miner.Stop()
-						//atomic.StoreInt32(&miner.shouldStart, 1)
 						log.Info("Mining aborted due to CommitteeUpdate")
 					}
 
 				} else {
 					log.Info("Miner update not in commiteer munber so start to miner")
-					atomic.StoreInt32(&miner.commitFlag, 1)
-					shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
-					if shouldStart {
-						miner.Start(miner.coinbase)
-					}
+					atomic.StoreInt32(&miner.commitFlag, 0)
+					miner.Start(miner.coinbase)
 
 				}
 				log.Info("Miner update get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "mining", miner.commitFlag)
@@ -229,20 +223,29 @@ func (miner *Miner) Start(coinbase common.Address) {
 
 	miner.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&miner.canStart) == 0 || atomic.LoadInt32(&miner.commitFlag) == 0 {
-		log.Info("start to miner", "canstart", miner.canStart, "commitflag", miner.commitFlag)
+	if atomic.LoadInt32(&miner.canStart) == 0 && atomic.LoadInt32(&miner.commitFlag) == 0 && atomic.LoadInt32(&miner.mining) == 0 && atomic.LoadInt32(&miner.shouldStart) == 1 {
+
+		atomic.StoreInt32(&miner.mining, 1)
+
+		miner.worker.start()
+
+		var events []interface{}
+		events = append(events, types.NewMinedFruitEvent{Block: nil})
+		miner.worker.chain.PostChainEvents(events)
+	} else {
+		log.Info("start to miner fail", "canstart", miner.canStart, "commitflag", miner.commitFlag, "shout start", miner.shouldStart, "mining", miner.mining)
 		return
 	}
-	atomic.StoreInt32(&miner.shouldStart, 1)
-	atomic.StoreInt32(&miner.mining, 1)
 
-	miner.worker.start()
-	//miner.worker.commitNewWork()
+}
 
-	var events []interface{}
-	events = append(events, types.NewMinedFruitEvent{Block: nil})
-	miner.worker.chain.PostChainEvents(events)
-
+//Stop stop miner
+func (miner *Miner) SetShouldStartMining(start bool) {
+	if start {
+		atomic.StoreInt32(&miner.shouldStart, 1)
+	} else {
+		atomic.StoreInt32(&miner.shouldStart, 0)
+	}
 }
 
 //Stop stop miner
@@ -250,7 +253,7 @@ func (miner *Miner) Stop() {
 	log.Debug(" miner stop miner funtion")
 	miner.worker.stop()
 	atomic.StoreInt32(&miner.mining, 0)
-	atomic.StoreInt32(&miner.shouldStart, 0)
+	//atomic.StoreInt32(&miner.shouldStart, 0)
 
 }
 

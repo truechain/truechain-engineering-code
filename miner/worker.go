@@ -527,8 +527,6 @@ func (w *worker) commitNewWork() {
 	parent := w.chain.CurrentBlock()
 	w.atCommintNewWoker = true
 
-	log.Debug("------in commitNewWork")
-
 	//can not start miner when  fruits and fast block
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
@@ -762,7 +760,7 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 			timeinterval := new(big.Int).Sub(endTime, startTime)
 
 			unmineFruitLen := new(big.Int).Sub(fastHight, fruits[len(fruits)-1].FastNumber())
-			waitmine := rand.Intn(1200)
+			waitmine := rand.Intn(900)
 
 			if timeinterval.Cmp(params.MinTimeGap) >= 0 && (waitmine > int(unmineFruitLen.Int64())) {
 				// must big then 5min

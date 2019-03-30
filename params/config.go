@@ -27,19 +27,17 @@ import (
 
 // Genesis hashes to enforce below configs on.
 var (
-	MainnetGenesisHash      = common.HexToHash("0x4c698115c8ff468038c471885d7082be4a9ee96be738d3ee20abc1a1d0e21e89")
-	TestnetGenesisHash      = common.HexToHash("0x290144fdb8893d0a0e3788cbc626109e616044e62a023a56909e55ba9c8b1b55")
-	MainnetSnailGenesisHash = common.HexToHash("0x044db0d284a7ce0038f3573116bb20b0cbd0fc7c7fd39e86e191731867147e3e")
-	TestnetSnailGenesisHash = common.HexToHash("0x9e0e83d9ef3600159bbe3c1f11faa407902146ac76e22f1ab73792f070451f03")
+	MainnetGenesisHash      = common.HexToHash("0x0c6e644fcbd396f7b235ecef44551c45afd9274e87cd77ec6e9778cf8bfb46fc")
+	MainnetSnailGenesisHash = common.HexToHash("0xf82fd9c0c8a53474c9e40e4f1c0583a94609eaf88dae01a5496da459398485c6")
 
-	TestnetGenesisFHash = common.HexToHash("0xcf49d73c99b1c47340b7f302c952f6457f1c0de1fd5b3252bd4707399827134f")
-	TestnetGenesisSHash = common.HexToHash("0x00bffb8790c8e80c3b6ca76ab6986d30fdd28f67cc4a9dff2cc054e9cb1a1b09")
+	TestnetGenesisHash      = common.HexToHash("0x8559a3cad3e5702fe057fe6709234183140537504f2167338a7d851f4426c2b6")
+	TestnetSnailGenesisHash = common.HexToHash("0x386389953605bf5fae7296a0523dd02b8a28c2bbbbd5c8a8f395319cbb938b74")
 )
 
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
-		ChainID: big.NewInt(1),
+		ChainID: big.NewInt(19330),
 		Minerva: &(MinervaConfig{
 			MinimumDifficulty:      big.NewInt(134217728),
 			MinimumFruitDifficulty: big.NewInt(262144),
@@ -51,8 +49,8 @@ var (
 	TestnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(18928),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(2000000),
-			MinimumFruitDifficulty: big.NewInt(2000),
+			MinimumDifficulty:      big.NewInt(60000),
+			MinimumFruitDifficulty: big.NewInt(200),
 			DurationLimit:          big.NewInt(600),
 		}),
 	}

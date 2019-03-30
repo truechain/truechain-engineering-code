@@ -79,7 +79,6 @@ func (valSet *ValidatorSet) IncrementAccum(times uint) {
 }
 
 func (valSet *ValidatorSet) FindValidatorSetProposer(address common.Address) {
-	log.Debug("FindValidatorSetProposer", "addr", address, "vaalset", valSet)
 	for _, val := range valSet.Validators {
 		if bytes.Compare(val.PubKey.Address(), address.Bytes()) == 0 {
 			valSet.Proposer = val
@@ -247,12 +246,10 @@ func (valSet *ValidatorSet) Update(val *Validator) (updated bool) {
 // Remove deletes the validator with address. It returns the validator removed
 // and true. If returns nil and false if validator is not present in the set.
 func (valSet *ValidatorSet) Remove(address []byte) (val *Validator, removed bool) {
-	log.Info("ValidatorSetRemove", "remove", address)
+	log.Debug("ValidatorSetRemove", "remove", address)
 	idx := sort.Search(len(valSet.Validators), func(i int) bool {
 		return bytes.Compare(address, valSet.Validators[i].Address) <= 0
 	})
-	log.Info("ValidatorSetRemove", "idx", idx, "len", len(valSet.Validators), "address2", valSet.Validators[idx].Address, "adress", address)
-	log.Info("ValidatorSetRemove", "idx", idx >= len(valSet.Validators), "equal", bytes.Equal(valSet.Validators[idx].Address, address))
 	if idx >= len(valSet.Validators) || !bytes.Equal(valSet.Validators[idx].Address, address) {
 		return nil, false
 	}

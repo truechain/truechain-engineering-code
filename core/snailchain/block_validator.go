@@ -19,14 +19,16 @@ package snailchain
 import (
 	"errors"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core"
 
+	"math/big"
+
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
-	"math/big"
 )
 
 var (
@@ -44,6 +46,12 @@ var (
 
 	//ErrGapFruits is returned if the fruits's fastblock time gap less than 360s
 	ErrGapFruits = errors.New("invalid fruits time gap")
+
+	//ErrFruitTime is returned if the fruit's time less than fastblock's time
+	ErrFruitTime = errors.New("invalid fruit time")
+
+	//ErrBlockTime is returned if the block's time less than the last fruit's time
+	ErrBlockTime = errors.New("invalid block time")
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -117,19 +125,18 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		temp = localFruits[len(localFruits)-1].FastNumber().Uint64()
 	}
 	fruits := block.Fruits()
-
-	if block.Number().Cmp(big.NewInt(4200)) >= 0 {
-		maxfb := v.fastchain.GetHeader(fruits[len(fruits)-1].FastHash(), fruits[len(fruits)-1].FastNumber().Uint64())
-		minfb := v.fastchain.GetHeader(fruits[0].FastHash(), fruits[0].FastNumber().Uint64())
-		if minfb == nil || maxfb == nil {
-			return consensus.ErrFutureBlock
-		}
-
-		gap := new(big.Int).Sub(maxfb.Time, minfb.Time)
-		if gap.Cmp(params.MinTimeGap) < 0 {
-			log.Info("ValidateBody snail validate time gap error", "block", block.Number(), "first fb number", minfb.Number, "first fb time", minfb.Time, "last fb number", maxfb.Number, "last fb time", maxfb.Time, "tim gap", gap)
-			return ErrGapFruits
-		}
+	maxfb := v.fastchain.GetHeader(fruits[len(fruits)-1].FastHash(), fruits[len(fruits)-1].FastNumber().Uint64())
+	minfb := v.fastchain.GetHeader(fruits[0].FastHash(), fruits[0].FastNumber().Uint64())
+	if minfb == nil || maxfb == nil {
+		return consensus.ErrFutureBlock
+	}
+	if fruits[len(fruits)-1].Time() == nil || block.Time() == nil || block.Time().Cmp(fruits[len(fruits)-1].Time()) < 0 {
+		return ErrBlockTime
+	}
+	gap := new(big.Int).Sub(maxfb.Time, minfb.Time)
+	if gap.Cmp(params.MinTimeGap) < 0 {
+		log.Info("ValidateBody snail validate time gap error", "block", block.Number(), "first fb number", minfb.Number, "first fb time", minfb.Time, "last fb number", maxfb.Number, "last fb time", maxfb.Time, "tim gap", gap)
+		return ErrGapFruits
 	}
 	for _, fruit := range fruits {
 		if fruit.FastNumber().Uint64()-temp != 1 {
@@ -166,6 +173,11 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	fb := v.fastchain.GetHeader(fruit.FastHash(), fruit.FastNumber().Uint64())
 	if fb == nil {
 		return ErrInvalidFast
+	}
+
+	//check fruit's time
+	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 {
+		return ErrFruitTime
 	}
 
 	//check integrity

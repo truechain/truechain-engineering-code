@@ -86,7 +86,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		panic(err)
 	}
 
-	schain := snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, blocks, 7, snailGenerator)
+	schain := snailchain.GenerateChain(gspec.Config, blockchain, []*types.SnailBlock{snailGenesis}, blocks, 7, snailGenerator)
 	if _, err := snailChain.InsertChain(schain); err != nil {
 		panic(err)
 	}
@@ -196,6 +196,37 @@ func (p *testSnailPool) SubscribeNewFruitEvent(ch chan<- types.NewFruitsEvent) e
 }
 
 func (p *testSnailPool) RemovePendingFruitByFastHash(fasthash common.Hash) {
+}
+
+// testAgentNetwork is a fake, helper agent for testing purposes
+type testAgentNetwork struct {
+	agentFeed event.Feed
+	nodeFeed  event.Feed
+	en        *types.EncryptNodeMessage        // Collection of all fruits
+	added     chan<- *types.EncryptNodeMessage // Notification channel for new fruits
+
+	lock sync.RWMutex // Protects the transaction pool
+}
+
+func (p *testAgentNetwork) SubscribeNewPbftSignEvent(ch chan<- types.PbftSignEvent) event.Subscription {
+	return p.agentFeed.Subscribe(ch)
+}
+
+// SubscribeNodeInfoEvent should return an event subscription of
+// NodeInfoEvent and send events to the given channel.
+func (p *testAgentNetwork) SubscribeNodeInfoEvent(ch chan<- types.NodeInfoEvent) event.Subscription {
+	return p.nodeFeed.Subscribe(ch)
+}
+
+// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
+func (p *testAgentNetwork) AddRemoteNodeInfo(en *types.EncryptNodeMessage) error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	if p.added != nil {
+		p.added <- en
+	}
+	return nil
 }
 
 // newTestTransaction create a new dummy transaction.

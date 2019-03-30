@@ -27,7 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
@@ -937,7 +937,38 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	if candidates == nil {
 		log.Warn("can't get election candidates, retain default committee", "begin", snailBeginNumber, "end", snailEndNumber)
 	} else {
-		members = e.elect(candidates, seed)
+		var (
+			all      []*types.CommitteeMember
+			addrs    = make(map[common.Address]*types.CommitteeMember)
+			defaults = make(map[common.Address]*types.CommitteeMember)
+		)
+		for _, g := range e.defaultMembers {
+			defaults[g.CommitteeBase] = g
+		}
+		for _, cm := range candidates {
+			if _, ok := defaults[cm.address]; ok {
+				// Filter default committee members
+				continue
+			}
+			if _, ok := addrs[cm.address]; ok {
+				continue
+			}
+			addrs[cm.address] = &types.CommitteeMember{
+				Coinbase:      cm.coinbase,
+				CommitteeBase: crypto.PubkeyToAddress(*cm.publickey),
+				Publickey:     crypto.FromECDSAPub(cm.publickey),
+				Flag:          types.StateUnusedFlag,
+			}
+			all = append(all, addrs[cm.address])
+		}
+		log.Info("Candidates addrs", "count", len(all))
+		if len(all) > params.ProposalCommitteeNumber {
+			members = e.elect(candidates, seed)
+		} else {
+			// Apply the whole candidates
+			log.Info("Apply all candidates", "begin", snailBeginNumber, "end", snailEndNumber)
+			members = all
+		}
 	}
 	// Select the first ProposalCommitteeNumber candidates to be working committee
 	if len(members) > params.ProposalCommitteeNumber {

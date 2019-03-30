@@ -27,13 +27,13 @@ var (
 func BeginWatchMgr() {
 	if watchs != nil {
 		watchs.start()
-		log.Info("begin watchMgr")
+		log.Debug("begin watchMgr")
 	}
 }
 func EndWatchMgr() {
 	if watchs != nil {
 		watchs.stop()
-		log.Info("end watchMgr")
+		log.Debug("end watchMgr")
 	}
 }
 func WatchsCountInMgr() uint64 {

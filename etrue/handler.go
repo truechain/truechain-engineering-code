@@ -207,7 +207,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 	// Construct the different synchronisation mechanisms
 	// TODO: support downloader func.
-	log.Info("---==--- mode ?", "mode is   :", mode)
 	fmode := fastdownloader.SyncMode(mode)
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
@@ -1301,7 +1300,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			maxSize := txPackSize * 3
 			txLen := len(txs)
 			if txLen > maxSize {
-				log.Warn("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", txLen)
+				log.Debug("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", txLen)
 
 				for i := 0; i < txLen; {
 					i = i + maxSize

@@ -16,7 +16,7 @@ type addrBookJSON struct {
 }
 
 func (a *addrBook) saveToFile(filePath string) {
-	log.Info("Saving AddrBook to file", "size", a.Size())
+	log.Debug("Saving AddrBook to file", "size", a.Size())
 
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -33,12 +33,12 @@ func (a *addrBook) saveToFile(filePath string) {
 
 	jsonBytes, err := json.MarshalIndent(aJSON, "", "\t")
 	if err != nil {
-		log.Error("Failed to save AddrBook to file", "err", err)
+		log.Debug("Failed to save AddrBook to file", "err", err)
 		return
 	}
 	err = help.WriteFileAtomic(filePath, jsonBytes, 0644)
 	if err != nil {
-		log.Error("Failed to save AddrBook to file", "file", filePath, "err", err)
+		log.Debug("Failed to save AddrBook to file", "file", filePath, "err", err)
 	}
 }
 

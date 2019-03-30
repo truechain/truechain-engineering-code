@@ -625,6 +625,20 @@ func (bc *SnailBlockChain) GetBlocksFromNumber(fromNumber uint64) (blocks []*typ
 	return
 }
 
+//GetHeadsFromNumber return snailheaders between given number to currentNumber
+//just for test
+func (bc *SnailBlockChain) GetHeadsFromNumber(fromNumber uint64) (blocks []*types.SnailHeader) {
+	currentNumber := bc.CurrentHeader().Number
+	for i := fromNumber; i <= currentNumber.Uint64(); i++ {
+		header := bc.GetHeaderByNumber(i)
+		if header == nil {
+			break
+		}
+		blocks = append(blocks, header)
+	}
+	return
+}
+
 // TrieNode retrieves a blob of data associated with a trie node (or code hash)
 // either from ephemeral in-memory cache, or from persistent storage.
 func (bc *SnailBlockChain) TrieNode(hash common.Hash) ([]byte, error) {
@@ -1036,7 +1050,7 @@ func (bc *SnailBlockChain) insertSidechain(block *types.SnailBlock, it *insertIt
 		numbers = append(numbers, parent.Number.Uint64())
 
 		parent = bc.GetHeader(parent.ParentHash, parent.Number.Uint64()-1)
-		log.Warn("number and hash", "number", parent.Number.Uint64(), "CanonicalHash", rawdb.ReadCanonicalHash(bc.db, parent.Number.Uint64()), "Sidechainhash", parent.Hash())
+		log.Debug("number and hash", "number", parent.Number.Uint64(), "CanonicalHash", rawdb.ReadCanonicalHash(bc.db, parent.Number.Uint64()), "Sidechainhash", parent.Hash())
 	}
 	if parent == nil {
 		return it.index, nil, errors.New("missing parent")

@@ -317,7 +317,7 @@ func TestBlock(t *testing.T) {
 	data := cdc.MustMarshalBinaryBare(msg)
 	msg2, err := decodeMsg(data)
 	if err != nil {
-		log.Error("Error decoding message", "bytes", data)
+		log.Debug("Error decoding message", "bytes", data)
 		return
 	}
 	log.Debug("Receive", "msg", msg2)

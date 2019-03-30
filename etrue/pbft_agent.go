@@ -175,7 +175,6 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 	if !agent.singleNode {
 		agent.subScribeEvent()
 	}
-	log.Info("new pbftAgent", "gasFloor", gasFloor, "gasCeil", gasCeil)
 	return agent
 }
 
@@ -279,6 +278,7 @@ func (agent *PbftAgent) IsLeader() bool {
 	return agent.server.IsLeader(agent.currentCommitteeInfo.Id)
 }
 
+//return isCurrent equals false of nodeInfoWork
 func (agent *PbftAgent) getCurrentNodeWork() *nodeInfoWork {
 	if !agent.nodeInfoWorks[0].isCurrent {
 		return agent.nodeInfoWorks[0]
@@ -682,7 +682,6 @@ func (agent *PbftAgent) GetFastLastProposer() common.Address {
 
 //FetchFastBlock  generate fastBlock as leader
 func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.CommitteeMember) (*types.Block, error) {
-	log.Info("into GenerateFastBlock...", "committeeId", committeeID)
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
 	if agent.fastChain.IsFallback() {
@@ -765,7 +764,6 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		log.Error("generateBlock with sign error.", "err", err)
 	}
 	fastBlock.AppendSign(voteSign)
-	log.Info("out GenerateFastBlock...")
 	return fastBlock, err
 }
 
@@ -967,7 +965,6 @@ func (agent *PbftAgent) verifyRewardInCommittee(fb *types.Block) error {
 //BroadcastConsensus  when More than 2/3 signs with agree,
 //  committee Member Reach a consensus  and insert the fastBlock into fastBlockChain
 func (agent *PbftAgent) BroadcastConsensus(fb *types.Block) error {
-	//log.Info("into BroadcastSign.", "fastHeight", fb.Number())
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
 	//insert bockchain
@@ -979,7 +976,6 @@ func (agent *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	consensusTime := time.Now().Unix() - fb.Header().Time.Int64()
 	pbftConsensusCounter.Clear()
 	pbftConsensusCounter.Inc(consensusTime)
-	//log.Info("out BroadcastSign.", "fastHeight", fb.Number())
 	return nil
 }
 

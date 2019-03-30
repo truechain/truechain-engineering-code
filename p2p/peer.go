@@ -23,7 +23,6 @@ import (
 	"io"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -241,19 +240,10 @@ loop:
 	}
 
 	close(p.closed)
-	log.Debug("ping loop end", "name", p.Name(), "running", len(p.running))
 	p.rw.close(reason)
-	log.Debug("RLPX end", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
+	log.Debug("Peer quit", "name", p.ID(), "running", len(p.running), "RemoteAddr", p.RemoteAddr())
 	p.wg.Wait()
 
-	context := []interface{}{
-		"name", p.ID(), "err", err, "remoteRequested", remoteRequested, "RemoteAddr", p.RemoteAddr(),
-	}
-	if err != nil && strings.Contains(err.Error(), "Genesis block") {
-		log.Debug("WaitGroup end", context...)
-	} else {
-		log.Info("WaitGroup end", context...)
-	}
 	return remoteRequested, err
 }
 

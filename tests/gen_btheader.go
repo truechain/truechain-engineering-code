@@ -23,9 +23,9 @@ func (b btHeader) MarshalJSON() ([]byte, error) {
 		Number           *math.HexOrDecimal256
 		Hash             common.Hash
 		ParentHash       common.Hash
-		ReceiptTrie      common.Hash
+		ReceiptsRoot      common.Hash
 		StateRoot        common.Hash
-		TransactionsTrie common.Hash
+		TransactionsRoot common.Hash
 		ExtraData        hexutil.Bytes
 		GasLimit         math.HexOrDecimal64
 		GasUsed          math.HexOrDecimal64
@@ -39,9 +39,9 @@ func (b btHeader) MarshalJSON() ([]byte, error) {
 	enc.Number = (*math.HexOrDecimal256)(b.Number)
 	enc.Hash = b.Hash
 	enc.ParentHash = b.ParentHash
-	enc.ReceiptTrie = b.ReceiptTrie
+	enc.ReceiptsRoot = b.ReceiptsRoot
 	enc.StateRoot = b.StateRoot
-	enc.TransactionsTrie = b.TransactionsTrie
+	enc.TransactionsRoot = b.TransactionsRoot
 	enc.ExtraData = b.ExtraData
 	enc.GasLimit = math.HexOrDecimal64(b.GasLimit)
 	enc.GasUsed = math.HexOrDecimal64(b.GasUsed)
@@ -58,9 +58,9 @@ func (b *btHeader) UnmarshalJSON(input []byte) error {
 		Number           *math.HexOrDecimal256
 		Hash             *common.Hash
 		ParentHash       *common.Hash
-		ReceiptTrie      *common.Hash
+		ReceiptsRoot      *common.Hash
 		StateRoot        *common.Hash
-		TransactionsTrie *common.Hash
+		TransactionsRoot *common.Hash
 		ExtraData        *hexutil.Bytes
 		GasLimit         *math.HexOrDecimal64
 		GasUsed          *math.HexOrDecimal64
@@ -92,14 +92,14 @@ func (b *btHeader) UnmarshalJSON(input []byte) error {
 	if dec.ParentHash != nil {
 		b.ParentHash = *dec.ParentHash
 	}
-	if dec.ReceiptTrie != nil {
-		b.ReceiptTrie = *dec.ReceiptTrie
+	if dec.ReceiptsRoot != nil {
+		b.ReceiptsRoot = *dec.ReceiptsRoot
 	}
 	if dec.StateRoot != nil {
 		b.StateRoot = *dec.StateRoot
 	}
-	if dec.TransactionsTrie != nil {
-		b.TransactionsTrie = *dec.TransactionsTrie
+	if dec.TransactionsRoot != nil {
+		b.TransactionsRoot = *dec.TransactionsRoot
 	}
 	if dec.ExtraData != nil {
 		b.ExtraData = *dec.ExtraData

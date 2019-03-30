@@ -25,7 +25,7 @@ import (
 
 var (
 	mainnetChainConfig = params.ChainConfig{
-		ChainID:        big.NewInt(1),
+		ChainID: big.NewInt(1),
 	}
 )
 
@@ -33,19 +33,18 @@ func TestDifficulty(t *testing.T) {
 	t.Parallel()
 
 	dt := new(testMatcher)
-	// Not difficulty-tests
-	//dt.skipLoad("hexencodetest.*")
-	//dt.skipLoad("crypto.*")
-	//dt.skipLoad("blockgenesistest\\.json")
-	//dt.skipLoad("genesishashestest\\.json")
-	//dt.skipLoad("keyaddrtest\\.json")
-	//dt.skipLoad("txtest\\.json")
-	//
-	//// files are 2 years old, contains strange values
-	//dt.skipLoad("difficultyCustomHomestead\\.json")
-	//dt.skipLoad("difficultyMorden\\.json")
-	//dt.skipLoad("difficultyOlimpic\\.json")
+	//Not difficulty-tests
+	dt.skipLoad("hexencodetest.*")
+	dt.skipLoad("crypto.*")
+	dt.skipLoad("blockgenesistest\\.json")
+	dt.skipLoad("genesishashestest\\.json")
+	dt.skipLoad("keyaddrtest\\.json")
+	dt.skipLoad("txtest\\.json")
 
+	// files are 2 years old, contains strange values
+	dt.skipLoad("difficultyCustomHomestead\\.json")
+	dt.skipLoad("difficultyMorden\\.json")
+	dt.skipLoad("difficultyOlimpic\\.json")
 
 	dt.walk(t, difficultyTestDir, func(t *testing.T, name string, test *DifficultyTest) {
 		cfg := dt.findConfig(name)

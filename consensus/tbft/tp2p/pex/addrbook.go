@@ -161,7 +161,6 @@ func (a *addrBook) FilePath() string {
 func (a *addrBook) AddOurAddress(addr *tp2p.NetAddress) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	log.Debug("Add our address to book", "addr", addr)
 	a.ourAddrs[addr.String()] = struct{}{}
 }
 
@@ -199,7 +198,7 @@ func (a *addrBook) RemoveAddress(addr *tp2p.NetAddress) {
 	if ka == nil {
 		return
 	}
-	log.Info("Remove address from book", "addr", ka.Addr, "ID", ka.ID())
+	log.Debug("Remove address from book", "addr", ka.Addr, "ID", ka.ID())
 	a.removeFromAllBuckets(ka)
 }
 
@@ -243,7 +242,7 @@ func (a *addrBook) PickAddress(biasTowardsNewAddrs int) *tp2p.NetAddress {
 	bookSize := a.size()
 	if bookSize <= 0 {
 		if bookSize < 0 {
-			log.Error("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
+			log.Debug("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
 		}
 		return nil
 	}
@@ -326,7 +325,7 @@ func (a *addrBook) GetSelection() []*tp2p.NetAddress {
 	bookSize := a.size()
 	if bookSize <= 0 {
 		if bookSize < 0 {
-			log.Error("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
+			log.Debug("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
 		}
 		return nil
 	}
@@ -372,7 +371,7 @@ func (a *addrBook) GetSelectionWithBias(biasTowardsNewAddrs int) []*tp2p.NetAddr
 	bookSize := a.size()
 	if bookSize <= 0 {
 		if bookSize < 0 {
-			log.Error("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
+			log.Debug("Addrbook size less than 0", "nNew", a.nNew, "nOld", a.nOld)
 		}
 		return nil
 	}
@@ -524,7 +523,7 @@ func (a *addrBook) getBucket(bucketType byte, bucketIdx int) map[string]*knownAd
 func (a *addrBook) addToNewBucket(ka *knownAddress, bucketIdx int) {
 	// Sanity check
 	if ka.isOld() {
-		log.Error("Failed Sanity Check! Cant add old address to new bucket", "ka", ka, "bucket", bucketIdx)
+		log.Debug("Failed Sanity Check! Cant add old address to new bucket", "ka", ka, "bucket", bucketIdx)
 		return
 	}
 
@@ -538,7 +537,7 @@ func (a *addrBook) addToNewBucket(ka *knownAddress, bucketIdx int) {
 
 	// Enforce max addresses.
 	if len(bucket) > newBucketSize {
-		log.Info("new bucket is full, expiring new")
+		log.Debug("new bucket is full, expiring new")
 		a.expireNew(bucketIdx)
 	}
 
@@ -557,11 +556,11 @@ func (a *addrBook) addToNewBucket(ka *knownAddress, bucketIdx int) {
 func (a *addrBook) addToOldBucket(ka *knownAddress, bucketIdx int) bool {
 	// Sanity check
 	if ka.isNew() {
-		log.Error(fmt.Sprintf("Cannot add new address to old bucket: %v", ka))
+		log.Debug(fmt.Sprintf("Cannot add new address to old bucket: %v", ka))
 		return false
 	}
 	if len(ka.Buckets) != 0 {
-		log.Error(fmt.Sprintf("Cannot add already old address to another old bucket: %v", ka))
+		log.Debug(fmt.Sprintf("Cannot add already old address to another old bucket: %v", ka))
 		return false
 	}
 
@@ -592,7 +591,7 @@ func (a *addrBook) addToOldBucket(ka *knownAddress, bucketIdx int) bool {
 
 func (a *addrBook) removeFromBucket(ka *knownAddress, bucketType byte, bucketIdx int) {
 	if ka.BucketType != bucketType {
-		log.Error(fmt.Sprintf("Bucket type mismatch: %v", ka))
+		log.Debug(fmt.Sprintf("Bucket type mismatch: %v", ka))
 		return
 	}
 	bucket := a.getBucket(bucketType, bucketIdx)
@@ -688,7 +687,7 @@ func (a *addrBook) expireNew(bucketIdx int) {
 	for addrStr, ka := range a.bucketsNew[bucketIdx] {
 		// If an entry is bad, throw it away
 		if ka.isBad() {
-			log.Info(fmt.Sprintf("expiring bad address %v", addrStr))
+			log.Debug(fmt.Sprintf("expiring bad address %v", addrStr))
 			a.removeFromBucket(ka, bucketTypeNew, bucketIdx)
 			return
 		}
@@ -705,11 +704,11 @@ func (a *addrBook) expireNew(bucketIdx int) {
 func (a *addrBook) moveToOld(ka *knownAddress) {
 	// Sanity check
 	if ka.isOld() {
-		log.Error(fmt.Sprintf("Cannot promote address that is already old %v", ka))
+		log.Debug(fmt.Sprintf("Cannot promote address that is already old %v", ka))
 		return
 	}
 	if len(ka.Buckets) == 0 {
-		log.Error(fmt.Sprintf("Cannot promote address that isn't in any new buckets %v", ka))
+		log.Debug(fmt.Sprintf("Cannot promote address that isn't in any new buckets %v", ka))
 		return
 	}
 
@@ -731,7 +730,7 @@ func (a *addrBook) moveToOld(ka *knownAddress) {
 		// Finally, add our ka to old bucket again.
 		added = a.addToOldBucket(ka, oldBucketIdx)
 		if !added {
-			log.Error(fmt.Sprintf("Could not re-add ka %v to oldBucketIdx %v", ka, oldBucketIdx))
+			log.Debug(fmt.Sprintf("Could not re-add ka %v to oldBucketIdx %v", ka, oldBucketIdx))
 		}
 	}
 }

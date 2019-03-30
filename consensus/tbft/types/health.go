@@ -188,7 +188,7 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 	h.BaseService = *help.NewBaseService("HealthMgr", h)
 	hi, lo := cid<<32, uint64(100)
 	h.uid = hi | lo
-	log.Info("HealthMgr init", "cid", cid, "hi", hi, "lo", lo, "uid", h.uid)
+	log.Trace("HealthMgr init", "cid", cid, "hi", hi, "lo", lo, "uid", h.uid)
 	return h
 }
 
@@ -289,13 +289,13 @@ func (h *HealthMgr) healthGoroutine() {
 			sshift, cnt = h.isShiftSV()
 			h.work(sshift)
 			if !sshift && islog {
-				log.Info("Stop Shift Switch Validator, because minimum SV", "Count", cnt, "CID", h.cid)
+				log.Debug("Stop Shift Switch Validator, because minimum SV", "Count", cnt, "CID", h.cid)
 				islog = false
 			}
 		case s := <-h.ChanFrom():
 			h.switchResult(s)
 		case <-h.Quit():
-			log.Info("healthMgr is quit")
+			log.Debug("healthMgr is quit")
 			return
 		}
 	}
@@ -323,7 +323,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
 				atomic.StoreUint32(&v.State, ctypes.StateSwitchingFlag)
 				h.setCurSV(cur)
-				log.Info("CheckSwitchValidator(remove,add)", "info:", cur, "cid", h.cid)
+				log.Debug("CheckSwitchValidator(remove,add)", "info:", cur, "cid", h.cid)
 				go h.Switch(cur)
 			}
 		}
@@ -333,7 +333,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 			if val0 < HealthOut && sv0.From == 0 {
 				sv1 := *sv0
 				sv1.From = 1
-				log.Info("Restore SwitchValidator", "info", sv1, "cid", h.cid)
+				log.Debug("Restore SwitchValidator", "info", sv1, "cid", h.cid)
 				go h.Switch(&sv1)
 			}
 		}
@@ -415,7 +415,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 				remove = h.GetHealth(enter1.CommitteeBase.Bytes())
 			}
 			if !remove.Equal(res.Remove) || !add.Equal(res.Add) {
-				log.Error("switchResult item not match", "cid", h.cid, "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)
+				log.Debug("switchResult item not match", "cid", h.cid, "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)
 			}
 			if remove != nil {
 
@@ -430,7 +430,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			}
 		}
 	}
-	log.Info("switchResult", "result:", ss, "res", res, "cid", h.cid)
+	log.Debug("switchResult", "result:", ss, "res", res, "cid", h.cid)
 }
 
 //pickUnuseValidator get a back committee
@@ -513,12 +513,12 @@ func (h *HealthMgr) GetHealth(adress []byte) *Health {
 func (h *HealthMgr) VerifySwitch(sv *SwitchValidator) error {
 	if !EnableHealthMgr {
 		err := fmt.Errorf("healthMgr not enable")
-		log.Error("VerifySwitch", "err", err)
+		log.Debug("VerifySwitch", "err", err)
 		return err
 	}
 	if sv0 := h.getCurSV(); sv0 != nil {
 		if sv0.Equal(sv) {
-			log.Info("HealthMgr verify:sv equal sv0", "info", sv)
+			log.Debug("HealthMgr verify:sv equal sv0", "info", sv)
 			return nil // proposal is self?
 		}
 	}
@@ -595,7 +595,7 @@ func (h *HealthMgr) checkSaveSwitchValidator(members ctypes.CommitteeMembers) {
 		remove := h.curSwitch[i].Remove
 		add := h.curSwitch[i].Add
 		if remove == nil {
-			log.Error("checkSaveSwitchValidator", "msg", "remove is nil")
+			log.Debug("checkSaveSwitchValidator", "msg", "remove is nil")
 			continue
 		}
 		rOK, aOk := false, false

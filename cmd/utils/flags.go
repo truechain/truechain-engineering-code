@@ -352,11 +352,19 @@ var (
 		Usage: "Number of CPU threads to use for mining",
 		Value: runtime.NumCPU() - 1,
 	}
-	TargetGasLimitFlag = cli.Uint64Flag{
-		Name:  "targetgaslimit",
-		Usage: "Target gas limit sets the artificial target gas floor for the blocks to mine",
-		Value: params.GenesisGasLimit,
+
+	GasTargetFlag = cli.Uint64Flag{
+		Name:  "gastarget",
+		Usage: "Target gas floor for fast block",
+		Value: etrue.DefaultConfig.MinerGasFloor,
 	}
+
+	GasLimitFlag = cli.Uint64Flag{
+		Name:  "gaslimit",
+		Usage: "Target gas ceiling for fast block",
+		Value: etrue.DefaultConfig.MinerGasCeil,
+	}
+
 	EtherbaseFlag = cli.StringFlag{
 		Name:  "etherbase",
 		Usage: "Public address for block mining rewards (default = first account created)",
@@ -1174,6 +1182,13 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalIsSet(GasPriceFlag.Name) {
 		cfg.GasPrice = GlobalBig(ctx, GasPriceFlag.Name)
 	}
+	if ctx.GlobalIsSet(GasLimitFlag.Name) {
+		cfg.MinerGasCeil = ctx.GlobalUint64(GasLimitFlag.Name)
+	}
+	if ctx.GlobalIsSet(GasTargetFlag.Name) {
+		cfg.MinerGasFloor = ctx.GlobalUint64(GasTargetFlag.Name)
+	}
+
 	if ctx.GlobalIsSet(VMEnableDebugFlag.Name) {
 		// TODO(fjl): force-enable this in --dev mode
 		cfg.EnablePreimageRecording = ctx.GlobalBool(VMEnableDebugFlag.Name)
@@ -1257,12 +1272,6 @@ func RegisterEtrueStatsService(stack *node.Node, url string) {
 	}); err != nil {
 		Fatalf("Failed to register the Truechain Stats service: %v", err)
 	}
-}
-
-// SetupNetwork configures the system for either the main net or some test network.
-func SetupNetwork(ctx *cli.Context) {
-	// TODO(fjl): move target gas limit into config
-	params.TargetGasLimit = ctx.GlobalUint64(TargetGasLimitFlag.Name)
 }
 
 func SetupMetrics(ctx *cli.Context) {

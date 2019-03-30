@@ -656,7 +656,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
-	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 || tx.GasPrice().Cmp(big.NewInt(MinimumGasPrice_local)) < 1 {
+	if pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
 	}
 	// Ensure the transaction adheres to nonce ordering
@@ -675,7 +675,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 	} else {
 		if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
-			log.Warn("validate balance", "from", from, "to", tx.To(), "balance", pool.currentState.GetBalance(from), "cost", tx.Cost())
+			log.Trace("validate balance", "from", from, "to", tx.To(), "balance", pool.currentState.GetBalance(from), "cost", tx.Cost())
 			return ErrInsufficientFunds
 		}
 	}

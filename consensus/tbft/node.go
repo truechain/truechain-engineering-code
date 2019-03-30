@@ -109,7 +109,6 @@ func (s *service) start(cid *big.Int, node *Node) error {
 
 	s.sw.SetNodeInfo(nodeinfo)
 	s.sw.SetNodeKey(&node.nodekey)
-	log.Info("commitee start", "node info", nodeinfo.String())
 	l := tp2p.NewDefaultListener(
 		lstr,
 		node.config.P2P.ExternalAddress,
@@ -155,7 +154,7 @@ func (s *service) getStateAgent() *ttypes.StateAgentImpl {
 	return s.sa
 }
 func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
-	log.Info("putNodes", "cid", cid, "nodes", nodes)
+	log.Trace("putNodes", "cid", cid, "nodes", nodes)
 	if nodes == nil {
 		return
 	}
@@ -167,7 +166,7 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		nodeString[i] = node.String()
 		pub, err := crypto.UnmarshalPubkey(node.Publickey)
 		if err != nil {
-			log.Error("putnode:", "err", err, "ip", node.IP, "port", node.Port)
+			log.Debug("putnode:", "err", err, "ip", node.IP, "port", node.Port)
 			continue
 		}
 		// check node pk
@@ -177,11 +176,9 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 			port = node.Port
 		}
 		id := tp2p.ID(hex.EncodeToString(address[:]))
-		log.Debug("putNodes", "id", id, "s.nodeTable", s.nodeTable)
 		addr, err := tp2p.NewNetAddressString(tp2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
 		if v, ok := s.nodeTable[id]; ok {
-			log.Debug("Enter NodeInfo", "id", id, "addr", addr)
 			v.Adrress = addr
 			if v.IP != node.IP || v.Port != port {
 				v.IP, v.Port = node.IP, port
@@ -190,7 +187,6 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		}
 		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
-	log.Debug("PutNodes", "id", cid, "msg", strings.Join(nodeString, "\n"))
 	if update && s.nodesHaveSelf() { //} ((s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) || s.sa.Priv == nil) {
 		select {
 		case s.updateChan <- true:
@@ -236,13 +232,13 @@ func (s *service) connTo(node *nodeInfo) {
 	if node.Enable {
 		return
 	}
-	log.Info("[put nodes]connTo", "addr", node.Adrress)
+	log.Trace("[put nodes]connTo", "addr", node.Adrress)
 	errDialErr := s.sw.DialPeerWithAddress(node.Adrress, true)
 	if errDialErr != nil {
 		if strings.HasPrefix(errDialErr.Error(), "Duplicate peer ID") {
 			node.Enable = true
 		} else {
-			log.Error("[connTo] dail peer " + errDialErr.Error())
+			log.Debug("[connTo] dail peer " + errDialErr.Error())
 		}
 	} else {
 		node.Enable = true
@@ -313,10 +309,8 @@ func (n *Node) OnStart() error {
 func (n *Node) OnStop() {
 	n.lock.Lock()
 	defer n.lock.Unlock()
-	for i, v := range n.services {
-		log.Info("begin stop tbft server ", "id", i)
+	for _, v := range n.services {
 		help.CheckAndPrintError(v.stop())
-		log.Info("end stop tbft server ", "id", i)
 	}
 	help.EndWatchMgr()
 	// first stop the non-reactor services
@@ -374,19 +368,19 @@ func (n *Node) Notify(id *big.Int, action int) error {
 				}
 				n.servicePre = id.Uint64()
 			}
-			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Debug("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			help.CheckAndPrintError(server.start(id, n))
-			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Debug("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			return nil
 		}
 		return errors.New("wrong conmmitt ID:" + id.String())
 
 	case Stop:
 		if server, ok := n.services[id.Uint64()]; ok {
-			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
+			log.Debug("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 			help.CheckAndPrintError(server.stop())
 			//delete(n.services, id.Uint64())
-			log.Info("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
+			log.Debug("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 		}
 		return nil
 	case Switch:
@@ -408,7 +402,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if _, ok := n.services[id.Uint64()]; ok {
 		return errors.New("repeat ID:" + id.String())
 	}
-	log.Info("pbft PutCommittee", "info", committeeInfo.String())
+	log.Trace("pbft PutCommittee", "info", committeeInfo.String())
 	// Make StateAgent
 	startHeight := committeeInfo.StartHeight.Uint64()
 	cid := id.Uint64()
@@ -428,7 +422,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	service.consensusState.SetHealthMgr(service.healthMgr)
 	service.consensusState.SetCommitteeInfo(committeeInfo)
 	nodeInfo := makeCommitteeMembers(service, committeeInfo)
-	log.Info("put committee", "nodeinfo", nodeInfo)
+	log.Trace("put committee", "nodeinfo", nodeInfo)
 	if nodeInfo == nil {
 		help.CheckAndPrintError(service.stop())
 		return errors.New("make the nil CommitteeMembers")
@@ -451,7 +445,7 @@ func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo
 	for _, v := range c.Members {
 		pk, e := crypto.UnmarshalPubkey(v.Publickey)
 		if e != nil {
-			log.Error("AddHealthForCommittee pk error", "pk", v.Publickey)
+			log.Debug("AddHealthForCommittee pk error", "pk", v.Publickey)
 		}
 		id := pkToP2pID(pk)
 		//exclude self
@@ -467,7 +461,7 @@ func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo
 	for _, v := range c.BackMembers {
 		pk, e := crypto.UnmarshalPubkey(v.Publickey)
 		if e != nil {
-			log.Error("AddHealthForCommittee pk error", "pk", v.Publickey)
+			log.Debug("AddHealthForCommittee pk error", "pk", v.Publickey)
 		}
 		id := pkToP2pID(pk)
 		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*pk), 1)
@@ -503,7 +497,7 @@ func (n *Node) checkValidatorSet(service *service, info *types.CommitteeInfo) (s
 		if v.Flag == types.StateRemovedFlag {
 			pk, e := crypto.UnmarshalPubkey(v.Publickey)
 			if e != nil {
-				log.Error("checkValidatorSet pk error", "pk", v.Publickey)
+				log.Debug("checkValidatorSet pk error", "pk", v.Publickey)
 			}
 			if service.consensusState.state.GetPubKey().Equals(tcrypto.PubKeyTrue(*pk)) {
 				selfStop = true
@@ -518,19 +512,17 @@ func (n *Node) checkValidatorSet(service *service, info *types.CommitteeInfo) (s
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	n.lock.Lock()
 	defer n.lock.Unlock()
-	log.Info("UpdateCommittee", "info", info)
+	log.Trace("UpdateCommittee", "info", info)
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator
 		stop, member := n.checkValidatorSet(service, info)
-		log.Info("UpdateCommittee", "stop", stop, "member", member)
 		val := MakeValidators(info)
-		log.Info("UpdateCommittee", "newValidator", val)
 		service.consensusState.UpdateValidatorsSet(val, info.StartHeight.Uint64(), info.EndHeight.Uint64())
 
 		for _, v := range member {
 			pk, e := crypto.UnmarshalPubkey(v.Publickey)
 			if e != nil {
-				log.Error("UpdateCommittee pk error", "pk", v.Publickey)
+				log.Debug("UpdateCommittee pk error", "pk", v.Publickey)
 			}
 			pID := pkToP2pID(pk)
 			p := service.sw.GetPeerForID(string(pID))
@@ -585,7 +577,7 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 		}
 		pk, e := crypto.UnmarshalPubkey(m.Publickey)
 		if e != nil {
-			log.Error("MakeValidators pk error", "pk", m.Publickey)
+			log.Debug("MakeValidators pk error", "pk", m.Publickey)
 		}
 		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*pk), power)
 		vals = append(vals, v)
@@ -604,14 +596,14 @@ func makeCommitteeMembers(ss *service, cmm *types.CommitteeInfo) map[tp2p.ID]*no
 			ID:   id,
 			Flag: m.Flag,
 		}
-		log.Info("CommitteeMembers", "index", i, "id", id)
+		log.Trace("CommitteeMembers", "index", i, "id", id)
 	}
 	return tab
 }
 
 //SetCommitteeStop is stop committeeID server
 func (n *Node) SetCommitteeStop(committeeID *big.Int, stop uint64) error {
-	log.Info("SetCommitteeStop", "id", committeeID, "stop", stop)
+	log.Trace("SetCommitteeStop", "id", committeeID, "stop", stop)
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -639,7 +631,7 @@ func getNodeStatus(s *service) map[string]interface{} {
 
 //GetCommitteeStatus is show committee info in api
 func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
-	log.Info("GetCommitteeStatus", "committeeID", committeeID.Uint64())
+	log.Trace("GetCommitteeStatus", "committeeID", committeeID.Uint64())
 	result := make(map[string]interface{})
 	s := getCommittee(n, committeeID.Uint64())
 	if s != nil {
@@ -650,7 +642,7 @@ func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 		result["committee_now"] = committee
 		result["nodeStatus"] = getNodeStatus(s)
 	} else {
-		log.Info("GetCommitteeStatus", "error", "server not have")
+		log.Trace("GetCommitteeStatus", "error", "server not have")
 	}
 
 	s1 := getCommittee(n, committeeID.Uint64()+1)

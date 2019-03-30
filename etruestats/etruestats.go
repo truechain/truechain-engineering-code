@@ -376,10 +376,6 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 	// Make sure the request is valid and doesn't crash us
 	request, ok := msg["emit"][1].(map[string]interface{})
 	if !ok {
-		/*if request != nil {
-			log.Warn("Invalid stats history request", "msg[emit]", msg["emit"], "request", request, "command", command,
-				"msg", msg["emit"][1])
-		}*/
 		if command == "history" {
 			s.histCh <- nil
 		} else {
@@ -388,7 +384,6 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 		return "continue" // Etruestats sometime sends invalid history requests, ignore those
 	}
 	list, ok := request["list"].([]interface{})
-	log.Warn(" stats history block list", "list", command, "command", request["list"])
 	if !ok {
 		log.Warn("Invalid stats history block list", "list", request["list"])
 		return "error"
@@ -733,7 +728,6 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 			indexes = append(indexes, i)
 		}
 	}
-	//log.Info("reportHistory", "indexes", indexes)
 	// Gather the batch of blocks to report
 	history := make([]*blockStats, len(indexes))
 	for i, number := range indexes {
@@ -792,7 +786,6 @@ func (s *Service) reportSnailHistory(conn *websocket.Conn, list []uint64) error 
 			indexes = append(indexes, i)
 		}
 	}
-	//log.Info("reportSnailHistory", "indexes", indexes)
 	// Gather the batch of blocks to report
 	history := make([]*snailBlockStats, len(indexes))
 	for i, number := range indexes {
@@ -918,7 +911,6 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		"id":    s.node,
 		"stats": nodeStats,
 	}
-	//log.Warn("nodeStats", "nodeStats", nodeStats)
 	report := map[string][]interface{}{
 		"emit": {"stats", stats},
 	}

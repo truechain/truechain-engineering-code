@@ -585,8 +585,11 @@ func (voteSet *VoteSet) StringShort() string {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	v, _, _, frac := voteSet.sumTotalFrac()
-	return fmt.Sprintf(`VoteSet{H:%v R:%v T:%v +2/3:%v(%v,%v) %v %v}`,
-		voteSet.height, voteSet.round, voteSet.typeB, voteSet.maj23, v, frac, voteSet.votesBitArray, voteSet.peerMaj23s)
+	return fmt.Sprintf(`VoteSet{T:%v +2/3:%v(%v,%.3f) %v}`,
+		voteSet.typeB, voteSet.maj23, v, frac, voteSet.votesBitArray)
+
+	//return fmt.Sprintf(`VoteSet{H:%v R:%v T:%v +2/3:%v(%v,%v) %v %v}`,
+	//	voteSet.height, voteSet.round, voteSet.typeB, voteSet.maj23, v, frac, voteSet.votesBitArray, voteSet.peerMaj23s)
 }
 
 // return the power voted, the total, and the fraction
