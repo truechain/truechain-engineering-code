@@ -572,7 +572,9 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) [
 			pool.journalFruit(fruit)
 		}
 	}
-	pool.newFruitCh <- addFruits
+	if len(addFruits) > 0 {
+		pool.newFruitCh <- addFruits
+	}
 	return errs
 }
 
