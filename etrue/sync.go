@@ -56,7 +56,7 @@ func (pm *ProtocolManager) syncTransactions(p *peer) {
 	for _, batch := range pending {
 		txs = append(txs, batch...)
 	}
-	log.Debug("syncTransactions", "len(pending)", len(pending), "len(txs)", len(txs))
+	log.Debug("syncTransactions", "pending", len(pending), "txs", len(txs))
 	if len(txs) == 0 {
 		return
 	}
@@ -73,6 +73,7 @@ func (pm *ProtocolManager) syncFruits(p *peer) {
 	for _, batch := range pending {
 		fruits = append(fruits, batch)
 	}
+	log.Debug("syncFruits", "pending", len(pending), "fts", len(fruits))
 	if len(fruits) == 0 {
 		return
 	}
