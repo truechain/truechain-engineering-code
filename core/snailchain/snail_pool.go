@@ -648,10 +648,13 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- types.NewFruitsEvent) ev
 // validateFruit validate the sign hash
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	//check hight
-	fruits := pool.chain.CurrentBlock().Body().Fruits
-	if fruit.FastNumber().Cmp(fruits[len(fruits)-1].FastNumber()) < 1 {
-		log.Info("validateFruit", "fruit's fastnumber", fruit.FastNumber(), "current snailblock's max fastnumber", fruits[len(fruits)-1].FastNumber())
-		return consensus.ErrTooOldBlock
+	headSnailBlock := pool.chain.CurrentBlock()
+	if headSnailBlock.NumberU64() > 0 {
+		fruits := headSnailBlock.Fruits()
+		if fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
+			log.Info("validateFruit", "fruit's fastnumber", fruit.FastNumber(), "current snailblock's max fastnumber", fruits[len(fruits)-1].FastNumber())
+			return consensus.ErrTooOldBlock
+		}
 	}
 	currentNumber := pool.fastchain.CurrentHeader().Number
 	if fruit.FastNumber().Cmp(currentNumber) > fruitHightGap {
