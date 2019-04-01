@@ -389,11 +389,11 @@ func fruitsDifference(a, b []*types.SnailBlock) []*types.SnailBlock {
 
 	remove := make(map[common.Hash]struct{})
 	for _, f := range b {
-		remove[f.Hash()] = struct{}{}
+		remove[f.FastHash()] = struct{}{}
 	}
 
 	for _, f := range a {
-		if _, ok := remove[f.Hash()]; !ok {
+		if _, ok := remove[f.FastHash()]; !ok {
 			keep = append(keep, f)
 		}
 	}
