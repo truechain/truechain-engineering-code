@@ -35,9 +35,12 @@ var (
 	// to the current node.
 	ErrFutureBlock = errors.New("block in the future")
 
-	// ErrTooFutureBlock is returned when a block's timestamp is in the future according
-	// to the current node.
-	ErrTooFutureBlock = errors.New("fruit is 512 higher than current fastblock")
+	// ErrTooFutureBlock is returned when a block's number is too future than
+	// the current fastblock.
+	ErrTooFutureBlock = errors.New("fruit is too higher than current fastblock")
+	// ErrTooOldBlock is returned when a block's number is too old than
+	// the current fastblock.
+	ErrTooOldBlock = errors.New("this hight's fruit already packed in the snailchain")
 	// ErrInvalidNumber is returned if a block's number doesn't equal it's parent's
 	// plus one.
 	ErrInvalidNumber = errors.New("invalid block number")
