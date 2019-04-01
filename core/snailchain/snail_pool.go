@@ -38,6 +38,7 @@ const (
 	fruitChanSize         = 1024
 	chainHeadChanSize     = 10
 	fastchainHeadChanSize = 1024
+	fruitHightGap         = 512
 )
 
 var (
@@ -653,7 +654,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 		return consensus.ErrTooOldBlock
 	}
 	currentNumber := pool.fastchain.CurrentHeader().Number
-	if fruit.FastNumber().Cmp(currentNumber) > 512 {
+	if fruit.FastNumber().Cmp(currentNumber) > fruitHightGap {
 		log.Info("validateFruit", "currentHeaderNumber", pool.fastchain.CurrentHeader().Number, "currentBlockNumber", pool.fastchain.CurrentBlock().Number())
 		return consensus.ErrTooFutureBlock
 	}
