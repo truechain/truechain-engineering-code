@@ -1190,7 +1190,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 					// case, the internal state of the downloader and the queue is very wrong so
 					// better hard crash and note the error instead of silently accumulating into
 					// a much bigger issue.
-					panic(fmt.Sprintf("%v: %s Snail fetch assignment failed", peer, kind))
+					panic(fmt.Sprintf("Snail %v: %s fetch assignment failed", peer, kind))
 				}
 				running = true
 			}

@@ -31,7 +31,7 @@ type headerPack struct {
 
 func (p *headerPack) PeerId() string { return p.peerID }
 func (p *headerPack) Items() int     { return len(p.headers) }
-func (p *headerPack) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) }
+func (p *headerPack) Stats() string  { return fmt.Sprintf("Snail %d", len(p.headers)) }
 
 // bodyPack is a batch of block bodies returned by a peer.
 type bodyPack struct {
@@ -48,7 +48,7 @@ func (p *bodyPack) Items() int {
 	return len(p.fruit)
 }
 
-func (p *bodyPack) Stats() string { return fmt.Sprintf("%d:%d:%d", len(p.fruit), len(p.signs)) }
+func (p *bodyPack) Stats() string { return fmt.Sprintf("Snail %d:%d:%d", len(p.fruit), len(p.signs)) }
 
 // statePack is a batch of states returned by a peer.
 type statePack struct {
@@ -58,4 +58,4 @@ type statePack struct {
 
 func (p *statePack) PeerId() string { return p.peerID }
 func (p *statePack) Items() int     { return len(p.states) }
-func (p *statePack) Stats() string  { return fmt.Sprintf("%d", len(p.states)) }
+func (p *statePack) Stats() string  { return fmt.Sprintf("Snail %d", len(p.states)) }
