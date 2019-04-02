@@ -678,6 +678,10 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	if fruit.Header().SignHash != getSignHash {
 		return ErrInvalidSignHash
 	}
+	//check difficulty
+	if err := pool.validator.VerifySnailSeal(pool.chain, fruit.Header(), true); err != nil {
+		return err
+	}
 	// check freshness
 	/*
 		err := pool.engine.VerifyFreshness(fruit.Header(), nil)

@@ -158,6 +158,12 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	return nil
 }
 
+// VerifySnailSeal checking whether the given block satisfies
+// the PoW difficulty requirements.
+func (v *BlockValidator) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader, isFruit bool) error {
+	return v.engine.VerifySnailSeal(chain, header, true)
+}
+
 //ValidateFruit is to verify if the fruit is legal
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
 	//check number(fb)
