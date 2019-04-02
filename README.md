@@ -41,24 +41,35 @@ also you can quickly run your own getrue instance with a few common parameter co
 Truechain main network will launch later. You can get mainnet informations from our [website](https://www.truechain.pro).
 
 
-### Running on the Truechain test network
-
-Truechain has launched testnet at 2018-09-28. Everyone can join the test network with your node.
-
 ```
-$ getrue --testnet console
+$ getrue console
 ```
 
 This command will:
 
- * Start getrue in full node mode, it to
-   download more data in exchange for avoiding processing the entire history of the Truechain test network.
+ * Start getrue with network ID `19303` in full node mode(default, can be changed with the `--syncmode` flag after version 1.1).
  * Start up Getrue's built-in interactive console,
    (via the trailing `console` subcommand) through which you can invoke all official [`web3` methods](https://github.com/truechain/truechain-engineering-code/wiki/RPC-API)
    as well as Geth's own [management APIs](https://github.com/truechain/truechain-engineering-code/wiki/Management-API).
    This too is optional and if you leave it out you can always attach to an already running Getrue instance
    with `getrue attach`.
- * Connect to the test network, which uses testnet P2P bootnodes, different network IDs and genesis states.
+
+
+### Running on the Truechain test network
+
+To test your contracts, you can join the test network with your node.
+
+```
+$ getrue --testnet console
+```
+
+The `console` subcommand has the exact same meaning as above and they are equally useful on the
+testnet too. Please see above for their explanations if you've skipped here.
+
+Specifying the `--testnet` flag, however, will reconfigure your Geth instance a bit:
+
+ * Test network uses different network ID `18928`
+ * Instead of connecting the main TrueChain network, the client will connect to the test network, which uses testnet P2P bootnodes,  and genesis states.
 
 
 ### Configuration
