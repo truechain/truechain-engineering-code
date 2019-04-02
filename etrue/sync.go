@@ -297,7 +297,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	if pTd.Cmp(td) <= 0 {
 
 		currentNumber := pm.blockchain.CurrentBlock().NumberU64()
-		log.Debug("Fast FetchHeight start ", "header", fastHeight, "currentBlockNumber", currentNumber, "&pm.fastSync", atomic.LoadUint32(&pm.fastSync))
+		log.Debug("Fast FetchHeight start ", "currentBlockNumber", currentNumber, "&pm.fastSync", atomic.LoadUint32(&pm.fastSync))
 
 		if fastHeight > currentNumber {
 			pm.downloader.Mux.Post(downloader.StartEvent{})
