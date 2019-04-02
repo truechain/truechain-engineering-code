@@ -186,7 +186,7 @@ func (pool *SnailPool) Start() {
 }
 
 //updateFruit move the validated fruit to pending list
-func (pool *SnailPool) updateFruit(fruit *types.SnailBlock) {
+func (pool *SnailPool) updateFruit(fruit *types.SnailBlock) bool {
 
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
@@ -197,10 +197,11 @@ func (pool *SnailPool) updateFruit(fruit *types.SnailBlock) {
 		fruitpendingReplaceCounter.Inc(1)
 		delete(pool.allFruits, fruit.FastHash())
 		delete(pool.fruitPending, fruit.FastHash())
-		return
+		return false
 	}
 
 	pool.fruitPending[fruit.FastHash()] = fruit
+	return true
 }
 
 func (pool *SnailPool) compareFruit(f1, f2 *types.SnailBlock) int {
@@ -226,8 +227,9 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) (error,
 	if append {
 		pool.fruitPending[fruit.FastHash()] = fruit
 		log.Debug("addFruit", "fb number", fruit.FastNumber(), "fruit hash", fruit.Hash())
+		return nil, true
 	}
-	return nil, true
+	return nil, false
 }
 
 // addFruit
@@ -246,7 +248,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) (error, bool) {
 
 	//check number(fb)
 	currentNumber := pool.fastchain.CurrentBlock().Number()
-	if fruit.FastNumber().Cmp(currentNumber) > 0 && pool.allFruits[fruit.FastHash()] == nil {
+	if fruit.FastNumber().Cmp(currentNumber) > 0 {
 		return pool.appendFruit(fruit, false)
 	}
 
@@ -346,7 +348,10 @@ func (pool *SnailPool) loop() {
 				log.Debug("get new fastblock", "number", ev.Block.Number())
 				fruit := pool.allFruits[ev.Block.Hash()]
 				if fruit != nil {
-					pool.updateFruit(fruit)
+					bool := pool.updateFruit(fruit)
+					if bool {
+						go pool.fruitFeed.Send(types.NewFruitsEvent{types.SnailBlocks{fruit}})
+					}
 				}
 			}
 
