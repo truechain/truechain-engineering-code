@@ -145,7 +145,6 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 
 			// Send the next finished request to the current sync:
 		case deliverReqCh <- deliverReq:
-			log.Debug("deliverReqCh ==== ", "deliverReq", deliverReq.items[0])
 			// Shift out the first request, but also set the emptied slot to nil for GC
 			copy(finished, finished[1:])
 			finished[len(finished)-1] = nil

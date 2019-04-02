@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	errAlreadyFetching = errors.New("already fetching blocks from peer")
+	errAlreadyFetching = errors.New("Snail already fetching blocks from peer")
 )
 
 // peerConnection represents an active peer from which hashes and blocks are retrieved.
@@ -89,15 +89,15 @@ func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int
 }
 
 func (w *lightPeerWrapper) RequestReceipts([]common.Hash, bool) error {
-	panic("RequestReceipts not supported in light client mode sync")
+	panic("Snail RequestReceipts not supported in light client mode sync")
 }
 
 func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool, uint32) error {
-	panic("RequestReceipts not supported in light client mode sync")
+	panic("Snail RequestReceipts not supported in light client mode sync")
 }
 
 func (w *lightPeerWrapper) RequestNodeData([]common.Hash, bool) error {
-	panic("RequestNodeData not supported in light client mode sync")
+	panic("Snail RequestNodeData not supported in light client mode sync")
 }
 
 // newPeerConnection creates a new downloader peer.
@@ -164,7 +164,7 @@ func (p *peerConnection) GetLock() *sync.RWMutex  { return &p.lock }
 func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 	// Sanity check the protocol version
 	if p.version < 62 {
-		panic(fmt.Sprintf("header fetch [eth/62+] requested on eth/%d", p.version))
+		panic(fmt.Sprintf("Snail header fetch [eth/62+] requested on eth/%d", p.version))
 	}
 	// Short circuit if the peer is already fetching
 	if !atomic.CompareAndSwapInt32(&p.headerIdle, 0, 1) {
@@ -182,7 +182,7 @@ func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 func (p *peerConnection) FetchReceipts(request *etrue.FetchRequest) error {
 	// Sanity check the protocol version
 	if p.version < 63 {
-		panic(fmt.Sprintf("body fetch [eth/63+] requested on eth/%d", p.version))
+		panic(fmt.Sprintf("Snail body fetch [eth/63+] requested on eth/%d", p.version))
 	}
 	// Short circuit if the peer is already fetching
 	if !atomic.CompareAndSwapInt32(&p.receiptIdle, 0, 1) {
@@ -204,7 +204,7 @@ func (p *peerConnection) FetchReceipts(request *etrue.FetchRequest) error {
 func (p *peerConnection) FetchBodies(request *etrue.FetchRequest) error {
 	// Sanity check the protocol version
 	if p.version < 62 {
-		panic(fmt.Sprintf("body fetch [eth/62+] requested on eth/%d", p.version))
+		panic(fmt.Sprintf("Snail body fetch [eth/62+] requested on eth/%d", p.version))
 	}
 	// Short circuit if the peer is already fetching
 	if !atomic.CompareAndSwapInt32(&p.blockIdle, 0, 1) {
@@ -226,7 +226,7 @@ func (p *peerConnection) FetchBodies(request *etrue.FetchRequest) error {
 func (p *peerConnection) FetchNodeData(hashes []common.Hash) error {
 	// Sanity check the protocol version
 	if p.version < 63 {
-		panic(fmt.Sprintf("node data fetch [eth/63+] requested on eth/%d", p.version))
+		panic(fmt.Sprintf("Snail node data fetch [eth/63+] requested on eth/%d", p.version))
 	}
 	// Short circuit if the peer is already fetching
 	if !atomic.CompareAndSwapInt32(&p.stateIdle, 0, 1) {
