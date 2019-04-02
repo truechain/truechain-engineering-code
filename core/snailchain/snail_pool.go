@@ -32,6 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
+	"github.com/truechain/truechain-engineering-code/utils"
 )
 
 const (
@@ -39,6 +40,7 @@ const (
 	chainHeadChanSize     = 10
 	fastchainHeadChanSize = 1024
 	fruitHightGap         = 512
+	maxKnownFruits        = 20480 // Maximum fruits hashes to keep in the known list (prevent DOS)
 )
 
 var (
@@ -119,6 +121,7 @@ type SnailPool struct {
 
 	allFruits    map[common.Hash]*types.SnailBlock
 	fruitPending map[common.Hash]*types.SnailBlock
+	knownFruits  *utils.OrderedMap // map of fruits hashes knowed by pool
 
 	newFruitCh chan []*types.SnailBlock
 
@@ -149,6 +152,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain
 		newFruitCh:   make(chan []*types.SnailBlock, fruitChanSize),
 		allFruits:    make(map[common.Hash]*types.SnailBlock),
 		fruitPending: make(map[common.Hash]*types.SnailBlock),
+		knownFruits:  utils.NewOrderedMap(),
 	}
 	pool.reset(nil, chain.CurrentBlock())
 
@@ -563,11 +567,15 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) [
 	addFruits := make([]*types.SnailBlock, 0, len(fruits))
 	for i, fruit := range fruits {
 		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
+		if _, bool := pool.knownFruits.Get(fruit.Hash()); bool {
+			continue
+		}
 		if err := pool.validateFruit(fruit); err != nil {
 			log.Debug("AddRemoteFruits validate fruit failed", "err fruit fb num", fruit.FastNumber(), "err", err)
 			errs[i] = err
 			continue
 		}
+		pool.knownFruits.Set(fruit.Hash(), nil)
 		addFruits = append(addFruits, types.CopyFruit(fruit))
 		if local {
 			pool.journalFruit(fruit)
@@ -575,6 +583,10 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) [
 	}
 	if len(addFruits) > 0 {
 		pool.newFruitCh <- addFruits
+	}
+	// If we reached the memory allowance, drop a previously known transaction hash
+	for pool.knownFruits.Size() >= maxKnownFruits {
+		pool.knownFruits.Pop()
 	}
 	return errs
 }
