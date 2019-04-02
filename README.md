@@ -44,7 +44,7 @@ $ getrue console
 
 This command will:
 
- * Start getrue with network ID `19303` in full node mode(default, can be changed with the `--syncmode` flag after version 1.1).
+ * Start getrue with network ID `19330` in full node mode(default, can be changed with the `--syncmode` flag after version 1.1).
  * Start up Getrue's built-in interactive console,
    (via the trailing `console` subcommand) through which you can invoke all official [`web3` methods](https://github.com/truechain/truechain-engineering-code/wiki/RPC-API)
    as well as Geth's own [management APIs](https://github.com/truechain/truechain-engineering-code/wiki/Management-API).
