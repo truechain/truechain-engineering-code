@@ -248,7 +248,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 
 	//check number(fb)
 	currentNumber := pool.fastchain.CurrentBlock().Number()
-	if fruit.FastNumber().Cmp(currentNumber) > 0 {
+	if fruit.FastNumber().Cmp(currentNumber) > 0 && pool.allFruits[fruit.FastHash()] == nil {
 		return pool.appendFruit(fruit, false)
 	}
 
