@@ -118,6 +118,7 @@ type SnailPool struct {
 	engine consensus.Engine // Consensus engine used for validating
 
 	muFruit sync.RWMutex
+	muKnown sync.RWMutex
 
 	allFruits    map[common.Hash]*types.SnailBlock
 	fruitPending map[common.Hash]*types.SnailBlock
@@ -567,6 +568,8 @@ func (pool *SnailPool) Stop() {
 // AddRemoteFruits enqueues a batch of fruits into the pool if they are valid.
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
 
+	pool.muKnown.Lock()
+	defer pool.muKnown.Unlock()
 	errs := make([]error, len(fruits))
 	addFruits := make([]*types.SnailBlock, 0, len(fruits))
 	for i, fruit := range fruits {
