@@ -38,9 +38,6 @@ also you can quickly run your own getrue instance with a few common parameter co
 
 ### Running on the Truechain main network
 
-Truechain main network will launch later. You can get mainnet informations from our [website](https://www.truechain.pro).
-
-
 ```
 $ getrue console
 ```
