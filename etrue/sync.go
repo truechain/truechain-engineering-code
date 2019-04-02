@@ -311,12 +311,12 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	// Otherwise try to sync with the downloader
 	mode := downloader.FullSync
-	if atomic.LoadUint32(&pm.fastSync) == 1 {
-		// Fast sync was explicitly requested, and explicitly granted
-		mode = downloader.FastSync
-	} else if atomic.LoadUint32(&pm.snapSync) == 1 {
-		mode = downloader.SnapShotSync
-	}
+	//if atomic.LoadUint32(&pm.fastSync) == 1 {
+	//	// Fast sync was explicitly requested, and explicitly granted
+	//	mode = downloader.FastSync
+	//} else if atomic.LoadUint32(&pm.snapSync) == 1 {
+	//	mode = downloader.SnapShotSync
+	//}
 	// TODO :
 	//else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
 	//	// The database  seems empty as the current block is the genesis. Yet the fast
