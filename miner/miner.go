@@ -85,30 +85,33 @@ type Miner struct {
 	electionCh  chan types.ElectionEvent
 	electionSub event.Subscription
 
-	canStart    int32 // can start indicates whether we can start the mining operation
-	shouldStart int32 // should start indicates whether we should start after sync
-	commitFlag  int32
+	downloaderStartCh  chan downloaderStartEvent
+	downloaderStartSub event.Subscription
+
+	canStart     int32 // can start indicates whether we can start the mining operation
+	shouldStart  int32 // should start indicates whether we should start after sync
+	commitFlag   int32
+	remoteMining bool
 }
 
-type CommitteeStartUpdate struct{}
-type CommitteeStop struct{}
-
-var committeemembers []*types.CommitteeMember
+type downloaderStartEvent struct{ start bool }
 
 // New is create a miner object
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
 	election CommitteeElection, mineFruit bool, singleNode bool, remoteMining bool, mining bool) *Miner {
 	miner := &Miner{
-		truechain:  truechain,
-		mux:        mux,
-		engine:     engine,
-		election:   election,
-		fruitOnly:  mineFruit, // set fruit only
-		singleNode: singleNode,
-		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
-		commitFlag: 0, // not committee
-		canStart:   0, // not start downlad
-		mining:     0,
+		truechain:         truechain,
+		mux:               mux,
+		engine:            engine,
+		election:          election,
+		fruitOnly:         mineFruit, // set fruit only
+		singleNode:        singleNode,
+		worker:            newWorker(config, engine, common.Address{}, truechain, mux),
+		downloaderStartCh: make(chan downloaderStartEvent, electionChanSize),
+		commitFlag:        0, // not committee
+		canStart:          0, // not start downlad
+		mining:            0,
+		remoteMining:      remoteMining,
 	}
 
 	if mineFruit || remoteMining || mining {
@@ -134,63 +137,32 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 func (miner *Miner) loop() {
 
 	defer miner.electionSub.Unsubscribe()
+
 	for {
 		select {
-		case ch := <-miner.electionCh:
-			switch ch.Option {
-			case types.CommitteeStart, types.CommitteeUpdate:
-				// already to start mining need stop
-				committeemembers = nil
-				committeemembers = append(committeemembers, ch.CommitteeMembers...)
-				committeemembers = append(committeemembers, ch.BackupMembers...)
-
-				miner.mux.Post(CommitteeStartUpdate{})
-				log.Info("get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
-			case types.CommitteeStop:
-				miner.mux.Post(CommitteeStop{})
-				log.Info("get  election  msg  3 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
-			}
-		case <-miner.electionSub.Err():
-			return
-
-		}
-	}
-
-}
-
-// update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
-// It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
-// the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
-// and halt your mining operation for as long as the DOS continues.
-func (miner *Miner) update() {
-
-	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{}, CommitteeStartUpdate{}, CommitteeStop{})
-	defer events.Unsubscribe()
-	//out:
-	for {
-		select {
-		case ev := <-events.Chan():
-			if ev == nil {
-				return
-			}
-			switch ev.Data.(type) {
-			case downloader.StartEvent:
-				log.Info("Miner update get download info startEvent", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "commit", miner.commitFlag)
+		case downloader := <-miner.downloaderStartCh:
+			if downloader.start {
+				log.Info("download start msg")
 				atomic.StoreInt32(&miner.canStart, 1)
 				if miner.Mining() {
 					miner.Stop()
 				}
-				log.Info("Mining aborted due to sync")
-
-			case downloader.DoneEvent, downloader.FailedEvent:
-				log.Info("Miner update get download info DoneEvent,FailedEvent", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "mining", miner.commitFlag)
-
+			} else {
+				log.Info("download done and fail msg")
 				atomic.StoreInt32(&miner.canStart, 0)
 				miner.Start(miner.coinbase)
+			}
+		case ch := <-miner.electionCh:
+			switch ch.Option {
+			case types.CommitteeStart, types.CommitteeUpdate:
+				// already to start mining need stop
+				var committeemembers []*types.CommitteeMember
+				committeemembers = nil
+				committeemembers = append(committeemembers, ch.CommitteeMembers...)
+				committeemembers = append(committeemembers, ch.BackupMembers...)
 
-			case CommitteeStartUpdate:
-				log.Info("Miner update committee start update")
-
+				//miner.mux.Post(CommitteeStartUpdate{})
+				log.Info("get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
 				if miner.election.IsCommitteeMember(committeemembers, miner.publickey) {
 					// i am committee
 					atomic.StoreInt32(&miner.commitFlag, 1)
@@ -208,8 +180,57 @@ func (miner *Miner) update() {
 				}
 				log.Info("Miner update get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "mining", miner.commitFlag)
 
-			case CommitteeStop:
-				log.Info("Miner update committee stop")
+			case types.CommitteeStop:
+				//miner.mux.Post(CommitteeStop{})
+				log.Info("get  election  msg  3 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
+			}
+
+		case <-miner.electionSub.Err():
+			return
+
+		}
+	}
+
+}
+
+// update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
+// It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
+// the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
+// and halt your mining operation for as long as the DOS continues.
+func (miner *Miner) update() {
+
+	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{})
+	defer events.Unsubscribe()
+
+	for {
+		select {
+		case ev := <-events.Chan():
+			if ev == nil {
+				return
+			}
+			switch ev.Data.(type) {
+			case downloader.StartEvent:
+
+				log.Info("Miner update get download info startEvent", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "commit", miner.commitFlag)
+				if miner.remoteMining {
+					atomic.StoreInt32(&miner.canStart, 1)
+					if miner.Mining() {
+						miner.Stop()
+					}
+					log.Info("Mining aborted due to sync")
+				} else {
+					miner.downloaderStartCh <- downloaderStartEvent{true}
+				}
+
+			case downloader.DoneEvent, downloader.FailedEvent:
+				log.Info("Miner update get download info DoneEvent,FailedEvent", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "mining", miner.commitFlag)
+				if miner.remoteMining {
+					atomic.StoreInt32(&miner.canStart, 0)
+					miner.Start(miner.coinbase)
+				} else {
+					miner.downloaderStartCh <- downloaderStartEvent{false}
+				}
+				return
 			}
 		}
 	}
