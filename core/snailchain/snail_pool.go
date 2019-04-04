@@ -33,19 +33,20 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/utils"
+	"math/big"
 )
 
 const (
 	fruitChanSize         = 1024
 	chainHeadChanSize     = 10
 	fastchainHeadChanSize = 1024
-	fruitHightGap         = 512
 	maxKnownFruits        = 20480 // Maximum fruits hashes to keep in the known list (prevent DOS)
 )
 
 var (
 	// ErrNotExist is returned if the fast block not exist in fastchain.
-	ErrNotExist = errors.New("not exist")
+	ErrNotExist   = errors.New("not exist")
+	fruitHightGap = big.NewInt(512)
 )
 
 var (
@@ -701,7 +702,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 		}
 	}
 	currentNumber := pool.fastchain.CurrentHeader().Number
-	if fruit.FastNumber().Cmp(currentNumber) > fruitHightGap {
+	if new(big.Int).Sub(fruit.FastNumber(), currentNumber).Cmp(fruitHightGap) > 0 {
 		log.Info("validateFruit", "currentHeaderNumber", pool.fastchain.CurrentHeader().Number, "currentBlockNumber", pool.fastchain.CurrentBlock().Number())
 		return consensus.ErrTooFutureBlock
 	}
