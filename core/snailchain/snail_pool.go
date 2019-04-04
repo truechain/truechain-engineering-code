@@ -377,11 +377,11 @@ func (pool *SnailPool) loop() {
 					if send {
 						promoted = append(promoted, fruit)
 					}
-					if len(promoted) > 0 {
-						allSendCounter.Inc(int64(len(promoted)))
-						allSendTimesCounter.Inc(1)
-						go pool.fruitFeed.Send(types.NewFruitsEvent{promoted})
-					}
+				}
+				if len(promoted) > 0 {
+					allSendCounter.Inc(int64(len(promoted)))
+					allSendTimesCounter.Inc(1)
+					go pool.fruitFeed.Send(types.NewFruitsEvent{promoted})
 				}
 			}
 
