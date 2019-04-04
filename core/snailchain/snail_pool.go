@@ -57,6 +57,16 @@ var (
 	allDiscardCounter = metrics.NewRegisteredCounter("fruitpool/all/discard", nil)
 	allReplaceCounter = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
 
+	// Metrics for the received fruits
+	allReceivedCounter = metrics.NewRegisteredCounter("fruitpool/received/count", nil)
+	allTimesCounter    = metrics.NewRegisteredCounter("fruitpool/received/times", nil)
+	allFilterCounter   = metrics.NewRegisteredCounter("fruitpool/received/filter", nil)
+	allMinedCounter    = metrics.NewRegisteredCounter("fruitpool/received/mined", nil)
+
+	// Metrics for the received fruits
+	allSendCounter      = metrics.NewRegisteredCounter("fruitpool/send/count", nil)
+	allSendTimesCounter = metrics.NewRegisteredCounter("fruitpool/send/times", nil)
+
 	evictionInterval    = time.Minute     // Time interval to check for evictable fruits
 	statsReportInterval = 8 * time.Second // Time interval to report fruits pool stats
 )
@@ -352,6 +362,8 @@ func (pool *SnailPool) loop() {
 				if fruit != nil {
 					send := pool.updateFruit(fruit)
 					if send {
+						allSendCounter.Inc(1)
+						allSendTimesCounter.Inc(1)
 						go pool.fruitFeed.Send(types.NewFruitsEvent{types.SnailBlocks{fruit}})
 					}
 				}
@@ -366,6 +378,8 @@ func (pool *SnailPool) loop() {
 						promoted = append(promoted, fruit)
 					}
 					if len(promoted) > 0 {
+						allSendCounter.Inc(int64(len(promoted)))
+						allSendTimesCounter.Inc(1)
 						go pool.fruitFeed.Send(types.NewFruitsEvent{promoted})
 					}
 				}
@@ -574,7 +588,8 @@ func (pool *SnailPool) Stop() {
 
 // AddRemoteFruits enqueues a batch of fruits into the pool if they are valid.
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
-
+	allReceivedCounter.Inc(int64(len(fruits)))
+	allTimesCounter.Inc(1)
 	pool.muKnown.Lock()
 	defer pool.muKnown.Unlock()
 	errs := make([]error, len(fruits))
@@ -593,6 +608,9 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) [
 		addFruits = append(addFruits, types.CopyFruit(fruit))
 		if local {
 			pool.journalFruit(fruit)
+			allMinedCounter.Inc(1)
+		} else {
+			allFilterCounter.Inc(1)
 		}
 	}
 	if len(addFruits) > 0 {
