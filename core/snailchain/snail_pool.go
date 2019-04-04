@@ -638,7 +638,9 @@ func (pool *SnailPool) addLocalFruits(fruits []*types.SnailBlock) []error {
 		}
 		addFruits = append(addFruits, types.CopyFruit(fruit))
 	}
-	pool.newFruitCh <- addFruits
+	if len(addFruits) > 0 {
+		pool.newFruitCh <- addFruits
+	}
 	return errs
 }
 
