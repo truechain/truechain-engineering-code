@@ -658,7 +658,6 @@ func (pool *SnailPool) local() []*types.SnailBlock {
 	defer pool.muFruit.Unlock()
 
 	var fruits types.SnailBlocks
-	var rtfruits types.SnailBlocks
 
 	for _, fruit := range pool.allFruits {
 		fruits = append(fruits, types.CopyFruit(fruit))
@@ -666,11 +665,7 @@ func (pool *SnailPool) local() []*types.SnailBlock {
 
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(fruits)
-
-	for _, v := range fruits {
-		rtfruits = append(rtfruits, v)
-	}
-	return rtfruits
+	return fruits
 }
 
 // PendingFruits retrieves all currently verified fruits.
@@ -743,7 +738,6 @@ func (pool *SnailPool) Content() []*types.SnailBlock {
 	defer pool.muFruit.Unlock()
 
 	var fruits types.SnailBlocks
-	var rtfruits types.SnailBlocks
 
 	for _, fruit := range pool.fruitPending {
 		fruits = append(fruits, types.CopyFruit(fruit))
@@ -752,9 +746,6 @@ func (pool *SnailPool) Content() []*types.SnailBlock {
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(fruits)
 
-	for _, v := range fruits {
-		rtfruits = append(rtfruits, v)
-	}
 	return fruits
 }
 
@@ -766,7 +757,6 @@ func (pool *SnailPool) Inspect() []*types.SnailBlock {
 	defer pool.muFruit.Unlock()
 
 	var fruits types.SnailBlocks
-	var rtfruits types.SnailBlocks
 
 	for _, fruit := range pool.allFruits {
 		if _, ok := pool.fruitPending[fruit.FastHash()]; !ok {
@@ -777,10 +767,7 @@ func (pool *SnailPool) Inspect() []*types.SnailBlock {
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(fruits)
 
-	for _, v := range fruits {
-		rtfruits = append(rtfruits, v)
-	}
-	return rtfruits
+	return fruits
 }
 
 // Stats returning all the
