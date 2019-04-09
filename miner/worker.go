@@ -352,7 +352,7 @@ func (w *worker) update() {
 
 		case <-w.fruitCh:
 			// if only fruit only not need care about fruit event
-			if !w.atCommintNewWoker && !w.fruitOnly {
+			if w.fruitOnly || len(w.current.Block.Fruits()) == 0 {
 				// after get the fruit event should star mining if have not mining
 				log.Debug("star commit new work  fruitCh")
 
