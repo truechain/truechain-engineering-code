@@ -1597,7 +1597,7 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	raw_tx := new(types.RawTransaction)
 	if err := rlp.DecodeBytes(encodedTx, raw_tx); err != nil {
-		log.Error("api method SendRawTransaction error", "raw_tx.info", raw_tx.Info(), "error", err)
+		log.Error("api method SendRawTransaction error",  "error", err)
 		return common.Hash{}, err
 	}
 	tx := raw_tx.ConvertTransaction()
