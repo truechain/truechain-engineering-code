@@ -96,7 +96,6 @@ var (
 
 type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
-	Mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
 	queue   *queue         // Scheduler for selecting the hashes to download
@@ -208,7 +207,6 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 	dl := &Downloader{
 		mode:           mode,
 		stateDB:        stateDb,
-		Mux:            mux,
 		queue:          newQueue(),
 		peers:          etrue.NewPeerSet(),
 		rttEstimate:    uint64(rttMaxEstimate),
@@ -253,11 +251,17 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 	defer d.syncStatsLock.RUnlock()
 
 	current := d.blockchain.CurrentBlock().NumberU64()
+	f_prog := d.fastDown.Progress()
 
 	return truechain.SyncProgress{
 		StartingSnailBlock: d.syncStatsChainOrigin,
 		CurrentSnailBlock:  current,
 		HighestSnailBlock:  d.syncStatsChainHeight,
+
+		StartingBlock:f_prog.StartingBlock,
+		CurrentBlock:f_prog.CurrentBlock,
+		HighestBlock:f_prog.HighestBlock,
+
 		PulledStates:  d.syncStatsState.processed,
 		KnownStates:   d.syncStatsState.processed + d.syncStatsState.pending,
 	}

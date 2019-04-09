@@ -1042,6 +1042,7 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
+		"publicKey":       hexutil.Bytes(head.Publickey),
 		"pointerNumber":   head.PointerNumber,
 		"fastNumber":      head.FastNumber,
 		"size":            hexutil.Uint64(b.Size()),

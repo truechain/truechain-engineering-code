@@ -97,7 +97,6 @@ type SDownloader interface {
 
 type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
-	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
 	queue   *queue         // Scheduler for selecting the hashes to download
@@ -212,7 +211,6 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 	dl := &Downloader{
 		mode:          mode,
 		stateDB:       stateDb,
-		mux:           mux,
 		queue:         newQueue(),
 		peers:         etrue.NewPeerSet(),
 		rttEstimate:   uint64(rttMaxEstimate),

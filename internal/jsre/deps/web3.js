@@ -3982,6 +3982,9 @@ var outputSyncingFormatter = function(result) {
     if (!result) {
         return result;
     }
+    result.startingSnailBlock = utils.toDecimal(result.startingSnailBlock);
+    result.currentSnailBlock = utils.toDecimal(result.currentSnailBlock);
+    result.highestSnailBlock = utils.toDecimal(result.highestSnailBlock);
 
     result.startingBlock = utils.toDecimal(result.startingBlock);
     result.currentBlock = utils.toDecimal(result.currentBlock);
