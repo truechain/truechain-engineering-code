@@ -455,9 +455,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, orig
 		d.syncInitHook(origin, height)
 	}
 
-	height_i := int(height)
-
-	fetchers := []func() error{func() error { return d.fetchHeaders(p, origin+1, height_i, pivot) }}
+	fetchers := []func() error{func() error { return d.fetchHeaders(p, origin+1, int(height), pivot) }}
 	fetchers = append(fetchers, func() error { return d.fetchBodies(origin + 1) })
 	fetchers = append(fetchers, func() error { return d.fetchReceipts(origin + 1) })
 	fetchers = append(fetchers, func() error { return d.processHeaders(origin+1, pivot) })

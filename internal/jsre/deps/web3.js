@@ -6759,8 +6759,8 @@ var pollSyncing = function(self) {
                 callback(error);
             });
         }
-
-        if(utils.isObject(sync) && sync.startingBlock)
+        //&& sync.startingBlock
+        if(utils.isObject(sync) )
             sync = formatters.outputSyncingFormatter(sync);
 
         self.callbacks.forEach(function (callback) {
