@@ -566,6 +566,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 		}
 	} else {
 		if ncm.CurrentHeader().Hash() != headers[2].Hash() {
+			log.Info("hash", "ncm.CurrentHeader().Hash()", ncm.CurrentHeader().Hash(), "headers[2].Hash()", headers[2].Hash(), "headers[1].Hash()", headers[1].Hash(), "headers[3].Hash()", headers[3].Hash())
 			t.Errorf("last header hash mismatch: have: %x, want %x", ncm.CurrentHeader().Hash(), headers[2].Hash())
 		}
 	}
@@ -1266,7 +1267,8 @@ func TestTrieForkGC(t *testing.T) {
 	engine := minerva.NewFaker()
 
 	db := etruedb.NewMemDatabase()
-	genesis := new(core.Genesis).MustSnailCommit(db)
+	commonGenesis := core.DefaultGenesisBlock()
+	genesis := commonGenesis.MustSnailCommit(db)
 	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
 	blocks := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{genesis}, 256, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
@@ -1282,7 +1284,7 @@ func TestTrieForkGC(t *testing.T) {
 	}
 	// Import the canonical and fork chain side by side, forcing the trie cache to cache both
 	diskdb := etruedb.NewMemDatabase()
-	new(core.Genesis).MustSnailCommit(diskdb)
+	commonGenesis.MustSnailCommit(diskdb)
 
 	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
 	if err != nil {
