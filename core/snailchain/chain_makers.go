@@ -137,7 +137,11 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 		var fruitparent *types.SnailBlock
 		chainreader := &fakeChainReader{config, chain}
 		b := &BlockGen{i: i, fastChain: fastChain, parent: parent, chain: blocks, config: config, chainRead: chainreader}
-		fast := fastChain.GetBlockByNumber(parent.FastNumber().Uint64() + 1)
+		fruits := parents[len(parents)-1].Fruits()
+		fast := fastChain.GetBlockByNumber(1)
+		if fruits != nil {
+			fast = fastChain.GetBlockByNumber(fruits[len(fruits)-1].FastNumber().Uint64() + 1)
+		}
 		b.header = makeHeader(chainreader, parent, fast)
 
 		// Execute any user modifications to the block and finalize it
