@@ -311,7 +311,11 @@ func (cfg *ConsensusConfig) EmptyBlocksIntervalForPer(times int) time.Duration {
 
 // Propose returns the amount of time to wait for a proposal
 func (cfg *ConsensusConfig) Propose(round int) time.Duration {
-	return time.Duration(cfg.TimeoutPropose+cfg.TimeoutProposeDelta*round) * time.Millisecond
+	t := time.Duration(cfg.TimeoutPropose+cfg.TimeoutProposeDelta*round) * time.Millisecond
+	if t > time.Second*600 {
+		t = time.Second * 600
+	}
+	return t
 }
 
 // Prevote returns the amount of time to wait for straggler votes after receiving any +2/3 prevotes
