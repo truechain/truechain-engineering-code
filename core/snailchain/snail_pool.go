@@ -700,7 +700,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	}
 	currentNumber := pool.fastchain.CurrentHeader().Number
 	if new(big.Int).Sub(fruit.FastNumber(), currentNumber).Cmp(fruitHightGap) > 0 {
-		log.Info("validateFruit", "currentHeaderNumber", pool.fastchain.CurrentHeader().Number, "currentBlockNumber", pool.fastchain.CurrentBlock().Number())
+		log.Trace("validateFruit", "currentHeaderNumber", pool.fastchain.CurrentHeader().Number, "currentBlockNumber", pool.fastchain.CurrentBlock().Number(), "fruit.FastNumber()", fruit.FastNumber())
 		return consensus.ErrTooFutureBlock
 	}
 	//check integrity
