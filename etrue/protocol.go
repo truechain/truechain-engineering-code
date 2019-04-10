@@ -70,6 +70,8 @@ const (
 	ReceiptsMsg    = 0x12
 
 	NewSnailBlockHashesMsg = 0x13
+	TbftNodeInfoHashMsg    = 0x14
+	GetTbftNodeInfoMsg     = 0x15
 )
 
 type errCode int
@@ -139,6 +141,8 @@ type AgentNetworkProxy interface {
 	SubscribeNodeInfoEvent(chan<- types.NodeInfoEvent) event.Subscription
 	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
 	AddRemoteNodeInfo(*types.EncryptNodeMessage) error
+	//GetNodeInfoByHash get crypto nodeInfo  by hash
+	GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.EncryptNodeMessage,bool)
 }
 
 // statusData is the network packet for the status message.
@@ -179,6 +183,11 @@ type BlockHeadersData struct {
 type hashOrNumber struct {
 	Hash   common.Hash // Block hash from which to retrieve headers (excludes Number)
 	Number uint64      // Block hash from which to retrieve headers (excludes Hash)
+}
+
+// getBlockHeadersData represents a block header query.
+type nodeInfoHashData struct {
+	Hash common.Hash
 }
 
 // EncodeRLP is a specialized encoder for hashOrNumber to encode only one of the

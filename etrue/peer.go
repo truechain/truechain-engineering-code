@@ -67,6 +67,8 @@ const (
 	// that might cover uncles should be enough.
 	maxQueuedNodeInfo = 128
 
+	maxQueuedNodeInfoHash = 256
+
 	// maxQueuedAnns is the maximum number of block announcements to queue up before
 	// dropping broadcasts. Similarly to block propagations, there's no point to queue
 	// above some healthy uncle limit, so use that.
@@ -119,17 +121,18 @@ type peer struct {
 	fastHeight *big.Int
 	lock       sync.RWMutex
 
-	knownTxs         mapset.Set                     // Set of transaction hashes known to be known by this peer
-	knownSign        mapset.Set                     // Set of sign  known to be known by this peer
-	knownNodeInfos   mapset.Set                     // Set of node info  known to be known by this peer
-	knownFruits      mapset.Set                     // Set of fruits hashes known to be known by this peer
-	knownSnailBlocks mapset.Set                     // Set of snailBlocks hashes known to be known by this peer
-	knownFastBlocks  mapset.Set                     // Set of fast block hashes known to be known by this peer
-	queuedTxs        chan []*types.Transaction      // Queue of transactions to broadcast to the peer
-	queuedSign       chan []*types.PbftSign         // Queue of sign to broadcast to the peer
-	queuedNodeInfo   chan *types.EncryptNodeMessage // a node info to broadcast to the peer
-	queuedFruits     chan []*types.SnailBlock       // Queue of fruits to broadcast to the peer
-	queuedFastProps  chan *propFastEvent            // Queue of fast blocks to broadcast to the peer
+	knownTxs           mapset.Set                     // Set of transaction hashes known to be known by this peer
+	knownSign          mapset.Set                     // Set of sign  known to be known by this peer
+	knownNodeInfos     mapset.Set                     // Set of node info  known to be known by this peer
+	knownFruits        mapset.Set                     // Set of fruits hashes known to be known by this peer
+	knownSnailBlocks   mapset.Set                     // Set of snailBlocks hashes known to be known by this peer
+	knownFastBlocks    mapset.Set                     // Set of fast block hashes known to be known by this peer
+	queuedTxs          chan []*types.Transaction      // Queue of transactions to broadcast to the peer
+	queuedSign         chan []*types.PbftSign         // Queue of sign to broadcast to the peer
+	queuedNodeInfo     chan *types.EncryptNodeMessage // a node info to broadcast to the peer
+	queuedNodeInfoHash chan *types.EncryptNodeMessage // a node info to broadcast to the peer
+	queuedFruits       chan []*types.SnailBlock       // Queue of fruits to broadcast to the peer
+	queuedFastProps    chan *propFastEvent            // Queue of fast blocks to broadcast to the peer
 
 	queuedSnailBlock chan *snailBlockEvent // Queue of newSnailBlock to broadcast to the peer
 
@@ -142,21 +145,22 @@ type peer struct {
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter, dropPeer peerDropFn) *peer {
 	return &peer{
-		Peer:             p,
-		rw:               rw,
-		version:          version,
-		id:               fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		knownTxs:         mapset.NewSet(),
-		knownSign:        mapset.NewSet(),
-		knownNodeInfos:   mapset.NewSet(),
-		knownFruits:      mapset.NewSet(),
-		knownSnailBlocks: mapset.NewSet(),
-		knownFastBlocks:  mapset.NewSet(),
-		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
-		queuedSign:       make(chan []*types.PbftSign, maxQueuedSigns),
-		queuedNodeInfo:   make(chan *types.EncryptNodeMessage, maxQueuedNodeInfo),
-		queuedFruits:     make(chan []*types.SnailBlock, maxQueuedFruits),
-		queuedFastProps:  make(chan *propFastEvent, maxQueuedFastProps),
+		Peer:               p,
+		rw:                 rw,
+		version:            version,
+		id:                 fmt.Sprintf("%x", p.ID().Bytes()[:8]),
+		knownTxs:           mapset.NewSet(),
+		knownSign:          mapset.NewSet(),
+		knownNodeInfos:     mapset.NewSet(),
+		knownFruits:        mapset.NewSet(),
+		knownSnailBlocks:   mapset.NewSet(),
+		knownFastBlocks:    mapset.NewSet(),
+		queuedTxs:          make(chan []*types.Transaction, maxQueuedTxs),
+		queuedSign:         make(chan []*types.PbftSign, maxQueuedSigns),
+		queuedNodeInfo:     make(chan *types.EncryptNodeMessage, maxQueuedNodeInfo),
+		queuedNodeInfoHash: make(chan *types.EncryptNodeMessage, maxQueuedNodeInfoHash),
+		queuedFruits:       make(chan []*types.SnailBlock, maxQueuedFruits),
+		queuedFastProps:    make(chan *propFastEvent, maxQueuedFastProps),
 
 		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedSnailBlock),
 		queuedFastAnns:   make(chan *types.Block, maxQueuedFastAnns),
@@ -209,7 +213,11 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Broadcast node info ")
-
+		case nodeInfo := <-p.queuedNodeInfoHash:
+			if err := p.SendNodeInfoHash(nodeInfo); err != nil {
+				return
+			}
+			p.Log().Trace("Broadcast node info hash")
 		//add for fruit
 		case fruits := <-p.queuedFruits:
 			if len(fruits) > fruitPackSize*2 {
@@ -404,12 +412,27 @@ func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 	return p.Send(TbftNodeInfoMsg, nodeInfo)
 }
 
+func (p *peer) SendNodeInfoHash(nodeInfo *types.EncryptNodeMessage) error {
+	p.knownNodeInfos.Add(nodeInfo.Hash())
+	log.Trace("SendNodeInfoHash", "peer", p.id)
+	return p.Send(TbftNodeInfoHashMsg, nodeInfo.Hash())
+}
+
 func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncryptNodeMessage) {
 	select {
 	case p.queuedNodeInfo <- nodeInfo:
 		p.knownNodeInfos.Add(nodeInfo.Hash())
 	default:
 		p.Log().Debug("Dropping nodeInfo propagation", "size", nodeInfo.Size(), "queuedNodeInfo", len(p.queuedNodeInfo), "peer", p.RemoteAddr())
+	}
+}
+
+func (p *peer) AsyncSendNodeInfoHash(nodeInfo *types.EncryptNodeMessage) {
+	select {
+	case p.queuedNodeInfoHash <- nodeInfo:
+		p.knownNodeInfos.Add(nodeInfo.Hash())
+	default:
+		p.Log().Debug("Dropping nodeInfoHash propagation", "queuedNodeInfoHash", len(p.queuedNodeInfoHash), "peer", p.RemoteAddr())
 	}
 }
 

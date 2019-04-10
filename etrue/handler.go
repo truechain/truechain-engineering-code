@@ -994,6 +994,33 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		p.MarkNodeInfo(nodeInfo.Hash())
 		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)
 
+	case msg.Code == TbftNodeInfoHashMsg:
+		var nodeInfoHash common.Hash
+		if err := msg.Decode(nodeInfoHash); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
+		}
+		if len(nodeInfoHash) == 0 {
+			return errResp(ErrDecode, "reveive TbftNodeInfoHashMsg, nodde info hash is nil")
+		}
+		// Mark the hashes as present at the remote node
+		p.MarkNodeInfo(nodeInfoHash)
+		_, isExist := pm.agentProxy.GetNodeInfoByHash(nodeInfoHash)
+		if !isExist {
+			return p.Send(GetTbftNodeInfoMsg, &nodeInfoHashData{nodeInfoHash})
+		}
+
+	case msg.Code == GetTbftNodeInfoMsg:
+		var data *nodeInfoHashData
+		if err := msg.Decode(data); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
+		}
+		if data == nil || len(data.Hash) == 0 {
+			return errResp(ErrDecode, "nodeInfoHashData  is nil")
+		}
+		cryptoNodeInfo, isExist := pm.agentProxy.GetNodeInfoByHash(data.Hash)
+		if isExist {
+			p.SendNodeInfo(cryptoNodeInfo)
+		}
 	case msg.Code == NewSnailBlockHashesMsg:
 		// PbftSign can be processed, parse all of them and deliver to the queue
 		var signs []*types.PbftSign
@@ -1145,17 +1172,25 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 // BroadcastPbNodeInfo will propagate a batch of EncryptNodeMessage to all peers which are not known to
 // already have the given CryNodeInfo.
 func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncryptNodeMessage) {
-	var nodeInfoSet = make(map[*peer]types.NodeInfoEvent)
-
 	// Broadcast transactions to a batch of peers not knowing about it
 	peers := pm.peers.PeersWithoutNodeInfo(nodeInfo.Hash())
+
+	transferLen := int(math.Sqrt(float64(len(peers))))
+	if transferLen < minBroadcastPeers {
+		transferLen = minBroadcastPeers
+	}
+	if transferLen > len(peers) {
+		transferLen = len(peers)
+	}
+	transfer := peers[:transferLen]
+
+	for _, peer := range transfer {
+		peer.AsyncSendNodeInfo(nodeInfo)
+	}
 	for _, peer := range peers {
-		nodeInfoSet[peer] = types.NodeInfoEvent{nodeInfo}
+		peer.AsyncSendNodeInfoHash(nodeInfo)
 	}
-	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
-	for peer, nodeInfo := range nodeInfoSet {
-		peer.AsyncSendNodeInfo(nodeInfo.NodeInfo)
-	}
+	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(),"sendNodeHash.peer", len(peers), "sendNode.peer", len(transfer), "pm.peers.peers", len(pm.peers.peers))
 }
 
 // BroadcastSnailBlock will either propagate a snailBlock to a subset of it's peers, or
@@ -1259,8 +1294,7 @@ func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
 		select {
 		case nodeInfoEvent := <-pm.pbNodeInfoCh:
 			pm.BroadcastPbNodeInfo(nodeInfoEvent.NodeInfo)
-
-			// Err() channel will be closed when unsubscribing.
+		// Err() channel will be closed when unsubscribing.
 		case <-pm.pbNodeInfoSub.Err():
 			return
 		}
