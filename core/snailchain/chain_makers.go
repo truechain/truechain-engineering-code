@@ -189,7 +189,7 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, fast
 	if parent.Time() == nil {
 		time = big.NewInt(10)
 	} else {
-		time = new(big.Int).Add(parent.Time(), big.NewInt(600)) // block time is fixed at 10 seconds
+		time = new(big.Int).Add(parent.Time(), big.NewInt(3600)) // block time is fixed at 3600 seconds
 	}
 
 	header := &types.SnailHeader{
@@ -402,7 +402,7 @@ func makeBlockHead(chain *SnailBlockChain, fastchain *core.BlockChain, parent *t
 	if parent.Time() == nil {
 		time = big.NewInt(10)
 	} else {
-		time = new(big.Int).Add(parent.Time(), big.NewInt(600)) // block time is fixed at 10 seconds
+		time = new(big.Int).Add(parent.Time(), big.NewInt(3600)) // block time is fixed at 3600 seconds
 	}
 	fastNumber := new(big.Int).Add(parent.FastNumber(), common.Big1)
 

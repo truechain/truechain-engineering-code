@@ -129,6 +129,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		return consensus.ErrFutureBlock
 	}
 	if fruits[len(fruits)-1].Time() == nil || block.Time() == nil || block.Time().Cmp(fruits[len(fruits)-1].Time()) < 0 {
+		log.Info("validate time", "block.Time()", block.Time(), "fruits[len(fruits)-1].Time()", fruits[len(fruits)-1].Time())
 		return ErrBlockTime
 	}
 	gap := new(big.Int).Sub(maxfb.Time, minfb.Time)

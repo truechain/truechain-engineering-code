@@ -415,17 +415,23 @@ func testReorgShort(t *testing.T, full bool) {
 
 func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	// Create a pristine chain and database
-	_, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, full)
+	engine := minerva.NewFaker()
+	db, blockchain, fastChain, err := newCanonical(engine, 0, full)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
+	commonGenesis := core.DefaultGenesisBlock()
+	fastBlocks, _ := core.GenerateChain(params.TestChainConfig, commonGenesis.MustFastCommit(db), engine, db, len(second)*params.MinimumFruits, func(i int, b *core.BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
+	})
+	fastChain.InsertChain(fastBlocks)
 	// Insert an easy and a difficult chain afterwards
 	easyBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.GetBlocksFromNumber(0), len(first), 7, func(i int, b *BlockGen) {
 		b.OffsetTime(first[i])
 	})
-	diffBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.GetBlocksFromNumber(0), 7, len(second), func(i int, b *BlockGen) {
+	diffBlocks := GenerateChain(params.TestChainConfig, fastChain, blockchain.GetBlocksFromNumber(0), len(second), 7, func(i int, b *BlockGen) {
 		b.OffsetTime(second[i])
 	})
 	if full {
