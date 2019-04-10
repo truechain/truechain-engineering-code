@@ -1217,7 +1217,8 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	engine := minerva.NewFaker()
 
 	db := etruedb.NewMemDatabase()
-	genesis := new(core.Genesis).MustSnailCommit(db)
+	commonGenesis := core.DefaultGenesisBlock()
+	genesis := commonGenesis.MustSnailCommit(db)
 	_, fastChain, _ := core.NewCanonical(engine, 0, true)
 	blocks := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{genesis}, 64, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
@@ -1236,7 +1237,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	// Import the canonical and fork chain side by side, verifying the current block
 	// and current header consistency
 	diskdb := etruedb.NewMemDatabase()
-	new(core.Genesis).MustSnailCommit(diskdb)
+	commonGenesis.MustSnailCommit(diskdb)
 
 	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
 	if err != nil {
