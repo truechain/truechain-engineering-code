@@ -189,7 +189,7 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, fast
 	if parent.Time() == nil {
 		time = big.NewInt(10)
 	} else {
-		time = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
+		time = new(big.Int).Add(parent.Time(), big.NewInt(600)) // block time is fixed at 10 seconds
 	}
 
 	header := &types.SnailHeader{
@@ -230,7 +230,7 @@ func makeFruitHead(chain consensus.SnailChainReader, fastBlock *types.Block, par
 	if parent.Time() == nil {
 		time = big.NewInt(10)
 	} else {
-		time = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
+		time = new(big.Int).Add(parent.Time(), big.NewInt(600)) // block time is fixed at 10 seconds
 	}
 
 	header := &types.SnailHeader{
@@ -294,8 +294,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 		testdb = etruedb.NewMemDatabase()
 	)
 	cache := &core.CacheConfig{
-		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -402,7 +402,7 @@ func makeBlockHead(chain *SnailBlockChain, fastchain *core.BlockChain, parent *t
 	if parent.Time() == nil {
 		time = big.NewInt(10)
 	} else {
-		time = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
+		time = new(big.Int).Add(parent.Time(), big.NewInt(600)) // block time is fixed at 10 seconds
 	}
 	fastNumber := new(big.Int).Add(parent.FastNumber(), common.Big1)
 
@@ -507,7 +507,7 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 		if parent.Time() == nil {
 			tstamp = big.NewInt(10)
 		} else {
-			tstamp = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
+			tstamp = new(big.Int).Add(parent.Time(), big.NewInt(600)) // block time is fixed at 10 seconds
 		}
 		header := &types.SnailHeader{
 			ParentHash:      parent.Hash(),
