@@ -89,9 +89,9 @@ func (s *PublicTrueAPI) Syncing() (interface{}, error) {
 	}
 	// Otherwise gather the block sync stats
 	return map[string]interface{}{
-		"startingSnailBlock": hexutil.Uint64(progress.StartingSnailBlock),
-		"currentSnailBlock":  hexutil.Uint64(progress.CurrentSnailBlock),
-		"highestSnailBlock":  hexutil.Uint64(progress.HighestSnailBlock),
+		"startingFastBlock": hexutil.Uint64(progress.StartingFastBlock),
+		"currentFastBlock":  hexutil.Uint64(progress.CurrentFastBlock),
+		"highestFastBlock":  hexutil.Uint64(progress.HighestFastBlock),
 		"startingBlock":      hexutil.Uint64(progress.StartingBlock),
 		"currentBlock":       hexutil.Uint64(progress.CurrentBlock),
 		"highestBlock":       hexutil.Uint64(progress.HighestBlock),

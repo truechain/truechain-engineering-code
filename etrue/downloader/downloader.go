@@ -254,13 +254,13 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 	f_prog := d.fastDown.Progress()
 
 	return truechain.SyncProgress{
-		StartingSnailBlock: d.syncStatsChainOrigin,
-		CurrentSnailBlock:  current,
-		HighestSnailBlock:  d.syncStatsChainHeight,
+		StartingBlock: d.syncStatsChainOrigin,
+		CurrentBlock:  current,
+		HighestBlock:  d.syncStatsChainHeight,
 
-		StartingBlock:f_prog.StartingBlock,
-		CurrentBlock:f_prog.CurrentBlock,
-		HighestBlock:f_prog.HighestBlock,
+		StartingFastBlock:f_prog.StartingFastBlock,
+		CurrentFastBlock:f_prog.CurrentFastBlock,
+		HighestFastBlock:f_prog.HighestFastBlock,
 
 		PulledStates:  d.syncStatsState.processed,
 		KnownStates:   d.syncStatsState.processed + d.syncStatsState.pending,

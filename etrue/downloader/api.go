@@ -18,7 +18,6 @@ package downloader
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/truechain/truechain-engineering-code"

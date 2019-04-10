@@ -263,19 +263,19 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 
 	current := uint64(0)
 	switch d.mode {
-	case FullSync:
-		current = d.blockchain.CurrentBlock().NumberU64()
-	case FastSync:
-		current = d.blockchain.CurrentFastBlock().NumberU64()
-	case LightSync:
-		current = d.lightchain.CurrentHeader().Number.Uint64()
-	case SnapShotSync:
-		current = d.lightchain.CurrentHeader().Number.Uint64()
+		case FullSync:
+			current = d.blockchain.CurrentBlock().NumberU64()
+		case FastSync:
+			current = d.blockchain.CurrentFastBlock().NumberU64()
+		case LightSync:
+			current = d.lightchain.CurrentHeader().Number.Uint64()
+		case SnapShotSync:
+			current = d.lightchain.CurrentHeader().Number.Uint64()
 	}
 	return truechain.SyncProgress{
-		StartingBlock: d.syncStatsChainOrigin,
-		CurrentBlock:  current,
-		HighestBlock:  d.syncStatsChainHeight,
+		StartingFastBlock: d.syncStatsChainOrigin,
+		CurrentFastBlock:  current,
+		HighestFastBlock:  d.syncStatsChainHeight,
 	}
 }
 
