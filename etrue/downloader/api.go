@@ -63,13 +63,11 @@ func (api *PublicDownloaderAPI) eventLoop() {
 	for {
 		select {
 		case i := <-api.installSyncSubscription:
-			fmt.Println("installSyncSubscription=========")
 			syncSubscriptions[i] = struct{}{}
 		case u := <-api.uninstallSyncSubscription:
 			delete(syncSubscriptions, u.c)
 			close(u.uninstalled)
 		case event := <-sub.Chan():
-			fmt.Println("-sub.Chan()")
 			if event == nil {
 				return
 			}
@@ -77,13 +75,11 @@ func (api *PublicDownloaderAPI) eventLoop() {
 			var notification interface{}
 			switch event.Data.(type) {
 			case StartEvent:
-				fmt.Println("+++++++++++++++++++++++++++")
 				notification = &SyncingResult{
 					Syncing: true,
 					Status:  api.d.Progress(),
 				}
 			case DoneEvent, FailedEvent:
-				fmt.Println("===========================")
 				notification = false
 			}
 			// broadcast
