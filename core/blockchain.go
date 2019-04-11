@@ -998,6 +998,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			bytes += batch.ValueSize()
 			batch.Reset()
 		}
+		bc.engine.FinalizeCommittee(block)
 	}
 	if batch.ValueSize() > 0 {
 		bytes += batch.ValueSize()
