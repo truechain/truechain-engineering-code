@@ -659,7 +659,6 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 
 func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork, pubKey *ecdsa.PublicKey) {
 	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey, pubKey)
-	log.Info(committeeNode.String())
 	if committeeNode != nil {
 		help.CheckAndPrintError(agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode}))
 	}
