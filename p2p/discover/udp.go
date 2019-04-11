@@ -630,6 +630,10 @@ func (t *udp) handlePacket(from *net.UDPAddr, buf []byte) error {
 	log.Trace("<< "+packet.name(), "id", fromID, "addr", from, "err", err)
 	if err == nil {
 		packet.handle(t, from, fromID, hash)
+
+		if v, ok := packet.(*pong); ok {
+			t.host = v.To.IP.String()
+		}
 	}
 	return err
 }
