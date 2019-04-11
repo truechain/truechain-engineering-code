@@ -345,9 +345,9 @@ func TestFruitDropping(t *testing.T) {
 		ft11 = fruit(182, big.NewInt(1789570))
 		ft12 = fruit(183, big.NewInt(1789570))
 	)
-	pool.addFruit(ft10)
-	pool.addFruit(ft11)
-	pool.addFruit(ft12)
+	pool.addFruits([]*types.SnailBlock{ft10})
+	pool.addFruits([]*types.SnailBlock{ft11})
+	pool.addFruits([]*types.SnailBlock{ft12})
 
 	pool.RemovePendingFruitByFastHash(ft10.FastHash())
 	// Check that pre and post validations leave the pool as is
@@ -381,8 +381,8 @@ func TestFruitReplacement(t *testing.T) {
 		ft2 = fruit(181, big.NewInt(1789570))
 	)
 
-	pool.addFruit(ft0)
-	pool.addFruit(ft2)
+	pool.addFruits([]*types.SnailBlock{ft0})
+	pool.addFruits([]*types.SnailBlock{ft2})
 
 	if pool.fruitPending[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(1789570)) != 0 {
 		t.Errorf("pending fruit's difficulty mismatch: is %d, want %d", pool.fruitPending[ft0.FastHash()].FruitDifficulty(), big.NewInt(1789570))
