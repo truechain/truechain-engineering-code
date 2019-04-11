@@ -281,9 +281,9 @@ type rpcProgress struct {
 	CurrentFastBlock  uint64 // Current block number where sync is at
 	HighestFastBlock  uint64 // Highest alleged block number in the chain
 
-	StartingBlock hexutil.Uint64
-	CurrentBlock  hexutil.Uint64
-	HighestBlock  hexutil.Uint64
+	StartingSnailBlock hexutil.Uint64
+	CurrentSnailBlock  hexutil.Uint64
+	HighestSnailBlock  hexutil.Uint64
 	PulledStates  hexutil.Uint64
 	KnownStates   hexutil.Uint64
 }
@@ -309,9 +309,9 @@ func (ec *Client) SyncProgress(ctx context.Context) (*truechain.SyncProgress, er
 		CurrentFastBlock:  uint64(progress.CurrentFastBlock),
 		HighestFastBlock:  uint64(progress.HighestFastBlock),
 
-		StartingBlock: uint64(progress.StartingBlock),
-		CurrentBlock:  uint64(progress.CurrentBlock),
-		HighestBlock:  uint64(progress.HighestBlock),
+		StartingSnailBlock: uint64(progress.StartingSnailBlock),
+		CurrentSnailBlock:  uint64(progress.CurrentSnailBlock),
+		HighestSnailBlock:  uint64(progress.HighestSnailBlock),
 		PulledStates:  uint64(progress.PulledStates),
 		KnownStates:   uint64(progress.KnownStates),
 	}, nil

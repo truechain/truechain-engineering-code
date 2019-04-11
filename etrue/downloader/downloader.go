@@ -108,6 +108,7 @@ type Downloader struct {
 	// Statistics
 	syncStatsChainOrigin uint64       // Origin block number where syncing started at
 	syncStatsChainHeight uint64       // Highest block number known when syncing started
+
 	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
 	syncStatsState       stateSyncStats
 
@@ -254,9 +255,9 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 	f_prog := d.fastDown.Progress()
 
 	return truechain.SyncProgress{
-		StartingBlock: d.syncStatsChainOrigin,
-		CurrentBlock:  current,
-		HighestBlock:  d.syncStatsChainHeight,
+		StartingSnailBlock: d.syncStatsChainOrigin,
+		CurrentSnailBlock:  current,
+		HighestSnailBlock:  d.syncStatsChainHeight,
 
 		StartingFastBlock:f_prog.StartingFastBlock,
 		CurrentFastBlock:f_prog.CurrentFastBlock,
