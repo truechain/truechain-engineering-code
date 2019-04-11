@@ -1190,7 +1190,7 @@ func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncryptNodeMessag
 	for _, peer := range peers {
 		peer.AsyncSendNodeInfoHash(nodeInfo)
 	}
-	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(),"sendNodeHash.peer", len(peers), "sendNode.peer", len(transfer), "pm.peers.peers", len(pm.peers.peers))
+	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(), "sendNodeHash.peer", len(peers), "sendNode.peer", len(transfer), "pm.peers.peers", len(pm.peers.peers))
 }
 
 // BroadcastSnailBlock will either propagate a snailBlock to a subset of it's peers, or

@@ -123,7 +123,7 @@ type PbftAgent struct {
 	knownRecievedNodes *utils.OrderedMap
 	committeeNodeTag   *utils.OrderedMap
 
-	markNodeMu       *sync.Mutex //generateBlock mutex
+	markNodeMu       *sync.Mutex //mark node mutex
 	broadcastNodeTag *utils.OrderedMap
 	gasFloor         uint64
 	gasCeil          uint64
@@ -624,8 +624,9 @@ func (agent *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 }
 
 func (agent *PbftAgent) sendAndMarkNode(cryptoNodeInfo *types.EncryptNodeMessage) {
-	agent.MarkBroadcastNodeTag(cryptoNodeInfo)
-	go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryptoNodeInfo})
+	new_cryptoNodeInfo :=&cryptoNodeInfo
+	agent.MarkBroadcastNodeTag(*new_cryptoNodeInfo)
+	go agent.nodeInfoFeed.Send(types.NodeInfoEvent{*new_cryptoNodeInfo})
 }
 
 func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.CommitteeNode, privateKey *ecdsa.PrivateKey) *types.EncryptNodeMessage {
@@ -658,6 +659,7 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 
 func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork, pubKey *ecdsa.PublicKey) {
 	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey, pubKey)
+	log.Info(committeeNode.String())
 	if committeeNode != nil {
 		help.CheckAndPrintError(agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode}))
 	}
@@ -669,6 +671,7 @@ func (agent *PbftAgent) GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.Encr
 	if isExist {
 		return nodeInfo.(*types.EncryptNodeMessage), isExist
 	}
+	log.Warn("GetNodeInfoByHash is not exist")
 	return nil, isExist
 }
 
