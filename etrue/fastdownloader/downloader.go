@@ -109,8 +109,9 @@ type Downloader struct {
 	// Statistics
 	syncStatsChainOrigin uint64       // Origin block number where syncing started at
 	syncStatsChainHeight uint64       // Highest block number known when syncing started
-	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
+	syncStatsChainHeightLast uint64       //Last block number known
 
+	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
 	lightchain LightChain
 	blockchain BlockChain
 
@@ -249,6 +250,11 @@ func (d *Downloader) SetSD(Sdownloader SDownloader) {
 	d.sDownloader = Sdownloader
 }
 
+func (d *Downloader) SetSyncStatsChainHeightLast(number uint64)  {
+	d.syncStatsChainHeightLast = number
+}
+
+
 // Progress retrieves the synchronisation boundaries, specifically the origin
 // block where synchronisation started at (may have failed/suspended); the block
 // or header sync is currently at; and the latest known block which the sync targets.
@@ -275,7 +281,7 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 	return truechain.SyncProgress{
 		StartingFastBlock: d.syncStatsChainOrigin,
 		CurrentFastBlock:  current,
-		HighestFastBlock:  d.syncStatsChainHeight,
+		HighestFastBlock:  d.syncStatsChainHeightLast,
 	}
 }
 
