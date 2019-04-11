@@ -243,6 +243,21 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) (error,
 	return nil, false
 }
 
+func (pool *SnailPool) addFruits(fruits []*types.SnailBlock) {
+	var promoted []*types.SnailBlock
+	for _, fruit := range fruits {
+		_, send := pool.addFruit(fruit)
+		if send {
+			promoted = append(promoted, fruit)
+		}
+	}
+	if len(promoted) > 0 {
+		allSendCounter.Inc(int64(len(promoted)))
+		allSendTimesCounter.Inc(1)
+		go pool.fruitFeed.Send(types.NewFruitsEvent{promoted})
+	}
+}
+
 // addFruit
 func (pool *SnailPool) addFruit(fruit *types.SnailBlock) (error, bool) {
 	//if the new fruit's fbnumber less than,don't add
@@ -372,18 +387,7 @@ func (pool *SnailPool) loop() {
 
 		case fruits := <-pool.newFruitCh:
 			if fruits != nil {
-				var promoted []*types.SnailBlock
-				for _, fruit := range fruits {
-					_, send := pool.addFruit(fruit)
-					if send {
-						promoted = append(promoted, fruit)
-					}
-				}
-				if len(promoted) > 0 {
-					allSendCounter.Inc(int64(len(promoted)))
-					allSendTimesCounter.Inc(1)
-					go pool.fruitFeed.Send(types.NewFruitsEvent{promoted})
-				}
+				pool.addFruits(fruits)
 			}
 
 			// Be unsubscribed due to system stopped
