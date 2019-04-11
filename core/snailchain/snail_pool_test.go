@@ -277,7 +277,7 @@ func TestInvalidFruits(t *testing.T) {
 		big.NewInt(182),
 		header.Hash(),
 		big.NewInt(0),
-		big.NewInt(2000),
+		big.NewInt(1789570),
 		big.NewInt(0),
 		[]byte{0},
 		nil,
@@ -301,7 +301,7 @@ func TestFruitQueue(t *testing.T) {
 	pool := setupSnailPool()
 	defer pool.Stop()
 
-	ft := fruit(181, big.NewInt(2000))
+	ft := fruit(181, big.NewInt(1789570))
 	pool.addFruit(ft)
 	//if fastNumber is bigger than pool.fastchainpool.CurrentBlock().Number() will only add to allFruits
 	if len(pool.allFruits) != 1 {
@@ -314,9 +314,9 @@ func TestFruitQueue(t *testing.T) {
 	pool = setupSnailPool()
 	defer pool.Stop()
 
-	ft1 := fruit(181, big.NewInt(2000))
-	ft2 := fruit(182, big.NewInt(2000))
-	ft3 := fruit(183, big.NewInt(2000))
+	ft1 := fruit(181, big.NewInt(1789570))
+	ft2 := fruit(182, big.NewInt(1789570))
+	ft3 := fruit(183, big.NewInt(1789570))
 
 	pool.addFruit(ft1)
 	pool.addFruit(ft2)
@@ -341,9 +341,9 @@ func TestFruitDropping(t *testing.T) {
 	defer sub.Unsubscribe()
 	// Add some pending fruits
 	var (
-		ft10 = fruit(181, big.NewInt(2000))
-		ft11 = fruit(182, big.NewInt(2000))
-		ft12 = fruit(183, big.NewInt(2000))
+		ft10 = fruit(181, big.NewInt(1789570))
+		ft11 = fruit(182, big.NewInt(1789570))
+		ft12 = fruit(183, big.NewInt(1789570))
 	)
 	pool.addFruit(ft10)
 	pool.addFruit(ft11)
@@ -378,20 +378,20 @@ func TestFruitReplacement(t *testing.T) {
 	// Add some pending fruits
 	var (
 		ft0 = fruit(181, big.NewInt(1000))
-		ft2 = fruit(181, big.NewInt(2000))
+		ft2 = fruit(181, big.NewInt(1789570))
 	)
 
 	pool.addFruit(ft0)
 	pool.addFruit(ft2)
 
-	if pool.fruitPending[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(2000)) != 0 {
-		t.Errorf("pending fruit's difficulty mismatch: is %d, want %d", pool.fruitPending[ft0.FastHash()].FruitDifficulty(), big.NewInt(2000))
+	if pool.fruitPending[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(1789570)) != 0 {
+		t.Errorf("pending fruit's difficulty mismatch: is %d, want %d", pool.fruitPending[ft0.FastHash()].FruitDifficulty(), big.NewInt(1789570))
 	}
-	if pool.allFruits[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(2000)) != 0 {
-		t.Errorf("allFruits's difficulty mismatch: is %d, want %d", pool.allFruits[ft0.FastHash()].FruitDifficulty(), big.NewInt(2000))
+	if pool.allFruits[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(1789570)) != 0 {
+		t.Errorf("allFruits's difficulty mismatch: is %d, want %d", pool.allFruits[ft0.FastHash()].FruitDifficulty(), big.NewInt(1789570))
 	}
 	if err := validateFruitEvents(events, 1); err != nil {
-		t.Fatalf(" replacement event firing failed: %v", err)
+		t.Fatalf("replacement event firing failed: %v", err)
 	}
 
 }
@@ -424,16 +424,16 @@ func testFruitJournaling(t *testing.T) {
 	defer pool.Stop()
 
 	// Add three fruits and ensure they are queued up
-	if err, _ := pool.addFruit(fruit(181, big.NewInt(2000))); err != nil {
+	if err, _ := pool.addFruit(fruit(181, big.NewInt(1789570))); err != nil {
 		t.Fatalf("failed to add local fruit: %v", err)
 	}
-	if err, _ := pool.addFruit(fruit(182, big.NewInt(2000))); err != nil {
+	if err, _ := pool.addFruit(fruit(182, big.NewInt(1789570))); err != nil {
 		t.Fatalf("failed to add local fruit: %v", err)
 	}
-	if err, _ := pool.addFruit(fruit(183, big.NewInt(2000))); err != nil {
+	if err, _ := pool.addFruit(fruit(183, big.NewInt(1789570))); err != nil {
 		t.Fatalf("failed to add local fruit: %v", err)
 	}
-	if err, _ := pool.addFruit(fruit(184, big.NewInt(2000))); err != nil {
+	if err, _ := pool.addFruit(fruit(184, big.NewInt(1789570))); err != nil {
 		t.Fatalf("failed to add remote fruit: %v", err)
 	}
 	pending, unverified := pool.Stats()
