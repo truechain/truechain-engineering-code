@@ -824,7 +824,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(fruits) > 0 || len(signs) > 0
-		if len(signs) > 0 {
+		if len(signs[0]) > 0 {
 			log.Debug("SnailBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "fruits", len(fruits))
 		}
 		if filter {
@@ -832,7 +832,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		if len(fruits) > 0 || len(signs) > 0 || !filter {
-			if request.Call == types.FetcherCall {
+			if request.Call == types.FetcherCall && len(signs[0]) > 0 {
 				log.Info("SnailBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
 			} else {
 				log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits), "signs", len(signs), "filter", filter)
