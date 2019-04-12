@@ -415,7 +415,7 @@ func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 func (p *peer) SendNodeInfoHash(nodeInfo *types.EncryptNodeMessage) error {
 	p.knownNodeInfos.Add(nodeInfo.Hash())
 	log.Trace("SendNodeInfoHash", "peer", p.id)
-	return p.Send(TbftNodeInfoHashMsg, nodeInfo.Hash())
+	return p.Send(TbftNodeInfoHashMsg, &nodeInfoHashData{nodeInfo.Hash()})
 }
 
 func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncryptNodeMessage) {

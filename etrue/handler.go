@@ -995,21 +995,23 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)
 
 	case msg.Code == TbftNodeInfoHashMsg:
-		var nodeInfoHash common.Hash
-		if err := msg.Decode(nodeInfoHash); err != nil {
+		log.Warn("go into TbftNodeInfoHashMsg")
+		var data *nodeInfoHashData
+		if err := msg.Decode(data); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		if len(nodeInfoHash) == 0 {
+		if data==nil || len(data.Hash) == 0 {
 			return errResp(ErrDecode, "reveive TbftNodeInfoHashMsg, nodde info hash is nil")
 		}
 		// Mark the hashes as present at the remote node
-		p.MarkNodeInfo(nodeInfoHash)
-		_, isExist := pm.agentProxy.GetNodeInfoByHash(nodeInfoHash)
+		p.MarkNodeInfo(data.Hash)
+		_, isExist := pm.agentProxy.GetNodeInfoByHash(data.Hash)
 		if !isExist {
-			return p.Send(GetTbftNodeInfoMsg, &nodeInfoHashData{nodeInfoHash})
+			return p.Send(GetTbftNodeInfoMsg, data)
 		}
 
 	case msg.Code == GetTbftNodeInfoMsg:
+		log.Warn("go into TbftNodeInfoHashMsg")
 		var data *nodeInfoHashData
 		if err := msg.Decode(data); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -1020,6 +1022,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		cryptoNodeInfo, isExist := pm.agentProxy.GetNodeInfoByHash(data.Hash)
 		if isExist {
 			p.SendNodeInfo(cryptoNodeInfo)
+		}else{
+			log.Warn("cannot find cryptoNodeInfo by hash")
 		}
 	case msg.Code == NewSnailBlockHashesMsg:
 		// PbftSign can be processed, parse all of them and deliver to the queue
