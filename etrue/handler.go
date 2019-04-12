@@ -179,7 +179,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		manager.SubProtocols = append(manager.SubProtocols, p2p.Protocol{
 			Name:    ProtocolName,
 			Version: version,
-			Length:  ProtocolLengths2[i],
+			Length:  ProtocolLengths[i],
 			Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 				peer := manager.newPeer(int(version), p, rw)
 				select {
@@ -567,15 +567,29 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&headerData); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+		// Filter out any explicitly requested headers, deliver the rest to the downloader
 		headers := make([]*types.SnailHeader, len(headerData.SnailHeaders))
 		copy(headers, headerData.SnailHeaders)
 
+		filter := len(headers) == 1
 		if len(headers) != 0 {
-			log.Debug("SnailBlockHeadersMsg", "headers:", len(headers), "headerNumber", headers[0].Number)
+			log.Debug("SnailBlockHeadersMsg", "headers:", len(headers), "headerNumber", headers[0].Number, "call", headerData.Call)
 		}
-		err := pm.downloader.DeliverHeaders(p.id, headers)
-		if err != nil {
-			log.Debug("Failed to deliver headers", "err", err)
+		if filter {
+			// Irrelevant of the fork checks, send the header to the fetcher just in case
+			headers = pm.fetcherSnail.FilterHeaders(p.id, headers, time.Now())
+		}
+
+		if len(headers) > 0 || !filter {
+			if headerData.Call == types.FetcherCall {
+				log.Info("SnailBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
+			} else {
+				log.Debug("SnailBlockHeadersMsg", "headers", len(headers), "filter", filter)
+				err := pm.downloader.DeliverHeaders(p.id, headers)
+				if err != nil {
+					log.Debug("Failed to deliver headers", "err", err)
+				}
+			}
 		}
 
 	case msg.Code == GetFastBlockHeadersMsg:
@@ -808,10 +822,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			signs[i] = body.Signs
 		}
 
-		log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits))
-		err := pm.downloader.DeliverBodies(p.id, fruits, signs)
-		if err != nil {
-			log.Debug("Failed to deliver bodies", "err", err)
+		// Filter out any explicitly requested bodies, deliver the rest to the downloader
+		filter := len(fruits) > 0 || len(signs) > 0
+		if len(signs) > 0 {
+			log.Debug("SnailBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "fruits", len(fruits))
+		}
+		if filter {
+			fruits, signs = pm.fetcherSnail.FilterBodies(p.id, fruits, signs, time.Now())
+		}
+
+		if len(fruits) > 0 || len(signs) > 0 || !filter {
+			if request.Call == types.FetcherCall {
+				log.Info("SnailBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
+			} else {
+				log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits), "signs", len(signs), "filter", filter)
+				err := pm.downloader.DeliverBodies(p.id, fruits, signs)
+				if err != nil {
+					log.Debug("Failed to deliver bodies", "err", err)
+				}
+			}
 		}
 
 	case msg.Code == GetNodeDataMsg:
@@ -1028,21 +1057,24 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			log.Warn("cannot find cryptoNodeInfo by hash")
 		}
 	case msg.Code == NewSnailBlockHashesMsg:
-		// PbftSign can be processed, parse all of them and deliver to the queue
-		var signs []*types.PbftSign
-		if err := msg.Decode(&signs); err != nil {
-			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		var announces newBlockHashesData
+		if err := msg.Decode(&announces); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-
-		for i, sign := range signs {
-			// Validate and mark the remote transaction
-			if sign == nil {
-				return errResp(ErrDecode, "sign %d is nil", i)
+		// Mark the hashes as present at the remote node
+		for _, block := range announces {
+			p.MarkSnailBlock(block.Hash)
+		}
+		// Schedule all the unknown hashes for retrieval
+		unknown := make(newBlockHashesData, 0, len(announces))
+		for _, block := range announces {
+			if !pm.snailchain.HasBlock(block.Hash, block.Number) {
+				unknown = append(unknown, block)
 			}
-			p.MarkSign(sign.Hash())
 		}
-
-		//fruit structure
+		for _, block := range unknown {
+			pm.fetcherSnail.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneSnailHeader, p.RequestBodies)
+		}
 
 	case msg.Code == NewFruitMsg:
 		// Fruit arrived, make sure we have a valid and fresh chain to handle them
@@ -1141,7 +1173,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		}
 		transfer := peers[:transferLen]
 		for _, peer := range transfer {
-			peer.AsyncSendNewFastBlock(block)
+			peer.AsyncSendNewFastBlock(block, true)
 		}
 		log.Debug("Propagated fast block", "num", block.Number(), "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return

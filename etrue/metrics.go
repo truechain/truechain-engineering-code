@@ -35,6 +35,10 @@ var (
 	propFHashInTrafficMeter   = metrics.NewRegisteredMeter("etrue/prop/fhashes/in/traffic", nil)
 	propFHashOutPacketsMeter  = metrics.NewRegisteredMeter("etrue/prop/fhashes/out/packets", nil)
 	propFHashOutTrafficMeter  = metrics.NewRegisteredMeter("etrue/prop/fhashes/out/traffic", nil)
+	propSHashInPacketsMeter   = metrics.NewRegisteredMeter("etrue/prop/shashes/in/packets", nil)
+	propSHashInTrafficMeter   = metrics.NewRegisteredMeter("etrue/prop/shashes/in/traffic", nil)
+	propSHashOutPacketsMeter  = metrics.NewRegisteredMeter("etrue/prop/shashes/out/packets", nil)
+	propSHashOutTrafficMeter  = metrics.NewRegisteredMeter("etrue/prop/shashes/out/traffic", nil)
 	propFBlockInPacketsMeter  = metrics.NewRegisteredMeter("etrue/prop/fblocks/in/packets", nil)
 	propFBlockInTrafficMeter  = metrics.NewRegisteredMeter("etrue/prop/fblocks/in/traffic", nil)
 	propFBlockOutPacketsMeter = metrics.NewRegisteredMeter("etrue/prop/fblocks/out/packets", nil)
@@ -138,6 +142,8 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 
 	case msg.Code == NewFastBlockHashesMsg:
 		packets, traffic = propFHashInPacketsMeter, propFHashInTrafficMeter
+	case msg.Code == NewSnailBlockHashesMsg:
+		packets, traffic = propSHashInPacketsMeter, propSHashInTrafficMeter
 	case msg.Code == NewFastBlockMsg:
 		packets, traffic = propFBlockInPacketsMeter, propFBlockInTrafficMeter
 	case msg.Code == NewSnailBlockMsg:
@@ -183,6 +189,8 @@ func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
 
 	case msg.Code == NewFastBlockHashesMsg:
 		packets, traffic = propFHashOutPacketsMeter, propFHashOutTrafficMeter
+	case msg.Code == NewSnailBlockHashesMsg:
+		packets, traffic = propSHashOutPacketsMeter, propSHashOutTrafficMeter
 	case msg.Code == NewFastBlockMsg:
 		packets, traffic = propFBlockOutPacketsMeter, propFBlockOutTrafficMeter
 	case msg.Code == NewSnailBlockMsg:

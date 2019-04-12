@@ -91,8 +91,11 @@ type PeerInfo struct {
 }
 
 // propEvent is a fast block propagation, waiting for its turn in the broadcast queue.
-type propFastEvent struct {
-	block *types.Block
+type propEvent struct {
+	block  *types.Block
+	sblock *types.SnailBlock
+	td     *big.Int
+	fast   bool
 }
 
 // propEvent is a snailBlock propagation, waiting for its turn in the broadcast queue.
@@ -132,7 +135,7 @@ type peer struct {
 	queuedNodeInfo     chan *types.EncryptNodeMessage // a node info to broadcast to the peer
 	queuedNodeInfoHash chan *types.EncryptNodeMessage // a node info to broadcast to the peer
 	queuedFruits       chan []*types.SnailBlock       // Queue of fruits to broadcast to the peer
-	queuedFastProps    chan *propFastEvent            // Queue of fast blocks to broadcast to the peer
+	queuedFastProps    chan *propEvent                // Queue of fast blocks to broadcast to the peer
 
 	queuedSnailBlock chan *snailBlockEvent // Queue of newSnailBlock to broadcast to the peer
 
@@ -160,7 +163,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter, dropPeer peerDropFn
 		queuedNodeInfo:     make(chan *types.EncryptNodeMessage, maxQueuedNodeInfo),
 		queuedNodeInfoHash: make(chan *types.EncryptNodeMessage, maxQueuedNodeInfoHash),
 		queuedFruits:       make(chan []*types.SnailBlock, maxQueuedFruits),
-		queuedFastProps:    make(chan *propFastEvent, maxQueuedFastProps),
+		queuedFastProps:    make(chan *propEvent, maxQueuedFastProps),
 
 		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedSnailBlock),
 		queuedFastAnns:   make(chan *types.Block, maxQueuedFastAnns),
@@ -215,7 +218,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Broadcast node info ")
 		case nodeInfo := <-p.queuedNodeInfoHash:
 			if err := p.SendNodeInfoHash(nodeInfo); err != nil {
-				log.Warn("SendNodeInfoHash error","err",err)
+				log.Warn("SendNodeInfoHash error", "err", err)
 				return
 			}
 			p.Log().Trace("Broadcast node info hash")
@@ -243,7 +246,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Propagated fast block", "number", prop.block.Number(), "hash", prop.block.Hash())
 
 		case block := <-p.queuedFastAnns:
-			if err := p.SendNewFastBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}, []*types.PbftSign{block.GetLeaderSign()}); err != nil {
+			if err := p.SendNewFastBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
 				return
 			}
 			p.Log().Trace("Announced fast block", "number", block.Number(), "hash", block.Hash())
@@ -462,7 +465,7 @@ func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
-func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64, signs []*types.PbftSign) error {
+func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64) error {
 	for _, hash := range hashes {
 		p.knownFastBlocks.Add(hash)
 	}
@@ -488,9 +491,9 @@ func (p *peer) AsyncSendNewFastBlockHash(block *types.Block) {
 
 // AsyncSendNewFastBlock queues an entire block for propagation to a remote peer. If
 // the peer's broadcast queue is full, the event is silently dropped.
-func (p *peer) AsyncSendNewFastBlock(block *types.Block) {
+func (p *peer) AsyncSendNewFastBlock(block *types.Block, fast bool) {
 	select {
-	case p.queuedFastProps <- &propFastEvent{block: block}:
+	case p.queuedFastProps <- &propEvent{block: block}:
 		p.knownFastBlocks.Add(block.Hash())
 	default:
 		p.Log().Debug("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash(), "queuedFastProps", len(p.queuedFastProps), "peer", p.RemoteAddr())

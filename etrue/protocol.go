@@ -30,18 +30,17 @@ import (
 // Constants to match up protocol versions and messages
 const (
 	etrue63 = 63
+	etrue64 = 64
 )
 
 // ProtocolName is the official short name of the protocol used during capability negotiation.
 var ProtocolName = "etrue"
 
 // ProtocolVersions are the upported versions of the etrue protocol (first is primary).
-var ProtocolVersions = []uint{etrue63}
+var ProtocolVersions = []uint{etrue64, etrue63}
 
 // ProtocolLengths are the number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = []uint64{20}
-
-var ProtocolLengths2 = []uint64{32}
+var ProtocolLengths = []uint64{32, 20}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
@@ -144,7 +143,7 @@ type AgentNetworkProxy interface {
 	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
 	AddRemoteNodeInfo(*types.EncryptNodeMessage) error
 	//GetNodeInfoByHash get crypto nodeInfo  by hash
-	GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.EncryptNodeMessage,bool)
+	GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.EncryptNodeMessage, bool)
 }
 
 // statusData is the network packet for the status message.

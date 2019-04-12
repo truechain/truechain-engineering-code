@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Contains the metrics collected by the snailfetcher.
+// Contains the metrics collected by the sfetcher.
 
 package snailfetcher
 
@@ -23,8 +23,19 @@ import (
 )
 
 var (
-	propBroadcastInMeter   = metrics.NewRegisteredMeter("etrue/snailfetcher/prop/broadcasts/in", nil)
-	propBroadcastOutTimer  = metrics.NewRegisteredTimer("etrue/snailfetcher/prop/broadcasts/out", nil)
-	propBroadcastDropMeter = metrics.NewRegisteredMeter("etrue/snailfetcher/prop/broadcasts/drop", nil)
-	propBroadcastDOSMeter  = metrics.NewRegisteredMeter("etrue/snailfetcher/prop/broadcasts/dos", nil)
+	propAnnounceInMeter    = metrics.NewRegisteredMeter("etrue/sfetcher/prop/announces/in", nil)
+	propAnnounceOutTimer   = metrics.NewRegisteredTimer("etrue/sfetcher/prop/announces/out", nil)
+	propAnnounceDropMeter  = metrics.NewRegisteredMeter("etrue/sfetcher/prop/announces/drop", nil)
+	propAnnounceDOSMeter   = metrics.NewRegisteredMeter("etrue/sfetcher/prop/announces/dos", nil)
+	propBroadcastInMeter   = metrics.NewRegisteredMeter("etrue/sfetcher/prop/broadcasts/in", nil)
+	propBroadcastOutTimer  = metrics.NewRegisteredTimer("etrue/sfetcher/prop/broadcasts/out", nil)
+	propBroadcastDropMeter = metrics.NewRegisteredMeter("etrue/sfetcher/prop/broadcasts/drop", nil)
+	propBroadcastDOSMeter  = metrics.NewRegisteredMeter("etrue/sfetcher/prop/broadcasts/dos", nil)
+	headerFetchMeter       = metrics.NewRegisteredMeter("etrue/sfetcher/fetch/headers", nil)
+	bodyFetchMeter         = metrics.NewRegisteredMeter("etrue/sfetcher/fetch/bodies", nil)
+
+	headerFilterInMeter  = metrics.NewRegisteredMeter("etrue/sfetcher/filter/headers/in", nil)
+	headerFilterOutMeter = metrics.NewRegisteredMeter("etrue/sfetcher/filter/headers/out", nil)
+	bodyFilterInMeter    = metrics.NewRegisteredMeter("etrue/sfetcher/filter/bodies/in", nil)
+	bodyFilterOutMeter   = metrics.NewRegisteredMeter("etrue/sfetcher/filter/bodies/out", nil)
 )
