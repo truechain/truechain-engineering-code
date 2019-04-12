@@ -514,10 +514,10 @@ func (p *peer) AsyncSendNewBlockHash(block *types.Block, snailBlock *types.Snail
 		}
 	} else {
 		select {
-		case p.queuedSnailAnns <- &propHashEvent{hash: block.Hash(), number: block.NumberU64(), fast: fast}:
-			p.knownSnailBlocks.Add(block.Hash())
+		case p.queuedSnailAnns <- &propHashEvent{hash: snailBlock.Hash(), number: snailBlock.NumberU64(), fast: fast}:
+			p.knownSnailBlocks.Add(snailBlock.Hash())
 		default:
-			p.Log().Debug("Dropping snail block announcement", "number", block.NumberU64(), "hash", block.Hash(), "queuedSnailAnns", len(p.queuedSnailAnns), "peer", p.RemoteAddr())
+			p.Log().Debug("Dropping snail block announcement", "number", snailBlock.NumberU64(), "hash", snailBlock.Hash(), "queuedSnailAnns", len(p.queuedSnailAnns), "peer", p.RemoteAddr())
 		}
 	}
 }
