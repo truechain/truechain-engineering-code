@@ -41,6 +41,8 @@ var ProtocolVersions = []uint{etrue63}
 // ProtocolLengths are the number of implemented message corresponding to different protocol versions.
 var ProtocolLengths = []uint64{20}
 
+var ProtocolLengths2 = []uint64{32}
+
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
 // etrue protocol message codes

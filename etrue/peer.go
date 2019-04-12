@@ -215,6 +215,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Broadcast node info ")
 		case nodeInfo := <-p.queuedNodeInfoHash:
 			if err := p.SendNodeInfoHash(nodeInfo); err != nil {
+				log.Warn("SendNodeInfoHash error","err",err)
 				return
 			}
 			p.Log().Trace("Broadcast node info hash")

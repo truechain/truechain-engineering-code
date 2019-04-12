@@ -179,7 +179,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		manager.SubProtocols = append(manager.SubProtocols, p2p.Protocol{
 			Name:    ProtocolName,
 			Version: version,
-			Length:  ProtocolLengths[i],
+			Length:  ProtocolLengths2[i],
 			Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 				peer := manager.newPeer(int(version), p, rw)
 				select {
@@ -1000,7 +1000,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(data); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		if data==nil || len(data.Hash) == 0 {
+		if data == nil || len(data.Hash) == 0 {
 			return errResp(ErrDecode, "reveive TbftNodeInfoHashMsg, nodde info hash is nil")
 		}
 		// Mark the hashes as present at the remote node
@@ -1021,8 +1021,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		cryptoNodeInfo, isExist := pm.agentProxy.GetNodeInfoByHash(data.Hash)
 		if isExist {
-			p.SendNodeInfo(cryptoNodeInfo)
-		}else{
+			if err := p.SendNodeInfo(cryptoNodeInfo); err != nil {
+				log.Warn("GetTbftNodeInfoMsg send cryptoNodeInfo error ", "error", err)
+			}
+		} else {
 			log.Warn("cannot find cryptoNodeInfo by hash")
 		}
 	case msg.Code == NewSnailBlockHashesMsg:
