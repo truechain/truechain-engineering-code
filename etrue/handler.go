@@ -1173,7 +1173,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		}
 		transfer := peers[:transferLen]
 		for _, peer := range transfer {
-			peer.AsyncSendNewFastBlock(block, true)
+			peer.AsyncSendNewBlock(block, nil, nil, true)
 		}
 		log.Debug("Propagated fast block", "num", block.Number(), "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
@@ -1181,7 +1181,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 	// Otherwise if the block is indeed in out own chain, announce it
 	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
-			peer.AsyncSendNewFastBlockHash(block)
+			peer.AsyncSendNewBlockHash(block, nil, true)
 		}
 		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block size", block.Size(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
@@ -1237,6 +1237,7 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 	hash := snailBlock.Hash()
 	peers := pm.peers.PeersWithoutSnailBlock(hash)
 
+	// Calculate the TD of the fruit (it's not imported yet, so fruit.Td is not valid)
 	var td *big.Int
 	if parent := pm.snailchain.GetBlock(snailBlock.ParentHash(), snailBlock.NumberU64()-1); parent != nil {
 		td = new(big.Int).Add(snailBlock.Difficulty(), pm.snailchain.GetTd(snailBlock.ParentHash(), snailBlock.NumberU64()-1))
@@ -1247,26 +1248,26 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 
 	// If propagation is requested, send to a subset of the peer
 	if propagate {
-		// Calculate the TD of the fruit (it's not imported yet, so fruit.Td is not valid)
-
 		// Send the fruit to a subset of our peers
-		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
+		transferLen := int(math.Sqrt(float64(len(peers))))
+		if transferLen < minBroadcastPeers {
+			transferLen = minBroadcastPeers
+		}
+		if transferLen > len(peers) {
+			transferLen = len(peers)
+		}
+		transfer := peers[:transferLen]
 		for _, peer := range transfer {
 			log.Debug("AsyncSendNewSnailBlock begin", "peer", peer.RemoteAddr(), "number", snailBlock.NumberU64(), "hash", snailBlock.Hash())
-			peer.AsyncSendNewSnailBlock(snailBlock, td)
+			peer.AsyncSendNewBlock(nil, snailBlock, td, false)
 		}
 		log.Trace("Propagated snailBlock", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
 	if pm.snailchain.HasBlock(hash, snailBlock.NumberU64()) {
-		td := pm.snailchain.GetTd(snailBlock.Hash(), snailBlock.NumberU64())
-		if td == nil {
-			log.Info("BroadcastSnailBlock get td failed.", "number", snailBlock.Number(), "hash", snailBlock.Hash())
-			td = new(big.Int).Add(snailBlock.Difficulty(), pm.snailchain.GetTd(snailBlock.ParentHash(), snailBlock.NumberU64()-1))
-		}
 		for _, peer := range peers {
-			peer.AsyncSendNewSnailBlock(snailBlock, td)
+			peer.AsyncSendNewBlockHash(nil, snailBlock, false)
 		}
 		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
 	}
