@@ -810,23 +810,21 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Deliver them all to the downloader for queuing
 		fruits := make([][]*types.SnailBlock, len(request.BodiesData))
-		signs := make([][]*types.PbftSign, len(request.BodiesData))
 
 		for i, body := range request.BodiesData {
 			fruits[i] = body.Fruits
-			signs[i] = body.Signs
 		}
 
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		filter := len(fruits) > 0 || len(signs) > 0
+		filter := len(fruits) > 0
 		if filter {
-			fruits, signs = pm.fetcherSnail.FilterBodies(p.id, fruits, signs, time.Now())
+			fruits = pm.fetcherSnail.FilterBodies(p.id, fruits, time.Now())
 		}
 
-		if len(fruits) > 0 || len(signs) > 0 || !filter {
+		if len(fruits) > 0 || !filter {
 			if request.Call == types.DownloaderCall {
-				log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits), "signs", len(signs), "filter", filter)
-				err := pm.downloader.DeliverBodies(p.id, fruits, signs)
+				log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits), "filter", filter)
+				err := pm.downloader.DeliverBodies(p.id, fruits, nil)
 				if err != nil {
 					log.Debug("Failed to deliver bodies", "err", err)
 				}

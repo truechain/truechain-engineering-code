@@ -95,7 +95,7 @@ var (
 )
 
 type Downloader struct {
-	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
+	mode SyncMode // Synchronisation mode defining the strategy used (per sync cycle)
 
 	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
 	queue   *queue         // Scheduler for selecting the hashes to download
@@ -106,11 +106,11 @@ type Downloader struct {
 	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)
 
 	// Statistics
-	syncStatsChainOrigin uint64       // Origin block number where syncing started at
-	syncStatsChainHeight uint64       // Highest block number known when syncing started
+	syncStatsChainOrigin uint64 // Origin block number where syncing started at
+	syncStatsChainHeight uint64 // Highest block number known when syncing started
 
-	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
-	syncStatsState       stateSyncStats
+	syncStatsLock  sync.RWMutex // Lock protecting the sync stats fields
+	syncStatsState stateSyncStats
 
 	lightchain LightChain
 	blockchain BlockChain
@@ -259,12 +259,12 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 		CurrentSnailBlock:  current,
 		HighestSnailBlock:  d.syncStatsChainHeight,
 
-		StartingFastBlock:f_prog.StartingFastBlock,
-		CurrentFastBlock:f_prog.CurrentFastBlock,
-		HighestFastBlock:f_prog.HighestFastBlock,
+		StartingFastBlock: f_prog.StartingFastBlock,
+		CurrentFastBlock:  f_prog.CurrentFastBlock,
+		HighestFastBlock:  f_prog.HighestFastBlock,
 
-		PulledStates:  d.syncStatsState.processed,
-		KnownStates:   d.syncStatsState.processed + d.syncStatsState.pending,
+		PulledStates: d.syncStatsState.processed,
+		KnownStates:  d.syncStatsState.processed + d.syncStatsState.pending,
 	}
 }
 
@@ -1397,7 +1397,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 	for _, result := range results {
 		blocks := make([]*types.SnailBlock, 1)
-		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
+		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, nil)
 		log.Trace("Snail importBlockResults  snail block ", "snailNumber", result.Sheader.Number, "Phash", result.Sheader.ParentHash, "hash", result.Sheader.Hash())
 
 		fruitLen := uint64(len(result.Fruits))

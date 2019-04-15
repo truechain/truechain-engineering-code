@@ -31,8 +31,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -838,15 +838,12 @@ func (b *SnailBlock) SetSnailBlockSigns(signs []*PbftSign) {
 }
 
 // WithBody returns a new snailblock with the given transaction and uncle contents.
-func (b *SnailBlock) WithBody(fruits []*SnailBlock, signs []*PbftSign, uncles []*SnailHeader) *SnailBlock {
+func (b *SnailBlock) WithBody(fruits []*SnailBlock, uncles []*SnailHeader) *SnailBlock {
 	block := &SnailBlock{
 		header: b.Header(),
-		//body : 		body,
 		fruits: make([]*SnailBlock, len(fruits)),
-		signs:  make([]*PbftSign, len(signs)),
 	}
 	copy(block.fruits, fruits)
-	copy(block.signs, signs)
 
 	return block
 }

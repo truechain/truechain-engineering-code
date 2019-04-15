@@ -94,7 +94,6 @@ type headerFilterTask struct {
 type bodyFilterTask struct {
 	peer   string                // The source peer of block bodies
 	fruits [][]*types.SnailBlock // Collection of transactions per block bodies
-	signs  [][]*types.PbftSign   // Collection of uncles per block bodies
 	time   time.Time             // Arrival time of the blocks' contents
 }
 
@@ -249,8 +248,8 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.SnailHeader, time 
 
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
-func (f *Fetcher) FilterBodies(peer string, fruits [][]*types.SnailBlock, signs [][]*types.PbftSign, time time.Time) ([][]*types.SnailBlock, [][]*types.PbftSign) {
-	log.Trace("Filtering bodies", "peer", peer, "fts", len(fruits), "signs", len(signs))
+func (f *Fetcher) FilterBodies(peer string, fruits [][]*types.SnailBlock, time time.Time) [][]*types.SnailBlock {
+	log.Trace("Filtering bodies", "peer", peer, "fts", len(fruits))
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)
@@ -258,20 +257,20 @@ func (f *Fetcher) FilterBodies(peer string, fruits [][]*types.SnailBlock, signs 
 	select {
 	case f.bodyFilter <- filter:
 	case <-f.quit:
-		return nil, nil
+		return nil
 	}
 	// Request the filtering of the body list
 	select {
-	case filter <- &bodyFilterTask{peer: peer, fruits: fruits, signs: signs, time: time}:
+	case filter <- &bodyFilterTask{peer: peer, fruits: fruits, time: time}:
 	case <-f.quit:
-		return nil, nil
+		return nil
 	}
 	// Retrieve the bodies remaining after filtering
 	select {
 	case task := <-filter:
-		return task.fruits, task.signs
+		return task.fruits
 	case <-f.quit:
-		return nil, nil
+		return nil
 	}
 }
 
@@ -521,21 +520,20 @@ func (f *Fetcher) loop() {
 			bodyFilterInMeter.Mark(int64(len(task.fruits)))
 
 			blocks := []*types.SnailBlock{}
-			for i := 0; i < len(task.fruits) && i < len(task.signs); i++ {
+			for i := 0; i < len(task.fruits); i++ {
 				// Match up a body to any possible completion request
 				matched := false
 
 				for hash, announce := range f.completing {
 					if f.queued[hash] == nil {
 						ftnHash := types.DeriveSha(types.Fruits(task.fruits[i]))
-						signHash := types.CalcSignHash(task.signs[i])
 
-						if ftnHash == announce.header.FruitsHash && signHash == announce.header.SignHash && announce.origin == task.peer {
+						if ftnHash == announce.header.FruitsHash && announce.origin == task.peer {
 							// Mark the body matched, reassemble if still unknown
 							matched = true
 
 							if f.getBlock(hash) == nil {
-								block := types.NewSnailBlockWithHeader(announce.header).WithBody(task.fruits[i], task.signs[i], nil)
+								block := types.NewSnailBlockWithHeader(announce.header).WithBody(task.fruits[i], nil)
 								block.ReceivedAt = task.time
 
 								blocks = append(blocks, block)
@@ -547,7 +545,6 @@ func (f *Fetcher) loop() {
 				}
 				if matched {
 					task.fruits = append(task.fruits[:i], task.fruits[i+1:]...)
-					task.signs = append(task.signs[:i], task.signs[i+1:]...)
 					i--
 					continue
 				}
