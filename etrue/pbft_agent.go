@@ -672,7 +672,7 @@ func (agent *PbftAgent) GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.Encr
 	if isExist {
 		return nodeInfo.(*types.EncryptNodeMessage), isExist
 	}
-	log.Warn("GetNodeInfoByHash is not exist")
+	//log.Warn("GetNodeInfoByHash is not exist")
 	return nil, isExist
 }
 

@@ -1014,7 +1014,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)
 
 	case msg.Code == TbftNodeInfoHashMsg:
-		log.Warn("go into TbftNodeInfoHashMsg")
 		var data nodeInfoHashData
 		if err := msg.Decode(&data); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -1030,7 +1029,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == GetTbftNodeInfoMsg:
-		log.Warn("go into GetTbftNodeInfoMsg")
 		var data nodeInfoHashData
 		if err := msg.Decode(&data); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -1040,6 +1038,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		cryptoNodeInfo, isExist := pm.agentProxy.GetNodeInfoByHash(data.Hash)
 		if isExist {
+			log.Info("send nodeInfo by GetTbftNodeInfoMsg")
 			if err := p.SendNodeInfo(cryptoNodeInfo); err != nil {
 				log.Warn("GetTbftNodeInfoMsg send cryptoNodeInfo error ", "error", err)
 			}
