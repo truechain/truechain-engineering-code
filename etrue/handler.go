@@ -1015,11 +1015,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == TbftNodeInfoHashMsg:
 		log.Warn("go into TbftNodeInfoHashMsg")
-		var data *nodeInfoHashData
-		if err := msg.Decode(data); err != nil {
+		var data nodeInfoHashData
+		if err := msg.Decode(&data); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		if data == nil || len(data.Hash) == 0 {
+		if len(data.Hash) == 0 {
 			return errResp(ErrDecode, "reveive TbftNodeInfoHashMsg, nodde info hash is nil")
 		}
 		// Mark the hashes as present at the remote node
@@ -1030,12 +1030,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == GetTbftNodeInfoMsg:
-		log.Warn("go into TbftNodeInfoHashMsg")
-		var data *nodeInfoHashData
-		if err := msg.Decode(data); err != nil {
+		log.Warn("go into GetTbftNodeInfoMsg")
+		var data nodeInfoHashData
+		if err := msg.Decode(&data); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		if data == nil || len(data.Hash) == 0 {
+		if len(data.Hash) == 0 {
 			return errResp(ErrDecode, "nodeInfoHashData  is nil")
 		}
 		cryptoNodeInfo, isExist := pm.agentProxy.GetNodeInfoByHash(data.Hash)
