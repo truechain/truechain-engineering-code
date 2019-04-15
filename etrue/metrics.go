@@ -48,10 +48,17 @@ var (
 	propSBlockOutPacketsMeter = metrics.NewRegisteredMeter("etrue/prop/sblocks/out/packets", nil)
 	propSBlockOutTrafficMeter = metrics.NewRegisteredMeter("etrue/prop/sblocks/out/traffic", nil)
 
-	propNodeInfoPacketsMeter    = metrics.NewRegisteredMeter("etrue/prop/nodeinfo/in/packets", nil)
+	propNodeInfoInPacketsMeter    = metrics.NewRegisteredMeter("etrue/prop/nodeinfo/in/packets", nil)
 	propNodeInfoInTrafficMeter  = metrics.NewRegisteredMeter("etrue/prop/nodeinfo/in/traffic", nil)
 	propNodeInfoOutPacketsMeter = metrics.NewRegisteredMeter("etrue/prop/nodeinfo/out/packets", nil)
 	propNodeInfoOutTrafficMeter = metrics.NewRegisteredMeter("etrue/prop/nodeinfo/out/traffic", nil)
+
+	propNodeInfoHashInPacketsMeter    = metrics.NewRegisteredMeter("etrue/prop/nodeinfohash/in/packets", nil)
+	propNodeInfoHashInTrafficMeter  = metrics.NewRegisteredMeter("etrue/prop/nodeinfohash/in/traffic", nil)
+	propNodeInfoHashOutPacketsMeter = metrics.NewRegisteredMeter("etrue/prop/nodeinfohash/out/packets", nil)
+	propNodeInfoHashOutTrafficMeter = metrics.NewRegisteredMeter("etrue/prop/nodeinfohash/out/traffic", nil)
+
+
 
 	reqFHeaderInPacketsMeter  = metrics.NewRegisteredMeter("etrue/req/headers/in/packets", nil)
 	reqFHeaderInTrafficMeter  = metrics.NewRegisteredMeter("etrue/req/headers/in/traffic", nil)
@@ -88,6 +95,11 @@ var (
 	getBodyInTrafficMeter  = metrics.NewRegisteredMeter("etrue/get/bodies/in/traffic", nil)
 	getBodyOutPacketsMeter = metrics.NewRegisteredMeter("etrue/get/bodies/out/packets", nil)
 	getBodyOutTrafficMeter = metrics.NewRegisteredMeter("etrue/get/bodies/out/traffic", nil)
+
+	getNodeInfoInPacketsMeter    = metrics.NewRegisteredMeter("etrue/get/nodeinfo/in/packets", nil)
+	getNodeInfoInTrafficMeter  = metrics.NewRegisteredMeter("etrue/get/nodeinfo/in/traffic", nil)
+	getNodeInfoOutPacketsMeter = metrics.NewRegisteredMeter("etrue/get/nodeinfo/out/packets", nil)
+	getNodeInfoOutTrafficMeter = metrics.NewRegisteredMeter("etrue/get/nodeinfo/out/traffic", nil)
 
 	miscInPacketsMeter  = metrics.NewRegisteredMeter("etrue/misc/in/packets", nil)
 	miscInTrafficMeter  = metrics.NewRegisteredMeter("etrue/misc/in/traffic", nil)
@@ -153,7 +165,11 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 	case msg.Code == NewFruitMsg:
 		packets, traffic = propFtnInPacketsMeter, propFtnInTrafficMeter
 	case msg.Code == TbftNodeInfoMsg:
-		packets, traffic = propNodeInfoPacketsMeter, propNodeInfoInTrafficMeter
+		packets, traffic = propNodeInfoInPacketsMeter, propNodeInfoInTrafficMeter
+	case msg.Code == TbftNodeInfoHashMsg:
+		packets, traffic = propNodeInfoHashInPacketsMeter, propNodeInfoHashInTrafficMeter
+	case msg.Code == GetTbftNodeInfoMsg:
+		packets, traffic = getNodeInfoInPacketsMeter, getNodeInfoInTrafficMeter
 	case msg.Code == GetFastBlockHeadersMsg:
 		packets, traffic = getHeadInPacketsMeter, getHeadInTrafficMeter
 	case msg.Code == GetFastBlockBodiesMsg:
@@ -201,6 +217,10 @@ func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
 		packets, traffic = propFtnOutPacketsMeter, propFtnOutTrafficMeter
 	case msg.Code == TbftNodeInfoMsg:
 		packets, traffic = propNodeInfoOutPacketsMeter, propNodeInfoOutTrafficMeter
+	case msg.Code == TbftNodeInfoHashMsg:
+		packets, traffic = propNodeInfoHashOutPacketsMeter, propNodeInfoHashOutTrafficMeter
+	case msg.Code == GetTbftNodeInfoMsg:
+		packets, traffic = getNodeInfoOutPacketsMeter, getNodeInfoOutTrafficMeter
 	case msg.Code == GetFastBlockHeadersMsg:
 		packets, traffic = getHeadOutPacketsMeter, getHeadOutTrafficMeter
 	case msg.Code == GetFastBlockBodiesMsg:
