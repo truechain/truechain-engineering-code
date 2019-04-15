@@ -760,15 +760,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(transactions) > 0 || len(signs) > 0 || len(infos) > 0
-		if len(signs[0]) > 0 {
-			log.Debug("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "transactions", len(transactions))
-		}
 		if filter {
 			transactions, signs, infos = pm.fetcherFast.FilterBodies(p.id, transactions, signs, infos, time.Now())
 		}
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
-			if request.Call == types.FetcherCall || len(signs) > 0 {
+			if request.Call == types.FetcherCall || len(signs[0]) > 0 {
 				log.Info("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
 			} else {
 				log.Debug("FastBlockBodiesMsg", "transactions", len(transactions), "signs", len(signs), "infos", len(infos), "filter", filter)
@@ -824,9 +821,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(fruits) > 0 || len(signs) > 0
-		if len(signs[0]) > 0 {
-			log.Debug("SnailBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "fruits", len(fruits))
-		}
 		if filter {
 			fruits, signs = pm.fetcherSnail.FilterBodies(p.id, fruits, signs, time.Now())
 		}
