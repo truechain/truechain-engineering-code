@@ -540,9 +540,9 @@ func (bc *SnailBlockChain) HasState(hash common.Hash) bool {
 	return err == nil
 }
 
-// HasBlockAndState checks if a block and associated state trie is fully present
-// in the database or not, caching it if present.
-func (bc *SnailBlockChain) HasBlockAndState(hash common.Hash, number uint64) bool {
+// IsCanonicalBlock checks if a block on the Canonical block chain
+// or not, caching it if present.
+func (bc *SnailBlockChain) IsCanonicalBlock(hash common.Hash, number uint64) bool {
 	//if get number bigger than currentNumber return nil
 	if number > bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64() {
 		return false

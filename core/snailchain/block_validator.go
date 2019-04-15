@@ -91,11 +91,11 @@ func (v *BlockValidator) ValidateRewarded(number uint64) error {
 // validated at this point.
 func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	// Check whether the block's known, and if not, that it's linkable.
-	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
+	if v.bc.IsCanonicalBlock(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
 	}
 
-	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
+	if !v.bc.IsCanonicalBlock(block.ParentHash(), block.NumberU64()-1) {
 		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
 		}
