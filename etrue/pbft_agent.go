@@ -666,6 +666,8 @@ func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, no
 
 //GetNodeInfoByHash get cryptoNodeInfo by hash
 func (agent *PbftAgent) GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.EncryptNodeMessage, bool) {
+	agent.markNodeMu.Lock()
+	defer agent.markNodeMu.Unlock()
 	nodeInfo, isExist := agent.broadcastNodeTag.Get(nodeInfoHash)
 	if isExist {
 		return nodeInfo.(*types.EncryptNodeMessage), isExist
