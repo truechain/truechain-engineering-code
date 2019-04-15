@@ -264,7 +264,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) (error, bool) {
 	headSnailBlock := pool.chain.CurrentBlock()
 	if headSnailBlock.NumberU64() > 0 {
 		fruits := headSnailBlock.Fruits()
-		if fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
+		if fruits != nil && fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
 			log.Debug("addFruit failed", "fruit's fastnumber", fruit.FastNumber(), "current snailblock's max fastnumber", fruits[len(fruits)-1].FastNumber())
 			return consensus.ErrTooOldBlock, false
 		}
@@ -697,7 +697,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	headSnailBlock := pool.chain.CurrentBlock()
 	if headSnailBlock.NumberU64() > 0 {
 		fruits := headSnailBlock.Fruits()
-		if fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
+		if fruits != nil && fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
 			log.Debug("validateFruit", "fruit's fastnumber", fruit.FastNumber(), "current snailblock's max fastnumber", fruits[len(fruits)-1].FastNumber())
 			return consensus.ErrTooOldBlock
 		}
