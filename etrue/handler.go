@@ -765,9 +765,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
-			if request.Call == types.FetcherCall || len(signs[0]) > 0 {
-				log.Info("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
-			} else {
+			if request.Call == types.DownloaderCall {
 				log.Debug("FastBlockBodiesMsg", "transactions", len(transactions), "signs", len(signs), "infos", len(infos), "filter", filter)
 				err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
 				if err != nil {
@@ -826,9 +824,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		if len(fruits) > 0 || len(signs) > 0 || !filter {
-			if request.Call == types.FetcherCall && len(signs[0]) > 0 {
-				log.Info("SnailBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
-			} else {
+			if request.Call == types.DownloaderCall {
 				log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits), "signs", len(signs), "filter", filter)
 				err := pm.downloader.DeliverBodies(p.id, fruits, signs)
 				if err != nil {
