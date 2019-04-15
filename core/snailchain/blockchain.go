@@ -474,7 +474,7 @@ func (bc *SnailBlockChain) Genesis() *types.SnailBlock {
 	return bc.genesisBlock
 }
 
-// GetBody retrieves a block body (transactions and uncles) from the database by
+// GetBody retrieves a block body (fruits and signs) from the database by
 // hash, caching it if found.
 func (bc *SnailBlockChain) GetBody(hash common.Hash) *types.SnailBody {
 	// Short circuit if the body's already in the cache, retrieve otherwise
