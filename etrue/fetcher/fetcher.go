@@ -303,7 +303,7 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
 func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos [][]*types.CommitteeMember, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, [][]*types.CommitteeMember) {
-	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs), "number", signs[0][0].FastHeight)
+	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs))
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)
@@ -322,7 +322,7 @@ func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction,
 	// Retrieve the bodies remaining after filtering
 	select {
 	case task := <-filter:
-		if len(task.transactions) > 0 {
+		if len(task.signs[0]) > 0 && len(task.transactions) > 0 {
 			log.Debug("Filtering task bodies", "peer", peer, "txs", len(task.transactions), "signs", len(task.signs), "number", task.signs[0][0].FastHeight)
 		}
 		return task.transactions, task.signs, task.infos
@@ -601,7 +601,7 @@ func (f *Fetcher) loop() {
 				return
 			}
 			bodyFilterInMeter.Mark(int64(len(task.transactions)))
-			watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", task.peer, len(task.transactions[0]), task.signs[0][0].FastHeight))
+			watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d", task.peer, len(task.transactions[0])))
 
 			log.Debug("Loop bodyFilter", "transactions", len(task.transactions), "f.completing", len(f.completing))
 			blocks := []*types.Block{}
