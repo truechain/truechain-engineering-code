@@ -347,11 +347,6 @@ func (bc *SnailBlockChain) Validator() core.SnailValidator {
 	return bc.validator
 }
 
-// StateAt returns a new mutable state based on a particular point in time.
-func (bc *SnailBlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
-	return state.New(root, bc.stateCache)
-}
-
 // Reset purges the entire blockchain, restoring it to its genesis state.
 func (bc *SnailBlockChain) Reset() error {
 	return bc.ResetWithGenesisBlock(bc.genesisBlock)
