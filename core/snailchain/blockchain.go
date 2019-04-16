@@ -614,12 +614,6 @@ func (bc *SnailBlockChain) GetHeadsFromNumber(fromNumber uint64) (blocks []*type
 	return
 }
 
-// TrieNode retrieves a blob of data associated with a trie node (or code hash)
-// either from ephemeral in-memory cache, or from persistent storage.
-func (bc *SnailBlockChain) TrieNode(hash common.Hash) ([]byte, error) {
-	return bc.stateCache.TrieDB().Node(hash)
-}
-
 // Stop stops the blockchain service. If any imports are currently in progress
 // it will abort them using the procInterrupt.
 func (bc *SnailBlockChain) Stop() {
