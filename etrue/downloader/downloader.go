@@ -1489,8 +1489,8 @@ func (d *Downloader) DeliverHeaders(id string, headers []*types.SnailHeader) (er
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
-func (d *Downloader) DeliverBodies(id string, fruit [][]*types.SnailBlock, signs [][]*types.PbftSign) (err error) {
-	return d.deliver(id, d.bodyCh, &bodyPack{id, fruit, signs}, bodyInMeter, bodyDropMeter)
+func (d *Downloader) DeliverBodies(id string, fruit [][]*types.SnailBlock) (err error) {
+	return d.deliver(id, d.bodyCh, &bodyPack{id, fruit}, bodyInMeter, bodyDropMeter)
 }
 
 // DeliverNodeData injects a new batch of node state data received from a remote node.

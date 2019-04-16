@@ -824,7 +824,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if len(fruits) > 0 || !filter {
 			if request.Call == types.DownloaderCall {
 				log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits), "filter", filter)
-				err := pm.downloader.DeliverBodies(p.id, fruits, nil)
+				err := pm.downloader.DeliverBodies(p.id, fruits)
 				if err != nil {
 					log.Debug("Failed to deliver bodies", "err", err)
 				}
