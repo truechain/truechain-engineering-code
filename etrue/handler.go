@@ -800,7 +800,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send snail block bodies rlp", "bodies", len(bodies), "bytes", bytes/1024, "time", time.Now().Sub(now), "peer", p.id)
-		go p.SendBlockBodiesRLP(&BlockBodiesRawData{Bodies: bodies}, false)
+		go p.SendBlockBodiesRLP(&BlockBodiesRawData{Bodies: bodies,Call:hashData.Call}, false)
 
 	case msg.Code == SnailBlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
