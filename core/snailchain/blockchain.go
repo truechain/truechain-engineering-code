@@ -321,24 +321,6 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 
 }
 
-// FastSyncCommitHead sets the current head block to the one defined by the hash
-// irrelevant what the chain contents were prior.
-func (bc *SnailBlockChain) FastSyncCommitHead(hash common.Hash) error {
-	// Make sure that both the block as well at its state trie exists
-	block := bc.GetBlockByHash(hash)
-	if block == nil {
-		return fmt.Errorf("non existent block [%x…]", hash[:4])
-	}
-
-	// If all checks out, manually set the head block
-	bc.chainmu.Lock()
-	bc.currentBlock.Store(block)
-	bc.chainmu.Unlock()
-
-	log.Info("Committed new head block", "number", block.Number(), "hash", hash)
-	return nil
-}
-
 // CurrentBlock retrieves the current head block of the canonical chain. The
 // block is retrieved from the blockchain's internal cache.
 func (bc *SnailBlockChain) CurrentBlock() *types.SnailBlock {
