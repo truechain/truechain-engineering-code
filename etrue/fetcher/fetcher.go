@@ -267,7 +267,7 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
 	if len(headers) != 0 {
 		log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers), "number", headers[0].Number)
-		watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, len(headers), "number", headers[0].Number))
+		watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, headers[0].Number))
 		defer func() {
 			watch.EndWatch()
 			watch.Finish("end")
@@ -322,9 +322,6 @@ func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction,
 	// Retrieve the bodies remaining after filtering
 	select {
 	case task := <-filter:
-		if len(task.signs[0]) > 0 && len(task.transactions) > 0 {
-			log.Debug("Filtering task bodies", "peer", peer, "txs", len(task.transactions), "signs", len(task.signs), "number", task.signs[0][0].FastHeight)
-		}
 		return task.transactions, task.signs, task.infos
 	case <-f.quit:
 		return nil, nil, nil

@@ -757,6 +757,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			transactions[i] = body.Transactions
 			signs[i] = body.Signs
 			infos[i] = body.Infos
+			if len(body.Signs) == 0 {
+				log.Warn("FastBlockBodiesMsg", "transactions", len(body.Transactions), "signs", len(body.Signs), "infos", len(body.Infos))
+			}
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(transactions) > 0 || len(signs) > 0 || len(infos) > 0
@@ -800,7 +803,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send snail block bodies rlp", "bodies", len(bodies), "bytes", bytes/1024, "time", time.Now().Sub(now), "peer", p.id)
-		go p.SendBlockBodiesRLP(&BlockBodiesRawData{Bodies: bodies,Call:hashData.Call}, false)
+		go p.SendBlockBodiesRLP(&BlockBodiesRawData{Bodies: bodies, Call: hashData.Call}, false)
 
 	case msg.Code == SnailBlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
