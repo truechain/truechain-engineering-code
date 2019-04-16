@@ -190,9 +190,6 @@ type BlockChain interface {
 	// CurrentFastBlock retrieves the head fast block from the local chain.
 	CurrentFastBlock() *types.SnailBlock
 
-	// FastSyncCommitHead directly commits the head block to a certain entity.
-	FastSyncCommitHead(common.Hash) error
-
 	// InsertChain inserts a batch of blocks into the local chain.
 	InsertChain(types.SnailBlocks) (int, error)
 
