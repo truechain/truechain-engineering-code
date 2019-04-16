@@ -376,19 +376,6 @@ func (bc *SnailBlockChain) ResetWithGenesisBlock(genesis *types.SnailBlock) erro
 	return nil
 }
 
-// repair tries to repair the current blockchain by rolling back the current block
-// until one with associated state is found. This is needed to fix incomplete db
-// writes caused either by crashes/power outages, or simply non-committed tries.
-//
-// This method only rolls back the current block. The current header and current
-// fast block are left intact.
-func (bc *SnailBlockChain) repair(head **types.SnailBlock) error {
-	for {
-		// Otherwise rewind one block and recheck state availability there
-		(*head) = bc.GetBlock((*head).ParentHash(), (*head).NumberU64()-1)
-	}
-}
-
 // Export writes the active chain to the given writer.
 func (bc *SnailBlockChain) Export(w io.Writer) error {
 	return bc.ExportN(w, uint64(0), bc.CurrentBlock().NumberU64())
