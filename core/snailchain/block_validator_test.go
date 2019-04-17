@@ -92,8 +92,12 @@ func makeChain(n int, i int) (*SnailBlockChain, *core.BlockChain, *types.SnailBl
 	cache := &core.CacheConfig{}
 	fastGenesis := genesis.MustFastCommit(testdb)
 	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
-	fastblocks := makeFast(fastGenesis, n*params.MinimumFruits, engine, testdb, canonicalSeed)
+	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, testdb, n*params.MinimumFruits, func(i int, b *core.BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
+	})
 	fastchain.InsertChain(fastblocks)
+	/*fastblocks := makeFast(fastGenesis, n*params.MinimumFruits, engine, testdb, canonicalSeed)
+	fastchain.InsertChain(fastblocks)*/
 
 	snailGenesis := genesis.MustSnailCommit(testdb)
 	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
