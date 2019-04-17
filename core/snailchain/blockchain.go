@@ -652,7 +652,6 @@ func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
 		if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock.Hash() == hash {
 			newFastBlock := bc.GetBlock(currentFastBlock.ParentHash(), currentFastBlock.NumberU64()-1)
 			bc.currentFastBlock.Store(newFastBlock)
-			//TODO Write Fast Block Hash
 			rawdb.WriteHeadFastBlockHash(bc.db, newFastBlock.Hash())
 		}
 		if currentBlock := bc.CurrentBlock(); currentBlock.Hash() == hash {
