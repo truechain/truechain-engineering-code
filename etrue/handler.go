@@ -278,10 +278,8 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 
 	// Hard disconnect at the networking layer
-	if peer != nil {
-		log.Info("Removing peer  Disconnect", "peer", id, "RemoteAddr", peer.RemoteAddr())
-		peer.Peer.Disconnect(p2p.DiscUselessPeer)
-	}
+	log.Info("Removing peer  Disconnect", "peer", id, "remoteAddr", peer.RemoteAddr())
+	peer.Peer.Disconnect(p2p.DiscUselessPeer)
 }
 
 func (pm *ProtocolManager) Start2(maxPeers int) {
@@ -385,7 +383,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if pm.peers.Len() >= pm.maxPeers && !p.Peer.Info().Network.Trusted {
 		return p2p.DiscTooManyPeers
 	}
-	p.Log().Debug("Truechain peer connected", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
+	p.Log().Debug("Truechain peer connected", "name", p.Name(), "remoteAddr", p.RemoteAddr())
 
 	// Execute the Truechain handshake
 	var (
@@ -407,7 +405,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.Log().Info("Peer connected failed,version not match", "name", p.Name())
 		return fmt.Errorf("version not match,name:%v", p.Name())
 	}
-	p.Log().Info("Peer connected success", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
+	p.Log().Info("Peer connected success", "name", p.Name(), "remoteAddr", p.RemoteAddr())
 	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
 		rw.Init(p.version)
 	}
@@ -421,12 +419,12 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	//Register the peer in the downloader. If the downloader considers it banned, we disconnect
 	if err := pm.downloader.RegisterPeer(p.id, p.version, p.RemoteAddr().String(), p); err != nil {
-		p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
+		p.Log().Error("Truechain downloader registerPeer registration failed", "err", err)
 		return err
 	}
 
 	if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
-		p.Log().Error("Truechain fdownloader.RegisterPeer registration failed", "err", err)
+		p.Log().Error("Truechain fdownloader registerPeer registration failed", "err", err)
 		return err
 	}
 
@@ -439,7 +437,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	for {
 		err := pm.handleMsg(p)
 		if err != nil {
-			p.Log().Info("Truechain message handling failed", "RemoteAddr", p.RemoteAddr(), "err", err)
+			p.Log().Info("Truechain message handling failed", "remoteAddr", p.RemoteAddr(), "err", err)
 			return err
 		}
 	}
@@ -870,7 +868,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 
-		log.Debug(" NodeDataMsg node state data", "data", data)
+		log.Debug("NodeData node state data", "data", data)
 		// Deliver all to the downloader
 		if err := pm.downloader.DeliverNodeData(p.id, data); err != nil {
 			log.Debug("Failed to deliver node state data", "err", err)
@@ -998,7 +996,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			propTxnInTxsMeter.Mark(1)
 			p.MarkTransaction(tx.Hash())
 		}
-		log.Trace("receive TxMsg", "peer", p.id, "len(txs)", len(txs), "ip", p.RemoteAddr())
+		log.Trace("Receive tx", "peer", p.id, "txs", len(txs), "ip", p.RemoteAddr())
 		go pm.txpool.AddRemotes(txs)
 
 	case msg.Code == TbftNodeInfoMsg:
@@ -1009,7 +1007,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Validate and mark the remote node
 		if nodeInfo == nil {
-			return errResp(ErrDecode, "nodde  is nil")
+			return errResp(ErrDecode, "node  is nil")
 		}
 		p.MarkNodeInfo(nodeInfo.Hash())
 		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)
@@ -1018,9 +1016,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		var data nodeInfoHashData
 		if err := msg.Decode(&data); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if len(data.Hash) == 0 {
-			return errResp(ErrDecode, "reveive TbftNodeInfoHashMsg, nodde info hash is nil")
 		}
 		// Mark the hashes as present at the remote node
 		p.MarkNodeInfo(data.Hash)
@@ -1034,17 +1029,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&data); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		if len(data.Hash) == 0 {
-			return errResp(ErrDecode, "nodeInfoHashData  is nil")
-		}
 		cryptoNodeInfo, isExist := pm.agentProxy.GetNodeInfoByHash(data.Hash)
 		if isExist {
-			log.Info("send nodeInfo by GetTbftNodeInfoMsg")
-			if err := p.SendNodeInfo(cryptoNodeInfo); err != nil {
-				log.Warn("GetTbftNodeInfoMsg send cryptoNodeInfo error ", "error", err)
-			}
-		} else {
-			log.Warn("cannot find cryptoNodeInfo by hash")
+			log.Info("Send nodeInfo by get node info msg")
+			return p.SendNodeInfo(cryptoNodeInfo)
 		}
 	case msg.Code == NewSnailBlockHashesMsg:
 		var announces newBlockHashesData
@@ -1069,7 +1057,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == NewFruitMsg:
 		// Fruit arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptFruits) == 0 {
-			log.Debug("refuse accept fruits")
+			log.Debug("Refuse accept fruits")
 			break
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
@@ -1083,7 +1071,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return errResp(ErrDecode, "fruit %d is nil", i)
 			}
 			p.MarkFruit(fruit.Hash())
-			log.Debug("add fruit from p2p", "peerid", p.id, "number", fruit.FastNumber(), "hash", fruit.Hash())
+			log.Debug("Add fruit from p2p", "id", p.id, "number", fruit.FastNumber(), "hash", fruit.Hash())
 		}
 
 		go pm.SnailPool.AddRemoteFruits(fruits, false)
@@ -1099,7 +1087,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			block.ReceivedAt = msg.ReceivedAt
 			block.ReceivedFrom = p
 
-			log.Debug("enqueue NewSnailBlockMsg", "number", block.Number())
+			log.Debug("Enqueue snail block", "number", block.Number())
 			p.MarkSnailBlock(block.Hash())
 			pm.fetcherSnail.Enqueue(p.id, block)
 
@@ -1112,7 +1100,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			trueHead := block.ParentHash()
 			diff := block.Difficulty()
 			if diff == nil {
-				log.Error("get request block diff failed.")
+				log.Error("request block diff failed")
 				return errResp(ErrDecode, "snail block diff is nil")
 			}
 			trueTD := new(big.Int).Sub(request.TD, block.Difficulty())
@@ -1356,14 +1344,14 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			}
 
 			if len(pm.txsCh) > txPackSize && len(txs) < txPackSize {
-				log.Debug("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+				log.Debug("Tx broadcast loop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
 				continue
 			}
 
 			maxSize := txPackSize * 3
 			txLen := len(txs)
 			if txLen > maxSize {
-				log.Debug("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", txLen)
+				log.Debug("Tx broadcast loop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", txLen)
 
 				for i := 0; i < txLen; {
 					i = i + maxSize
@@ -1401,7 +1389,7 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 			}
 
 			if len(pm.txsCh) > fruitPackSize && len(fruits) < fruitPackSize {
-				log.Debug("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Fts", len(fruitsEvent.Fruits), "fts", len(fruits))
+				log.Debug("Fruit broadcast loop", "fruitsch", len(pm.fruitsch), "Fts", len(fruitsEvent.Fruits), "fts", len(fruits))
 				continue
 			}
 
