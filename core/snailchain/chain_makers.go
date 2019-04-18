@@ -318,7 +318,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 	log.Info("Make SnailBlockChain", "number", fastchain.CurrentBlock().Number(), "fast number", len(fastblocks))
 
 	snailGenesis := genesis.MustSnailCommit(testdb)
-	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, fastchain)
 
 	log.Info("MakeChain MakeSnailBlockBlockChain", "number", snailChain.CurrentBlock().Number(), "fast number", snailChain.CurrentFastBlock().Number())
 

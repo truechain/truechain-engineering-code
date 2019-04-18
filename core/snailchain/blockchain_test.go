@@ -59,7 +59,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 	fastChain, _ := core.NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{}, fastChain)
+	blockchain, _ := NewSnailBlockChain(db, params.TestChainConfig, engine, fastChain)
 	//blockchain.SetValidator(NewBlockValidator(chainConfig, fastChain, blockchain, engine))
 	// Create and inject the requested chain
 	if n == 0 {
@@ -556,7 +556,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 	blockchain.Stop()
 
 	// Create a new BlockChain and check that it rolled back the state.
-	ncm, err := NewSnailBlockChain(blockchain.db, blockchain.chainConfig, minerva.NewFaker(), vm.Config{}, fastChain)
+	ncm, err := NewSnailBlockChain(blockchain.db, blockchain.chainConfig, minerva.NewFaker(), fastChain)
 	if err != nil {
 		t.Fatalf("failed to create new chain manager: %v", err)
 	}
@@ -1239,7 +1239,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	diskdb := etruedb.NewMemDatabase()
 	commonGenesis.MustSnailCommit(diskdb)
 
-	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
+	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, fastChain)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}

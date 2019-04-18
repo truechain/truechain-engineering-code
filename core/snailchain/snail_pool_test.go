@@ -64,7 +64,7 @@ func poolinit() {
 	fastchainpool.InsertChain(fastblocks)
 
 	snailGenesis = genesispool.MustSnailCommit(peerDbpool)
-	snailblockchain, _ = NewSnailBlockChain(peerDbpool, params.TestChainConfig, enginepool, vm.Config{}, fastchainpool)
+	snailblockchain, _ = NewSnailBlockChain(peerDbpool, params.TestChainConfig, enginepool, fastchainpool)
 	/*if err != nil{
 		fmt.Print(err)
 	}*/

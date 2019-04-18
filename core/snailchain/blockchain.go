@@ -29,15 +29,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/core/vm"
-
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
@@ -105,7 +103,6 @@ type SnailBlockChain struct {
 
 	engine    consensus.Engine
 	validator core.SnailValidator // block and state validator interface
-	vmConfig  vm.Config
 
 	blockchain *core.BlockChain
 
@@ -115,7 +112,7 @@ type SnailBlockChain struct {
 // NewSnailBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, blockchain *core.BlockChain) (*SnailBlockChain, error) {
+func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, blockchain *core.BlockChain) (*SnailBlockChain, error) {
 
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
@@ -132,7 +129,6 @@ func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, en
 		blockCache:   blockCache,
 		futureBlocks: futureBlocks,
 		engine:       engine,
-		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
 		blockchain:   blockchain,
 	}
