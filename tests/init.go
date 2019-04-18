@@ -25,7 +25,7 @@ import (
 
 // Forks table defines supported forks and their chain config.
 var Forks = map[string]*params.ChainConfig{
-	"Constantinople": {
+	"ConstantinopleFix": {
 		ChainID: big.NewInt(1),
 	},
 }

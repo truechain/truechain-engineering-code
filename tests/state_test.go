@@ -29,8 +29,7 @@ import (
 )
 
 func TestState(t *testing.T) {
-	t.Parallel()
-
+	//t.Parallel()
 	st := new(testMatcher)
 	// Long tests:
 	st.slow(`^stAttackTest/ContractCreationSpam`)
@@ -56,6 +55,9 @@ func TestState(t *testing.T) {
 	st.walk(t, stateTestDir, func(t *testing.T, name string, test *StateTest) {
 		for _, subtest := range test.Subtests() {
 			subtest := subtest
+			if subtest.Fork != "ConstantinopleFix" {
+				continue
+			}
 			key := fmt.Sprintf("%s/%d", subtest.Fork, subtest.Index)
 			name := name + "/" + key
 			t.Run(key, func(t *testing.T) {

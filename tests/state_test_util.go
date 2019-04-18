@@ -117,7 +117,7 @@ func (t *StateTest) Subtests() []StateSubtest {
 	}
 	return sub
 }
-
+var times int=0
 // Run executes a specific subtest.
 func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateDB, error) {
 	config, ok := Forks[subtest.Fork]
@@ -126,7 +126,6 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 	}
 	block := t.genesis(config).ToFastBlock(nil)
 	statedb := MakePreState(etruedb.NewMemDatabase(), t.json.Pre)
-
 	post := t.json.Post[subtest.Fork][subtest.Index]
 	msg, err := t.json.Tx.toMessage(post)
 	if err != nil {
@@ -135,21 +134,27 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 	context := core.NewEVMContext(msg, block.Header(), nil)
 	context.GetHash = vmTestBlockHash
 	evm := vm.NewEVM(context, statedb, config, vmconfig)
-
+	times +=1
+	fmt.Printf("times=%d,root1=%x\n",times,statedb.IntermediateRoot(true))
 	gaspool := new(core.GasPool)
 	gaspool.AddGas(block.GasLimit())
 	snapshot := statedb.Snapshot()
-	if _, _, _, err := core.ApplyMessage(evm, msg, gaspool); err != nil {
+	_, gasUsed, _, err := core.ApplyMessage(evm, msg, gaspool)
+	if  err != nil {
 		statedb.RevertToSnapshot(snapshot)
 	}
+	statedb.AddBalance(t.json.Env.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), msg.GasPrice()))
+	fmt.Printf("times=%d,gasUsed=%d,gas=%d,gasprice=%d,subtest.Fork=%s,subtest.Fork=%d\n",times,gasUsed,msg.Gas(),msg.GasPrice(),subtest.Fork,subtest.Index)
+	fmt.Printf("times=%d,root2=%x\n",times,statedb.IntermediateRoot(true))
 	// Commit block
 	statedb.Commit(true)
+	statedb.AddBalance(t.json.Env.Coinbase, new(big.Int))
 	// Add 0-value mining reward. This only makes a difference in the cases
 	// where
 	// - the coinbase suicided, or
 	// - there are only 'bad' transactions, which aren't executed. In those cases,
 	//   the coinbase gets no txfee, so isn't created, and thus needs to be touched
-	statedb.AddBalance(block.Coinbase(), new(big.Int))
+
 	// And _now_ get the state root
 	root := statedb.IntermediateRoot(true)
 	// N.B: We need to do this in a two-step process, because the first Commit takes care
