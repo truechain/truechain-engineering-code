@@ -1602,17 +1602,17 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 	tx := raw_tx.ConvertTransaction()
-	log.Info("api method SendRawTransaction info", "tx.info", tx.Info())
+	//log.Info("api method SendRawTransaction info", "tx.info", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 
 func (s *PublicTransactionPoolAPI) SendTrueRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
-		log.Error("api method SendTrueRawTransaction error", "tx.info", tx.Info(), "error", err)
+		log.Error("api method SendTrueRawTransaction error",  "error", err)
 		return common.Hash{}, err
 	}
-	log.Info("api method SendTrueRawTransaction info", "tx.info", tx.Info())
+	//log.Info("api method SendTrueRawTransaction info", "tx.info", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 
