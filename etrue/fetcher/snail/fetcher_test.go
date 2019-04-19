@@ -195,16 +195,14 @@ func (f *fetcherTester) makeBodyFetcher(peer string, blocks map[common.Hash]*typ
 	return func(hashes []common.Hash, fast bool, call uint32) error {
 		// Gather the block bodies to return
 		fruits := make([][]*types.SnailBlock, 0, len(hashes))
-		signs := make([][]*types.PbftSign, 0, len(hashes))
 
 		for _, hash := range hashes {
 			if block, ok := closure[hash]; ok {
 				fruits = append(fruits, block.Fruits())
-				signs = append(signs, block.Signs())
 			}
 		}
 		// Return on a new thread
-		go f.fetcher.FilterBodies(peer, fruits, signs, time.Now().Add(drift))
+		go f.fetcher.FilterBodies(peer, fruits, time.Now().Add(drift))
 
 		return nil
 	}

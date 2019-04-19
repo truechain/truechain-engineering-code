@@ -557,7 +557,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send snail block headers", "headers", len(headers), "time", time.Now().Sub(now), "peer", p.id, "number", query.Origin.Number, "hash", query.Origin.Hash)
-		return p.SendBlockHeaders(&BlockHeadersData{SnailHeaders: headers}, false)
+		return p.SendBlockHeaders(&BlockHeadersData{SnailHeaders: headers, Call: query.Call}, false)
 
 	case msg.Code == SnailBlockHeadersMsg:
 		// A batch of headers arrived to one of our previous requests
@@ -582,7 +582,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if headerData.Call == types.FetcherCall {
 				log.Info("SnailBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
 			} else {
-				log.Debug("SnailBlockHeadersMsg", "headers", len(headers), "filter", filter)
 				err := pm.downloader.DeliverHeaders(p.id, headers)
 				if err != nil {
 					log.Debug("Failed to deliver headers", "err", err)
@@ -704,7 +703,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if headerData.Call == types.FetcherCall {
 				log.Info("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
 			} else {
-				log.Debug("FastBlockHeadersMsg", "headers", len(headers), "filter", filter)
 				err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
 				if err != nil {
 					log.Debug("Failed to deliver headers", "err", err)

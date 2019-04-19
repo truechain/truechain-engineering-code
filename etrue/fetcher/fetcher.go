@@ -265,15 +265,6 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
-	if len(headers) != 0 {
-		log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers), "number", headers[0].Number)
-		watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, headers[0].Number))
-		defer func() {
-			watch.EndWatch()
-			watch.Finish("end")
-		}()
-	}
-
 	// Send the filter channel to the fetcher
 	filter := make(chan *headerFilterTask)
 
@@ -291,9 +282,6 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 	// Retrieve the headers remaining after filtering
 	select {
 	case task := <-filter:
-		if len(task.headers) > 0 {
-			log.Debug("Filtering task headers", "peer", peer, "headers", len(task.headers), "number", task.headers[0].Number)
-		}
 		return task.headers
 	case <-f.quit:
 		return nil
