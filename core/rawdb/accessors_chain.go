@@ -341,7 +341,17 @@ func ReadReceipts(db DatabaseReader, hash common.Hash, number uint64) types.Rece
 		return nil
 	}
 	receipts := make(types.Receipts, len(storageReceipts))
+	logIndex := uint(0)
 	for i, receipt := range storageReceipts {
+		// Assemble deriving fields for log.
+		for _, log := range receipt.Logs {
+			log.TxHash = receipt.TxHash
+			log.BlockHash = hash
+			log.BlockNumber = number
+			log.TxIndex = uint(i)
+			log.Index = logIndex
+			logIndex += 1
+		}
 		receipts[i] = (*types.Receipt)(receipt)
 	}
 	return receipts
@@ -358,9 +368,6 @@ func WriteReceipts(db DatabaseWriter, hash common.Hash, number uint64, receipts 
 	if err != nil {
 		log.Crit("Failed to encode block receipts", "err", err)
 	}
-	// Store the flattened receipt slice
-	//log.Info("=========   size of receipts",len(bytes),"number of fast",number)
-
 	if err := db.Put(blockReceiptsKey(number, hash), bytes); err != nil {
 		log.Crit("Failed to store block receipts", "err", err)
 	}
