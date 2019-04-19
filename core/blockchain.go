@@ -749,7 +749,9 @@ func (bc *BlockChain) GetBlockByHash(hash common.Hash) *types.Block {
 // GetBlockByNumber retrieves a block from the database by number, caching it
 // (associated with its hash) if found.
 func (bc *BlockChain) GetBlockByNumber(number uint64) *types.Block {
+
 	hash := rawdb.ReadCanonicalHash(bc.db, number)
+	fmt.Println(hash.String(),"----",number)
 	if hash == (common.Hash{}) {
 		return nil
 	}
@@ -991,13 +993,14 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 
 		stats.processed++
 
-		if batch.ValueSize() >= etruedb.IdealBatchSize {
+		if batch.ValueSize() >= etruedb.IdealBatchSize || len(block.SwitchInfos()) >0 {
 			if err := batch.Write(); err != nil {
 				return 0, err
 			}
 			bytes += batch.ValueSize()
 			batch.Reset()
 		}
+
 		bc.engine.FinalizeCommittee(block)
 	}
 	if batch.ValueSize() > 0 {
@@ -1010,14 +1013,14 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 	// Update the head fast sync block if better
 	bc.chainmu.Lock()
 	head := blockChain[len(blockChain)-1]
-	//if td := bc.GetTd(head.Hash(), head.NumberU64()); td != nil { // Rewind may have occurred, skip in that case
-	//currentFastBlock := bc.CurrentFastBlock()
-	//if bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64()).Cmp(td) < 0 {
 	rawdb.WriteHeadFastBlockHash(bc.db, head.Hash())
 	bc.currentFastBlock.Store(head)
-	//}
-	//}
 	bc.chainmu.Unlock()
+
+
+
+
+
 
 	context := []interface{}{
 		"count", stats.processed, "elapsed", common.PrettyDuration(time.Since(start)),
