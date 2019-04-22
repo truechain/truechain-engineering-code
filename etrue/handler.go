@@ -1029,7 +1029,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		cryptoNodeInfo, isExist := pm.agentProxy.GetNodeInfoByHash(data.Hash)
 		if isExist {
-			log.Info("Send nodeInfo by get node info msg")
+			//log.Info("Send nodeInfo by get node info msg")
 			return p.SendNodeInfo(cryptoNodeInfo)
 		}
 	case msg.Code == NewSnailBlockHashesMsg:
