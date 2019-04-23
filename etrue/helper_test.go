@@ -81,7 +81,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			committeeNode: committeeNode,
 		}
 	)
-	params.MinimumFruits = 10
+	params.MinimumFruits = 60
 	params.MinTimeGap = big.NewInt(0)
 	chain, _ := core.GenerateChain(gspec.Config, genesis, engine, db, blocks, generator)
 	if _, err := blockchain.InsertChain(chain); err != nil {
