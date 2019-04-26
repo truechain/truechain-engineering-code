@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"math/big"
 )
 
 type hashrate struct {
@@ -36,6 +37,8 @@ type hashrate struct {
 
 const UPDATABLOCKLENGTH = 12000 //12000  3000
 const DATASETHEADLENGH = 10240
+
+var maxUint128 = new(big.Int).Exp(big.NewInt(2), big.NewInt(128), big.NewInt(0))
 
 // RemoteAgent for Remote mine
 type RemoteAgent struct {
@@ -132,8 +135,29 @@ func (a *RemoteAgent) GetWork() ([4]string, error) {
 		DatasetHash := a.engine.DataSetHash(block.NumberU64())
 		res[1] = hex.EncodeToString(DatasetHash)
 		// Calculate the "target" to be returned to the external miner
-		res[2] = common.BytesToHash(block.FruitDifficulty().Bytes()).Hex()
-		res[3] = common.BytesToHash(block.BlockDifficulty().Bytes()).Hex()
+
+		if block.IsFruit() {
+			// is fruit  so the block target set zore
+			fruitTarget := new(big.Int).Div(maxUint128, block.FruitDifficulty())
+			blockTarget := new(big.Int).SetInt64(0)
+			//log.Info("----diff is   1", "ft", fruitTarget, "bt", blockTarget)
+			log.Info("----diff is   1", "ft", fruitTarget, "ft.uint64", fruitTarget.Uint64(), "bt", blockTarget, "bt.uint64", blockTarget.Uint64())
+
+			res[2] = hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
+			res[3] = hex.EncodeToString(blockTarget.Bytes())
+		} else {
+			fruitTarget := new(big.Int).Div(maxUint128, block.FruitDifficulty())
+			blockTarget := new(big.Int).Div(maxUint128, block.BlockDifficulty())
+			log.Info("----diff is   2", "ft", fruitTarget, "ft.uint64", fruitTarget.Uint64(), "bt", blockTarget, "bt.uint64", blockTarget.Uint64())
+			res[2] = hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
+			res[3] = hex.EncodeToString(blockTarget.Bytes())
+		}
+
+		log.Info("res[2]", "is", res[2])
+		log.Info("res[3]", "is", res[3])
+
+		//res[2] = common.BytesToHash(block.FruitDifficulty().Bytes()).Hex()
+		//res[3] = common.BytesToHash(block.BlockDifficulty().Bytes()).Hex()
 		a.work[block.HashNoNonce()] = a.currentWork
 		return res, nil
 	}
@@ -200,7 +224,7 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	}
 
 	block := work.Block.WithSeal(result)
-
+	block.Number()
 	if isFruit {
 		block.SetSnailBlockFruits(nil)
 	} else {
@@ -238,6 +262,7 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH][]byte, error) {
 			}
 			res[i] = header.Hash().Bytes()
 		}
+
 		return res, nil
 	}
 	return res, errors.New("No work available yet, Don't panic.")
@@ -263,6 +288,7 @@ func (a *RemoteAgent) loop(workCh chan *Work, quitCh chan struct{}) {
 			a.mu.Unlock()
 		case <-ticker.C:
 			// cleanup
+
 			a.mu.Lock()
 			for hash, work := range a.work {
 				if time.Since(work.createdAt) > 6*(600*time.Second) {
