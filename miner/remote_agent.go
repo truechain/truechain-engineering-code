@@ -133,35 +133,43 @@ func (a *RemoteAgent) GetWork() ([4]string, error) {
 		block.Number()
 		res[0] = block.HashNoNonce().Hex()
 		DatasetHash := a.engine.DataSetHash(block.NumberU64())
-		res[1] = hex.EncodeToString(DatasetHash)
+		res[1] = "0x" + hex.EncodeToString(DatasetHash)
 		// Calculate the "target" to be returned to the external miner
-
+		block.Fruits()
 		if block.IsFruit() {
 			// is fruit  so the block target set zore
 			fruitTarget := new(big.Int).Div(maxUint128, block.FruitDifficulty())
 			blockTarget := new(big.Int).SetInt64(0)
-			//log.Info("----diff is   1", "ft", fruitTarget, "bt", blockTarget)
-			log.Info("----diff is   1", "ft", fruitTarget, "ft.uint64", fruitTarget.Uint64(), "bt", blockTarget, "bt.uint64", blockTarget.Uint64())
-
-			res[2] = hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
-			res[3] = hex.EncodeToString(blockTarget.Bytes())
+			//res[2] = "0x" + hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
+			//res[3] = "0x" + hex.EncodeToString(blockTarget.Bytes())
+			res[2] = a.CompletionHexString(32, hex.EncodeToString(fruitTarget.Bytes()))
+			res[3] = a.CompletionHexString(32, hex.EncodeToString(blockTarget.Bytes()))
 		} else {
 			fruitTarget := new(big.Int).Div(maxUint128, block.FruitDifficulty())
 			blockTarget := new(big.Int).Div(maxUint128, block.BlockDifficulty())
-			log.Info("----diff is   2", "ft", fruitTarget, "ft.uint64", fruitTarget.Uint64(), "bt", blockTarget, "bt.uint64", blockTarget.Uint64())
-			res[2] = hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
-			res[3] = hex.EncodeToString(blockTarget.Bytes())
+			//res[2] = "0x" + hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
+			//res[3] = "0x" + hex.EncodeToString(blockTarget.Bytes())
+			res[2] = a.CompletionHexString(32, hex.EncodeToString(fruitTarget.Bytes()))
+			res[3] = a.CompletionHexString(32, hex.EncodeToString(blockTarget.Bytes()))
 		}
 
-		log.Info("res[2]", "is", res[2])
-		log.Info("res[3]", "is", res[3])
-
-		//res[2] = common.BytesToHash(block.FruitDifficulty().Bytes()).Hex()
-		//res[3] = common.BytesToHash(block.BlockDifficulty().Bytes()).Hex()
 		a.work[block.HashNoNonce()] = a.currentWork
 		return res, nil
 	}
 	return res, errors.New("No work available yet, Don't panic.")
+}
+
+func (a *RemoteAgent) CompletionHexString(n int, src string) string {
+	var res string
+	if n <= 0 || len(src) > n {
+		return src
+	}
+	var needString []byte
+	for i := 0; i < n-len(src); i++ {
+		needString = append(needString, '0')
+	}
+	res = "0x" + string(needString) + src
+	return res
 }
 
 // SubmitWork tries to inject a pow solution into the remote agent, returning
