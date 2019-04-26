@@ -117,7 +117,7 @@ func (t *StateTest) Subtests() []StateSubtest {
 	}
 	return sub
 }
-var times int=0
+
 // Run executes a specific subtest.
 func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateDB, error) {
 	config, ok := Forks[subtest.Fork]
@@ -131,11 +131,9 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 	if err != nil {
 		return nil, err
 	}
-	context := core.NewEVMContext(msg, block.Header(), nil)
+	context := core.NewEVMContext(msg, block.Header(), nil,t.json.Env.Difficulty,&t.json.Env.Coinbase)
 	context.GetHash = vmTestBlockHash
 	evm := vm.NewEVM(context, statedb, config, vmconfig)
-	times +=1
-	fmt.Printf("times=%d,root1=%x\n",times,statedb.IntermediateRoot(true))
 	gaspool := new(core.GasPool)
 	gaspool.AddGas(block.GasLimit())
 	snapshot := statedb.Snapshot()
@@ -144,8 +142,6 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 		statedb.RevertToSnapshot(snapshot)
 	}
 	statedb.AddBalance(t.json.Env.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), msg.GasPrice()))
-	fmt.Printf("times=%d,gasUsed=%d,gas=%d,gasprice=%d,subtest.Fork=%s,subtest.Fork=%d\n",times,gasUsed,msg.Gas(),msg.GasPrice(),subtest.Fork,subtest.Index)
-	fmt.Printf("times=%d,root2=%x\n",times,statedb.IntermediateRoot(true))
 	// Commit block
 	statedb.Commit(true)
 	statedb.AddBalance(t.json.Env.Coinbase, new(big.Int))
