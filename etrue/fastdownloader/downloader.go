@@ -96,7 +96,7 @@ type SDownloader interface {
 }
 
 type Downloader struct {
-	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
+	mode SyncMode // Synchronisation mode defining the strategy used (per sync cycle)
 
 	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
 	queue   *queue         // Scheduler for selecting the hashes to download
@@ -107,13 +107,13 @@ type Downloader struct {
 	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)
 
 	// Statistics
-	syncStatsChainOrigin uint64       // Origin block number where syncing started at
-	syncStatsChainHeight uint64       // Highest block number known when syncing started
-	syncStatsChainHeightLast uint64       //Last block number known
+	syncStatsChainOrigin     uint64 // Origin block number where syncing started at
+	syncStatsChainHeight     uint64 // Highest block number known when syncing started
+	syncStatsChainHeightLast uint64 //Last block number known
 
-	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
-	lightchain LightChain
-	blockchain BlockChain
+	syncStatsLock sync.RWMutex // Lock protecting the sync stats fields
+	lightchain    LightChain
+	blockchain    BlockChain
 
 	// Callbacks
 	dropPeer etrue.PeerDropFn // Drops a peer for misbehaving
@@ -250,10 +250,9 @@ func (d *Downloader) SetSD(Sdownloader SDownloader) {
 	d.sDownloader = Sdownloader
 }
 
-func (d *Downloader) SetSyncStatsChainHeightLast(number uint64)  {
+func (d *Downloader) SetSyncStatsChainHeightLast(number uint64) {
 	d.syncStatsChainHeightLast = number
 }
-
 
 // Progress retrieves the synchronisation boundaries, specifically the origin
 // block where synchronisation started at (may have failed/suspended); the block
@@ -269,14 +268,14 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 
 	current := uint64(0)
 	switch d.mode {
-		case FullSync:
-			current = d.blockchain.CurrentBlock().NumberU64()
-		case FastSync:
-			current = d.blockchain.CurrentFastBlock().NumberU64()
-		case LightSync:
-			current = d.lightchain.CurrentHeader().Number.Uint64()
-		case SnapShotSync:
-			current = d.lightchain.CurrentHeader().Number.Uint64()
+	case FullSync:
+		current = d.blockchain.CurrentBlock().NumberU64()
+	case FastSync:
+		current = d.blockchain.CurrentFastBlock().NumberU64()
+	case LightSync:
+		current = d.lightchain.CurrentHeader().Number.Uint64()
+	case SnapShotSync:
+		current = d.lightchain.CurrentHeader().Number.Uint64()
 	}
 	return truechain.SyncProgress{
 		StartingFastBlock: d.syncStatsChainOrigin,
@@ -354,7 +353,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, mode SyncMode, ori
 			log.Warn("Fast Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
 		} else {
 
-			d.dropPeer(id)
+			d.dropPeer(id, types.DownloaderCall)
 		}
 	default:
 		log.Warn("Fast Synchronisation failed, retrying", "err", err)
@@ -378,7 +377,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, mode SyncMode, ori
 
 	// Post a user notification of the sync (only once per session)
 	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
-		log.Info("Fast Block synchronisation started", "origin", origin, "height", height,"mode", d.mode)
+		log.Info("Fast Block synchronisation started", "origin", origin, "height", height, "mode", d.mode)
 	}
 
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
@@ -711,7 +710,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			p.GetLog().Debug("Header request timed out", "elapsed", ttl)
 			headerTimeoutMeter.Mark(1)
 			p.GetLog().Trace("drop peer fast fetchHeaders timout ", "id", p.GetID())
-			d.dropPeer(p.GetID())
+			d.dropPeer(p.GetID(), types.DownloaderFetchCall)
 
 			// Finish the sync gracefully instead of dumping the gathered data though
 			for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
@@ -894,7 +893,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							peer.GetLog().Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
 							peer.GetLog().Warn("drop peer fetchParts", "id", peer.GetID(), "type", kind, "fails", fails)
-							d.dropPeer(pid)
+							d.dropPeer(pid, types.DownloaderPartCall)
 						}
 					}
 				}

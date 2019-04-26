@@ -85,7 +85,7 @@ const (
 )
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
-type peerDropFn func(id string)
+type peerDropFn func(id string, call uint32)
 
 // PeerInfo represents a short summary of the Truechain sub-protocol metadata known
 // about a connected peer.
@@ -264,7 +264,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Announced snail block", "number", block.number, "hash", block.hash)
 		case event := <-p.dropEvent:
 			log.Info("Drop peer", "id", event.id, "err", event.reason)
-			p.dropPeer(event.id)
+			p.dropPeer(event.id, types.PeerSendCall)
 			return
 
 		case <-p.term:

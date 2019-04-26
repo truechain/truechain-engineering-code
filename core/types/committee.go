@@ -46,8 +46,20 @@ const (
 	//VoteAgree vote sign with agree
 	VoteAgree
 
+	Normal = iota
 	FetcherCall
 	DownloaderCall
+	SFetcherCall
+	SDownloaderCall
+
+	PeerSendCall
+	FetcherHeadCall
+	SFetcherHeadCall
+	DownloaderFetchCall
+	DownloaderPartCall
+	SDownloaderFetchCall
+	SDownloaderLoopCall
+	SDownloaderPartCall
 )
 
 //CommitteeMembers committee members

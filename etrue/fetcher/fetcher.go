@@ -72,7 +72,7 @@ type chainHeightFn func() uint64
 type chainInsertFn func(types.Blocks) (int, error)
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
-type peerDropFn func(id string)
+type peerDropFn func(id string, call uint32)
 
 // announce is the hash notification of the availability of a new block in the
 // network.
@@ -538,7 +538,7 @@ func (f *Fetcher) loop() {
 					// If the delivered header does not match the promised number, drop the announcer
 					if header.Number.Uint64() != announce.number {
 						log.Info("Invalid fast block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
-						f.dropPeer(announce.origin)
+						f.dropPeer(announce.origin, types.FetcherHeadCall)
 						f.forgetHash(hash)
 						continue
 					}
@@ -774,6 +774,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) bool {
 		// Something went very wrong, drop the peer
 		log.Debug("Propagated fast block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
 		f.agentFetcher.ChangeCommitteeLeader(block.Number())
+		f.dropPeer(peer, types.FetcherCall)
 		return false
 	}
 	return true
