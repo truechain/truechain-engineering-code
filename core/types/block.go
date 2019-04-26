@@ -762,8 +762,8 @@ func (b *SnailBlock) FastNumber() *big.Int     { return new(big.Int).Set(b.heade
 func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header) }
 func (b *SnailBlock) IsFruit() bool {
-	// params.MinimumFruits 60
-	if len(b.fruits) > 0 {
+	// block not need signs
+	if len(b.signs) > 0 {
 		return false
 	} else {
 		return true
