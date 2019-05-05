@@ -97,8 +97,6 @@ type CacheConfig struct {
 // important to note that GetBlock can return any block and does not need to be
 // included in the canonical one where as GetBlockByNumber always represents the
 // canonical chain.
-// SnailChain defines a small collection of methods needed to access the local snail block chain.
-// Temporary interface for snail block chain
 type BlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
@@ -992,7 +990,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 
 		stats.processed++
 
-		if batch.ValueSize() >= etruedb.IdealBatchSize || len(block.SwitchInfos()) >0 {
+		if batch.ValueSize() >= etruedb.IdealBatchSize || len(block.SwitchInfos()) > 0 {
 			if err := batch.Write(); err != nil {
 				return 0, err
 			}
@@ -1015,11 +1013,6 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 	rawdb.WriteHeadFastBlockHash(bc.db, head.Hash())
 	bc.currentFastBlock.Store(head)
 	bc.chainmu.Unlock()
-
-
-
-
-
 
 	context := []interface{}{
 		"count", stats.processed, "elapsed", common.PrettyDuration(time.Since(start)),
