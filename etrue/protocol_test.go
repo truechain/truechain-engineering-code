@@ -42,7 +42,7 @@ var testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6
 func TestStatusMsgErrors63(t *testing.T) { testStatusMsgErrors(t, 63) }
 
 func testStatusMsgErrors(t *testing.T, protocol int) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, 0, nil, nil, nil, nil)
 	var (
 		genesis    = pm.snailchain.Genesis()
 		head       = pm.snailchain.CurrentHeader()
@@ -101,7 +101,7 @@ func TestRecvTransactions63(t *testing.T) { testRecvTransactions(t, 63) }
 
 func testRecvTransactions(t *testing.T, protocol int) {
 	txAdded := make(chan []*types.Transaction)
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, txAdded, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, 0, nil, nil, txAdded, nil)
 	pm.acceptTxs = 1 // mark synced to accept transactions
 	p, _ := newTestPeer("peer", protocol, pm, true)
 	defer pm.Stop()
@@ -127,7 +127,7 @@ func testRecvTransactions(t *testing.T, protocol int) {
 func TestSendTransactions63(t *testing.T) { testSendTransactions(t, 63) }
 
 func testSendTransactions(t *testing.T, protocol int) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, 0, nil, nil, nil, nil)
 	defer pm.Stop()
 
 	// Fill the pool with big transactions.
@@ -230,7 +230,7 @@ func TestRecvFruits63(t *testing.T) { testRecvFruits(t, 63) }
 
 func testRecvFruits(t *testing.T, protocol int) {
 	ftAdded := make(chan []*types.SnailBlock)
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 64, nil, nil, nil, ftAdded)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 64, 64, nil, nil, nil, ftAdded)
 	pm.acceptFruits = 1 // mark synced to accept fruits
 	p, _ := newTestPeer("peer", protocol, pm, true)
 	defer pm.Stop()
@@ -256,7 +256,7 @@ func testRecvFruits(t *testing.T, protocol int) {
 func TestSendFruits63(t *testing.T) { testSendFruits(t, 63) }
 
 func testSendFruits(t *testing.T, protocol int) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 120, nil, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 120, 120, nil, nil, nil, nil)
 	defer pm.Stop()
 
 	// Fill the pool with big transactions.

@@ -675,7 +675,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug("Handle send fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id, "call", query.Call)
 		return p.SendBlockHeaders(&BlockHeadersData{Headers: headers, Call: query.Call}, true)
 
 	case msg.Code == FastBlockHeadersMsg:
@@ -735,7 +734,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(data)
 			}
 		}
-		log.Debug("Handle send fast block bodies rlp", "bodies", len(bodies), "bytes", bytes/1024, "time", time.Now().Sub(now), "peer", p.id)
 		go p.SendBlockBodiesRLP(&BlockBodiesRawData{bodies, hashData.Call}, true)
 
 	case msg.Code == FastBlockBodiesMsg:
@@ -1122,8 +1120,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
 
-	timeString := time.Now().Sub(now).String()
-	log.Debug("Handler end", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
 	return nil
 }
 
