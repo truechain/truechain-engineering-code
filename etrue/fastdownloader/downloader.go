@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -76,7 +77,10 @@ var (
 	errPeersUnavailable        = errors.New("Fast no peers available or all tried for download")
 	errInvalidAncestor         = errors.New("Fast retrieved ancestor is invalid")
 	errInvalidChain            = errors.New("Fast retrieved hash chain is invalid")
+	errInvalidBlock            = errors.New("Fast retrieved block is invalid")
+	errInvalidBody             = errors.New("Fast retrieved block body is invalid")
 	errInvalidReceipt          = errors.New("Fast retrieved receipt is invalid")
+	errCancelBlockFetch        = errors.New("Fast block download canceled (requested)")
 	errCancelHeaderFetch       = errors.New("Fast block header download canceled (requested)")
 	errCancelBodyFetch         = errors.New("Fast block body download canceled (requested)")
 	errCancelReceiptFetch      = errors.New("Fast receipt download canceled (requested)")
@@ -153,8 +157,14 @@ type LightChain interface {
 	// HasHeader verifies a header's presence in the local chain.
 	HasHeader(common.Hash, uint64) bool
 
+	// GetHeaderByHash retrieves a header from the local chain.
+	GetHeaderByHash(common.Hash) *types.Header
+
 	// CurrentHeader retrieves the head header from the local chain.
 	CurrentHeader() *types.Header
+
+	// GetTd returns the total difficulty of a local block.
+	GetTd(common.Hash, uint64) *big.Int
 
 	// InsertHeaderChain inserts a batch of headers into the local chain.
 	InsertHeaderChain([]*types.Header, int) (int, error)
@@ -166,6 +176,14 @@ type LightChain interface {
 // BlockChain encapsulates functions required to sync a (full or fast) blockchain.
 type BlockChain interface {
 	LightChain
+
+	// HasBlock verifies a block's presence in the local chain.
+	HasBlock(common.Hash, uint64) bool
+
+	// HasFastBlock verifies a fast block's presence in the local chain.
+	HasFastBlock(common.Hash, uint64) bool
+	// GetBlockByHash retrieves a block from the local chain.
+	GetBlockByHash(common.Hash) *types.Block
 
 	// CurrentBlock retrieves the head block from the local chain.
 	CurrentBlock() *types.Block
@@ -182,6 +200,7 @@ type BlockChain interface {
 	// InsertReceiptChain inserts a batch of receipts into the local chain.
 	InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)
 
+	GetBlockNumber() uint64
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.

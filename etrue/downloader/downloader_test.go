@@ -464,7 +464,7 @@ func (dl *downloadTester) newSlowPeer(id string, version int, hashes []common.Ha
 }
 
 // dropPeer simulates a hard peer removal from the connection pool.
-func (dl *downloadTester) dropPeer(id string , call uint32) {
+func (dl *downloadTester) dropPeer(id string) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
 

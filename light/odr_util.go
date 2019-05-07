@@ -66,7 +66,7 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 	if err := odr.Retrieve(ctx, r); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return r.Header, nil
 }
 
 func GetCanonicalHash(ctx context.Context, odr OdrBackend, number uint64) (common.Hash, error) {

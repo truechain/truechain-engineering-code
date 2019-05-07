@@ -17,8 +17,12 @@
 package les
 
 import (
+	"context"
+	"time"
+
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
+	"github.com/truechain/truechain-engineering-code/light"
 )
 
 // syncer is responsible for periodically synchronising with the network, both
@@ -68,8 +72,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 
-	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	//defer cancel()
-	//pm.blockchain.(*light.LightChain).SyncCht(ctx)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	pm.blockchain.(*light.LightChain).SyncCht(ctx)
 	pm.downloader.Synchronise(peer.id, peer.Head(), peer.Td(), downloader.LightSync)
 }

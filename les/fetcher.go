@@ -108,7 +108,7 @@ type fetchResponse struct {
 func newLightFetcher(pm *ProtocolManager) *lightFetcher {
 	f := &lightFetcher{
 		pm:             pm,
-		chain:          nil,
+		chain:          pm.blockchain.(*light.LightChain),
 		odr:            pm.odr,
 		peers:          make(map[*peer]*fetcherPeerInfo),
 		deliverChn:     make(chan fetchResponse, 100),

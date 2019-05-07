@@ -169,7 +169,7 @@ func (b *TrueAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*ty
 }
 
 func (b *TrueAPIBackend) GetTd(blockHash common.Hash) *big.Int {
-	return b.etrue.snailblockchain.GetTdByHash(blockHash)
+	return b.etrue.blockchain.GetTdByHash(blockHash)
 }
 
 func (b *TrueAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {

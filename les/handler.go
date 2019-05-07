@@ -74,14 +74,14 @@ func errResp(code errCode, format string, v ...interface{}) error {
 type BlockChain interface {
 	Config() *params.ChainConfig
 	HasHeader(hash common.Hash, number uint64) bool
-	GetHeader(hash common.Hash, number uint64) *types.SnailHeader
-	GetHeaderByHash(hash common.Hash) *types.SnailHeader
-	CurrentHeader() *types.SnailHeader
+	GetHeader(hash common.Hash, number uint64) *types.Header
+	GetHeaderByHash(hash common.Hash) *types.Header
+	CurrentHeader() *types.Header
 	GetTd(hash common.Hash, number uint64) *big.Int
 	State() (*state.StateDB, error)
-	InsertHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error)
+	InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error)
 	Rollback(chain []common.Hash)
-	GetHeaderByNumber(number uint64) *types.SnailHeader
+	GetHeaderByNumber(number uint64) *types.Header
 	GetAncestor(hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64)
 	Genesis() *types.Block
 	SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription
@@ -423,12 +423,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
-			headers []*types.SnailHeader
+			headers []*types.Header
 			unknown bool
 		)
 		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
 			// Retrieve the next header satisfying the query
-			var origin *types.SnailHeader
+			var origin *types.Header
 			if hashMode {
 				if first {
 					first = false
@@ -674,7 +674,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				results = rawdb.ReadReceipts(pm.chainDb, hash, *number)
 			}
 			if results == nil {
-				if header := pm.blockchain.GetHeaderByHash(hash); header == nil {
+				if header := pm.blockchain.GetHeaderByHash(hash); header == nil || header.ReceiptHash != types.EmptyRootHash {
 					continue
 				}
 			}
