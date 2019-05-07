@@ -317,39 +317,6 @@ func (fhc *HeaderChain) GetAncestor(hash common.Hash, number, ancestor uint64, m
 	return hash, number
 }
 
-// GetTd retrieves a block's total difficulty in the canonical chain from the
-// database by hash and number, caching it if found.
-func (fhc *HeaderChain) GetTd(hash common.Hash, number uint64) *big.Int {
-	// Short circuit if the td's already in the cache, retrieve otherwise
-	if cached, ok := fhc.tdCache.Get(hash); ok {
-		return cached.(*big.Int)
-	}
-	td := rawdb.ReadTd(fhc.chainDb, hash, number)
-	if td == nil {
-		return nil
-	}
-	// Cache the found body for next time and return
-	fhc.tdCache.Add(hash, td)
-	return td
-}
-
-// GetTdByHash retrieves a block's total difficulty in the canonical chain from the
-// database by hash, caching it if found.
-func (fhc *HeaderChain) GetTdByHash(hash common.Hash) *big.Int {
-	number := fhc.GetBlockNumber(hash)
-	if number == nil {
-		return nil
-	}
-	return fhc.GetTd(hash, *number)
-}
-
-// WriteTd stores a block's total difficulty into the database, also caching it
-// along the way.
-func (fhc *HeaderChain) WriteTd(hash common.Hash, number uint64, td *big.Int) error {
-	rawdb.WriteTd(fhc.chainDb, hash, number, td)
-	fhc.tdCache.Add(hash, new(big.Int).Set(td))
-	return nil
-}
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.

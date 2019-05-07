@@ -134,7 +134,7 @@ type ChtRequest struct {
 	OdrRequest
 	ChtNum, BlockNum uint64
 	ChtRoot          common.Hash
-	Header           *types.Header
+	Header           *types.SnailHeader
 	Td               *big.Int
 	Proof            *NodeSet
 }
@@ -143,8 +143,7 @@ type ChtRequest struct {
 func (req *ChtRequest) StoreResult(db etruedb.Database) {
 	hash, num := req.Header.Hash(), req.Header.Number.Uint64()
 
-	rawdb.WriteHeader(db, req.Header)
-	rawdb.WriteTd(db, hash, num, req.Td)
+	rawdb.WriteHeader(db, nil)
 	rawdb.WriteCanonicalHash(db, hash, num)
 }
 
