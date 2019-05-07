@@ -430,6 +430,7 @@ func copyDb(ctx *cli.Context) error {
 	//}
 	if err = sdl.Synchronise("local", currentHeader.Hash(), shc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64()), syncmode); err != nil {
 		return err
+
 	}
 
 	for sdl.Synchronising() {
