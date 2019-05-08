@@ -722,10 +722,10 @@ func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 		return block.(*types.Block)
 	}
 	var block *types.Block
-	if bc.cacheConfig.Deleted || bc.cacheConfig.HeightGcState.Load().(uint64) > number {
-		block = rawdb.ReadSnapBlock(bc.db, hash, number)
-	} else {
+	if bc.cacheConfig.HeightGcState.Load().(uint64) < number {
 		block = rawdb.ReadBlock(bc.db, hash, number)
+	} else {
+		block = rawdb.ReadSnapBlock(bc.db, hash, number)
 	}
 	if block == nil {
 		return nil
@@ -1082,7 +1082,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -int64(block.NumberU64()))
-		log.Debug("WriteBlockWithState", "current", block.NumberU64())
 		if current := block.NumberU64(); current > triesInMemory {
 			// If we exceeded our memory allowance, flush matured singleton nodes to disk
 			var (
@@ -1140,8 +1139,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 
 	if bc.cacheConfig.Deleted {
 		number := bc.cacheConfig.HeightGcState.Load().(uint64)
-		level := number / blockDeleteHeight
-		if block.NumberU64() > number+blockDeleteHeight*(level+1)+blockDeleteLimite {
+		if block.NumberU64() > number+blockDeleteHeight+blockDeleteLimite {
 			go bc.stateGcBodyAndReceipt(number)
 		}
 	}
@@ -1615,8 +1613,7 @@ func (bc *BlockChain) update() {
 		case <-futureTimer.C:
 			if bc.cacheConfig.Deleted {
 				number := bc.cacheConfig.HeightGcState.Load().(uint64)
-				level := number / blockDeleteHeight
-				if bc.GetBlockNumber() > number+blockDeleteHeight*(level+1)+blockDeleteLimite {
+				if bc.GetBlockNumber() > number+blockDeleteHeight+blockDeleteLimite {
 					go bc.stateGcBodyAndReceipt(number)
 				}
 			}
