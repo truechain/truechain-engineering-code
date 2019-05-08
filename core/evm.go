@@ -47,8 +47,6 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext) vm.Con
 		Time:        new(big.Int).Set(header.Time),
 		GasLimit:    header.GasLimit,
 		GasPrice:    new(big.Int).Set(msg.GasPrice()),
-		Difficulty:  big.NewInt(0),
-		Coinbase:    common.HexToAddress(""),
 	}
 }
 
