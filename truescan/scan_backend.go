@@ -393,7 +393,7 @@ func (ts *TrueScan) getViewNumber(height uint64) uint64 {
 
 // Stop TrueScan message processing client
 func (ts *TrueScan) Stop() {
-	if !ts.running {
+	if ts == nil || !ts.running {
 		return
 	}
 	ts.addTxSub.Unsubscribe()
