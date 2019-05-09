@@ -356,6 +356,7 @@ func (g *Genesis) ToSnailBlock(db etruedb.Database) *types.SnailBlock {
 
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
+		g.Difficulty = params.GenesisDifficulty
 	}
 
 	fastBlock := g.ToFastBlock(db)
