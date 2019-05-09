@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	errAlreadyFetching = errors.New("already fetching blocks from peer")
+	errAlreadyFetching = errors.New("Fast already fetching blocks from peer")
 )
 
 // peerConnection represents an active peer from which hashes and blocks are retrieved.
@@ -86,13 +86,13 @@ func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int
 	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse, isFastchain)
 }
 func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool, uint32) error {
-	panic("RequestBodies not supported in light client mode sync")
+	panic("Fast RequestBodies not supported in light client mode sync")
 }
 func (w *lightPeerWrapper) RequestReceipts([]common.Hash, bool) error {
-	panic("RequestReceipts not supported in light client mode sync")
+	panic("Fast RequestReceipts not supported in light client mode sync")
 }
 func (w *lightPeerWrapper) RequestNodeData([]common.Hash, bool) error {
-	panic("RequestNodeData not supported in light client mode sync")
+	panic("Fast RequestNodeData not supported in light client mode sync")
 }
 
 // newPeerConnection creates a new downloader peer.
@@ -159,7 +159,7 @@ func (p *peerConnection) Reset() {
 func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 	// Sanity check the protocol version
 	if p.version < 62 {
-		panic(fmt.Sprintf("header fetch [eth/62+] requested on eth/%d", p.version))
+		panic(fmt.Sprintf("Fast header fetch [eth/62+] requested on eth/%d", p.version))
 	}
 	// Short circuit if the peer is already fetching
 	if !atomic.CompareAndSwapInt32(&p.headerIdle, 0, 1) {
@@ -176,7 +176,7 @@ func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 func (p *peerConnection) FetchBodies(request *etrue.FetchRequest) error {
 	// Sanity check the protocol version
 	if p.version < 62 {
-		panic(fmt.Sprintf("body fetch [eth/62+] requested on eth/%d", p.version))
+		panic(fmt.Sprintf("Fast body fetch [eth/62+] requested on eth/%d", p.version))
 	}
 	// Short circuit if the peer is already fetching
 	if !atomic.CompareAndSwapInt32(&p.blockIdle, 0, 1) {
@@ -198,7 +198,7 @@ func (p *peerConnection) FetchBodies(request *etrue.FetchRequest) error {
 func (p *peerConnection) FetchReceipts(request *etrue.FetchRequest) error {
 	// Sanity check the protocol version
 	if p.version < 63 {
-		panic(fmt.Sprintf("body fetch [eth/63+] requested on eth/%d", p.version))
+		panic(fmt.Sprintf("Fast body fetch [eth/63+] requested on eth/%d", p.version))
 	}
 	// Short circuit if the peer is already fetching
 	if !atomic.CompareAndSwapInt32(&p.receiptIdle, 0, 1) {
@@ -220,7 +220,7 @@ func (p *peerConnection) FetchReceipts(request *etrue.FetchRequest) error {
 func (p *peerConnection) FetchNodeData(hashes []common.Hash) error {
 	// Sanity check the protocol version
 	if p.version < 63 {
-		panic(fmt.Sprintf("node data fetch [eth/63+] requested on eth/%d", p.version))
+		panic(fmt.Sprintf("Fast node data fetch [eth/63+] requested on eth/%d", p.version))
 	}
 	// Short circuit if the peer is already fetching
 	if !atomic.CompareAndSwapInt32(&p.stateIdle, 0, 1) {

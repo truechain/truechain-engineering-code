@@ -73,14 +73,14 @@ func (conR *ConsensusReactor) OnStart() error {
 // OnStop implements BaseService by unsubscribing from events and stopping
 // state.
 func (conR *ConsensusReactor) OnStop() {
-	log.Debug("Begin ConsensusReactor finish")
+	log.Info("Begin ConsensusReactor finish")
 	conR.unsubscribeFromBroadcastEvents()
 	running := conR.conS.IsRunning()
 	help.CheckAndPrintError(conR.conS.Stop())
 	if running {
 		conR.conS.Wait()
 	}
-	log.Debug("End ConsensusReactor finish")
+	log.Info("End ConsensusReactor finish")
 }
 
 // GetChannels implements Reactor

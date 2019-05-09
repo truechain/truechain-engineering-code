@@ -289,7 +289,7 @@ func TestInvalidFruits(t *testing.T) {
 	ft = types.NewSnailBlock(header, nil, nil, nil)
 	pool := setupSnailPool()
 	defer pool.Stop()
-	if err := pool.addFruit(ft); err != ErrNotExist {
+	if err, _ := pool.addFruit(ft); err != ErrNotExist {
 		t.Error("expected", ErrNotExist)
 	}
 }
@@ -424,16 +424,16 @@ func testFruitJournaling(t *testing.T) {
 	defer pool.Stop()
 
 	// Add three fruits and ensure they are queued up
-	if err := pool.addFruit(fruit(181, big.NewInt(2000))); err != nil {
+	if err, _ := pool.addFruit(fruit(181, big.NewInt(2000))); err != nil {
 		t.Fatalf("failed to add local fruit: %v", err)
 	}
-	if err := pool.addFruit(fruit(182, big.NewInt(2000))); err != nil {
+	if err, _ := pool.addFruit(fruit(182, big.NewInt(2000))); err != nil {
 		t.Fatalf("failed to add local fruit: %v", err)
 	}
-	if err := pool.addFruit(fruit(183, big.NewInt(2000))); err != nil {
+	if err, _ := pool.addFruit(fruit(183, big.NewInt(2000))); err != nil {
 		t.Fatalf("failed to add local fruit: %v", err)
 	}
-	if err := pool.addFruit(fruit(184, big.NewInt(2000))); err != nil {
+	if err, _ := pool.addFruit(fruit(184, big.NewInt(2000))); err != nil {
 		t.Fatalf("failed to add remote fruit: %v", err)
 	}
 	pending, unverified := pool.Stats()

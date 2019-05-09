@@ -59,7 +59,7 @@ func (mode SyncMode) MarshalText() ([]byte, error) {
 	case SnapShotSync:
 		return []byte("snapshot"), nil
 	default:
-		return nil, fmt.Errorf("unknown sync mode %d", mode)
+		return nil, fmt.Errorf("Snail unknown sync mode %d", mode)
 	}
 }
 
@@ -74,7 +74,7 @@ func (mode *SyncMode) UnmarshalText(text []byte) error {
 	case "snapshot":
 		*mode = SnapShotSync
 	default:
-		return fmt.Errorf(`unknown sync mode %q, want "full", "fast" or "light"`, text)
+		return fmt.Errorf(`Snail unknown sync mode %q, want "full", "fast" or "light"`, text)
 	}
 	return nil
 }

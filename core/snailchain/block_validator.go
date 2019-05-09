@@ -131,6 +131,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		return consensus.ErrFutureBlock
 	}
 	if fruits[len(fruits)-1].Time() == nil || block.Time() == nil || block.Time().Cmp(fruits[len(fruits)-1].Time()) < 0 {
+		log.Info("validate time", "block.Time()", block.Time(), "fruits[len(fruits)-1].Time()", fruits[len(fruits)-1].Time())
 		return ErrBlockTime
 	}
 	gap := new(big.Int).Sub(maxfb.Time, minfb.Time)
@@ -158,6 +159,12 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 
 	log.Info("Validate new snail body", "block", block.Number(), "hash", block.Hash(), "fruits", header.FruitsHash, "first", fruits[0].FastNumber(), "count", len(fruits))
 	return nil
+}
+
+// VerifySnailSeal checking whether the given block satisfies
+// the PoW difficulty requirements.
+func (v *BlockValidator) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader, isFruit bool) error {
+	return v.engine.VerifySnailSeal(chain, header, true)
 }
 
 //ValidateFruit is to verify if the fruit is legal

@@ -32,17 +32,21 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
+	"github.com/truechain/truechain-engineering-code/utils"
+	"math/big"
 )
 
 const (
 	fruitChanSize         = 1024
 	chainHeadChanSize     = 10
 	fastchainHeadChanSize = 1024
+	maxKnownFruits        = 20480 // Maximum fruits hashes to keep in the known list (prevent DOS)
 )
 
 var (
 	// ErrNotExist is returned if the fast block not exist in fastchain.
-	ErrNotExist = errors.New("not exist")
+	ErrNotExist   = errors.New("not exist")
+	fruitHightGap = big.NewInt(512)
 )
 
 var (
@@ -53,6 +57,16 @@ var (
 	// Metrics for the allfruit pool
 	allDiscardCounter = metrics.NewRegisteredCounter("fruitpool/all/discard", nil)
 	allReplaceCounter = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
+
+	// Metrics for the received fruits
+	allReceivedCounter = metrics.NewRegisteredCounter("fruitpool/received/count", nil)
+	allTimesCounter    = metrics.NewRegisteredCounter("fruitpool/received/times", nil)
+	allFilterCounter   = metrics.NewRegisteredCounter("fruitpool/received/filter", nil)
+	allMinedCounter    = metrics.NewRegisteredCounter("fruitpool/received/mined", nil)
+
+	// Metrics for the received fruits
+	allSendCounter      = metrics.NewRegisteredCounter("fruitpool/send/count", nil)
+	allSendTimesCounter = metrics.NewRegisteredCounter("fruitpool/send/times", nil)
 
 	evictionInterval    = time.Minute     // Time interval to check for evictable fruits
 	statsReportInterval = 8 * time.Second // Time interval to report fruits pool stats
@@ -115,9 +129,11 @@ type SnailPool struct {
 	engine consensus.Engine // Consensus engine used for validating
 
 	muFruit sync.RWMutex
+	muKnown sync.RWMutex
 
 	allFruits    map[common.Hash]*types.SnailBlock
 	fruitPending map[common.Hash]*types.SnailBlock
+	knownFruits  *utils.OrderedMap // map of fruits hashes knowed by pool
 
 	newFruitCh chan []*types.SnailBlock
 
@@ -148,6 +164,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain
 		newFruitCh:   make(chan []*types.SnailBlock, fruitChanSize),
 		allFruits:    make(map[common.Hash]*types.SnailBlock),
 		fruitPending: make(map[common.Hash]*types.SnailBlock),
+		knownFruits:  utils.NewOrderedMap(),
 	}
 	pool.reset(nil, chain.CurrentBlock())
 
@@ -180,7 +197,7 @@ func (pool *SnailPool) Start() {
 }
 
 //updateFruit move the validated fruit to pending list
-func (pool *SnailPool) updateFruit(fruit *types.SnailBlock) {
+func (pool *SnailPool) updateFruit(fruit *types.SnailBlock) bool {
 
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
@@ -191,10 +208,11 @@ func (pool *SnailPool) updateFruit(fruit *types.SnailBlock) {
 		fruitpendingReplaceCounter.Inc(1)
 		delete(pool.allFruits, fruit.FastHash())
 		delete(pool.fruitPending, fruit.FastHash())
-		return
+		return false
 	}
 
 	pool.fruitPending[fruit.FastHash()] = fruit
+	return true
 }
 
 func (pool *SnailPool) compareFruit(f1, f2 *types.SnailBlock) int {
@@ -209,9 +227,9 @@ func (pool *SnailPool) compareFruit(f1, f2 *types.SnailBlock) int {
 	return 1
 }
 
-func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
+func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) (error, bool) {
 	if uint64(len(pool.allFruits)) >= pool.config.FruitCount {
-		return core.ErrExceedNumber
+		return core.ErrExceedNumber, false
 	}
 	pool.allFruits[fruit.FastHash()] = fruit
 	if uint64(len(pool.allFruits)) >= pool.config.FruitCount {
@@ -220,21 +238,20 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
 	if append {
 		pool.fruitPending[fruit.FastHash()] = fruit
 		log.Debug("addFruit", "fb number", fruit.FastNumber(), "fruit hash", fruit.Hash())
+		return nil, true
 	}
-
-	go pool.fruitFeed.Send(types.NewFruitsEvent{types.SnailBlocks{fruit}})
-
-	return nil
+	return nil, false
 }
 
 // addFruit
-func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
+func (pool *SnailPool) addFruit(fruit *types.SnailBlock) (error, bool) {
 	//if the new fruit's fbnumber less than,don't add
 	headSnailBlock := pool.chain.CurrentBlock()
 	if headSnailBlock.NumberU64() > 0 {
 		fruits := headSnailBlock.Fruits()
 		if fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
-			return nil
+			log.Debug("addFruit failed", "fruit's fastnumber", fruit.FastNumber(), "current snailblock's max fastnumber", fruits[len(fruits)-1].FastNumber())
+			return consensus.ErrTooOldBlock, false
 		}
 	}
 
@@ -244,14 +261,15 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	//check number(fb)
 	currentNumber := pool.fastchain.CurrentBlock().Number()
 	if fruit.FastNumber().Cmp(currentNumber) > 0 {
+		log.Debug("addFruit failed", "fruit's fastnumber", fruit.FastNumber(), "currentNumber", currentNumber)
 		return pool.appendFruit(fruit, false)
 	}
 
 	//judge is the fb exist
 	fb := pool.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
 	if fb == nil {
-		log.Trace("addFruit get block failed.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "fHash", fruit.FastHash())
-		return ErrNotExist
+		log.Debug("addFruit get block failed.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "fHash", fruit.FastHash())
+		return ErrNotExist, false
 	}
 
 	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
@@ -259,12 +277,12 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
 		if err := pool.validator.ValidateFruit(fruit, nil, true); err != nil {
 			log.Trace("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
-			return err
+			return err, false
 		}
 
 		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
 			log.Trace("addFruit fruit failed,difficulty is lower", "give Difficulty", fruit.Difficulty(), "having Difficulty", f.Difficulty())
-			return nil
+			return nil, false
 		} else if rst == 0 {
 			/*if fruit.Hash().Big().Cmp(f.Hash().Big()) >= 0 {
 				log.Trace("addFruit fruit failed,Hash is big", "give Hash", fruit.Hash(), "having Hash", f.Hash())
@@ -272,7 +290,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			}*/
 			if mrand.Float64() < 0.5 {
 				log.Trace("addFruit fruit failed,Hash is big", "give Hash", fruit.Hash(), "having Hash", f.Hash())
-				return nil
+				return nil, false
 			}
 			return pool.appendFruit(fruit, true)
 		} else {
@@ -284,13 +302,13 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 				return pool.appendFruit(fruit, false)
 			}
 			log.Trace("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
-			return err
+			return err, false
 		}
 
 		return pool.appendFruit(fruit, true)
 	}
 
-	return nil
+	return nil, false
 }
 
 // journalFruit adds the specified fruit to the local disk journal
@@ -343,14 +361,28 @@ func (pool *SnailPool) loop() {
 				log.Debug("get new fastblock", "number", ev.Block.Number())
 				fruit := pool.allFruits[ev.Block.Hash()]
 				if fruit != nil {
-					pool.updateFruit(fruit)
+					send := pool.updateFruit(fruit)
+					if send {
+						allSendCounter.Inc(1)
+						allSendTimesCounter.Inc(1)
+						go pool.fruitFeed.Send(types.NewFruitsEvent{types.SnailBlocks{fruit}})
+					}
 				}
 			}
 
 		case fruits := <-pool.newFruitCh:
 			if fruits != nil {
+				var promoted []*types.SnailBlock
 				for _, fruit := range fruits {
-					pool.addFruit(fruit)
+					_, send := pool.addFruit(fruit)
+					if send {
+						promoted = append(promoted, fruit)
+					}
+				}
+				if len(promoted) > 0 {
+					allSendCounter.Inc(int64(len(promoted)))
+					allSendTimesCounter.Inc(1)
+					go pool.fruitFeed.Send(types.NewFruitsEvent{promoted})
 				}
 			}
 
@@ -388,11 +420,11 @@ func fruitsDifference(a, b []*types.SnailBlock) []*types.SnailBlock {
 
 	remove := make(map[common.Hash]struct{})
 	for _, f := range b {
-		remove[f.Hash()] = struct{}{}
+		remove[f.FastHash()] = struct{}{}
 	}
 
 	for _, f := range a {
-		if _, ok := remove[f.Hash()]; !ok {
+		if _, ok := remove[f.FastHash()]; !ok {
 			keep = append(keep, f)
 		}
 	}
@@ -557,22 +589,38 @@ func (pool *SnailPool) Stop() {
 
 // AddRemoteFruits enqueues a batch of fruits into the pool if they are valid.
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
-
+	allReceivedCounter.Inc(int64(len(fruits)))
+	allTimesCounter.Inc(1)
+	pool.muKnown.Lock()
+	defer pool.muKnown.Unlock()
 	errs := make([]error, len(fruits))
 	addFruits := make([]*types.SnailBlock, 0, len(fruits))
 	for i, fruit := range fruits {
 		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
+		if _, send := pool.knownFruits.Get(fruit.Hash()); send {
+			continue
+		}
 		if err := pool.validateFruit(fruit); err != nil {
 			log.Debug("AddRemoteFruits validate fruit failed", "err fruit fb num", fruit.FastNumber(), "err", err)
 			errs[i] = err
 			continue
 		}
+		pool.knownFruits.Set(fruit.Hash(), nil)
 		addFruits = append(addFruits, types.CopyFruit(fruit))
 		if local {
 			pool.journalFruit(fruit)
+			allMinedCounter.Inc(1)
+		} else {
+			allFilterCounter.Inc(1)
 		}
 	}
-	pool.newFruitCh <- addFruits
+	if len(addFruits) > 0 {
+		pool.newFruitCh <- addFruits
+	}
+	// If we reached the memory allowance, drop a previously known transaction hash
+	for pool.knownFruits.Size() >= maxKnownFruits {
+		pool.knownFruits.Pop()
+	}
 	return errs
 }
 
@@ -590,7 +638,9 @@ func (pool *SnailPool) addLocalFruits(fruits []*types.SnailBlock) []error {
 		}
 		addFruits = append(addFruits, types.CopyFruit(fruit))
 	}
-	pool.newFruitCh <- addFruits
+	if len(addFruits) > 0 {
+		pool.newFruitCh <- addFruits
+	}
 	return errs
 }
 
@@ -608,7 +658,6 @@ func (pool *SnailPool) local() []*types.SnailBlock {
 	defer pool.muFruit.Unlock()
 
 	var fruits types.SnailBlocks
-	var rtfruits types.SnailBlocks
 
 	for _, fruit := range pool.allFruits {
 		fruits = append(fruits, types.CopyFruit(fruit))
@@ -616,11 +665,7 @@ func (pool *SnailPool) local() []*types.SnailBlock {
 
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(fruits)
-
-	for _, v := range fruits {
-		rtfruits = append(rtfruits, v)
-	}
-	return rtfruits
+	return fruits
 }
 
 // PendingFruits retrieves all currently verified fruits.
@@ -644,10 +689,28 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- types.NewFruitsEvent) ev
 
 // validateFruit validate the sign hash
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
+	//check hight
+	headSnailBlock := pool.chain.CurrentBlock()
+	if headSnailBlock.NumberU64() > 0 {
+		fruits := headSnailBlock.Fruits()
+		if fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
+			log.Debug("validateFruit", "fruit's fastnumber", fruit.FastNumber(), "current snailblock's max fastnumber", fruits[len(fruits)-1].FastNumber())
+			return consensus.ErrTooOldBlock
+		}
+	}
+	currentNumber := pool.fastchain.CurrentHeader().Number
+	if new(big.Int).Sub(fruit.FastNumber(), currentNumber).Cmp(fruitHightGap) > 0 {
+		log.Trace("validateFruit", "currentHeaderNumber", pool.fastchain.CurrentHeader().Number, "currentBlockNumber", pool.fastchain.CurrentBlock().Number(), "fruit.FastNumber()", fruit.FastNumber())
+		return consensus.ErrTooFutureBlock
+	}
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
 		return ErrInvalidSignHash
+	}
+	//check difficulty
+	if err := pool.validator.VerifySnailSeal(pool.chain, fruit.Header(), true); err != nil {
+		return err
 	}
 	// check freshness
 	/*
@@ -675,7 +738,6 @@ func (pool *SnailPool) Content() []*types.SnailBlock {
 	defer pool.muFruit.Unlock()
 
 	var fruits types.SnailBlocks
-	var rtfruits types.SnailBlocks
 
 	for _, fruit := range pool.fruitPending {
 		fruits = append(fruits, types.CopyFruit(fruit))
@@ -684,9 +746,6 @@ func (pool *SnailPool) Content() []*types.SnailBlock {
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(fruits)
 
-	for _, v := range fruits {
-		rtfruits = append(rtfruits, v)
-	}
 	return fruits
 }
 
@@ -698,7 +757,6 @@ func (pool *SnailPool) Inspect() []*types.SnailBlock {
 	defer pool.muFruit.Unlock()
 
 	var fruits types.SnailBlocks
-	var rtfruits types.SnailBlocks
 
 	for _, fruit := range pool.allFruits {
 		if _, ok := pool.fruitPending[fruit.FastHash()]; !ok {
@@ -709,10 +767,7 @@ func (pool *SnailPool) Inspect() []*types.SnailBlock {
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(fruits)
 
-	for _, v := range fruits {
-		rtfruits = append(rtfruits, v)
-	}
-	return rtfruits
+	return fruits
 }
 
 // Stats returning all the

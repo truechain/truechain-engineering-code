@@ -129,6 +129,7 @@ func (p *testTxPool) AddRemotes(txs []*types.Transaction) []error {
 	defer p.lock.Unlock()
 
 	p.pool = append(p.pool, txs...)
+	//go p.txFeed.Send(types.NewTxsEvent{txs})
 	if p.added != nil {
 		p.added <- txs
 	}

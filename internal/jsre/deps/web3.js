@@ -3982,10 +3982,14 @@ var outputSyncingFormatter = function(result) {
     if (!result) {
         return result;
     }
+    result.startingFastBlock = utils.toDecimal(result.startingFastBlock);
+    result.currentFastBlock = utils.toDecimal(result.currentFastBlock);
+    result.highestFastBlock = utils.toDecimal(result.highestFastBlock);
 
-    result.startingBlock = utils.toDecimal(result.startingBlock);
-    result.currentBlock = utils.toDecimal(result.currentBlock);
-    result.highestBlock = utils.toDecimal(result.highestBlock);
+    result.startingSnailBlock = utils.toDecimal(result.startingSnailBlock);
+    result.currentSnailBlock = utils.toDecimal(result.currentSnailBlock);
+    result.highestSnailBlock = utils.toDecimal(result.highestSnailBlock);
+
     if (result.knownStates) {
         result.knownStates = utils.toDecimal(result.knownStates);
         result.pulledStates = utils.toDecimal(result.pulledStates);
@@ -6756,8 +6760,8 @@ var pollSyncing = function(self) {
                 callback(error);
             });
         }
-
-        if(utils.isObject(sync) && sync.startingBlock)
+        //&& sync.startingBlock
+        if(utils.isObject(sync) && sync.startingBlock )
             sync = formatters.outputSyncingFormatter(sync);
 
         self.callbacks.forEach(function (callback) {

@@ -40,8 +40,8 @@ var (
 )
 
 var (
-	errNoFetchesPending = errors.New("no fetches pending")
-	errStaleDelivery    = errors.New("stale delivery")
+	errNoFetchesPending = errors.New("Snail no fetches pending")
+	errStaleDelivery    = errors.New("Snail stale delivery")
 )
 
 // queue represents hashes that are either need fetching or are being fetched
@@ -220,7 +220,7 @@ func (q *queue) ScheduleSkeleton(from uint64, skeleton []*types.SnailHeader) {
 
 	// No skeleton retrieval can be in progress, fail hard if so (huge implementation bug)
 	if q.headerResults != nil {
-		panic("skeleton assembly already in progress")
+		panic("Snail skeleton assembly already in progress")
 	}
 	// Schedule all the header retrieval tasks for the skeleton assembly
 	q.headerTaskPool = make(map[uint64]*types.SnailHeader)
@@ -263,16 +263,16 @@ func (q *queue) Schedule(headers []*types.SnailHeader, from uint64) []*types.Sna
 		// Make sure chain order is honoured and preserved throughout
 		hash := header.Hash()
 		if header.Number == nil || header.Number.Uint64() != from {
-			log.Warn("Header broke chain ordering", "number", header.Number, "hash", hash, "expected", from)
+			log.Warn("Snail Header broke chain ordering", "number", header.Number, "hash", hash, "expected", from)
 			break
 		}
 		if q.headerHead != (common.Hash{}) && q.headerHead != header.ParentHash {
-			log.Warn("Header broke chain ancestry", "number", header.Number, "hash", hash)
+			log.Warn("Snail Header broke chain ancestry", "number", header.Number, "hash", hash)
 			break
 		}
 		// Make sure no duplicate requests are executed
 		if _, ok := q.blockTaskPool[hash]; ok {
-			log.Warn("Header  already scheduled for block fetch", "number", header.Number, "hash", hash)
+			log.Warn("Snail Header  already scheduled for block fetch", "number", header.Number, "hash", hash)
 			continue
 		}
 
@@ -430,7 +430,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		// If we're the first to request this task, initialise the result container
 		index := int(header.Number.Int64() - int64(q.resultOffset))
 		if index >= len(q.resultCache) || index < 0 {
-			common.Report("index allocation went beyond available resultCache space")
+			common.Report("Snail index allocation went beyond available resultCache space")
 			return nil, false, errInvalidChain
 		}
 		if q.resultCache[index] == nil {
@@ -597,10 +597,10 @@ func (q *queue) DeliverHeaders(id string, headers []*types.SnailHeader, headerPr
 	accepted := len(headers) == MaxHeaderFetch
 	if accepted {
 		if headers[0].Number.Uint64() != request.From {
-			log.Trace("First header broke chain ordering", "peer", id, "number", headers[0].Number, "hash", headers[0].Hash(), request.From)
+			log.Trace("Snail First header broke chain ordering", "peer", id, "number", headers[0].Number, "hash", headers[0].Hash(), request.From)
 			accepted = false
 		} else if headers[len(headers)-1].Hash() != target {
-			log.Trace("Last header broke skeleton structure ", "peer", id, "number", headers[len(headers)-1].Number, "hash", headers[len(headers)-1].Hash(), "expected", target)
+			log.Trace("Snail Last header broke skeleton structure ", "peer", id, "number", headers[len(headers)-1].Number, "hash", headers[len(headers)-1].Hash(), "expected", target)
 			accepted = false
 		}
 	}
@@ -608,12 +608,12 @@ func (q *queue) DeliverHeaders(id string, headers []*types.SnailHeader, headerPr
 		for i, header := range headers[1:] {
 			hash := header.Hash()
 			if want := request.From + 1 + uint64(i); header.Number.Uint64() != want {
-				log.Warn("Header broke chain ordering", "peer", id, "number", header.Number, "hash", hash, "expected", want)
+				log.Warn("Snail Header broke chain ordering", "peer", id, "number", header.Number, "hash", hash, "expected", want)
 				accepted = false
 				break
 			}
 			if headers[i].Hash() != header.ParentHash {
-				log.Warn("Header broke chain ancestry", "peer", id, "number", header.Number, "hash", hash)
+				log.Warn("Snail Header broke chain ancestry", "peer", id, "number", header.Number, "hash", hash)
 				accepted = false
 				break
 			}
@@ -621,7 +621,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.SnailHeader, headerPr
 	}
 	// If the batch of headers wasn't accepted, mark as unavailable
 	if !accepted {
-		log.Trace("Skeleton filling not accepted", "peer", id, "from", request.From)
+		log.Trace("Snail Skeleton filling not accepted", "peer", id, "from", request.From)
 
 		miss := q.headerPeerMiss[id]
 		if miss == nil {
@@ -631,7 +631,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.SnailHeader, headerPr
 		miss[request.From] = struct{}{}
 
 		q.headerTaskQueue.Push(request.From, -int64(request.From))
-		return 0, errors.New("delivery not accepted")
+		return 0, errors.New("Snail delivery not accepted")
 	}
 	// Clean up a successful fetch and try to deliver any sub-results
 	copy(q.headerResults[request.From-q.headerOffset:], headers)
@@ -648,7 +648,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.SnailHeader, headerPr
 
 		select {
 		case headerProcCh <- process:
-			log.Trace("Pre-scheduled new headers", "peer", id, "count", len(process), "from", process[0].Number)
+			log.Trace("Snail Pre-scheduled new headers", "peer", id, "count", len(process), "from", process[0].Number)
 			q.headerProced += len(process)
 		default:
 		}
@@ -668,14 +668,12 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-		log.Debug("snail downloader " ,"id",id,"function","reconstruct")
 		if types.DeriveSha(types.Fruits(fruitsLists[index])) != header.FruitsHash {
 			return errInvalidChain
 		}
 		result.Fruits = fruitsLists[index]
 		return nil
 	}
-	log.Debug("snail downloader " ,"id",id,"function","DeliverBodies")
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(fruitsLists), reconstruct)
 }
 
@@ -750,7 +748,7 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.SnailHeader, 
 	case failure == nil || failure == errInvalidChain:
 		return accepted, failure
 	case useful:
-		return accepted, fmt.Errorf("partial failure: %v", failure)
+		return accepted, fmt.Errorf("Snail partial failure: %v", failure)
 	default:
 		return accepted, errStaleDelivery
 	}

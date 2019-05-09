@@ -70,33 +70,32 @@ var (
 )
 
 var (
-	errBusy                    = errors.New("busy")
-	errUnknownPeer             = errors.New("peer is unknown or unhealthy")
-	errBadPeer                 = errors.New("action from bad peer ignored")
-	errStallingPeer            = errors.New("peer is stalling")
-	errNoPeers                 = errors.New("no peers to keep download active")
-	errTimeout                 = errors.New("timeout")
-	errEmptyHeaderSet          = errors.New("empty header set by peer")
-	errPeersUnavailable        = errors.New("no peers available or all tried for download")
-	errInvalidAncestor         = errors.New("retrieved ancestor is invalid")
-	errInvalidChain            = errors.New("retrieved hash chain is invalid")
-	errInvalidBlock            = errors.New("retrieved block is invalid")
-	errInvalidBody             = errors.New("retrieved block body is invalid")
-	errInvalidReceipt          = errors.New("retrieved receipt is invalid")
-	errCancelBlockFetch        = errors.New("block download canceled (requested)")
-	errCancelHeaderFetch       = errors.New("block header download canceled (requested)")
-	errCancelBodyFetch         = errors.New("block body download canceled (requested)")
-	errCancelReceiptFetch      = errors.New("receipt download canceled (requested)")
-	errCancelHeaderProcessing  = errors.New("header processing canceled (requested)")
-	errCancelContentProcessing = errors.New("content processing canceled (requested)")
-	errNoSyncActive            = errors.New("no sync active")
-	errTooOld                  = errors.New("peer doesn't speak recent enough protocol version (need version >= 62)")
-	errFruits                  = errors.New("fruits err")
+	errBusy                    = errors.New("snail busy")
+	errUnknownPeer             = errors.New("snail peer is unknown or unhealthy")
+	errBadPeer                 = errors.New("snail action from bad peer ignored")
+	errStallingPeer            = errors.New("snail peer is stalling")
+	errNoPeers                 = errors.New("snail no peers to keep download active")
+	errTimeout                 = errors.New("snail timeout")
+	errEmptyHeaderSet          = errors.New("snail empty header set by peer")
+	errPeersUnavailable        = errors.New("snail no peers available or all tried for download")
+	errInvalidAncestor         = errors.New("snail retrieved ancestor is invalid")
+	errInvalidChain            = errors.New("snail retrieved hash chain is invalid")
+	errInvalidBlock            = errors.New("snail retrieved block is invalid")
+	errInvalidBody             = errors.New("snail retrieved block body is invalid")
+	errInvalidReceipt          = errors.New("snail retrieved receipt is invalid")
+	errCancelBlockFetch        = errors.New("snail block download canceled (requested)")
+	errCancelHeaderFetch       = errors.New("snail block header download canceled (requested)")
+	errCancelBodyFetch         = errors.New("snail block body download canceled (requested)")
+	errCancelReceiptFetch      = errors.New("snail receipt download canceled (requested)")
+	errCancelHeaderProcessing  = errors.New("snail header processing canceled (requested)")
+	errCancelContentProcessing = errors.New("snail content processing canceled (requested)")
+	errNoSyncActive            = errors.New("snail no sync active")
+	errTooOld                  = errors.New("snail peer doesn't speak recent enough protocol version (need version >= 62)")
+	errFruits                  = errors.New("snail fruits err")
 )
 
 type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
-	Mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
 	queue   *queue         // Scheduler for selecting the hashes to download
@@ -109,6 +108,7 @@ type Downloader struct {
 	// Statistics
 	syncStatsChainOrigin uint64       // Origin block number where syncing started at
 	syncStatsChainHeight uint64       // Highest block number known when syncing started
+
 	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
 	syncStatsState       stateSyncStats
 
@@ -208,7 +208,6 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 	dl := &Downloader{
 		mode:           mode,
 		stateDB:        stateDb,
-		Mux:            mux,
 		queue:          newQueue(),
 		peers:          etrue.NewPeerSet(),
 		rttEstimate:    uint64(rttMaxEstimate),
@@ -253,11 +252,17 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 	defer d.syncStatsLock.RUnlock()
 
 	current := d.blockchain.CurrentBlock().NumberU64()
+	f_prog := d.fastDown.Progress()
 
 	return truechain.SyncProgress{
 		StartingSnailBlock: d.syncStatsChainOrigin,
 		CurrentSnailBlock:  current,
 		HighestSnailBlock:  d.syncStatsChainHeight,
+
+		StartingFastBlock:f_prog.StartingFastBlock,
+		CurrentFastBlock:f_prog.CurrentFastBlock,
+		HighestFastBlock:f_prog.HighestFastBlock,
+
 		PulledStates:  d.syncStatsState.processed,
 		KnownStates:   d.syncStatsState.processed + d.syncStatsState.pending,
 	}
@@ -271,7 +276,7 @@ func (d *Downloader) Synchronising() bool {
 // RegisterPeer injects a new download peer into the set of block source to be
 // used for fetching hashes and blocks from.
 func (d *Downloader) RegisterPeer(id string, version int, ip string, peer etrue.Peer) error {
-	logger := log.New("peer", ip)
+	logger := log.New("peer Snail", ip)
 	logger.Trace("Registering sync peer")
 
 	if err := d.peers.Register(newPeerConnection(id, version, peer, logger)); err != nil {
@@ -293,7 +298,7 @@ func (d *Downloader) RegisterLightPeer(id string, version int, ip string, peer e
 // the queue.
 func (d *Downloader) UnregisterPeer(id string) error {
 	// Unregister the peer from the active peer set and revoke any fetch tasks
-	logger := log.New("peer", id)
+	logger := log.New("peer Snail", id)
 	logger.Trace("Unregistering sync peer")
 	if err := d.peers.Unregister(id); err != nil {
 		logger.Error("Failed to unregister sync peer", "err", err)
@@ -316,7 +321,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode) error {
 	err := d.synchronise(id, head, td, mode)
-	defer log.Debug("snail Synchronise exit")
+	defer log.Debug("Snail Synchronise exit")
 	switch err {
 	case nil:
 	case errBusy:
@@ -324,16 +329,16 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 	case errTimeout, errBadPeer, errStallingPeer,
 		errEmptyHeaderSet, errPeersUnavailable, errTooOld,
 		errInvalidAncestor, errInvalidChain:
-		log.Warn("Synchronisation failed, dropping peer", "peer", id, "err", err)
+		log.Warn("Snail Synchronisation failed, dropping peer", "peer", id, "err", err)
 		if d.dropPeer == nil {
 			// The dropPeer method is nil when `--copydb` is used for a local copy.
 			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
-			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
+			log.Warn("Snail Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
 		} else {
 			d.dropPeer(id)
 		}
 	default:
-		log.Warn("Synchronisation failed, retrying", "err", err)
+		log.Warn("Snail Synchronisation failed, retrying", "err", err)
 	}
 	return err
 }
@@ -355,7 +360,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 
 	// Post a user notification of the sync (only once per session)
 	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
-		log.Info("snail Block synchronisation started")
+		log.Info("Snail Block synchronisation started")
 	}
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()
@@ -397,7 +402,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	// Retrieve the origin peer and initiate the downloading process
 	p := d.peers.Peer(id)
 	if p == nil {
-		log.Warn("synchronise err", "id", id)
+		log.Warn("Snail Synchronise err", "id", id)
 		return errUnknownPeer
 	}
 	return d.syncWithPeer(p, hash, td)
@@ -411,9 +416,9 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		return errTooOld
 	}
 
-	log.Debug("Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "td", td, "mode", d.mode)
+	log.Debug("Snail Synchronising with the network", "peer", p.GetID(), "etrue", p.GetVersion(), "head", hash, "td", td, "mode", d.mode)
 	defer func(start time.Time) {
-		log.Debug("Synchronisation terminated", "elapsed", time.Since(start))
+		log.Debug("Snail Synchronisation terminated", "elapsed", time.Since(start))
 	}(time.Now())
 
 	// Look up the sync boundaries: the common ancestor and the target block
@@ -424,7 +429,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	height := latest.Number.Uint64()
 
 	origin, err := d.findAncestor(p, latest)
-	log.Debug("snail findAncestor ", "origin", origin, "err", err)
 	if err != nil {
 		return err
 	}
@@ -512,8 +516,8 @@ func (d *Downloader) cancel() {
 // Cancel aborts all of the operations and waits for all download goroutines to
 // finish before returning.
 func (d *Downloader) Cancel() {
-	d.cancel()
 	d.fastDown.Cancel()
+	d.cancel()
 	d.cancelWg.Wait()
 }
 
@@ -552,7 +556,7 @@ func (d *Downloader) fetchHeight(p etrue.PeerConnection) (*types.SnailHeader, er
 		case packet := <-d.headerCh:
 			// Discard anything not from the origin peer
 			if packet.PeerId() != p.GetID() {
-				log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
+				log.Debug("Snail Received headers from incorrect peer", "peer", packet.PeerId())
 				break
 			}
 			// Make sure the peer actually gave something valid
@@ -670,7 +674,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 		case packet := <-d.headerCh:
 			// Discard anything not from the origin peer
 			if packet.PeerId() != p.GetID() {
-				log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
+				p.GetLog().Debug("Received headers from incorrect peer", "peer", packet.PeerId())
 				break
 			}
 			// Make sure the peer actually gave something valid
@@ -746,7 +750,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 			case packer := <-d.headerCh:
 				// Discard anything not from the origin peer
 				if packer.PeerId() != p.GetID() {
-					log.Debug("Received headers from incorrect peer", "peer", packer.PeerId())
+					p.GetLog().Debug("Received headers from incorrect peer", "peer", packer.PeerId())
 					break
 				}
 				// Make sure the peer actually gave something valid
@@ -800,7 +804,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 // can fill in the skeleton - not even the origin peer - it's assumed invalid and
 // the origin is dropped.
 func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uint64) error {
-	p.GetLog().Debug("Directing header downloads", "origin", from)
+	p.GetLog().Debug("Directing header downloads", "origin", from, "pivot", pivot)
 	defer p.GetLog().Debug("Header download terminated")
 
 	// Create a timeout timer, and the associated header fetcher
@@ -836,7 +840,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 		case packet := <-d.headerCh:
 			// Make sure the active peer is giving us the skeleton headers
 			if packet.PeerId() != p.GetID() {
-				log.Debug("Received skeleton from incorrect peer", "peer", packet.PeerId())
+				p.GetLog().Debug("Received skeleton from incorrect peer", "peer", packet.PeerId())
 				break
 			}
 			headerReqTimer.UpdateSince(request)
@@ -936,7 +940,6 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 			// Header retrieval timed out, consider the peer bad and drop
 			p.GetLog().Debug("Header request timed out", "elapsed", ttl)
 			headerTimeoutMeter.Mark(1)
-			p.GetLog().Info("drop peer snail fetchHeaders timout ", "id", p.GetID())
 			d.dropPeer(p.GetID())
 
 			// Finish the sync gracefully instead of dumping the gathered data though
@@ -965,7 +968,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 // The method returns the entire filled skeleton and also the number of headers
 // already forwarded for processing.
 func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.SnailHeader) ([]*types.SnailHeader, int, error) {
-	log.Debug("Filling up skeleton", "from", from)
+	log.Debug("Snail Filling up skeleton", "from", from)
 	d.queue.ScheduleSkeleton(from, skeleton)
 
 	var (
@@ -988,7 +991,7 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.SnailHead
 		d.queue.PendingHeaders, d.queue.InFlightHeaders, throttle, reserve,
 		nil, fetch, d.queue.CancelHeaders, capacity, d.peers.HeaderIdlePeers, setIdle, "headers")
 
-	log.Debug("Skeleton fill terminated", "err", err)
+	log.Debug("Snail Skeleton fill terminated", "err", err)
 
 	filled, proced := d.queue.RetrieveHeaders()
 	return filled, proced, err
@@ -998,7 +1001,7 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.SnailHead
 // available peers, reserving a chunk of blocks for each, waiting for delivery
 // and also periodically checking for timeouts.
 func (d *Downloader) fetchBodies(from uint64) error {
-	log.Debug("Downloading block bodies", "origin", from)
+	log.Debug("Snail Downloading block bodies", "origin", from)
 
 	var (
 		deliver = func(packet etrue.DataPack) (int, error) {
@@ -1014,7 +1017,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 		d.queue.PendingBlocks, d.queue.InFlightBlocks, d.queue.ShouldThrottleBlocks, d.queue.ReserveBodies,
 		d.bodyFetchHook, fetch, d.queue.CancelBodies, capacity, d.peers.BodyIdlePeers, setIdle, "bodies")
 
-	log.Debug("snail Block body download terminated", "err", err)
+	log.Debug("Snail Block body download terminated", "err", err)
 	return err
 }
 
@@ -1064,7 +1067,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 		case packet := <-deliveryCh:
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
-			log.Debug("snail downloader ", "id", packet.PeerId(), "function", "fetchParts")
+			log.Debug("Snail downloader ", "id", packet.PeerId(), "function", "fetchParts")
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
 				// Deliver the received chunk of data and check chain validity
 				accepted, err := deliver(packet)
@@ -1145,7 +1148,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			// If there's nothing more to fetch, wait or terminate
 			if pending() == 0 {
 				if !inFlight() && finished {
-					log.Debug("Fast Data fetching completed", "type", kind)
+					log.Debug("Snail Data fetching completed", "type", kind)
 					return nil
 				}
 				break
@@ -1192,7 +1195,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 					// case, the internal state of the downloader and the queue is very wrong so
 					// better hard crash and note the error instead of silently accumulating into
 					// a much bigger issue.
-					panic(fmt.Sprintf("%v: %s fetch assignment failed", peer, kind))
+					panic(fmt.Sprintf("Snail %v: %s fetch assignment failed", peer, kind))
 				}
 				running = true
 			}
@@ -1228,7 +1231,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 			curFastBlock = d.blockchain.CurrentFastBlock().Number()
 			curBlock = d.blockchain.CurrentBlock().Number()
 
-			log.Warn("Rolled back headers", "count", len(hashes),
+			log.Warn("Snail Rolled back headers", "count", len(hashes),
 				"header", fmt.Sprintf("%d->%d", lastHeader, d.lightchain.CurrentHeader().Number),
 				"fast", fmt.Sprintf("%d->%d", lastFastBlock, curFastBlock),
 				"block", fmt.Sprintf("%d->%d", lastBlock, curBlock))
@@ -1303,10 +1306,9 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				// Otherwise insert the headers for content retrieval
 				inserts := d.queue.Schedule(chunk, origin)
 				if len(inserts) != len(chunk) {
-					log.Debug("Stale headers")
+					log.Debug("Snail Stale headers")
 					return errBadPeer
 				}
-				//}
 				headers = headers[limit:]
 				origin += uint64(limit)
 			}
@@ -1388,7 +1390,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	}
 	// Retrieve the a batch of results to import
 	first, last := results[0].Sheader, results[len(results)-1].Sheader
-	log.Debug("Inserting downloaded chain", "items", len(results),
+	log.Debug("Snail Inserting downloaded chain", "items", len(results),
 		"firstnum", first.Number, "firsthash", first.Hash(),
 		"lastnum", last.Number, "lasthash", last.Hash(),
 	)
@@ -1396,7 +1398,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	for _, result := range results {
 		blocks := make([]*types.SnailBlock, 1)
 		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
-		log.Trace("importBlockResults  snail block ", "snailNumber", result.Sheader.Number, "Phash", result.Sheader.ParentHash, "hash", result.Sheader.Hash())
+		log.Trace("Snail importBlockResults  snail block ", "snailNumber", result.Sheader.Number, "Phash", result.Sheader.ParentHash, "hash", result.Sheader.Hash())
 
 		fruitLen := uint64(len(result.Fruits))
 
@@ -1408,13 +1410,13 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			if fbLastNumber < fbNumber || fbNumber < 1 {
 				return errFruits
 			}
-			log.Debug("importBlockResults ", "fbNumber", fbNumber, "fbLastNumber", fbLastNumber)
+			log.Debug("Snail importBlockResults ", "fbNumber", fbNumber, "fbLastNumber", fbLastNumber)
 			if err := d.SyncFast(p.GetID(), hash, fbLastNumber, d.mode); err != nil {
 				return err
 			}
 
 		} else {
-			log.Debug("Snail importBlockResults", "blocks", blocks[0], "fruits", result.Fruits)
+			log.Debug("Snail fruit Len is 0", "block", blocks[0].Number())
 		}
 
 		if index, err := d.blockchain.InsertChain(blocks); err != nil {
@@ -1443,7 +1445,7 @@ func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64
 	if fbLastNumber > currentNumber {
 		for {
 			height := fbLastNumber - currentNumber
-			log.Debug("fastDownloader ", "heigth", height, "fbNumLast", fbLastNumber, "currentNum", currentNumber)
+			log.Debug("Snail run fastDownloader ", "heigth", height, "fbNumLast", fbLastNumber, "currentNum", currentNumber)
 			if height > 0 {
 				if height > maxheight {
 					height = maxheight
@@ -1457,7 +1459,7 @@ func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64
 					errs := d.fastDown.Synchronise(peer, head, fastdownloader.SyncMode(mode), currentNumber, height)
 
 					if errs != nil {
-						log.Error("SyncFast ", "err", errs, "heigth", height, "fbNumLast", fbLastNumber, "currentNum", currentNumber)
+						log.Error("Snail run SyncFast ", "err", errs, "heigth", height, "fbNumLast", fbLastNumber, "currentNum", currentNumber)
 						return errs
 					}
 
@@ -1470,7 +1472,7 @@ func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64
 					currentNumber = currentNumber_temp
 					if fbLastNumber > currentNumber_temp {
 						height = fbLastNumber - currentNumber
-						log.Debug("fastDownloader while", "heigth", height, "fbLastNumber", fbLastNumber, "currentNumber", currentNumber)
+						log.Debug("SNail run fastDownloader while", "heigth", height, "fbLastNumber", fbLastNumber, "currentNumber", currentNumber)
 						continue
 					}
 					break
@@ -1502,7 +1504,6 @@ func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
 // deliver injects a new batch of data received from a remote node.
 func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {
 	// Update the delivery metrics for both good and failed deliveries
-	log.Debug("snail downloader ", "id", id, "function", "deliver")
 	inMeter.Mark(int64(packet.Items()))
 	defer func() {
 		if err != nil {
@@ -1538,7 +1539,7 @@ func (d *Downloader) qosTuner() {
 		atomic.StoreUint64(&d.rttConfidence, conf)
 
 		// Log the new QoS values and sleep until the next RTT
-		log.Debug("Recalculated snail downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
+		log.Debug("Snail Recalculated downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
 		select {
 		case <-d.quitCh:
 			return
@@ -1572,7 +1573,7 @@ func (d *Downloader) qosReduceConfidence() {
 	atomic.StoreUint64(&d.rttConfidence, conf)
 
 	rtt := time.Duration(atomic.LoadUint64(&d.rttEstimate))
-	log.Debug("Relaxed snail downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
+	log.Debug("Snail Relaxed downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
 }
 
 // requestRTT returns the current target round trip time for a download request

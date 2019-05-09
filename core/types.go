@@ -18,6 +18,7 @@ package core
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -61,7 +62,9 @@ type SnailValidator interface {
 
 	// ValidateFruit validates the given fruit's content
 	ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error
-
+	// VerifySnailSeal checking whether the given block satisfies
+	// the PoW difficulty requirements.
+	VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader, isFruit bool) error
 	// ValidateRewarded validates the given block if rewarded
 	ValidateRewarded(number uint64) error
 }

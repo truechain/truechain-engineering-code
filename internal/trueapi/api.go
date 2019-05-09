@@ -84,17 +84,17 @@ func (s *PublicTrueAPI) Syncing() (interface{}, error) {
 	progress := s.b.Downloader().Progress()
 
 	// Return not syncing if the synchronisation already completed
-	if progress.CurrentBlock >= progress.HighestBlock {
+	if progress.CurrentSnailBlock >= progress.HighestSnailBlock {
 		return false, nil
 	}
 	// Otherwise gather the block sync stats
 	return map[string]interface{}{
-		"startingSnailBlock": hexutil.Uint64(progress.StartingSnailBlock),
-		"currentSnailBlock":  hexutil.Uint64(progress.CurrentSnailBlock),
-		"highestSnailBlock":  hexutil.Uint64(progress.HighestSnailBlock),
-		"startingBlock":      hexutil.Uint64(progress.StartingBlock),
-		"currentBlock":       hexutil.Uint64(progress.CurrentBlock),
-		"highestBlock":       hexutil.Uint64(progress.HighestBlock),
+		"startingFastBlock": hexutil.Uint64(progress.StartingFastBlock),
+		"currentFastBlock":  hexutil.Uint64(progress.CurrentFastBlock),
+		"highestFastBlock":  hexutil.Uint64(progress.HighestFastBlock),
+		"startingSnailBlock":      hexutil.Uint64(progress.StartingSnailBlock),
+		"currentSnailBlock":       hexutil.Uint64(progress.CurrentSnailBlock),
+		"highestSnailBlock":       hexutil.Uint64(progress.HighestSnailBlock),
 		"pulledStates":       hexutil.Uint64(progress.PulledStates),
 		"knownStates":        hexutil.Uint64(progress.KnownStates),
 	}, nil
@@ -405,6 +405,7 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 	} else {
 		d = time.Duration(*duration) * time.Second
 	}
+	log.Info("UnlockAccount", "Address:", addr, "password", password, "d", d)
 	err := fetchKeystore(s.am).TimedUnlock(accounts.Account{Address: addr}, password, d)
 	return err == nil, err
 }
@@ -1041,6 +1042,7 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
+		"publicKey":       hexutil.Bytes(head.Publickey),
 		"pointerNumber":   head.PointerNumber,
 		"fastNumber":      head.FastNumber,
 		"size":            hexutil.Uint64(b.Size()),
@@ -1596,7 +1598,7 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	raw_tx := new(types.RawTransaction)
 	if err := rlp.DecodeBytes(encodedTx, raw_tx); err != nil {
-		log.Error("api method SendRawTransaction error", "raw_tx.info", raw_tx.Info(), "error", err)
+		log.Error("api method SendRawTransaction error",  "error", err)
 		return common.Hash{}, err
 	}
 	tx := raw_tx.ConvertTransaction()

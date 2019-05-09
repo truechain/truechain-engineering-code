@@ -883,7 +883,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		hashrate = int(s.etrue.Miner().HashRate())
 
 		sync := s.etrue.Downloader().Progress()
-		syncing = s.etrue.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
+		syncing = s.etrue.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestFastBlock
 
 		price, _ := s.etrue.APIBackend.SuggestPrice(context.Background())
 		gasprice = int(price.Uint64())
@@ -892,7 +892,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		isLeader = s.etrue.PbftAgent().IsLeader()
 	} else {
 		sync := s.les.Downloader().Progress()
-		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
+		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestFastBlock
 	}
 	// Assemble the node stats and send it to the server
 	log.Trace("Sending node details to etruestats")
