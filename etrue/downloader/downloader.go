@@ -516,8 +516,8 @@ func (d *Downloader) cancel() {
 // Cancel aborts all of the operations and waits for all download goroutines to
 // finish before returning.
 func (d *Downloader) Cancel() {
-	d.cancel()
 	d.fastDown.Cancel()
+	d.cancel()
 	d.cancelWg.Wait()
 }
 
