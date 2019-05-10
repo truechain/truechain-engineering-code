@@ -51,6 +51,10 @@ const (
 	defaultGasPrice = 50 * params.Shannon
 )
 
+var (
+	LocalTxMetrics = metrics.NewRegisteredMeter("etrue/prop/local_tx/in", nil)
+)
+
 // PublicTrueAPI provides an API to access True related information.
 // It offers only methods that operate on public data that is freely available to anyone.
 type PublicTrueAPI struct {
@@ -1506,7 +1510,7 @@ func (args *SendTxArgs) toRawTransaction() *types.RawTransaction {
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
-	metrics.NewRegisteredMeter("etrue/prop/local_tx/in", nil).Mark(1)
+	LocalTxMetrics.Mark(1)
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
