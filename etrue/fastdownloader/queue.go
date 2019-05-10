@@ -495,7 +495,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		}
 		if q.resultCache[index] == nil {
 			components := 1
-			if q.mode == FastSync || q.mode == SnapShotSync {
+			if q.mode == FastSync {
 				components = 2
 			}
 			q.resultCache[index] = &etrue.FetchResult{
