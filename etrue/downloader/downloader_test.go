@@ -124,16 +124,16 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 	cache := &core.CacheConfig{}
 
 	fastChain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
-
 	fastblocks, receipts := core.GenerateChain(params.TestChainConfig, dl.ftester.GetGenesis(), engine, testdb, n*params.MinimumFruits, func(i int, b *core.BlockGen) {
 		b.SetNonce(types.BlockNonce{seed})
 	})
-
 	fastChain.InsertChain(fastblocks)
-	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, fastChain)
 
-	blocks, _ := snailchain.MakeSnailBlockFruits(snailChain, fastChain, 1, n, 1, n*params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true, nil)
-	snailChain.InsertChain(blocks)
+	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, fastChain)
+	blocks := snailchain.GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{parent}, n, 7, nil)
+	if _, err := snailChain.InsertChain(blocks); err != nil {
+		panic(err)
+	}
 
 	// Convert the block-chain into a hash-chain and header/block maps
 	hashes := make([]common.Hash, n+1)
@@ -464,7 +464,7 @@ func (dl *downloadTester) newSlowPeer(id string, version int, hashes []common.Ha
 }
 
 // dropPeer simulates a hard peer removal from the connection pool.
-func (dl *downloadTester) dropPeer(id string , call uint32) {
+func (dl *downloadTester) dropPeer(id string, call uint32) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
 
