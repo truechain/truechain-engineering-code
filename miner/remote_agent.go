@@ -127,6 +127,8 @@ func (a *RemoteAgent) GetWork() ([4]string, error) {
 	defer a.mu.Unlock()
 
 	var res [4]string
+	var fruitTarget *big.Int
+	var blockTarget *big.Int
 
 	if a.currentWork != nil {
 		block := a.currentWork.Block
@@ -138,21 +140,21 @@ func (a *RemoteAgent) GetWork() ([4]string, error) {
 		block.Fruits()
 		if block.IsFruit() {
 			// is fruit  so the block target set zore
-			fruitTarget := new(big.Int).Div(maxUint128, block.FruitDifficulty())
-			blockTarget := new(big.Int).SetInt64(0)
-			//res[2] = "0x" + hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
-			//res[3] = "0x" + hex.EncodeToString(blockTarget.Bytes())
-			res[2] = a.CompletionHexString(32, hex.EncodeToString(fruitTarget.Bytes()))
-			res[3] = a.CompletionHexString(32, hex.EncodeToString(blockTarget.Bytes()))
+			fruitTarget = new(big.Int).Div(maxUint128, block.FruitDifficulty())
+			blockTarget = new(big.Int).SetInt64(0)
 		} else {
-			fruitTarget := new(big.Int).Div(maxUint128, block.FruitDifficulty())
-			blockTarget := new(big.Int).Div(maxUint128, block.BlockDifficulty())
-			//res[2] = "0x" + hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
-			//res[3] = "0x" + hex.EncodeToString(blockTarget.Bytes())
-			res[2] = a.CompletionHexString(32, hex.EncodeToString(fruitTarget.Bytes()))
-			res[3] = a.CompletionHexString(32, hex.EncodeToString(blockTarget.Bytes()))
-		}
 
+			if block.FastNumber().Cmp(big.NewInt(0)) == 0 {
+				// only block
+				fruitTarget = new(big.Int).SetInt64(0)
+				blockTarget = new(big.Int).Div(maxUint128, block.BlockDifficulty())
+			} else {
+				fruitTarget = new(big.Int).Div(maxUint128, block.FruitDifficulty())
+				blockTarget = new(big.Int).Div(maxUint128, block.BlockDifficulty())
+			}
+		}
+		res[2] = a.CompletionHexString(32, hex.EncodeToString(fruitTarget.Bytes()))
+		res[3] = a.CompletionHexString(32, hex.EncodeToString(blockTarget.Bytes()))
 		a.work[block.HashNoNonce()] = a.currentWork
 		return res, nil
 	}
