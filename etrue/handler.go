@@ -819,12 +819,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		if len(fruits) > 0 || !filter {
-			if request.Call == types.DownloaderCall {
-				log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits), "filter", filter)
-				err := pm.downloader.DeliverBodies(p.id, fruits)
-				if err != nil {
-					log.Debug("Failed to deliver bodies", "err", err)
-				}
+			log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits), "filter", filter, "call", request.Call)
+			err := pm.downloader.DeliverBodies(p.id, fruits)
+			if err != nil {
+				log.Debug("Failed to deliver bodies", "err", err)
 			}
 		}
 
@@ -1349,7 +1347,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 
 				for i := 0; i < txLen; {
 					i = i + maxSize
-					if i < txLen {
+					if i <= txLen {
 						pm.BroadcastTxs(txs[:maxSize])
 						txs = append(txs[:0], txs[maxSize:]...)
 					} else {
