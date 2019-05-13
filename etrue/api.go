@@ -145,10 +145,10 @@ func (api *PublicMinerAPI) GetWork() ([4]string, error) {
 // result[0], 32 bytes hex encoded current block header pow-hash
 // result[1], 32 bytes hex encoded seed hash used for DAG
 // result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
-func (api *PublicMinerAPI) GetDataset() ([10240][]byte, error) {
+func (api *PublicMinerAPI) GetDataset() ([10240]string, error) {
 	if !api.e.IsMining() {
 		if err := api.e.StartMining(false); err != nil {
-			return [10240][]byte{}, err
+			return [10240]string{}, err
 		}
 	}
 	headers, err := api.agent.GetDataset()
