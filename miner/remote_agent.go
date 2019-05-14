@@ -251,11 +251,12 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 }
 
 //GetWork return the current block hash without nonce
-func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH][]byte, error) {
+func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH]string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	var res [DATASETHEADLENGH][]byte
+	//var res [DATASETHEADLENGH][]byte
+	var res [DATASETHEADLENGH]string
 	if a.currentWork != nil {
 		block := a.currentWork.Block
 		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
@@ -270,9 +271,8 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH][]byte, error) {
 				log.Error("header is nill  ", "blockNum is:  ", (uint64(i) + st_block_num))
 				return res, errors.New("GetDataset get heard fial")
 			}
-			res[i] = header.Hash().Bytes()
+			res[i] = "0x" + hex.EncodeToString(header.Hash().Bytes()[:16])
 		}
-
 		return res, nil
 	}
 	return res, errors.New("No work available yet, Don't panic.")
