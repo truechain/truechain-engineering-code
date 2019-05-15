@@ -504,13 +504,10 @@ func GenesisSnailBlockForTesting(db etruedb.Database, addr common.Address, balan
 // DefaultDevGenesisBlock returns the Rinkeby network genesis block.
 func DefaultDevGenesisBlock() *Genesis {
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-	key1 := hexutil.MustDecode("0x0488a25849abee5921fdb581ba34cd66adc8e02b108391c4153ca8da27722e16badf4fcd5ba7f557ae76d444ccf3638e4590a181805623de1cab67f31364c79736")
-	key2 := hexutil.MustDecode("0x04a9a1cedb8900d893b607c4dbc834abada3fe98f247b8bcb5ef44d3d3a246c4cf41d9d792527473c30ded81fa4b81afe7030a09e093dd92746b98c79e6a204c63")
-	key3 := hexutil.MustDecode("0x040d153624462927444a8212717e4ad41ec5f5739bc36598d093d114729e1dc782d55d322699705829cf9d69f201009db797ebe8ba952f10a26fe36c64356b111b")
-	key4 := hexutil.MustDecode("0x04a3474c26578fce00d241119758271f6a208cc987c6f37d1518dcea2a51257bafeebd93202ae499cb5a8986720d4b63a04043aadb4d03430194a81860c9ca0763")
-	key5 := hexutil.MustDecode("0x04a3e174523b1054e14f123580bce258745e65591c2a4ee44764e55eb87a3782c9920d306e6121d4f10f8726800497ad9ca5a0bfdfe0832779dbaf7b95b3bf0111")
-	key6 := hexutil.MustDecode("0x04d370defb1b7b8c086f98c4a7d7b90348b088cd2effdcc27b86feebdff499a192b4a5a5b16a400625271d69b3fa7d8c42c8b2e15c910cd1f314f28eb5beb73342")
-	key7 := hexutil.MustDecode("0x04f67ab0cd48f626da89c718bcd909a04dea393d632d3191891539ef2f5ff6bb1e5d340ebe94cb6d9126b26e1ec64bb4783e9e8ddf31346b53d651d15eb226142e")
+	key1 := hexutil.MustDecode("0x04d341c94a16b02cee86a627d0f6bc6e814741af4cab5065637aa013c9a7d9f26051bb6546030cd67e440d6df741cb65debaaba6c0835579f88a282193795ed369")
+	key2 := hexutil.MustDecode("0x041d66f35b520b61399b60242944e037852c2f8e3bff39bc0964c1ee5731f3bd393ea85a5cd01432267a9e71e60a8c3ea595973c59571af3037387483491e4637b")
+	key3 := hexutil.MustDecode("0x0418196ee090081bdec01e8840941b9f6a141a713dd3461b78825edf0d8a7f8cdf3f612832dc9d94249c10c72629ea59fbe0bdd09bea872ddab2799748964c93a8")
+	key4 := hexutil.MustDecode("0x04c4935993a3ce206318ab884871fbe2d4dce32a022795c674784f58e7faf3239631b6952b82471fe1e93ef999108a18d028e5d456cd88bb367d610c5e57c7e443")
 
 	return &Genesis{
 		Config:     params.DevnetChainConfig,
@@ -535,9 +532,6 @@ func DefaultDevGenesisBlock() *Genesis {
 			{Coinbase: common.HexToAddress("0x831151b7eb8e650dc442cd623fbc6ae20279df85"), Publickey: key2},
 			{Coinbase: common.HexToAddress("0x1074f7deccf8c66efcd0106e034d3356b7db3f2c"), Publickey: key3},
 			{Coinbase: common.HexToAddress("0xd985e9871d1be109af5a7f6407b1d6b686901fff"), Publickey: key4},
-			{Coinbase: common.HexToAddress("0x35c9d83c3de709bbd2cb4a8a42b89e0317abe6d4"), Publickey: key5},
-			{Coinbase: common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"), Publickey: key6},
-			{Coinbase: common.HexToAddress("0x04d2252a3e0ca7c2aa81247ca33060855a34a808"), Publickey: key7},
 		},
 	}
 }
