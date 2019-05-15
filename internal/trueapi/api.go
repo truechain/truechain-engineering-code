@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/metrics"
 	"math/big"
 	"strings"
 	"time"
@@ -89,12 +88,12 @@ func (s *PublicTrueAPI) Syncing() (interface{}, error) {
 	}
 	// Otherwise gather the block sync stats
 	return map[string]interface{}{
-		"startingFastBlock": hexutil.Uint64(progress.StartingFastBlock),
-		"currentFastBlock":  hexutil.Uint64(progress.CurrentFastBlock),
-		"highestFastBlock":  hexutil.Uint64(progress.HighestFastBlock),
-		"startingSnailBlock":      hexutil.Uint64(progress.StartingSnailBlock),
-		"currentSnailBlock":       hexutil.Uint64(progress.CurrentSnailBlock),
-		"highestSnailBlock":       hexutil.Uint64(progress.HighestSnailBlock),
+		"startingFastBlock":  hexutil.Uint64(progress.StartingFastBlock),
+		"currentFastBlock":   hexutil.Uint64(progress.CurrentFastBlock),
+		"highestFastBlock":   hexutil.Uint64(progress.HighestFastBlock),
+		"startingSnailBlock": hexutil.Uint64(progress.StartingSnailBlock),
+		"currentSnailBlock":  hexutil.Uint64(progress.CurrentSnailBlock),
+		"highestSnailBlock":  hexutil.Uint64(progress.HighestSnailBlock),
 		"pulledStates":       hexutil.Uint64(progress.PulledStates),
 		"knownStates":        hexutil.Uint64(progress.KnownStates),
 	}, nil
@@ -1506,7 +1505,6 @@ func (args *SendTxArgs) toRawTransaction() *types.RawTransaction {
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
-	metrics.NewRegisteredMeter("etrue/prop/local_tx/in", nil).Mark(1)
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
@@ -1598,7 +1596,7 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	raw_tx := new(types.RawTransaction)
 	if err := rlp.DecodeBytes(encodedTx, raw_tx); err != nil {
-		log.Error("api method SendRawTransaction error",  "error", err)
+		log.Error("api method SendRawTransaction error", "error", err)
 		return common.Hash{}, err
 	}
 	tx := raw_tx.ConvertTransaction()
