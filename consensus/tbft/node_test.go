@@ -96,9 +96,5 @@ func TestStructNoMapNotLock(t *testing.T) {
 			}
 		}()
 	}
-	for {
-		time.Sleep(time.Second)
-		fmt.Println(tMain.sub)
-	}
 	<-out
 }

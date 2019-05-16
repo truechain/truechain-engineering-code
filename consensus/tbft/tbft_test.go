@@ -1078,7 +1078,7 @@ func signVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, height uint
 		Round:            round,
 		Timestamp:        time.Now().UTC(),
 		Type:             typeB,
-		BlockID:          ttypes.BlockID{hash, header},
+		BlockID:          ttypes.BlockID{Hash: hash, PartsHeader: header},
 	}
 
 	err := privV.SignVote(chainid, vote)
@@ -1115,7 +1115,7 @@ func TestVote(t *testing.T) {
 }
 
 func makeBlockID(hash []byte, header ttypes.PartSetHeader) ttypes.BlockID {
-	blockid := ttypes.BlockID{hash, header}
+	blockid := ttypes.BlockID{Hash: hash, PartsHeader: header}
 	fmt.Println(blockid.String())
 	return blockid
 }
