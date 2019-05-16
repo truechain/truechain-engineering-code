@@ -64,9 +64,10 @@ type testWorkerBackend struct {
 
 func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, n int) *testWorkerBackend {
 	var (
-		db = etruedb.NewMemDatabase()
+		db      = etruedb.NewMemDatabase()
+		genesis = core.DefaultGenesisBlock()
 	)
-	snailChainLocal, fastChainLocal = snailchain.MakeChain(fastChainHight, blockNum, minerva.NewFaker())
+	snailChainLocal, fastChainLocal = snailchain.MakeChain(fastChainHight, blockNum, genesis, minerva.NewFaker())
 	//sv := snailchain.NewBlockValidator(chainConfig, fastChainLocal, snailChainLocal, engine)
 
 	return &testWorkerBackend{
@@ -209,5 +210,5 @@ func TestCommitFruits(t *testing.T) {
 	}
 	fruitset = append(fruitset, fruitNofresh)
 
-	worker.CommitFruits(fruitset, snailChainLocal, engine)
+	worker.CommitFruits(fruitset, snailChainLocal, fastChainLocal, engine)
 }
