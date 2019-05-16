@@ -18,6 +18,7 @@ package minerva
 
 import (
 	"encoding/json"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -124,7 +125,7 @@ func TestCalcSnailDifficulty(t *testing.T) {
 	//for i:0;i<n;i++{
 	targeDiff = append(targeDiff, tdiff)
 
-	config := &params.ChainConfig{big.NewInt(1), &params.MinervaConfig{params.MinimumDifficulty, params.MinimumFruitDifficulty, params.DurationLimit}}
+	config := &params.ChainConfig{big.NewInt(1), &params.MinervaConfig{params.MinimumDifficulty, params.MinimumFruitDifficulty, params.DurationLimit}, common.Big0}
 
 	for k, v := range SnailHeadersMap {
 		//i:= timeCurrent[k.Uint64()]
