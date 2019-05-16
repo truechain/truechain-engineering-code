@@ -746,7 +746,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(1)))
 		log.Trace("pending send", "allSendCount", allSendCount)
 		// We've directly injected a replacement transaction, notify subsystems
-		go pool.txFeed.Send(types.NewTxsEvent{types.Transactions{tx}})
+		go pool.txFeed.Send(types.NewTxsEvent{Txs: types.Transactions{tx}})
 
 		return old != nil, nil
 	}
@@ -871,7 +871,7 @@ func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 	log.Trace("AddRemotes", "len(txs)", len(txs))
-	errs := make([]error, len(txs))
+	//errs := make([]error, len(txs))
 	lenTx := pool.remoteTxlen.Load().(uint64) + 1
 	if lenTx > 0 && lenTx%1000 == 0 {
 		//log.Warn("AddRemotes", "txs", len(txs), "newTxsCh", len(pool.newTxsCh), "lenTx", lenTx)
@@ -887,7 +887,7 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount, "txs[0].Hash()", txs[0].Hash())
 		errs[0] = errors.New("newTxsCh is full")*/
 	}
-	return errs
+	//return errs
 }
 
 // addTx enqueues a single transaction into the pool if it is valid.
@@ -1079,7 +1079,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 	if len(promoted) > 0 {
 		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(len(promoted))))
 		log.Trace("pending send", "allSendCount", allSendCount)
-		go pool.txFeed.Send(types.NewTxsEvent{promoted})
+		go pool.txFeed.Send(types.NewTxsEvent{Txs: promoted})
 	}
 	// If the pending limit is overflown, start equalizing allowances
 	pending := uint64(0)
