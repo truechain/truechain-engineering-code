@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 	"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
@@ -54,7 +53,7 @@ var waitDeployedTests = map[string]struct {
 func TestWaitDeployed(t *testing.T) {
 	for name, test := range waitDeployedTests {
 		backend := backends.NewSimulatedBackend(
-			core.GenesisAlloc{
+			types.GenesisAlloc{
 				crypto.PubkeyToAddress(testKey.PublicKey): {Balance: big.NewInt(10000000000)},
 			}, 10000000,
 		)
