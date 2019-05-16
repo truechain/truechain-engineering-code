@@ -681,7 +681,6 @@ func (bc *BlockChain) HasState(hash common.Hash) bool {
 	return err == nil
 }
 
-
 // VerifyHasState checks if state trie is fully present in the database or not.
 // or CurrentFastBlock number  > the number of fb
 func (bc *BlockChain) VerifyHasState(fb *types.Block) bool {
@@ -712,7 +711,7 @@ func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 		return block.(*types.Block)
 	}
 	var block *types.Block
-	if bc.cacheConfig.HeightGcState.Load().(uint64) < number {
+	if bc.cacheConfig.HeightGcState.Load().(uint64) < number && number > 0 {
 		block = rawdb.ReadBlock(bc.db, hash, number)
 	} else {
 		block = rawdb.ReadSnapBlock(bc.db, hash, number)
@@ -761,7 +760,6 @@ func (bc *BlockChain) GetReceiptsByHash(hash common.Hash) types.Receipts {
 	bc.receiptsCache.Add(hash, receipts)
 	return receipts
 }
-
 
 // TrieNode retrieves a blob of data associated with a trie node (or code hash)
 // either from ephemeral in-memory cache, or from persistent storage.
@@ -1667,7 +1665,6 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 
 	return bc.hc.InsertHeaderChain(chain, whFunc, start)
 }
-
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
