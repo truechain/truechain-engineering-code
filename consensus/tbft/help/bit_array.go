@@ -418,6 +418,10 @@ func (bA *BitArray) UnmarshalJSON(bz []byte) error {
 			bA2.SetIndex(uint(i), true)
 		}
 	}
-	*bA = *bA2
+	c := &BitArray{
+		Bits:  bA2.Bits,
+		Elems: bA2.Elems,
+	}
+	*bA = *c
 	return nil
 }
