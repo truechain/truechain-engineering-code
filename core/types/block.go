@@ -882,3 +882,9 @@ func (b *SnailBlock) Difficulty() *big.Int {
 		return td
 	}
 }
+
+type SnailRewardContenet struct {
+	BlockMinerReward map[common.Address]*big.Int
+	FruitMinerReward map[*common.Address]*big.Int
+	CommitteeReward map[common.Address]*big.Int
+}

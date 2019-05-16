@@ -199,6 +199,10 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
 
 	if election.singleNode {
+		committeeMember := election.getGenesisCommittee()
+		if committeeMember == nil {
+			log.Error("genesis block committee member is nil.")
+		}
 		election.genesisCommittee = election.getGenesisCommittee()[:1]
 	}
 	if !election.singleNode && len(election.genesisCommittee) < 4 {
@@ -938,8 +942,8 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 		log.Warn("can't get election candidates, retain default committee", "begin", snailBeginNumber, "end", snailEndNumber)
 	} else {
 		var (
-			all []*types.CommitteeMember
-			addrs = make(map[common.Address]*types.CommitteeMember)
+			all      []*types.CommitteeMember
+			addrs    = make(map[common.Address]*types.CommitteeMember)
 			defaults = make(map[common.Address]*types.CommitteeMember)
 		)
 		for _, g := range e.defaultMembers {

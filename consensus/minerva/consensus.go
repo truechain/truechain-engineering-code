@@ -878,6 +878,80 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 	return nil
 }
 
+func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types.SnailRewardContenet {
+	blockMinerReward := make(map[common.Address]*big.Int)
+	fruitMinerReward := make(map[*common.Address]*big.Int)
+	committeeReward := make(map[common.Address]*big.Int)
+	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(sBlock.Header().Number)
+	if e != nil {
+		return nil
+	}
+	var (
+		blockFruits    = sBlock.Body().Fruits
+		blockFruitsLen = big.NewInt(int64(len(blockFruits)))
+	)
+	if blockFruitsLen.Uint64() == 0 {
+		return nil
+	}
+	var (
+		//fruit award amount
+		minerFruitCoinOne = new(big.Int).Div(minerFruitCoin, blockFruitsLen)
+		//committee's award amount
+		committeeCoinFruit = new(big.Int).Div(committeeCoin, blockFruitsLen)
+		//all fail committee coinBase
+		failAddr = make(map[common.Address]bool)
+	)
+	//miner's award
+	blockMinerReward[sBlock.Coinbase()] = minerCoin
+	for _, fruit := range blockFruits {
+		fruitCoinbase := fruit.Coinbase()
+		fruitMinerReward[&fruitCoinbase] = minerFruitCoinOne
+		//committee reward
+		getCommitteeVoted(committeeReward, m.election, fruit, failAddr, committeeCoinFruit)
+	}
+	log.Warn("GetRewardContentBySnailNumber", "blockminer", blockMinerReward)
+	log.Warn("GetRewardContentBySnailNumber", "fruitminer", fruitMinerReward)
+	log.Warn("GetRewardContentBySnailNumber", "committeReward", committeeReward)
+	return &types.SnailRewardContenet{
+		BlockMinerReward: blockMinerReward,
+		FruitMinerReward: fruitMinerReward,
+		CommitteeReward:  committeeReward,
+	}
+}
+
+func getCommitteeVoted(committeeReward map[common.Address]*big.Int, election consensus.CommitteeElection,
+	fruit *types.SnailBlock, failAddr map[common.Address]bool, committeeCoinFruit *big.Int) {
+	signs := fruit.Body().Signs
+	committeeMembers, errs := election.VerifySigns(signs)
+	if len(committeeMembers) != len(errs) {
+		return
+	}
+	//Effective and not evil
+	var fruitOkAddr []common.Address
+	for i, cm := range committeeMembers {
+		if errs[i] != nil {
+			continue
+		}
+		cmPubAddr := cm.CommitteeBase
+		if signs[i].Result == types.VoteAgree {
+			if _, ok := failAddr[cmPubAddr]; !ok {
+				fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
+			}
+		} else {
+			failAddr[cmPubAddr] = false
+		}
+	}
+	// Equal by fruit
+	committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
+	for _, v := range fruitOkAddr {
+		if committeeReward[v] != nil {
+			committeeReward[v] = new(big.Int).Add(committeeReward[v], committeeCoinFruitMember)
+		} else {
+			committeeReward[v] = committeeCoinFruitMember
+		}
+	}
+}
+
 func rewardFruitCommitteeMember(state *state.StateDB, election consensus.CommitteeElection,
 	fruit *types.SnailBlock, committeeCoinFruit *big.Int, failAddr map[common.Address]bool) error {
 	signs := fruit.Body().Signs

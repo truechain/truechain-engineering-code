@@ -1158,6 +1158,34 @@ func (s *PublicBlockChainAPI) GetRewardBlock(ctx context.Context, blockNr rpc.Bl
 	return nil, err
 }
 
+func (s *PublicBlockChainAPI) GetSnailRewardContent(blockNr rpc.BlockNumber) map[string]interface{} {
+	snailRewardContent := s.b.GetSnailRewardContent(blockNr)
+	return RPCMarshalRewardContent(snailRewardContent)
+}
+
+func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]interface{}{
+
+	fields := map[string]interface{}{
+		"blockminer":           content.BlockMinerReward,
+		"fruitminer":           content.FruitMinerReward,
+		"committeReward":       content.CommitteeReward,
+	}
+
+	/*snailMinerReward := content.BlockMinerReward
+	signs := make([]interface{}, len(ss))
+	var err error
+	for i, sign := range ss {
+		if signs[i], err = formatSign(sign); err != nil {
+			return nil, err
+		}
+	}
+
+	fields["blockminer"] = content.BlockMinerReward
+	for*/
+
+	return fields
+}
+
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
 type RPCTransaction struct {
 	BlockHash        common.Hash     `json:"blockHash"`
