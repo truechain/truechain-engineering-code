@@ -158,7 +158,7 @@ func (f *fetcherTester) insertChain(blocks types.SnailBlocks) (int, error) {
 
 // dropPeer is an emulator for the peer removal, simply accumulating the various
 // peers dropped by the fetcher.
-func (f *fetcherTester) dropPeer(peer string) {
+func (f *fetcherTester) dropPeer(peer string, call uint32) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
