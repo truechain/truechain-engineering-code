@@ -281,7 +281,6 @@ func WriteBody(db DatabaseWriter, hash common.Hash, number uint64, body *types.B
 	if err != nil {
 		log.Crit("Failed to RLP encode body", "err", err)
 	}
-	//log.Info("=========   size of body","len",len(data),"number of fastblock",number)
 	WriteBodyRLP(db, hash, number, data)
 }
 
