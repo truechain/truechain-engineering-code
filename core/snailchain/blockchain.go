@@ -161,6 +161,7 @@ func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, en
 			}
 		}
 	}
+	log.Info("NewSnailBlockChain", "number", bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64(), "TD", bc.GetTd(bc.currentBlock.Load().(*types.SnailBlock).Hash(), bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64()))
 	// Take ownership of this particular state
 	go bc.update()
 	return bc, nil
