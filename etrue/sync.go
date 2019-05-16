@@ -295,7 +295,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	pm.fdownloader.SetSyncStatsChainHeightLast(fastHeight)
 	currentNumber := pm.blockchain.CurrentBlock().NumberU64()
-	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHeight", fastHeight, "currentNumber",currentNumber)
+	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHeight", fastHeight, "currentNumber", currentNumber, "snailHeight", currentBlock.Number())
 	if pTd.Cmp(td) <= 0 {
 
 		if fastHeight > currentNumber {
