@@ -307,7 +307,7 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 	lastCanon := bc.GetBlockByNumber(head)
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
 		events := make([]interface{}, 0, 1)
-		events = append(events, types.SnailChainHeadEvent{lastCanon})
+		events = append(events, types.SnailChainHeadEvent{Block: lastCanon})
 		bc.PostChainEvents(events)
 	}
 
@@ -901,7 +901,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 			//coalescedLogs = append(coalescedLogs, logs...)
 
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, types.SnailChainEvent{block, block.Hash()})
+			events = append(events, types.SnailChainEvent{Block: block, Hash: block.Hash()})
 			lastCanon = block
 
 		case SideStatTy:
@@ -910,7 +910,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 				common.PrettyDuration(time.Since(bstart)), "fts", len(block.Fruits()))
 
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, types.SnailChainSideEvent{block})
+			events = append(events, types.SnailChainSideEvent{Block: block})
 		}
 		stats.processed++
 
@@ -935,7 +935,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, types.SnailChainHeadEvent{lastCanon})
+		events = append(events, types.SnailChainHeadEvent{Block: lastCanon})
 	}
 	return it.index, events, err
 }
