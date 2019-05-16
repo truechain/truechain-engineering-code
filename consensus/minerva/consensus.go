@@ -879,9 +879,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 }
 
 func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types.SnailRewardContenet {
-	blockMinerReward := make(map[common.Address]*big.Int)
-	fruitMinerReward := make(map[*common.Address]*big.Int)
-	committeeReward := make(map[common.Address]*big.Int)
 	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(sBlock.Header().Number)
 	if e != nil {
 		return nil
@@ -889,6 +886,10 @@ func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types
 	var (
 		blockFruits    = sBlock.Body().Fruits
 		blockFruitsLen = big.NewInt(int64(len(blockFruits)))
+
+		blockMinerReward = make(map[common.Address]*big.Int)
+		fruitMinerReward = make([]map[common.Address]*big.Int,len(blockFruits))
+		committeeReward = make(map[common.Address]*big.Int)
 	)
 	if blockFruitsLen.Uint64() == 0 {
 		return nil
@@ -903,15 +904,13 @@ func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types
 	)
 	//miner's award
 	blockMinerReward[sBlock.Coinbase()] = minerCoin
-	for _, fruit := range blockFruits {
-		fruitCoinbase := fruit.Coinbase()
-		fruitMinerReward[&fruitCoinbase] = minerFruitCoinOne
+	for i, fruit := range blockFruits {
+		fruitMap :=make(map[common.Address]*big.Int)
+		fruitMap[fruit.Coinbase()] = minerFruitCoinOne
+		fruitMinerReward[i]= fruitMap
 		//committee reward
 		getCommitteeVoted(committeeReward, m.election, fruit, failAddr, committeeCoinFruit)
 	}
-	log.Warn("GetRewardContentBySnailNumber", "blockminer", blockMinerReward)
-	log.Warn("GetRewardContentBySnailNumber", "fruitminer", fruitMinerReward)
-	log.Warn("GetRewardContentBySnailNumber", "committeReward", committeeReward)
 	return &types.SnailRewardContenet{
 		BlockMinerReward: blockMinerReward,
 		FruitMinerReward: fruitMinerReward,

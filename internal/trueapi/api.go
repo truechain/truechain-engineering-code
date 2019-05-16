@@ -93,12 +93,12 @@ func (s *PublicTrueAPI) Syncing() (interface{}, error) {
 	}
 	// Otherwise gather the block sync stats
 	return map[string]interface{}{
-		"startingFastBlock": hexutil.Uint64(progress.StartingFastBlock),
-		"currentFastBlock":  hexutil.Uint64(progress.CurrentFastBlock),
-		"highestFastBlock":  hexutil.Uint64(progress.HighestFastBlock),
-		"startingSnailBlock":      hexutil.Uint64(progress.StartingSnailBlock),
-		"currentSnailBlock":       hexutil.Uint64(progress.CurrentSnailBlock),
-		"highestSnailBlock":       hexutil.Uint64(progress.HighestSnailBlock),
+		"startingFastBlock":  hexutil.Uint64(progress.StartingFastBlock),
+		"currentFastBlock":   hexutil.Uint64(progress.CurrentFastBlock),
+		"highestFastBlock":   hexutil.Uint64(progress.HighestFastBlock),
+		"startingSnailBlock": hexutil.Uint64(progress.StartingSnailBlock),
+		"currentSnailBlock":  hexutil.Uint64(progress.CurrentSnailBlock),
+		"highestSnailBlock":  hexutil.Uint64(progress.HighestSnailBlock),
 		"pulledStates":       hexutil.Uint64(progress.PulledStates),
 		"knownStates":        hexutil.Uint64(progress.KnownStates),
 	}, nil
@@ -1163,26 +1163,23 @@ func (s *PublicBlockChainAPI) GetSnailRewardContent(blockNr rpc.BlockNumber) map
 	return RPCMarshalRewardContent(snailRewardContent)
 }
 
-func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]interface{}{
-
+func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]interface{} {
+	if content == nil {
+		return nil
+	}
 	fields := map[string]interface{}{
-		"blockminer":           content.BlockMinerReward,
-		"fruitminer":           content.FruitMinerReward,
-		"committeReward":       content.CommitteeReward,
+		"blockminer":     content.BlockMinerReward,
+		"fruitminer":     content.FruitMinerReward,
+		"committeReward": content.CommitteeReward,
 	}
-
-	/*snailMinerReward := content.BlockMinerReward
-	signs := make([]interface{}, len(ss))
-	var err error
-	for i, sign := range ss {
-		if signs[i], err = formatSign(sign); err != nil {
-			return nil, err
+	/*log.Warn("api", "blockminer", content.BlockMinerReward)
+	log.Warn("api", "committeReward", content.CommitteeReward)
+	log.Warn("api", "fruitminer", len(content.FruitMinerReward))
+	for _,reward :=range content.FruitMinerReward{
+		for k,v :=range reward{
+			log.Warn("api", hex.EncodeToString(k[:]), v)
 		}
-	}
-
-	fields["blockminer"] = content.BlockMinerReward
-	for*/
-
+	}*/
 	return fields
 }
 
@@ -1630,7 +1627,7 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	raw_tx := new(types.RawTransaction)
 	if err := rlp.DecodeBytes(encodedTx, raw_tx); err != nil {
-		log.Error("api method SendRawTransaction error",  "error", err)
+		log.Error("api method SendRawTransaction error", "error", err)
 		return common.Hash{}, err
 	}
 	tx := raw_tx.ConvertTransaction()
@@ -1641,7 +1638,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 func (s *PublicTransactionPoolAPI) SendTrueRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
-		log.Error("api method SendTrueRawTransaction error",  "error", err)
+		log.Error("api method SendTrueRawTransaction error", "error", err)
 		return common.Hash{}, err
 	}
 	//log.Info("api method SendTrueRawTransaction info", "tx.info", tx.Info())

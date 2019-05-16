@@ -624,7 +624,7 @@ func (agent *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 }
 
 func (agent *PbftAgent) sendAndMarkNode(cryptoNodeInfo *types.EncryptNodeMessage) {
-	new_cryptoNodeInfo :=&cryptoNodeInfo
+	new_cryptoNodeInfo := &cryptoNodeInfo
 	agent.MarkBroadcastNodeTag(*new_cryptoNodeInfo)
 	go agent.nodeInfoFeed.Send(types.NodeInfoEvent{*new_cryptoNodeInfo})
 }
@@ -845,13 +845,16 @@ func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 	}
 }
 
-func (agent *PbftAgent)	GetSnailRewardContent(rewardSnailHegiht uint64)	*types.SnailRewardContenet{
-	snailBlock :=agent.snailChain.GetBlockByNumber(rewardSnailHegiht)
-	space := agent.snailChain.CurrentBlock().Number().Uint64() -rewardSnailHegiht
-	if space < params.SnailRewardInterval.Uint64() {
+func (agent *PbftAgent) GetSnailRewardContent(rewardSnailHegiht uint64) *types.SnailRewardContenet {
+	currentNumber := agent.snailChain.CurrentBlock().Number().Uint64()
+	if space := currentNumber - rewardSnailHegiht; space < params.SnailRewardInterval.Uint64() && rewardSnailHegiht < currentNumber {
 		return nil
 	}
-	content:= agent.engine.GetRewardContentBySnailNumber(snailBlock)
+	snailBlock := agent.snailChain.GetBlockByNumber(rewardSnailHegiht)
+	if snailBlock == nil {
+		return nil
+	}
+	content := agent.engine.GetRewardContentBySnailNumber(snailBlock)
 	return content
 }
 
