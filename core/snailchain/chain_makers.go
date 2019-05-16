@@ -325,7 +325,6 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 	_, err := MakeSnailBlockBlockChain(snailChain, fastchain, snailGenesis, snailBlockNumbers, big.NewInt(20000))
 	if err != nil {
 		panic(err)
-		return nil, nil
 	}
 
 	return snailChain, fastchain

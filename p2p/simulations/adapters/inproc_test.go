@@ -20,10 +20,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/p2p/simulations/pipes"
 	"testing"
 	"time"
-
-	"github.com/ethereum/go-ethereum/p2p/simulations/pipes"
 )
 
 func TestTCPPipe(t *testing.T) {
