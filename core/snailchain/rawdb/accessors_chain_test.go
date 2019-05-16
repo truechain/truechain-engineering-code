@@ -257,8 +257,20 @@ func TestHeadStorage(t *testing.T) {
 
 func TestCommitteeStates(t *testing.T) {
 	db := etruedb.NewMemDatabase()
-	states := []uint64{10, 12, 14}
-	updated := []uint64{10, 12, 14, 20, 30}
+
+	stateNums   := []int64{10, 12, 14}
+	updateNums  := []int64{10, 12, 14, 20, 30}
+
+	states      := []*big.Int{}
+	updated     := []*big.Int{}
+
+	for n := range stateNums {
+		states = append(states, big.NewInt(int64(n)))
+	}
+
+	for n := range updateNums {
+		updated = append(updated, big.NewInt(int64(n)))
+	}
 
 	WriteCommitteeStates(db, 0, states)
 	nums := ReadCommitteeStates(db, 0)
@@ -266,7 +278,7 @@ func TestCommitteeStates(t *testing.T) {
 		t.Fatalf("Read Committee states invalid: %v", nums)
 	}
 	for i := range nums {
-		if nums[i] != states[i] {
+		if nums[i].Cmp(states[i]) != 0 {
 			t.Fatalf("Read Committee states error at %v", i)
 		}
 	}
@@ -277,7 +289,7 @@ func TestCommitteeStates(t *testing.T) {
 		t.Fatalf("Read Committee states invalid: %v", nums)
 	}
 	for i := range nums {
-		if nums[i] != updated[i] {
+		if nums[i].Cmp(updated[i]) != 0 {
 			t.Fatalf("Read Committee states error at %v", i)
 		}
 	}
