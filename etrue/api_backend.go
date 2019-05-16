@@ -207,6 +207,10 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 	return b.etrue.blockchain.GetBlockReward(uint64(number))
 }
 
+func (b *TrueAPIBackend) GetSnailRewardContent(snailNumber rpc.BlockNumber) *types.SnailRewardContenet {
+	return b.etrue.agent.GetSnailRewardContent(uint64(snailNumber))
+}
+
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
 	return b.etrue.election.GetCommitteeById(big.NewInt(number.Int64())), nil
 }

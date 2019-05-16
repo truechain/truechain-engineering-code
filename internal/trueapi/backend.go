@@ -64,6 +64,7 @@ type Backend interface {
 	SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent) event.Subscription
 	GetReward(number int64) *types.BlockReward
 	GetCommittee(id rpc.BlockNumber) (map[string]interface{}, error)
+	GetSnailRewardContent(blockNr rpc.BlockNumber) *types.SnailRewardContenet
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error

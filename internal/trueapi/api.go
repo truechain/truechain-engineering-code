@@ -1153,6 +1153,31 @@ func (s *PublicBlockChainAPI) GetRewardBlock(ctx context.Context, blockNr rpc.Bl
 	return nil, err
 }
 
+func (s *PublicBlockChainAPI) GetSnailRewardContent(blockNr rpc.BlockNumber) map[string]interface{} {
+	snailRewardContent := s.b.GetSnailRewardContent(blockNr)
+	return RPCMarshalRewardContent(snailRewardContent)
+}
+
+func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]interface{} {
+	if content == nil {
+		return nil
+	}
+	fields := map[string]interface{}{
+		"blockminer":     content.BlockMinerReward,
+		"fruitminer":     content.FruitMinerReward,
+		"committeReward": content.CommitteeReward,
+	}
+	/*log.Warn("api", "blockminer", content.BlockMinerReward)
+	log.Warn("api", "committeReward", content.CommitteeReward)
+	log.Warn("api", "fruitminer", len(content.FruitMinerReward))
+	for _,reward :=range content.FruitMinerReward{
+		for k,v :=range reward{
+			log.Warn("api", hex.EncodeToString(k[:]), v)
+		}
+	}*/
+	return fields
+}
+
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
 type RPCTransaction struct {
 	BlockHash        common.Hash     `json:"blockHash"`
@@ -1600,17 +1625,17 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 	tx := raw_tx.ConvertTransaction()
-	log.Info("api method SendRawTransaction info", "tx.info", tx.Info())
+	//log.Info("api method SendRawTransaction info", "tx.info", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 
 func (s *PublicTransactionPoolAPI) SendTrueRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
-		log.Error("api method SendTrueRawTransaction error", "tx.info", tx.Info(), "error", err)
+		log.Error("api method SendTrueRawTransaction error", "error", err)
 		return common.Hash{}, err
 	}
-	log.Info("api method SendTrueRawTransaction info", "tx.info", tx.Info())
+	//log.Info("api method SendTrueRawTransaction info", "tx.info", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 

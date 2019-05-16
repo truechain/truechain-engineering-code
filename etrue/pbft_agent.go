@@ -821,6 +821,19 @@ func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 	}
 }
 
+func (agent *PbftAgent) GetSnailRewardContent(rewardSnailHegiht uint64) *types.SnailRewardContenet {
+	currentNumber := agent.snailChain.CurrentBlock().Number().Uint64()
+	if space := currentNumber - rewardSnailHegiht; space < params.SnailRewardInterval.Uint64() && rewardSnailHegiht < currentNumber {
+		return nil
+	}
+	snailBlock := agent.snailChain.GetBlockByNumber(rewardSnailHegiht)
+	if snailBlock == nil {
+		return nil
+	}
+	content := agent.engine.GetRewardContentBySnailNumber(snailBlock)
+	return content
+}
+
 //GenerateSignWithVote  generate sign from committeeMember in fastBlock
 func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint32, result bool) (*types.PbftSign, error) {
 	if !result {

@@ -5365,6 +5365,13 @@ var methods = function () {
         inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
     });
 
+    var getSnailRewardContent = new Method({
+      name: 'getSnailRewardContent',
+      call: 'etrue_getSnailRewardContent',
+      params: 1,
+      inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
+    });
+
     var getSnail = new Method({
         name: 'getSnail',
         call: snailBlockCall,
@@ -5555,6 +5562,7 @@ var methods = function () {
         getCode,
         getBlock,
         getRewardBlock,
+      getSnailRewardContent,
         getSnail,
         getFruit,
         getUncle,

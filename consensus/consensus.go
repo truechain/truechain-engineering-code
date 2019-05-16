@@ -146,6 +146,8 @@ type Engine interface {
 	APIs(chain ChainReader) []rpc.API
 
 	DataSetHash(block uint64) []byte
+
+	GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types.SnailRewardContenet
 }
 
 //Election module implementation committee interface
