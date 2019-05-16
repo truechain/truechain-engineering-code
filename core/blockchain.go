@@ -711,10 +711,14 @@ func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 		return block.(*types.Block)
 	}
 	var block *types.Block
-	if bc.cacheConfig.HeightGcState.Load().(uint64) < number && number > 0 {
+	if bc.cacheConfig.HeightGcState.Load().(uint64) < number {
 		block = rawdb.ReadBlock(bc.db, hash, number)
 	} else {
-		block = rawdb.ReadSnapBlock(bc.db, hash, number)
+		if bc.HasBlock(hash, number) {
+			block = rawdb.ReadBlock(bc.db, hash, number)
+		} else {
+			block = rawdb.ReadSnapBlock(bc.db, hash, number)
+		}
 	}
 	if block == nil {
 		return nil
