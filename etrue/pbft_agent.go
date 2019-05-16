@@ -605,7 +605,7 @@ func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMes
 		return false, nil, common.Hash{}, nil
 	}
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
-	nodeTag := &types.CommitteeNodeTag{encryptNode.CommitteeID, pubKeyByte}
+	nodeTag := &types.CommitteeNodeTag{CommitteeID:encryptNode.CommitteeID, PubKey:pubKeyByte}
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
 		return true, agent.nodeInfoWorks[0], nodeTag.Hash(), pubKey
@@ -626,7 +626,7 @@ func (agent *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 func (agent *PbftAgent) sendAndMarkNode(cryptoNodeInfo *types.EncryptNodeMessage) {
 	new_cryptoNodeInfo := &cryptoNodeInfo
 	agent.MarkBroadcastNodeTag(*new_cryptoNodeInfo)
-	go agent.nodeInfoFeed.Send(types.NodeInfoEvent{*new_cryptoNodeInfo})
+	go agent.nodeInfoFeed.Send(types.NodeInfoEvent{NodeInfo:*new_cryptoNodeInfo})
 }
 
 func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.CommitteeNode, privateKey *ecdsa.PrivateKey) *types.EncryptNodeMessage {

@@ -281,7 +281,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	sendEvent := func() {
 		// reset on error
 		if err != nil {
-			pm.eventMux.Post(downloader.FailedEvent{err})
+			pm.eventMux.Post(downloader.FailedEvent{Err:err})
 		} else {
 			pm.eventMux.Post(downloader.DoneEvent{})
 		}
