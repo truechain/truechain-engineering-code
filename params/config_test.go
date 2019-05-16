@@ -29,10 +29,10 @@ func TestCheckCompatible(t *testing.T) {
 		wantErr     *ConfigCompatError
 	}
 	tests := []test{
-		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, head: 0, wantErr: nil},
-		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, head: 100, wantErr: nil},
+		{stored: AllMinervaProtocolChanges, new: AllMinervaProtocolChanges, head: 0, wantErr: nil},
+		{stored: AllMinervaProtocolChanges, new: AllMinervaProtocolChanges, head: 100, wantErr: nil},
 		{
-			stored: AllEthashProtocolChanges,
+			stored: AllMinervaProtocolChanges,
 			head:   3,
 			wantErr: &ConfigCompatError{
 				What:         "Homestead fork block",
@@ -42,7 +42,7 @@ func TestCheckCompatible(t *testing.T) {
 			},
 		},
 		{
-			stored: AllEthashProtocolChanges,
+			stored: AllMinervaProtocolChanges,
 			head:   3,
 			wantErr: &ConfigCompatError{
 				What:         "Homestead fork block",
