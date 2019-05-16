@@ -17,15 +17,14 @@
 package rawdb
 
 import (
-	"bytes"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"golang.org/x/crypto/sha3"
 )
 
 // Tests block header storage and retrieval operations.
@@ -148,8 +147,7 @@ func TestBlockStorage(t *testing.T) {
 func TestPartialBlockStorage(t *testing.T) {
 	db := etruedb.NewMemDatabase()
 	block := types.NewSnailBlockWithHeader(&types.SnailHeader{
-		Extra:     []byte("test block"),
-		UncleHash: types.EmptyUncleHash,
+		Extra: []byte("test block"),
 	})
 	// Store a header and check that it's not recognized as a block
 	WriteHeader(db, block.Header())
