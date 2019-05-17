@@ -30,8 +30,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
+	"golang.org/x/crypto/sha3"
 )
 
 // Tests whether the truehash lookup works for both light as well as the full
@@ -196,7 +196,6 @@ func readLine(fileName string, handler func(string)) error {
 			return err
 		}
 	}
-	return nil
 }
 func fetchhashfromFile(fileName string) []common.Hash {
 	heads := make([]common.Hash, 0)
