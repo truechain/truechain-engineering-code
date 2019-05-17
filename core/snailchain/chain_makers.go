@@ -298,8 +298,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 		testdb = etruedb.NewMemDatabase()
 	)
 	cache := &core.CacheConfig{
-		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -583,15 +583,15 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 			return nil, fmt.Errorf("fruits make fail the length less then makeFruitSize")
 		}
 
-		fSign, err := copySignsByFastNum(fastchain, new(big.Int).SetUint64(uint64(makeStartFastNum)))
+		/*fSign, err := copySignsByFastNum(fastchain, new(big.Int).SetUint64(uint64(makeStartFastNum)))
 		if err != nil {
 			return nil, err
-		}
+		}*/
 
 		block := types.NewSnailBlock(
 			makeHead(chain, pubkey, coinbaseAddr, new(big.Int).SetInt64(int64(makeStartFastNum)), false),
 			fruitsetCopy,
-			fSign,
+			nil,
 			nil,
 		)
 		return block, nil
