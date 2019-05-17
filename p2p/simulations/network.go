@@ -849,14 +849,20 @@ var snapshotLoadTimeout = 120 * time.Second
 // Load loads a network snapshot
 func (net *Network) Load(snap *Snapshot) error {
 	// Start nodes.
-	for _, n := range snap.Nodes {
-		if _, err := net.NewNodeWithConfig(n.Node.Config); err != nil {
+	for i := 0; i < len(snap.Nodes); i++ {
+		nodeCopy := &Node{
+			Node:   snap.Nodes[i].Node.Node,
+			Config: snap.Nodes[i].Node.Config,
+			up:     snap.Nodes[i].Node.up,
+		}
+		n := nodeCopy
+		if _, err := net.NewNodeWithConfig(n.Config); err != nil {
 			return err
 		}
-		if !n.Node.Up() {
+		if !n.Up() {
 			continue
 		}
-		if err := net.startWithSnapshots(n.Node.Config.ID, n.Snapshots); err != nil {
+		if err := net.startWithSnapshots(n.Config.ID, snap.Nodes[i].Snapshots); err != nil {
 			return err
 		}
 	}
