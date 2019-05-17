@@ -58,7 +58,7 @@ func (bc *testBlockChain) CurrentBlock() *types.Block {
 }
 
 func (bc *testBlockChain) CurrentReward() *types.BlockReward {
-	return &types.BlockReward{bc.CurrentBlock().Hash(), bc.CurrentBlock().Number(), bc.CurrentBlock().SnailHash(), bc.CurrentBlock().SnailNumber()}
+	return &types.BlockReward{FastHash: bc.CurrentBlock().Hash(), FastNumber: bc.CurrentBlock().Number(), SnailHash: bc.CurrentBlock().SnailHash(), SnailNumber: bc.CurrentBlock().SnailNumber()}
 }
 
 func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
