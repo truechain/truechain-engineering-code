@@ -245,7 +245,7 @@ func validateFruitEvents(events chan types.NewFruitsEvent, count int) error {
 		case ev := <-events:
 			received = append(received, ev.Fruits...)
 		case <-time.After(time.Second):
-			return fmt.Errorf("event #%d not fired", received)
+			return fmt.Errorf("event #%v not fired", received)
 		}
 	}
 	if len(received) > count {
@@ -268,22 +268,22 @@ func TestInvalidFruits(t *testing.T) {
 	t.Parallel()
 	var header *types.SnailHeader
 	header = &types.SnailHeader{
-		header.Hash(),
-		common.BytesToAddress([]byte{0}),
-		header.Hash(),
-		big.NewInt(0),
-		header.Hash(),
-		header.Hash(),
-		big.NewInt(182),
-		header.Hash(),
-		big.NewInt(0),
-		big.NewInt(1789570),
-		big.NewInt(0),
-		[]byte{0},
-		nil,
-		[]byte{0},
-		header.Hash(),
-		[8]byte{},
+		ParentHash:      header.Hash(),
+		Coinbase:        common.BytesToAddress([]byte{0}),
+		PointerHash:     header.Hash(),
+		PointerNumber:   big.NewInt(0),
+		FruitsHash:      header.Hash(),
+		FastHash:        header.Hash(),
+		FastNumber:      big.NewInt(182),
+		SignHash:        header.Hash(),
+		Difficulty:      big.NewInt(0),
+		FruitDifficulty: big.NewInt(1789570),
+		Number:          big.NewInt(0),
+		Publickey:       []byte{0},
+		Time:            nil,
+		Extra:           []byte{0},
+		MixDigest:       header.Hash(),
+		Nonce:           [8]byte{},
 	}
 	var ft *types.SnailBlock
 	ft = types.NewSnailBlock(header, nil, nil, nil)
