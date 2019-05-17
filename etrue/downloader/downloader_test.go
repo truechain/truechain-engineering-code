@@ -1364,7 +1364,7 @@ func testSyncProgress(t *testing.T, protocol int, mode SyncMode) {
 		}
 	}()
 	<-starting
-	if progress := tester.downloader.Progress(); progress.StartingSnailBlock != 0 || progress.StartingSnailBlock != 0 || progress.HighestSnailBlock != uint64(targetBlocks/2) {
+	if progress := tester.downloader.Progress(); progress.StartingSnailBlock != 0 || progress.CurrentSnailBlock != 0 || progress.HighestSnailBlock != uint64(targetBlocks/2) {
 		t.Fatalf("Initial progress mismatch: have %v/%v/%v, want %v/%v/%v", progress.StartingSnailBlock, progress.CurrentSnailBlock, progress.HighestSnailBlock, 0, 0, targetBlocks/2)
 	}
 	// Retrieve the sync progress and ensure they are zero (pristine sync)
