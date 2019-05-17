@@ -1308,7 +1308,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 				"root", block.Root())
 
 			coalescedLogs = append(coalescedLogs, logs...)
-			events = append(events, types.FastChainEvent{block, block.Hash(), logs})
+			events = append(events, types.FastChainEvent{Block:block, Hash:block.Hash(), Logs:logs})
 			lastCanon = block
 
 			// Only count canonical blocks for GC processing time
@@ -1340,7 +1340,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, types.FastChainHeadEvent{lastCanon})
+		events = append(events, types.FastChainHeadEvent{Block:lastCanon})
 	}
 	return it.index, events, coalescedLogs, err
 }
@@ -1548,7 +1548,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	batch.Write()
 
 	if len(deletedLogs) > 0 {
-		go bc.rmLogsFeed.Send(types.RemovedLogsEvent{deletedLogs})
+		go bc.rmLogsFeed.Send(types.RemovedLogsEvent{Logs:deletedLogs})
 	}
 	if len(oldChain) > 0 {
 		go func() {
