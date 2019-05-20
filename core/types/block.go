@@ -763,9 +763,9 @@ func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.heade
 func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header) }
 func (b *SnailBlock) IsFruit() bool {
 	if len(b.signs) == 0 || b.signs == nil {
+		// block not need signs
 		return false
 	} else {
-		// block not need signs
 		return true
 	}
 }
