@@ -202,6 +202,7 @@ func TestPbftRunForOne(t *testing.T) {
 	c1.StartHeight = common.Big0
 	n.PutCommittee(c1)
 	n.Notify(c1.Id, Start)
+	go CloseStart(start)
 	<-start
 }
 
@@ -270,7 +271,7 @@ func TestPbftRunFor2(t *testing.T) {
 	n2.PutCommittee(c1)
 	n2.PutNodes(common.Big1, cn)
 	n2.Notify(c1.Id, Start)
-
+	go CloseStart(start)
 	<-start
 }
 
@@ -402,7 +403,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n4.PutCommittee(c1)
 	n4.PutNodes(common.Big1, cn)
 	n4.Notify(c1.Id, Start)
-
+	go CloseStart(start)
 	<-start
 }
 
@@ -553,7 +554,7 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	n4.PutNodes(common.Big2, cn)
 	n4.Notify(c1.Id, Stop)
 	n4.Notify(c2.Id, Start)
-
+	go CloseStart(start)
 	<-start
 }
 
@@ -707,7 +708,7 @@ func TestPbftRunFor5(t *testing.T) {
 	n1.PutNodes(common.Big1, cn)
 	n2.PutNodes(common.Big1, cn)
 	n3.PutNodes(common.Big1, cn)
-
+	go CloseStart(start)
 	<-start
 }
 
@@ -783,6 +784,7 @@ func TestRunPbft1(t *testing.T) {
 	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	//	n1.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
 
@@ -858,6 +860,7 @@ func TestRunPbft2(t *testing.T) {
 	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	//	n2.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
 
@@ -939,6 +942,7 @@ func TestRunPbft3(t *testing.T) {
 	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	//	n3.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
 
@@ -1014,6 +1018,7 @@ func TestRunPbft4(t *testing.T) {
 	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	//	n4.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
 
@@ -1234,6 +1239,8 @@ func TestPutNodes(t *testing.T) {
 	n1.PutCommittee(c1)
 	n1.PutNodes(common.Big1, cn)
 	n1.Notify(c1.Id, Start)
+
+	go CloseStart(start)
 
 	<-start
 }

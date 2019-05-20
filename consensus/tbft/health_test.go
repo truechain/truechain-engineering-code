@@ -494,7 +494,13 @@ func TestPbftRunForHealth(t *testing.T) {
 	n3.UpdateCommittee(c1)
 	n4.UpdateCommittee(c1)
 
+	go CloseStart(start)
 	<-start
+}
+
+func CloseStart(c chan int) {
+	time.Sleep(time.Minute)
+	c <- 1
 }
 
 func TestRunPbftChange1(t *testing.T) {
@@ -579,6 +585,9 @@ func TestRunPbftChange1(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n1.UpdateCommittee(c1)
 	//}
+
+	go CloseStart(start)
+
 	<-start
 }
 
@@ -664,6 +673,8 @@ func TestRunPbftChange2(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n2.UpdateCommittee(c1)
 	//}
+
+	go CloseStart(start)
 	<-start
 }
 
@@ -749,6 +760,8 @@ func TestRunPbftChange3(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n3.UpdateCommittee(c1)
 	//}
+
+	go CloseStart(start)
 	<-start
 }
 
@@ -835,6 +848,8 @@ func TestRunPbftChange4(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n4.UpdateCommittee(c1)
 	//}
+
+	go CloseStart(start)
 	<-start
 }
 
@@ -921,5 +936,6 @@ func TestRunPbftChange5(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n4.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
