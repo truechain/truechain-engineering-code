@@ -10,10 +10,10 @@ fi
 # Create fake Go workspace if it doesn't exist yet.
 workspace="$PWD/build/_workspace"
 root="$PWD"
-ethdir="$workspace/src/github.com/truechain"
-if [ ! -L "$ethdir/truechain-engineering-code" ]; then
-    mkdir -p "$ethdir"
-    cd "$ethdir"
+truedir="$workspace/src/github.com/truechain"
+if [ ! -L "$truedir/truechain-engineering-code" ]; then
+    mkdir -p "$truedir"
+    cd "$truedir"
     ln -s ../../../../../. truechain-engineering-code
     cd "$root"
 fi
@@ -23,8 +23,8 @@ GOPATH="$workspace"
 export GOPATH
 
 # Run the command inside the workspace.
-cd "$ethdir/truechain-engineering-code"
-PWD="$ethdir/truechain-engineering-code"
+cd "$truedir/truechain-engineering-code"
+PWD="$truedir/truechain-engineering-code"
 
 # Launch the arguments with the configured environment.
 exec "$@"
