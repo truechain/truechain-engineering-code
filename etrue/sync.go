@@ -265,7 +265,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
 
 	if !atomic.CompareAndSwapInt32(&pm.synchronising, 0, 1) {
-		log.Debug("synchronise busy")
+		log.Debug("synchronise snail busy")
 		return
 	}
 	defer atomic.StoreInt32(&pm.synchronising, 0)
@@ -281,7 +281,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	sendEvent := func() {
 		// reset on error
 		if err != nil {
-			pm.eventMux.Post(downloader.FailedEvent{Err:err})
+			pm.eventMux.Post(downloader.FailedEvent{Err: err})
 		} else {
 			pm.eventMux.Post(downloader.DoneEvent{})
 		}

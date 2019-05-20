@@ -533,6 +533,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 	if len(send) == 0 {
 		return nil, progress, nil
 	}
+	log.Trace("reserve fast Headers", "pendPool", len(pendPool), "donePool", len(donePool), "space", space, "count", count, "send", len(send), "send", len(send), "progress", progress)
 	request := &etrue.FetchRequest{
 		Peer:     p,
 		Fheaders: send,

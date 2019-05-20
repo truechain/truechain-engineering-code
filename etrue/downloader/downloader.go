@@ -39,14 +39,14 @@ import (
 )
 
 var (
-	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
-	MaxBlockFetch   = 128 // Amount of blocks to be fetched per retrieval request
-	MaxHeaderFetch  = 192 // Amount of block headers to be fetched per retrieval request
-	MaxFastHeaderFetch  = 600 // Amount of fast block headers to be fetched per retrieval request
-	MaxSkeletonSize = 128 // Number of header fetches to need for a skeleton assembly
-	MaxBodyFetch    = 128 // Amount of block bodies to be fetched per retrieval request
-	MaxReceiptFetch = 256 // Amount of transaction receipts to allow fetching per request
-	MaxStateFetch   = 384 // Amount of node state values to allow fetching per request
+	MaxHashFetch       = 512 // Amount of hashes to be fetched per retrieval request
+	MaxBlockFetch      = 128 // Amount of blocks to be fetched per retrieval request
+	MaxHeaderFetch     = 192 // Amount of block headers to be fetched per retrieval request
+	MaxFastHeaderFetch = 600 // Amount of fast block headers to be fetched per retrieval request
+	MaxSkeletonSize    = 128 // Number of header fetches to need for a skeleton assembly
+	MaxBodyFetch       = 128 // Amount of block bodies to be fetched per retrieval request
+	MaxReceiptFetch    = 256 // Amount of transaction receipts to allow fetching per request
+	MaxStateFetch      = 384 // Amount of node state values to allow fetching per request
 
 	MaxForkAncestry  = 3 * params.EpochDuration // Maximum chain reorganisation
 	rttMaxEstimate   = 20 * time.Second         // Maximum round-trip time to target for download requests
@@ -67,7 +67,8 @@ var (
 	fsHeaderSafetyNet = 2048            // Number of headers to discard in case a chain violation is detected
 	fsHeaderContCheck = 3 * time.Second // Time interval to check for header continuations during state download
 
-	maxheight = uint64(600)
+	maxheight          = uint64(600)
+	maxSyncSnailHeight = 14
 )
 
 var (
@@ -1065,7 +1066,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 		case packet := <-deliveryCh:
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
-			log.Debug("Snail downloader ", "id", packet.PeerId(), "function", "fetchParts")
+			log.Debug("Snail deliver", "id", packet.PeerId(), "type", kind, "pending", pending(), "count", packet.Stats())
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
 				// Deliver the received chunk of data and check chain validity
 				accepted, err := deliver(packet)
@@ -1081,11 +1082,11 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 				// Issue a log to the user to see what's going on
 				switch {
 				case err == nil && packet.Items() == 0:
-					peer.GetLog().Trace("Requested data not delivered", "type", kind)
+					peer.GetLog().Trace("Requested snail data not delivered", "type", kind)
 				case err == nil:
-					peer.GetLog().Trace("Delivered new batch of data", "type", kind, "count", packet.Stats())
+					peer.GetLog().Trace("Delivered new batch of snail data", "type", kind, "count", packet.Stats(), "pending", pending())
 				default:
-					peer.GetLog().Trace("Failed to deliver retrieved data", "type", kind, "err", err)
+					peer.GetLog().Trace("Failed to deliver retrieved snail data", "type", kind, "err", err)
 				}
 			}
 			// Blocks assembled, try to update the progress
@@ -1131,7 +1132,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 						peer.GetLog().Trace("Data delivery timed out", "type", kind)
 						setIdle(peer, 0)
 					} else {
-						peer.GetLog().Debug("Stalling delivery, dropping", "type", kind)
+						peer.GetLog().Debug("Stalling delivery,snail dropping", "type", kind)
 						if d.dropPeer == nil {
 							// The dropPeer method is nil when `--copydb` is used for a local copy.
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
@@ -1179,9 +1180,9 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 					continue
 				}
 				if request.From > 0 {
-					peer.GetLog().Trace("Requesting new batch of data", "type", kind, "from", request.From)
+					peer.GetLog().Trace("Requesting new batch of data", "type", kind, "pending", pending(), "progress", progress, "from", request.From)
 				} else {
-					peer.GetLog().Trace("Requesting new batch of data", "type", kind, "count", len(request.Sheaders), "from", request.Sheaders[0].Number)
+					peer.GetLog().Trace("Requesting new batch of data", "type", kind, "pending", pending(), "count", len(request.Sheaders), "progress", progress, "from", request.Sheaders[0].Number)
 				}
 				// Fetch the chunk and make sure any errors return the hashes to the queue
 				if fetchHook != nil {
@@ -1245,6 +1246,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 			return errCancelHeaderProcessing
 
 		case headers := <-d.headerProcCh:
+			log.Debug("ProcessHeaders Snail Terminate", "headers", len(headers), "headerProcCh", len(d.headerProcCh), "PendingBlocks", d.queue.PendingBlocks())
 			// Terminate header processing if we synced up
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
@@ -1317,7 +1319,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				d.syncStatsChainHeight = origin - 1
 			}
 			d.syncStatsLock.Unlock()
-
+			log.Debug("ProcessHeaders snail over", "headers", len(headers), "origin", origin)
 			// Signal the content downloaders of the availablility of new tasks
 			for _, ch := range []chan bool{d.bodyWakeCh} {
 				select {
@@ -1392,43 +1394,61 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		"firstnum", first.Number, "firsthash", first.Hash(),
 		"lastnum", last.Number, "lasthash", last.Hash(),
 	)
-
+	sblocks := []*types.SnailBlock{}
 	for _, result := range results {
-		blocks := make([]*types.SnailBlock, 1)
-		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, nil)
-		log.Trace("Snail importBlockResults  snail block ", "snailNumber", result.Sheader.Number, "Phash", result.Sheader.ParentHash, "hash", result.Sheader.Hash())
+		block := types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, nil)
 
 		fruitLen := uint64(len(result.Fruits))
-
 		if fruitLen > 0 {
-
 			fbNumber := result.Fruits[0].FastNumber().Uint64()
 			fbLastNumber := result.Fruits[fruitLen-1].FastNumber().Uint64()
 
 			if fbLastNumber < fbNumber || fbNumber < 1 {
 				return errFruits
 			}
-			log.Debug("Snail importBlockResults ", "fbNumber", fbNumber, "fbLastNumber", fbLastNumber)
-			if err := d.SyncFast(p.GetID(), hash, fbLastNumber, d.mode); err != nil {
-				return err
-			}
-
-		} else {
-			log.Debug("Snail fruit Len is 0", "block", blocks[0].Number())
+			sblocks = append(sblocks, block)
 		}
+	}
 
-		if index, err := d.blockchain.InsertChain(blocks); err != nil {
-			log.Error("Snail Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
-			if err == types.ErrSnailHeightNotYet {
-				return err
+	maxSize := maxSyncSnailHeight
+	txLen := len(sblocks)
+	if txLen > maxSize {
+		for i := 0; i < txLen; {
+			i = i + maxSize
+			if i <= txLen {
+				d.importBlockAndSyncFast(sblocks[:maxSize], p, hash)
+				sblocks = append(sblocks[:0], sblocks[maxSize:]...)
+			} else {
+				d.importBlockAndSyncFast(sblocks[:txLen%maxSize], p, hash)
 			}
-			return errInvalidChain
 		}
-
+	} else if len(sblocks) > 0 {
+		d.importBlockAndSyncFast(sblocks, p, hash)
 	}
 
 	return nil
+}
 
+func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.PeerConnection, hash common.Hash) error {
+	firstB := blocks[0]
+	fbNumber := firstB.Fruits()[0].FastNumber().Uint64()
+
+	result := blocks[len(blocks)-1]
+	fruitLen := uint64(len(result.Fruits()))
+	fbLastNumber := result.Fruits()[fruitLen-1].FastNumber().Uint64()
+	log.Debug("Snail fast blocks", "fbNumber", fbNumber, "fbLastNumber", fbLastNumber, "first", firstB.Number(), "last", result.Number())
+	if err := d.SyncFast(p.GetID(), hash, fbLastNumber, d.mode); err != nil {
+		return err
+	}
+	log.Debug("Snail insert blocks", "blocks", len(blocks), "fbLastNumber", fbLastNumber, "first", firstB.Number(), "last", result.Number())
+	if index, err := d.blockchain.InsertChain(blocks); err != nil {
+		log.Error("Snail Downloaded item processing failed 33", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
+		if err == types.ErrSnailHeightNotYet {
+			return err
+		}
+		return errInvalidChain
+	}
+	return nil
 }
 
 func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64, mode SyncMode) (err error) {
@@ -1440,44 +1460,21 @@ func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64
 		currentNumber = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
 	}
 
+	defer func(start time.Time) {
+		log.Debug("SyncFast Synchronisation terminated", "elapsed", time.Since(start))
+	}(time.Now())
+
 	if fbLastNumber > currentNumber {
-		for {
-			height := fbLastNumber - currentNumber
-			log.Debug("Snail run fastDownloader ", "heigth", height, "fbNumLast", fbLastNumber, "currentNum", currentNumber)
-			if height > 0 {
-				if height > maxheight {
-					height = maxheight
-				}
-				for {
+		log.Debug("Run fast downloader ", "fbNumLast", fbLastNumber, "currentNum", currentNumber)
+		if mode == SnapShotSync && fbLastNumber > d.remoteHeader.Number.Uint64() {
+			mode = FastSync
+		}
 
-					if mode == SnapShotSync && fbLastNumber > d.remoteHeader.Number.Uint64() {
-						mode = FastSync
-					}
+		errs := d.fastDown.Synchronise(peer, head, fastdownloader.SyncMode(mode), currentNumber, fbLastNumber)
 
-					errs := d.fastDown.Synchronise(peer, head, fastdownloader.SyncMode(mode), currentNumber, height)
-
-					if errs != nil {
-						log.Error("Snail run SyncFast ", "err", errs, "heigth", height, "fbNumLast", fbLastNumber, "currentNum", currentNumber)
-						return errs
-					}
-
-					currentNumber_temp := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
-					if mode == FastSync {
-						currentNumber_temp = d.fastDown.GetBlockChain().CurrentFastBlock().NumberU64()
-					} else if mode == SnapShotSync {
-						currentNumber_temp = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
-					}
-					currentNumber = currentNumber_temp
-					if fbLastNumber > currentNumber_temp {
-						height = fbLastNumber - currentNumber
-						log.Debug("SNail run fastDownloader while", "heigth", height, "fbLastNumber", fbLastNumber, "currentNumber", currentNumber)
-						continue
-					}
-					break
-				}
-
-			}
-			return nil
+		if errs != nil {
+			log.Error("Snail run SyncFast ", "err", errs, "fbNumLast", fbLastNumber, "currentNum", currentNumber)
+			return errs
 		}
 	}
 	return nil

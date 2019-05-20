@@ -556,7 +556,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug("Handle send snail block headers", "headers", len(headers), "time", time.Now().Sub(now), "peer", p.id, "number", query.Origin.Number, "hash", query.Origin.Hash)
 		return p.SendBlockHeaders(&BlockHeadersData{SnailHeaders: headers, Call: query.Call}, false)
 
 	case msg.Code == SnailBlockHeadersMsg:
@@ -603,7 +602,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			headers []*types.Header
 			unknown bool
 		)
-		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit && len(headers) < downloader.MaxFastHeaderFetch {
+		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit && len(headers) < downloader.MaxHeaderFetch {
 			// Retrieve the next header satisfying the query
 			var origin *types.Header
 			if hashMode {
@@ -792,7 +791,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(data)
 			}
 		}
-		log.Debug("Handle send snail block bodies rlp", "bodies", len(bodies), "bytes", bytes/1024, "time", time.Now().Sub(now), "peer", p.id)
 		go p.SendBlockBodiesRLP(&BlockBodiesRawData{Bodies: bodies, Call: hashData.Call}, false)
 
 	case msg.Code == SnailBlockBodiesMsg:
