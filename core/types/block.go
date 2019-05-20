@@ -762,12 +762,11 @@ func (b *SnailBlock) FastNumber() *big.Int     { return new(big.Int).Set(b.heade
 func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header) }
 func (b *SnailBlock) IsFruit() bool {
-
-	if b.signs != nil {
-		return true
+	if len(b.signs) == 0 || b.signs == nil {
+		return false
 	} else {
 		// block not need signs
-		return false
+		return true
 	}
 }
 func (b *SnailBlock) Fruits() []*SnailBlock { return b.fruits }
