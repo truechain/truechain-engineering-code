@@ -858,8 +858,12 @@ func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 }
 
 func (agent *PbftAgent) GetSnailRewardContent(rewardSnailHegiht uint64) *types.SnailRewardContenet {
-	currentNumber := agent.snailChain.CurrentBlock().Number().Uint64()
-	if space := currentNumber - rewardSnailHegiht; space < params.SnailRewardInterval.Uint64() && rewardSnailHegiht < currentNumber {
+	//currentNumber := agent.snailChain.CurrentBlock().Number().Uint64()
+	/*if space := currentNumber - rewardSnailHegiht; space < params.SnailRewardInterval.Uint64() && rewardSnailHegiht < currentNumber {
+		return nil
+	}*/
+	blockReward := agent.fastChain.CurrentReward()
+	if blockReward == nil || blockReward.SnailNumber.Uint64() < rewardSnailHegiht {
 		return nil
 	}
 	snailBlock := agent.snailChain.GetBlockByNumber(rewardSnailHegiht)
