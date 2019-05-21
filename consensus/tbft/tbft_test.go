@@ -71,18 +71,12 @@ func IDAdd(agent string) {
 	}
 }
 
-var ccc bool
-
 func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos []*types.CommitteeMember) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getIDForCache(pap.Name) //getID()
 	fmt.Println(pap.Name, header.Number)
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", pap.Name, "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
-	if !ccc {
-		ccc = true
-		time.Sleep(time.Second * 5)
-	}
 	return types.NewBlock(header, nil, nil, nil, infos), nil
 }
 
@@ -528,8 +522,6 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	n2.SetCommitteeStop(c1.Id, 16)
 	n3.SetCommitteeStop(c1.Id, 16)
 	n4.SetCommitteeStop(c1.Id, 16)
-
-	time.Sleep(30 * time.Second)
 
 	c2 := *c1
 	c2.Id = common.Big2

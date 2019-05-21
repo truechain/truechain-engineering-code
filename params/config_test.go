@@ -17,7 +17,6 @@
 package params
 
 import (
-	"math/big"
 	"reflect"
 	"testing"
 )
@@ -31,35 +30,6 @@ func TestCheckCompatible(t *testing.T) {
 	tests := []test{
 		{stored: AllMinervaProtocolChanges, new: AllMinervaProtocolChanges, head: 0, wantErr: nil},
 		{stored: AllMinervaProtocolChanges, new: AllMinervaProtocolChanges, head: 100, wantErr: nil},
-		{
-			stored: AllMinervaProtocolChanges,
-			head:   3,
-			wantErr: &ConfigCompatError{
-				What:         "Homestead fork block",
-				StoredConfig: big.NewInt(0),
-				NewConfig:    nil,
-				RewindTo:     0,
-			},
-		},
-		{
-			stored: AllMinervaProtocolChanges,
-			head:   3,
-			wantErr: &ConfigCompatError{
-				What:         "Homestead fork block",
-				StoredConfig: big.NewInt(0),
-				NewConfig:    big.NewInt(1),
-				RewindTo:     0,
-			},
-		},
-		{
-			head: 25,
-			wantErr: &ConfigCompatError{
-				What:         "EIP150 fork block",
-				StoredConfig: big.NewInt(10),
-				NewConfig:    big.NewInt(20),
-				RewindTo:     9,
-			},
-		},
 	}
 
 	for _, test := range tests {
