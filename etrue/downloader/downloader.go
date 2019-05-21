@@ -67,8 +67,7 @@ var (
 	fsHeaderSafetyNet = 2048            // Number of headers to discard in case a chain violation is detected
 	fsHeaderContCheck = 3 * time.Second // Time interval to check for header continuations during state download
 
-	maxheight          = uint64(600)
-	maxSyncSnailHeight = 14
+	maxSyncSnailHeight = 12
 )
 
 var (
@@ -1390,7 +1389,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	}
 	// Retrieve the a batch of results to import
 	first, last := results[0].Sheader, results[len(results)-1].Sheader
-	log.Debug("Snail Inserting downloaded chain", "items", len(results),
+	log.Info("Snail insert download chain", "results", len(results),
 		"firstnum", first.Number, "firsthash", first.Hash(),
 		"lastnum", last.Number, "lasthash", last.Hash(),
 	)
@@ -1436,13 +1435,13 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 	result := blocks[len(blocks)-1]
 	fruitLen := uint64(len(result.Fruits()))
 	fbLastNumber := result.Fruits()[fruitLen-1].FastNumber().Uint64()
-	log.Debug("Snail fast blocks", "fbNumber", fbNumber, "fbLastNumber", fbLastNumber, "first", firstB.Number(), "last", result.Number())
+	log.Info("Sync fast blocks", "fbNumber", fbNumber, "fbLastNumber", fbLastNumber, "first snail", firstB.Number(), "last snail", result.Number())
 	if err := d.SyncFast(p.GetID(), hash, fbLastNumber, d.mode); err != nil {
 		return err
 	}
-	log.Debug("Snail insert blocks", "blocks", len(blocks), "fbLastNumber", fbLastNumber, "first", firstB.Number(), "last", result.Number())
+	log.Info("Insert snail blocks", "blocks", len(blocks), "fbLastNumber", fbLastNumber, "first", firstB.Number(), "last", result.Number())
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		log.Error("Snail Downloaded item processing failed 33", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
+		log.Error("Snail downloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
 		if err == types.ErrSnailHeightNotYet {
 			return err
 		}
@@ -1461,7 +1460,7 @@ func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64
 	}
 
 	defer func(start time.Time) {
-		log.Debug("SyncFast Synchronisation terminated", "elapsed", time.Since(start))
+		log.Debug("SyncFast sync terminated", "elapsed", time.Since(start))
 	}(time.Now())
 
 	if fbLastNumber > currentNumber {
@@ -1473,7 +1472,7 @@ func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64
 		errs := d.fastDown.Synchronise(peer, head, fastdownloader.SyncMode(mode), currentNumber, fbLastNumber)
 
 		if errs != nil {
-			log.Error("Snail run SyncFast ", "err", errs, "fbNumLast", fbLastNumber, "currentNum", currentNumber)
+			log.Error("SyncFast failed", "err", errs, "fbNumLast", fbLastNumber, "currentNum", currentNumber)
 			return errs
 		}
 	}
