@@ -379,6 +379,9 @@ func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]*ty
 	if f.crit.ToBlock != nil {
 		end = f.crit.ToBlock.Int64()
 	}
+	if end > begin && end-begin > 10 {
+		return nil,errors.New("Start and end blocks are separated by more than 10 blocks")
+	}
 	// Create and run the filter to get all the logs
 	filter := NewRangeFilter(api.backend, begin, end, f.crit.Addresses, f.crit.Topics)
 
