@@ -567,6 +567,33 @@ func SnailNumber(b1, b2 *SnailBlock) bool { return b1.header.Number.Cmp(b2.heade
 
 func FruitNumber(b1, b2 *SnailBlock) bool { return b1.header.FastNumber.Cmp(b2.header.FastNumber) < 0 }
 
+type BigIntPool []*big.Int
+
+type BigIntPoolBy func(b1, b2 *big.Int) bool
+
+func (self BigIntPoolBy) Sort(pool BigIntPool) {
+	bs := bigIntPoolSorter{
+		bigIntArr: pool,
+		by:        self,
+	}
+	sort.Sort(bs)
+}
+
+type bigIntPoolSorter struct {
+	bigIntArr BigIntPool
+	by        func(b1, b2 *big.Int) bool
+}
+
+func (self bigIntPoolSorter) Len() int { return len(self.bigIntArr) }
+func (self bigIntPoolSorter) Swap(i, j int) {
+	self.bigIntArr[i], self.bigIntArr[j] = self.bigIntArr[j], self.bigIntArr[i]
+}
+func (self bigIntPoolSorter) Less(i, j int) bool {
+	return self.by(self.bigIntArr[i], self.bigIntArr[j])
+}
+
+func BitIntPoolNumber(b1, b2 *big.Int) bool { return b1.Cmp(b2) < 0 }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
