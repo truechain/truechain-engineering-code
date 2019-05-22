@@ -130,7 +130,7 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 	fastChain.InsertChain(fastblocks)
 
 	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, fastChain)
-	blocks := snailchain.GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{parent}, n, 7, nil)
+	blocks := snailchain.GenerateChain(params.TestChainConfig, fastChain, snailChain.GetBlocksFromNumber(0), n, 7, nil)
 	if _, err := snailChain.InsertChain(blocks); err != nil {
 		panic(err)
 	}
