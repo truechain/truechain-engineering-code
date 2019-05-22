@@ -130,7 +130,7 @@ func (t *rlpx) doProtoHandshake(our *protoHandshake) (their *protoHandshake, err
 	// as the error so it can be tracked elsewhere.
 	werr := make(chan error, 1)
 	go func() { werr <- Send(t.rw, handshakeMsg, our) }()
-	if their, err = readProtocolHandshake(t.rw, our); err != nil {
+	if their, err = readProtocolHandshake(t.rw); err != nil {
 		<-werr // make sure the write terminates too
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (t *rlpx) doProtoHandshake(our *protoHandshake) (their *protoHandshake, err
 	return their, nil
 }
 
-func readProtocolHandshake(rw MsgReader, our *protoHandshake) (*protoHandshake, error) {
+func readProtocolHandshake(rw MsgReader) (*protoHandshake, error) {
 	msg, err := rw.ReadMsg()
 	if err != nil {
 		return nil, err
@@ -556,10 +556,6 @@ var (
 	zeroHeader = []byte{0xC2, 0x80, 0x80}
 	// sixteen zero bytes
 	zero16 = make([]byte, 16)
-
-	headSize = 256 / 8
-	macSize  = 128 / 8
-	_        = headSize + macSize // space of packet frame data
 )
 
 // rlpxFrameRW implements a simplified version of RLPx framing.
@@ -615,7 +611,6 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 		msg.Payload = bytes.NewReader(payload)
 		msg.Size = uint32(len(payload))
 	}
-
 	// write header
 	headbuf := make([]byte, 32)
 	fsize := uint32(len(ptype)) + msg.Size
@@ -651,7 +646,6 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 	// frame content was written to it as well.
 	fmacseed := rw.egressMAC.Sum(nil)
 	mac := updateMAC(rw.egressMAC, rw.macCipher, fmacseed)
-
 	_, err := rw.conn.Write(mac)
 	return err
 }
