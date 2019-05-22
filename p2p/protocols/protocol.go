@@ -29,7 +29,7 @@ devp2p subprotocols by abstracting away code standardly shared by protocols.
 package protocols
 
 import (
-	// "bufio"
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -40,6 +40,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/swarm/spancontext"
+	"github.com/ethereum/go-ethereum/swarm/tracing"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/p2p"
 )
@@ -240,7 +243,7 @@ func (p *Peer) Run(handler func(ctx context.Context, msg interface{}) error) err
 // Drop disconnects a peer.
 // TODO: may need to implement protocol drop only? don't want to kick off the peer
 // if they are useful for other protocols
-func (p *Peer) Drop(err error) {
+func (p *Peer) Drop() {
 	p.Disconnect(p2p.DiscSubprotocolError)
 }
 
@@ -251,27 +254,28 @@ func (p *Peer) Drop(err error) {
 func (p *Peer) Send(ctx context.Context, msg interface{}) error {
 	defer metrics.GetOrRegisterResettingTimer("peer.send_t", nil).UpdateSince(time.Now())
 	metrics.GetOrRegisterCounter("peer.send", nil).Inc(1)
+	metrics.GetOrRegisterCounter(fmt.Sprintf("peer.send.%T", msg), nil).Inc(1)
 
 	var b bytes.Buffer
-	// if tracing.Enabled {
-	// 	writer := bufio.NewWriter(&b)
+	if tracing.Enabled {
+		writer := bufio.NewWriter(&b)
 
-	// 	tracer := opentracing.GlobalTracer()
+		tracer := opentracing.GlobalTracer()
 
-	// 	sctx := spancontext.FromContext(ctx)
+		sctx := spancontext.FromContext(ctx)
 
-	// 	if sctx != nil {
-	// 		err := tracer.Inject(
-	// 			sctx,
-	// 			opentracing.Binary,
-	// 			writer)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
+		if sctx != nil {
+			err := tracer.Inject(
+				sctx,
+				opentracing.Binary,
+				writer)
+			if err != nil {
+				return err
+			}
+		}
 
-	// 	writer.Flush()
-	// }
+		writer.Flush()
+	}
 
 	r, err := rlp.EncodeToBytes(msg)
 	if err != nil {
@@ -282,6 +286,15 @@ func (p *Peer) Send(ctx context.Context, msg interface{}) error {
 		Context: b.Bytes(),
 		Size:    uint32(len(r)),
 		Payload: r,
+	}
+
+	//if the accounting hook is set, call it
+	if p.spec.Hook != nil {
+		err := p.spec.Hook.Send(p, wmsg.Size, msg)
+		if err != nil {
+			p.Drop()
+			return err
+		}
 	}
 
 	code, found := p.spec.GetCode(msg)
@@ -323,20 +336,20 @@ func (p *Peer) handleIncoming(handle func(ctx context.Context, msg interface{}) 
 
 	// if tracing is enabled and the context coming within the request is
 	// not empty, try to unmarshal it
-	// if tracing.Enabled && len(wmsg.Context) > 0 {
-	// 	var sctx opentracing.SpanContext
+	if tracing.Enabled && len(wmsg.Context) > 0 {
+		var sctx opentracing.SpanContext
 
-	// 	tracer := opentracing.GlobalTracer()
-	// 	sctx, err = tracer.Extract(
-	// 		opentracing.Binary,
-	// 		bytes.NewReader(wmsg.Context))
-	// 	if err != nil {
-	// 		log.Error(err.Error())
-	// 		return err
-	// 	}
+		tracer := opentracing.GlobalTracer()
+		sctx, err = tracer.Extract(
+			opentracing.Binary,
+			bytes.NewReader(wmsg.Context))
+		if err != nil {
+			log.Error(err.Error())
+			return err
+		}
 
-	// 	ctx = spancontext.WithContext(ctx, sctx)
-	// }
+		ctx = spancontext.WithContext(ctx, sctx)
+	}
 
 	val, ok := p.spec.NewMsg(msg.Code)
 	if !ok {
@@ -344,6 +357,14 @@ func (p *Peer) handleIncoming(handle func(ctx context.Context, msg interface{}) 
 	}
 	if err := rlp.DecodeBytes(wmsg.Payload, val); err != nil {
 		return errorf(ErrDecode, "<= %v: %v", msg, err)
+	}
+
+	//if the accounting hook is set, call it
+	if p.spec.Hook != nil {
+		err := p.spec.Hook.Receive(p, wmsg.Size, val)
+		if err != nil {
+			return err
+		}
 	}
 
 	// call the registered handler callbacks
@@ -361,15 +382,17 @@ func (p *Peer) handleIncoming(handle func(ctx context.Context, msg interface{}) 
 // * arguments
 //   * context
 //   * the local handshake to be sent to the remote peer
-//   * funcion to be called on the remote handshake (can be nil)
+//   * function to be called on the remote handshake (can be nil)
 // * expects a remote handshake back of the same type
 // * the dialing peer needs to send the handshake first and then waits for remote
 // * the listening peer waits for the remote handshake and then sends it
 // returns the remote handshake and an error
-func (p *Peer) Handshake(ctx context.Context, hs interface{}, verify func(interface{}) error) (rhs interface{}, err error) {
+func (p *Peer) Handshake(ctx context.Context, hs interface{}, verify func(interface{}) error) (interface{}, error) {
 	if _, ok := p.spec.GetCode(hs); !ok {
 		return nil, errorf(ErrHandshake, "unknown handshake message type: %T", hs)
 	}
+
+	var rhs interface{}
 	errc := make(chan error, 2)
 	handle := func(ctx context.Context, msg interface{}) error {
 		rhs = msg
@@ -392,6 +415,7 @@ func (p *Peer) Handshake(ctx context.Context, hs interface{}, verify func(interf
 	}()
 
 	for i := 0; i < 2; i++ {
+		var err error
 		select {
 		case err = <-errc:
 		case <-ctx.Done():
@@ -402,4 +426,18 @@ func (p *Peer) Handshake(ctx context.Context, hs interface{}, verify func(interf
 		}
 	}
 	return rhs, nil
+}
+
+// HasCap returns true if Peer has a capability
+// with provided name.
+func (p *Peer) HasCap(capName string) (yes bool) {
+	if p == nil || p.Peer == nil {
+		return false
+	}
+	for _, c := range p.Caps() {
+		if c.Name == capName {
+			return true
+		}
+	}
+	return false
 }
