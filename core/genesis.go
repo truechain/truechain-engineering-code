@@ -552,7 +552,7 @@ func DefaultTestnetGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:     params.TestnetChainConfig,
 		Nonce:      928,
-		ExtraData:  hexutil.MustDecode("0x54727565436861696E20546573744E6574203034"),
+		ExtraData:  hexutil.MustDecode("0x54727565436861696E20546573744E6574203035"),
 		GasLimit:   20971520,
 		Difficulty: big.NewInt(100000),
 		Timestamp:  1537891200,
