@@ -115,7 +115,7 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 	}
 
 	// without the --mine can not start mine,no matter remote or fruitonly
-	if mining {
+	if mining || mineFruit {
 		atomic.StoreInt32(&miner.shouldStart, 1)
 	}
 
