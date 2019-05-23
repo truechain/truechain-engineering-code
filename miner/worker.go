@@ -149,6 +149,7 @@ type worker struct {
 	atWork            int32
 	atCommintNewWoker bool
 	fastBlockNumber   *big.Int
+	fastBlockPool     []*big.Int
 }
 
 func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, etrue Backend, mux *event.TypeMux) *worker {
@@ -355,6 +356,7 @@ func (w *worker) update() {
 			if (w.fruitOnly || len(w.current.Block.Fruits()) == 0) && (w.current.Block.FastNumber().Cmp(ev.Fruits[0].FastNumber()) <= 0) {
 				// after get the fruit event should star mining if have not mining
 				log.Debug("star commit new work  fruitCh")
+				w.delWorkFastBlockPool(ev.Fruits[0].FastNumber())
 				if atomic.LoadInt32(&w.mining) == 1 {
 					w.commitNewWork()
 				}
@@ -427,7 +429,7 @@ func (w *worker) wait() {
 						w.minedFruit = types.CopyFruit(block)
 					}
 				}
-
+				w.delWorkFastBlockPool(block.FastNumber())
 				// only have fast block not fruits we need commit new work
 				if w.current.fruits == nil {
 					w.atCommintNewWoker = false
@@ -844,6 +846,7 @@ func (w *worker) commitFastNumber(fastBlockHight, snailFruitsLastFastNumber *big
 		} else if i == 0 {
 			continue
 		}
+
 		//cmp
 		if fb.FastNumber().Uint64()-1 > copyPendingFruits[i-1].FastNumber().Uint64() {
 			//there have fruit need to miner 1 3 4 5,so need mine 2，or 1 5 6 7 need mine 2，3，4，5
@@ -860,6 +863,146 @@ func (w *worker) commitFastNumber(fastBlockHight, snailFruitsLastFastNumber *big
 	return nil
 }
 
+// del the fastblockpool
+func (w *worker) delWorkFastBlockPool(fastBlockNumber *big.Int) {
+	if len(w.fastBlockPool) > 0 {
+		for i, fb := range w.fastBlockPool {
+			if fb.Cmp(fastBlockNumber) == 0 {
+
+				w.fastBlockPool = append(w.fastBlockPool[:i], w.fastBlockPool[i+1:]...)
+
+				//sort the pool
+				var fbpoolby types.BigIntPoolBy = types.BitIntPoolNumber
+				fbpoolby.Sort(w.fastBlockPool)
+
+				log.Debug("del Fast block success", "fb number", fb)
+			}
+		}
+	}
+}
+
+// find a corect fast block to miner
+func (w *worker) commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumber *big.Int, copyPendingFruits []*types.SnailBlock) *big.Int {
+
+	if fastBlockHight.Cmp(snailFruitsLastFastNumber) <= 0 {
+		return nil
+	}
+
+	log.Info("--------commitFastBlocksByWoker Info", "snailFruitsLastFastNumber", snailFruitsLastFastNumber, "fastBlockHight", fastBlockHight)
+
+	log.Info("---the info", "len copyPendingFruits", len(copyPendingFruits), "the pool len", len(w.fastBlockPool))
+	if len(copyPendingFruits) > 0 {
+		log.Info("---the info", "len copyPendingFruits 1", copyPendingFruits[0].FastNumber(), "copyPendingFruits 2", copyPendingFruits[len(copyPendingFruits)-1].FastNumber())
+	}
+	//log.Info("---the info","len copyPendingFruits",len(copyPendingFruits),"the pool len",len(w.fastBlockPool))
+	//get the len of fastBlockPool
+	fbpLen := len(w.fastBlockPool)
+	var temPool []*big.Int // find all fruit
+
+	rand.Seed(time.Now().UnixNano())
+
+	if fbpLen > 0 {
+		for _, fb := range w.fastBlockPool {
+			log.Info(" --- the fastblock pool have ", "len", fbpLen, "fb number", fb)
+		}
+		// del alread mined fastblock
+		//sort the fastblockpool
+		var fbpoolby types.BigIntPoolBy = types.BitIntPoolNumber
+		fbpoolby.Sort(w.fastBlockPool)
+
+		if len(copyPendingFruits) > 0 {
+			for _, fruit := range copyPendingFruits {
+				if fruit.FastNumber().Cmp(w.fastBlockPool[fbpLen-1]) <= 0 && fruit.FastNumber().Cmp(w.fastBlockPool[0]) >= 0 {
+					temPool = append(temPool, fruit.FastNumber())
+				} else {
+					break
+				}
+			}
+
+			// all need del the fastblock at temPool
+			if len(temPool) > 0 {
+				for _, temFb := range temPool {
+					log.Info("----the need del fastblock is ", "len", len(temPool), "temPool", temFb)
+					for i, fb := range w.fastBlockPool {
+						if temFb.Cmp(fb) == 0 {
+							w.fastBlockPool = append(w.fastBlockPool[:i], w.fastBlockPool[i+1:]...)
+						}
+					}
+				}
+			}
+
+		}
+	}
+	temPool = []*big.Int{}
+	if len(w.fastBlockPool) == 0 {
+		// find ten need mine fastblock
+		if len(copyPendingFruits) > 0 {
+			for i, fruit := range copyPendingFruits {
+				// not care the frist
+				if i == 0 {
+					continue
+				}
+				n := int(new(big.Int).Sub(fruit.FastNumber(), copyPendingFruits[i-1].FastNumber()).Int64())
+				if n == 1 {
+					continue
+				} else {
+					for j := 1; j < n; j++ {
+						temp := new(big.Int).Add(copyPendingFruits[i-1].FastNumber(), new(big.Int).SetInt64(int64(j)))
+						w.fastBlockPool = append(w.fastBlockPool, temp)
+
+						if len(w.fastBlockPool) >= 10 {
+							break
+						}
+					}
+					if len(w.fastBlockPool) >= 10 {
+						break
+					}
+				}
+
+			}
+		}
+
+		lenfbPool := len(w.fastBlockPool)
+		if lenfbPool == 0 || (lenfbPool > 0 && lenfbPool < 10) {
+			// need find from the
+			var number int
+			if len(copyPendingFruits) > 0 {
+				number = int(new(big.Int).Sub(fastBlockHight, copyPendingFruits[len(copyPendingFruits)-1].FastNumber()).Int64())
+				for i := 1; i <= 10-lenfbPool; i++ {
+					if i > number {
+						break
+					}
+					temp := new(big.Int).Add(copyPendingFruits[len(copyPendingFruits)-1].FastNumber(), new(big.Int).SetInt64(int64(i)))
+					w.fastBlockPool = append(w.fastBlockPool, temp)
+				}
+			} else {
+				number = int(new(big.Int).Sub(fastBlockHight, snailFruitsLastFastNumber).Int64())
+				for i := 1; i <= 10-lenfbPool; i++ {
+					if i > number {
+						break
+					}
+					temp := new(big.Int).Add(snailFruitsLastFastNumber, new(big.Int).SetInt64(int64(i)))
+					w.fastBlockPool = append(w.fastBlockPool, temp)
+				}
+			}
+
+		}
+
+	}
+
+	if len(w.fastBlockPool) == 0 {
+		return nil
+	}
+
+	for i, _ := range w.fastBlockPool {
+		log.Info("___-----____------- lasttt  w.fastBlockPool[i]", "i", w.fastBlockPool[i])
+	}
+	//rand find one
+	mineFastBlock := rand.Intn(len(w.fastBlockPool))
+
+	return w.fastBlockPool[mineFastBlock]
+}
+
 // find a corect fast block to miner
 func (w *worker) CommitFastBlocksByWoker(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) error {
 	//get current snailblock block and fruits
@@ -873,7 +1016,7 @@ func (w *worker) CommitFastBlocksByWoker(fruits []*types.SnailBlock, bc *chain.S
 	//get current fast block hight
 	fastBlockHight := fc.CurrentBlock().Number()
 
-	fastNumber := w.commitFastNumber(fastBlockHight, snailFruitsLastFastNumber, fruits)
+	fastNumber := w.commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumber, fruits)
 	if fastNumber != nil {
 		w.fastBlockNumber = fastNumber
 		log.Debug("-------find the one", "fb number", w.fastBlockNumber)
