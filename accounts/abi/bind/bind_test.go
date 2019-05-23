@@ -249,7 +249,7 @@ var bindTests = []struct {
 
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
@@ -298,7 +298,7 @@ var bindTests = []struct {
 
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
@@ -338,7 +338,7 @@ var bindTests = []struct {
 
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
@@ -390,7 +390,7 @@ var bindTests = []struct {
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
 			"github.com/ethereum/go-ethereum/common"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
@@ -432,7 +432,7 @@ var bindTests = []struct {
 
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
@@ -514,7 +514,7 @@ var bindTests = []struct {
 
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
@@ -558,7 +558,7 @@ var bindTests = []struct {
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
 			"github.com/ethereum/go-ethereum/common"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
@@ -627,7 +627,7 @@ var bindTests = []struct {
 
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
@@ -707,7 +707,7 @@ var bindTests = []struct {
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
 			"github.com/ethereum/go-ethereum/common"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
@@ -864,7 +864,7 @@ var bindTests = []struct {
 
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 			"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
-			"github.com/ethereum/go-ethereum/core"
+			"github.com/truechain/truechain-engineering-code/core"
 			"github.com/ethereum/go-ethereum/crypto"
 		`,
 		`
