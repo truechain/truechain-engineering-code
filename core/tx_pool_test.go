@@ -74,7 +74,7 @@ func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- types.FastChainHeadE
 }
 
 func transaction(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {
-	return pricedTransaction(nonce, gaslimit, big.NewInt(1), key)
+	return pricedTransaction(nonce, gaslimit, big.NewInt(1000000), key)
 }
 
 func pricedTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
@@ -206,8 +206,8 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 		t.Fatalf("Invalid nonce, want 0, got %d", nonce)
 	}
 
-	pool.AddRemotes(types.Transactions{tx0, tx1})
-
+	pool.AddLocals(types.Transactions{tx0, tx1})
+	time.Sleep(5)
 	nonce = pool.State().GetNonce(address)
 	if nonce != 2 {
 		t.Fatalf("Invalid nonce, want 2, got %d", nonce)
