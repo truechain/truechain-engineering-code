@@ -261,7 +261,7 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH]string, error) {
 		block := a.currentWork.Block
 		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
 		if epoch == 0 {
-			return res, nil
+			return res, errors.New("the epoch is zore not need dataset")
 		}
 		st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
 
