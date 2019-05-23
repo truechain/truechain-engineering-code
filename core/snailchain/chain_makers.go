@@ -218,8 +218,6 @@ func makeFruit(chain consensus.SnailChainReader, fast *types.Block, parent *type
 	pointer := chain.GetHeader(head.PointerHash, head.PointerNumber.Uint64())
 	head.FruitDifficulty = minerva.CalcFruitDifficulty(chain.Config(), head.Time.Uint64(), fast.Header().Time.Uint64(), pointer)
 
-	log.Info("makeFruit", "parent", parent.Number(), "pointer", pointer.Number, "fastNumber", fast.NumberU64())
-
 	fruit := types.NewSnailBlock(
 		head,
 		nil,
