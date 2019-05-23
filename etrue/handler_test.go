@@ -400,7 +400,7 @@ func testGetReceipt(t *testing.T, protocol int) {
 	acc1Addr := crypto.PubkeyToAddress(acc1Key.PublicKey)
 	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
 
-	signer := types.NewTIP1Signer(new(big.Int).Set(common.Big1))
+	signer := types.NewTIP1Signer(params.AllMinervaProtocolChanges.ChainID)
 	// Create a chain generator with some simple transactions (blatantly stolen from @fjl/chain_markets_test)
 	generator := func(i int, block *core.BlockGen) {
 		switch i {
