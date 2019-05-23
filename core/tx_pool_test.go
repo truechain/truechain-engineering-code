@@ -273,7 +273,7 @@ func TestTransactionQueue(t *testing.T) {
 
 	tx := transaction(0, 100, key)
 	from, _ := deriveSender(tx)
-	pool.currentState.AddBalance(from, big.NewInt(1000))
+	pool.currentState.AddBalance(from, big.NewInt(1000000000))
 	pool.lockedReset(nil, nil)
 	pool.enqueueTx(tx.Hash(), tx)
 
@@ -302,7 +302,7 @@ func TestTransactionQueue(t *testing.T) {
 	tx2 := transaction(10, 100, key)
 	tx3 := transaction(11, 100, key)
 	from, _ = deriveSender(tx1)
-	pool.currentState.AddBalance(from, big.NewInt(1000))
+	pool.currentState.AddBalance(from, big.NewInt(1000000000))
 	pool.lockedReset(nil, nil)
 
 	pool.enqueueTx(tx1.Hash(), tx1)
@@ -372,7 +372,6 @@ func TestTransactionDoubleNonce(t *testing.T) {
 	resetState := func() {
 		statedb, _ := state.New(common.Hash{}, state.NewDatabase(etruedb.NewMemDatabase()))
 		statedb.AddBalance(addr, big.NewInt(100000000000000))
-
 		pool.chain = &testBlockChain{statedb, 1000000, new(event.Feed)}
 		pool.lockedReset(nil, nil)
 	}
