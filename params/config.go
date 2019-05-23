@@ -68,7 +68,7 @@ var (
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{big.NewInt(1337), new(MinervaConfig),big.NewInt(0)}
+	AllMinervaProtocolChanges = &ChainConfig{big.NewInt(9223372036854775790), new(MinervaConfig),big.NewInt(0)}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
