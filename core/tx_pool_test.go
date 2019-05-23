@@ -132,7 +132,7 @@ func validateEvents(events chan types.NewTxsEvent, count int) error {
 		case ev := <-events:
 			received = append(received, ev.Txs...)
 		case <-time.After(time.Second):
-			return fmt.Errorf("event #%d not fired", received)
+			return fmt.Errorf("event #%d not fired", len(received))
 		}
 	}
 	if len(received) > count {
@@ -372,6 +372,7 @@ func TestTransactionDoubleNonce(t *testing.T) {
 	resetState := func() {
 		statedb, _ := state.New(common.Hash{}, state.NewDatabase(etruedb.NewMemDatabase()))
 		statedb.AddBalance(addr, big.NewInt(100000000000000))
+
 		pool.chain = &testBlockChain{statedb, 1000000, new(event.Feed)}
 		pool.lockedReset(nil, nil)
 	}
@@ -990,7 +991,7 @@ func testTransactionLimitingEquivalency(t *testing.T, origin uint64) {
 		txs = append(txs, transaction(origin+i, 100000, key2))
 	}
 	pool2.AddRemotes(txs)
-
+	time.Sleep(5)
 	// Ensure the batch optimization honors the same pool mechanics
 	if len(pool1.pending) != len(pool2.pending) {
 		t.Errorf("pending transaction count mismatch: one-by-one algo: %d, batch algo: %d", len(pool1.pending), len(pool2.pending))
@@ -1100,7 +1101,7 @@ func TestTransactionPendingMinimumAllowance(t *testing.T) {
 	blockchain := &testBlockChain{statedb, 1000000, new(event.Feed)}
 
 	config := testTxPoolConfig
-	config.GlobalSlots = 0
+	config.GlobalSlots = 1
 
 	pool := NewTxPool(config, params.TestChainConfig, blockchain)
 	defer pool.Stop()
@@ -1279,14 +1280,14 @@ func TestTransactionPoolRepricingKeepsLocals(t *testing.T) {
 	}
 	// Create transaction (both pending and queued) with a linearly growing gasprice
 	for i := uint64(0); i < 500; i++ {
-		// Add pending
-		pTx := pricedTransaction(i, 100000, big.NewInt(int64(i)), keys[2])
-		if err := pool.AddLocal(pTx); err != nil {
+		// Add pending transaction.
+		pendingTx := pricedTransaction(i, 100000, big.NewInt(int64(i)), keys[2])
+		if err := pool.AddLocal(pendingTx); err != nil {
 			t.Fatal(err)
 		}
-		// Add queued
-		qTx := pricedTransaction(i+501, 100000, big.NewInt(int64(i)), keys[2])
-		if err := pool.AddLocal(qTx); err != nil {
+		// Add queued transaction.
+		queuedTx := pricedTransaction(i+501, 100000, big.NewInt(int64(i)), keys[2])
+		if err := pool.AddLocal(queuedTx); err != nil {
 			t.Fatal(err)
 		}
 	}
