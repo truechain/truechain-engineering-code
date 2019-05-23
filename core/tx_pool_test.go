@@ -468,7 +468,7 @@ func TestTransactionDropping(t *testing.T) {
 	defer pool.Stop()
 
 	account, _ := deriveSender(transaction(0, 0, key))
-	pool.currentState.AddBalance(account, big.NewInt(1000))
+	pool.currentState.AddBalance(account, big.NewInt(100000000000000))
 
 	// Add some pending and some queued transactions
 	var (
@@ -677,7 +677,7 @@ func TestTransactionGapFilling(t *testing.T) {
 	defer pool.Stop()
 
 	account, _ := deriveSender(transaction(0, 0, key))
-	pool.currentState.AddBalance(account, big.NewInt(1000000))
+	pool.currentState.AddBalance(account, big.NewInt(100000000000000))
 
 	// Keep track of transaction events to ensure all executables get announced
 	events := make(chan types.NewTxsEvent, testTxPoolConfig.AccountQueue+5)
@@ -733,7 +733,7 @@ func TestTransactionQueueAccountLimiting(t *testing.T) {
 	defer pool.Stop()
 
 	account, _ := deriveSender(transaction(0, 0, key))
-	pool.currentState.AddBalance(account, big.NewInt(1000000))
+	pool.currentState.AddBalance(account, big.NewInt(100000000000000))
 
 	// Keep queuing up transactions and make sure all above a limit are dropped
 	for i := uint64(1); i <= testTxPoolConfig.AccountQueue+5; i++ {
@@ -928,7 +928,7 @@ func TestTransactionPendingLimiting(t *testing.T) {
 	defer pool.Stop()
 
 	account, _ := deriveSender(transaction(0, 0, key))
-	pool.currentState.AddBalance(account, big.NewInt(1000000))
+	pool.currentState.AddBalance(account, big.NewInt(100000000000000))
 
 	// Keep track of transaction events to ensure all executables get announced
 	events := make(chan types.NewTxsEvent, testTxPoolConfig.AccountQueue+5)
@@ -1776,7 +1776,7 @@ func benchmarkPendingDemotion(b *testing.B, size int) {
 	defer pool.Stop()
 
 	account, _ := deriveSender(transaction(0, 0, key))
-	pool.currentState.AddBalance(account, big.NewInt(1000000))
+	pool.currentState.AddBalance(account, big.NewInt(100000000000000))
 
 	for i := 0; i < size; i++ {
 		tx := transaction(uint64(i), 100000, key)
@@ -1801,7 +1801,7 @@ func benchmarkFuturePromotion(b *testing.B, size int) {
 	defer pool.Stop()
 
 	account, _ := deriveSender(transaction(0, 0, key))
-	pool.currentState.AddBalance(account, big.NewInt(1000000))
+	pool.currentState.AddBalance(account, big.NewInt(100000000000000))
 
 	for i := 0; i < size; i++ {
 		tx := transaction(uint64(1+i), 100000, key)
@@ -1821,7 +1821,7 @@ func BenchmarkPoolInsert(b *testing.B) {
 	defer pool.Stop()
 
 	account, _ := deriveSender(transaction(0, 0, key))
-	pool.currentState.AddBalance(account, big.NewInt(1000000))
+	pool.currentState.AddBalance(account, big.NewInt(100000000000000))
 
 	txs := make(types.Transactions, b.N)
 	for i := 0; i < b.N; i++ {
@@ -1845,7 +1845,7 @@ func benchmarkPoolBatchInsert(b *testing.B, size int) {
 	defer pool.Stop()
 
 	account, _ := deriveSender(transaction(0, 0, key))
-	pool.currentState.AddBalance(account, big.NewInt(1000000))
+	pool.currentState.AddBalance(account, big.NewInt(100000000000000))
 
 	batches := make([]types.Transactions, b.N)
 	for i := 0; i < b.N; i++ {
