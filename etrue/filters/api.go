@@ -331,8 +331,13 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([
 	if crit.ToBlock == nil {
 		crit.ToBlock = big.NewInt(rpc.LatestBlockNumber.Int64())
 	}
+	fNumber := crit.FromBlock.Int64()
+	tNumber := crit.ToBlock.Int64()
+	if tNumber > fNumber && tNumber-fNumber > 10 {
+		return nil, errors.New("Start and end blocks are separated by more than 10 blocks")
+	}
 	// Create and run the filter to get all the logs
-	filter := NewRangeFilter(api.backend, crit.FromBlock.Int64(), crit.ToBlock.Int64(), crit.Addresses, crit.Topics)
+	filter := NewRangeFilter(api.backend, fNumber, tNumber, crit.Addresses, crit.Topics)
 
 	logs, err := filter.Logs(ctx)
 	if err != nil {
@@ -379,6 +384,9 @@ func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]*ty
 	if f.crit.ToBlock != nil {
 		end = f.crit.ToBlock.Int64()
 	}
+	/*if end > begin && end-begin > 10 {
+		return nil, errors.New("Start and end blocks are separated by more than 10 blocks")
+	}*/
 	// Create and run the filter to get all the logs
 	filter := NewRangeFilter(api.backend, begin, end, f.crit.Addresses, f.crit.Topics)
 
