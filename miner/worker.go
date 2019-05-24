@@ -275,6 +275,7 @@ func (w *worker) pendingSnailBlock() *types.SnailBlock {
 
 	w.currentMu.Lock()
 	defer w.currentMu.Unlock()
+
 	return w.current.Block
 }
 
@@ -558,6 +559,7 @@ func (w *worker) commitNewWork() {
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&w.mining) == 1 {
 		header.Coinbase = w.coinbase
+		log.Info("-----------------set coin base", ",", header.Coinbase)
 	}
 
 	// Could potentially happen if starting to mine in an odd state.
@@ -906,10 +908,13 @@ func (w *worker) commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumbe
 		var pool []*big.Int
 		for _, fb := range w.fastBlockPool {
 			if _, ok := w.fruitPoolMap[fb.Uint64()]; !ok {
-				pool = append(pool, fb)
+				if fb.Cmp(snailFruitsLastFastNumber) > 0 {
+					pool = append(pool, fb)
+				}
 				log.Info("----------------not need del", "fb", fb)
 			}
 		}
+
 		w.fastBlockPool = pool
 
 	}
