@@ -66,14 +66,15 @@ var (
 		}),
 	}
 
+	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{big.NewInt(1337), new(MinervaConfig), big.NewInt(0)}
+	AllMinervaProtocolChanges = &ChainConfig{chainId, new(MinervaConfig), big.NewInt(0)}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, big.NewInt(0)}
+	TestChainConfig = &ChainConfig{chainId, &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, big.NewInt(0)}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
