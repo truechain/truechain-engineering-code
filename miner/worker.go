@@ -902,9 +902,6 @@ func (w *worker) commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumbe
 
 	if len(w.fastBlockPool) > 0 {
 		// del alread mined fastblock
-		for k, _ := range w.fruitPoolMap {
-			log.Info("--the map is ", "len", len(w.fruitPoolMap), "k", k)
-		}
 
 		var pool []*big.Int
 		for _, fb := range w.fastBlockPool {
