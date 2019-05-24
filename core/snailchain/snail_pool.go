@@ -307,8 +307,6 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) (error, bool) {
 
 		return pool.appendFruit(fruit, true)
 	}
-
-	return nil, false
 }
 
 // journalFruit adds the specified fruit to the local disk journal
@@ -365,7 +363,7 @@ func (pool *SnailPool) loop() {
 					if send {
 						allSendCounter.Inc(1)
 						allSendTimesCounter.Inc(1)
-						go pool.fruitFeed.Send(types.NewFruitsEvent{types.SnailBlocks{fruit}})
+						go pool.fruitFeed.Send(types.NewFruitsEvent{Fruits: types.SnailBlocks{fruit}})
 					}
 				}
 			}
@@ -382,7 +380,7 @@ func (pool *SnailPool) loop() {
 				if len(promoted) > 0 {
 					allSendCounter.Inc(int64(len(promoted)))
 					allSendTimesCounter.Inc(1)
-					go pool.fruitFeed.Send(types.NewFruitsEvent{promoted})
+					go pool.fruitFeed.Send(types.NewFruitsEvent{Fruits: promoted})
 				}
 			}
 

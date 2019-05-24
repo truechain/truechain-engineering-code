@@ -298,8 +298,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 		testdb = etruedb.NewMemDatabase()
 	)
 	cache := &core.CacheConfig{
-		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -325,7 +325,6 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 	_, err := MakeSnailBlockBlockChain(snailChain, fastchain, snailGenesis, snailBlockNumbers, big.NewInt(20000))
 	if err != nil {
 		panic(err)
-		return nil, nil
 	}
 
 	return snailChain, fastchain
