@@ -312,8 +312,9 @@ func (r *PrefixedRegistry) UnregisterAll() {
 }
 
 var (
-	DefaultRegistry Registry = NewRegistry()
-	EphemeralRegistry  = NewRegistry()
+	DefaultRegistry    Registry = NewRegistry()
+	EphemeralRegistry           = NewRegistry()
+	AccountingRegistry          = NewRegistry()
 )
 
 // Call the given function for each registered metric.
