@@ -491,9 +491,9 @@ type SnailHeader struct {
 	FruitsHash      common.Hash    `json:"fruitsHash"       gencodec:"required"`
 	FastHash        common.Hash    `json:"fastHash"         gencodec:"required"`
 	FastNumber      *big.Int       `json:"fastNumber"       gencodec:"required"`
-	SignHash        common.Hash    `json:"signHash"  		gencodec:"required"`
+	SignHash        common.Hash    `json:"signHash"         gencodec:"required"`
 	Difficulty      *big.Int       `json:"difficulty"       gencodec:"required"`
-	FruitDifficulty *big.Int       `json:"fruitDifficulty"	gencodec:"required"`
+	FruitDifficulty *big.Int       `json:"fruitDifficulty"  gencodec:"required"`
 	Number          *big.Int       `json:"number"           gencodec:"required"`
 	Publickey       []byte         `json:"publicKey"        gencodec:"required"`
 	Time            *big.Int       `json:"timestamp"        gencodec:"required"`
