@@ -163,7 +163,7 @@ func (dl *downloadTester) makeChain(n int, seed byte, parents []*types.SnailBloc
 
 	)
 
-	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, fastChain)
+	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine,vm.Config{}, fastChain)
 
 	//parents := snailChain.GetBlocksFromNumber(0)
 	var blocks1 []*types.SnailBlock;
@@ -485,7 +485,7 @@ func (dl *downloadTester) newSlowPeer(id string, version int, hashes []common.Ha
 }
 
 // dropPeer simulates a hard peer removal from the connection pool.
-func (dl *downloadTester) dropPeer(id string, call uint32) {
+func (dl *downloadTester) dropPeer(id string) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
 
@@ -593,7 +593,7 @@ func (dlp *downloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain b
 			fruits = append(fruits, block.Fruits())
 		}
 	}
-	go dlp.dl.downloader.DeliverBodies(dlp.id, fruits)
+	go dlp.dl.downloader.DeliverBodies(dlp.id, fruits,nil)
 
 	return nil
 }
@@ -715,7 +715,7 @@ func TestInactiveDownloader62(t *testing.T) {
 	if err := tester.downloader.DeliverHeaders("bad peer", []*types.SnailHeader{}); err != errNoSyncActive {
 		t.Errorf("error mismatch: have %v, want %v", err, errNoSyncActive)
 	}
-	if err := tester.downloader.DeliverBodies("bad peer", [][]*types.SnailBlock{}); err != errNoSyncActive {
+	if err := tester.downloader.DeliverBodies("bad peer", [][]*types.SnailBlock{},[][]*types.PbftSign{}); err != errNoSyncActive {
 		t.Errorf("error mismatch: have %v, want %v", err, errNoSyncActive)
 	}
 }
@@ -732,7 +732,7 @@ func TestInactiveDownloader63(t *testing.T) {
 	if err := tester.downloader.DeliverHeaders("bad peer", []*types.SnailHeader{}); err != errNoSyncActive {
 		t.Errorf("error mismatch: have %v, want %v", err, errNoSyncActive)
 	}
-	if err := tester.downloader.DeliverBodies("bad peer", [][]*types.SnailBlock{}); err != errNoSyncActive {
+	if err := tester.downloader.DeliverBodies("bad peer", [][]*types.SnailBlock{},[][]*types.PbftSign{}); err != errNoSyncActive {
 		t.Errorf("error mismatch: have %v, want %v", err, errNoSyncActive)
 	}
 }

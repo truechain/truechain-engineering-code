@@ -366,7 +366,7 @@ func (g *Genesis) ToSnailBlock(db etruedb.Database) *types.SnailBlock {
 		ParentHash:      g.ParentHash,
 		FastNumber:      fastBlock.Number(),
 		FastHash:        fastBlock.Hash(),
-		FruitDifficulty: new(big.Int).Div(g.Difficulty, params.FruitBlockRatio),
+		FruitDifficulty: new(big.Int).Div(head.Difficulty, params.FruitBlockRatio),
 		Coinbase:        g.Coinbase,
 	}
 	fruit := types.NewSnailBlock(fruitHead, nil, nil, nil)
