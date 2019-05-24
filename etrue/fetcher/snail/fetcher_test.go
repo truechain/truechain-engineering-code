@@ -46,7 +46,7 @@ var (
 	engine       = minerva.NewFaker()
 	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress  = crypto.PubkeyToAddress(testKey.PublicKey)
-	unknownBlock = types.NewSnailBlock(&types.SnailHeader{Number: big.NewInt(1), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(3), FastNumber: big.NewInt(2)}, nil, nil, nil)
+	unknownBlock = types.NewSnailBlock(&types.SnailHeader{Number: big.NewInt(0), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(3)}, nil, nil, nil)
 
 	gspec = &core.Genesis{
 		Config:     params.TestChainConfig,
@@ -64,7 +64,8 @@ var (
 //contains a transaction and every 5th an uncle to allow testing correct block
 //reassembly.
 func makeChain(n int, seed byte, parent *types.SnailBlock) ([]common.Hash, map[common.Hash]*types.SnailBlock) {
-
+	params.MinimumFruits = 1
+	params.MinTimeGap = big.NewInt(0)
 	chain, _ := core.GenerateChain(gspec.Config, fastgenesis, engine, testdb, n, nil)
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		panic(err)
