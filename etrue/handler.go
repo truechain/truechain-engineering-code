@@ -1150,7 +1150,7 @@ func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncryptNodeMessag
 	// Broadcast transactions to a batch of peers not knowing about it
 	peers := pm.peers.PeersWithoutNodeInfo(nodeInfo.Hash())
 	for _, peer := range peers {
-		nodeInfoSet[peer] = types.NodeInfoEvent{nodeInfo}
+		nodeInfoSet[peer] = types.NodeInfoEvent{NodeInfo: nodeInfo}
 	}
 	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
 	for peer, nodeInfo := range nodeInfoSet {

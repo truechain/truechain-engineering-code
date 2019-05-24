@@ -267,7 +267,7 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
 	if len(headers) != 0 {
 		log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers), "number", headers[0].Number)
-		watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, len(headers), "number", headers[0].Number))
+		watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d number %d", peer, len(headers), headers[0].Number))
 		defer func() {
 			watch.EndWatch()
 			watch.Finish("end")
