@@ -48,7 +48,7 @@ func (p *bodyPack) Items() int {
 	return len(p.fruit)
 }
 
-func (p *bodyPack) Stats() string { return fmt.Sprintf("Snail %d:%d:%d", len(p.fruit), len(p.signs)) }
+func (p *bodyPack) Stats() string { return fmt.Sprintf("Snail %d:%d", len(p.fruit), len(p.signs)) }
 
 // statePack is a batch of states returned by a peer.
 type statePack struct {
