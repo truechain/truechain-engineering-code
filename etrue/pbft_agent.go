@@ -444,10 +444,10 @@ func (agent *PbftAgent) loop() {
 					oldReceivedMetrics.Mark(1)
 				case 0:
 					repeatReceivedMetrics.Mark(1)
-					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{NodeInfo: cryNodeInfo})
 				case -1:
 					newReceivedMetrics.Mark(1)
-					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{NodeInfo: cryNodeInfo})
 					agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
 				}
 				log.Debug("received repeat nodeInfo", "repeat", repeatReceivedMetrics.Count(), "old", oldReceivedMetrics.Count(), "new", newReceivedMetrics.Count())
@@ -464,7 +464,7 @@ func (agent *PbftAgent) loop() {
 					agent.MarkNodeTag(nodeTagHash, cryNodeInfo.CreatedAt)
 					newReceivedMetrics.Mark(1)
 
-					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{NodeInfo: cryNodeInfo})
 					if nodeWork.isCommitteeMember {
 						nodeHandleMetrics.Mark(1)
 						agent.handlePbftNode(cryNodeInfo, nodeWork, pubKey)
@@ -611,7 +611,7 @@ func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMes
 		return false, nil, common.Hash{}, nil
 	}
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
-	nodeTag := &types.CommitteeNodeTag{encryptNode.CommitteeID, pubKeyByte}
+	nodeTag := &types.CommitteeNodeTag{CommitteeID: encryptNode.CommitteeID, pubKeyByte}
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
 		return true, agent.nodeInfoWorks[0], nodeTag.Hash(), pubKey
@@ -626,7 +626,7 @@ func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMes
 //send committeeNode to p2p,make other committeeNode receive and decrypt
 func (agent *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 	cryNodeInfo := encryptNodeInfo(nodeWork.committeeInfo, agent.committeeNode, agent.privateKey)
-	agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+	agent.nodeInfoFeed.Send(types.NodeInfoEvent{NodeInfo: cryNodeInfo})
 }
 
 func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.CommitteeNode, privateKey *ecdsa.PrivateKey) *types.EncryptNodeMessage {
