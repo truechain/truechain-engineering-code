@@ -390,7 +390,7 @@ func testBrokenChain(t *testing.T, full bool) {
 func TestReorgLongBlocks(t *testing.T) { testReorgLong(t, true) }
 
 func testReorgLong(t *testing.T, full bool) {
-	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 5131292940, full)
+	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 4733411880, full)
 }
 
 // Tests that reorganising a short difficult chain after a long easy one
@@ -410,7 +410,7 @@ func testReorgShort(t *testing.T, full bool) {
 	for i := 0; i < len(diff); i++ {
 		diff[i] = -9
 	}
-	testReorg(t, easy, diff, 25578783544, full)
+	testReorg(t, easy, diff, 23752762584, full)
 }
 
 func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
@@ -477,10 +477,12 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	want := new(big.Int).Add(blockchain.genesisBlock.Difficulty(), big.NewInt(td))
 	if full {
 		if have := blockchain.GetTdByHash(blockchain.CurrentBlock().Hash()); have.Cmp(want) != 0 {
+			log.Info("CurrentBlock", "blockchain.genesisBlock.Difficulty()", blockchain.genesisBlock.Difficulty(), "td", td, "want", want, "have", have)
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
 		}
 	} else {
 		if have := blockchain.GetTdByHash(blockchain.CurrentHeader().Hash()); have.Cmp(want) != 0 {
+			log.Info("CurrentHeader", "blockchain.genesisBlock.Difficulty()", blockchain.genesisBlock.Difficulty(), "td", td, "want", want, "have", have)
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
 		}
 	}
