@@ -611,7 +611,7 @@ func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMes
 		return false, nil, common.Hash{}, nil
 	}
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
-	nodeTag := &types.CommitteeNodeTag{CommitteeID: encryptNode.CommitteeID, pubKeyByte}
+	nodeTag := &types.CommitteeNodeTag{CommitteeID: encryptNode.CommitteeID, PubKey: pubKeyByte}
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
 		return true, agent.nodeInfoWorks[0], nodeTag.Hash(), pubKey
