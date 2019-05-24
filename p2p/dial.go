@@ -236,14 +236,14 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 			needDynDials--
 		}
 	}
-	log.Trace("New tasks lookupBuf", "lookupBuf", len(s.lookupBuf), "i", i, "randomNodes", s.randomNodes)
+	log.Trace("New tasks lookupBuf", "context", fmt.Sprintf("lookupBuf %d i %d lookupBuf %d randomNodes %v ", len(s.lookupBuf), i, len(s.lookupBuf), s.randomNodes))
 	s.lookupBuf = s.lookupBuf[:copy(s.lookupBuf, s.lookupBuf[i:])]
 	// Launch a discovery lookup if more candidates are needed.
 	if len(s.lookupBuf) < needDynDials && !s.lookupRunning {
 		s.lookupRunning = true
 		newtasks = append(newtasks, &discoverTask{})
 	}
-	log.Debug("New tasks discover", "newtasks", len(newtasks), "i", i, "lookupBuf", len(s.lookupBuf), "needDynDials", needDynDials)
+	log.Debug("New tasks discover", "context", fmt.Sprintf("newtasks %d i %d lookupBuf %d needDynDials %d ", len(newtasks), i, len(s.lookupBuf), needDynDials))
 	// Launch a timer to wait for the next node to expire if all
 	// candidates have been tried and no task is currently active.
 	// This should prevent cases where the dialer logic is not ticked
