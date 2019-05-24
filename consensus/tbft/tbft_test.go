@@ -71,18 +71,12 @@ func IDAdd(agent string) {
 	}
 }
 
-var ccc bool
-
 func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos []*types.CommitteeMember) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getIDForCache(pap.Name) //getID()
 	fmt.Println(pap.Name, header.Number)
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", pap.Name, "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
-	if !ccc {
-		ccc = true
-		time.Sleep(time.Second * 5)
-	}
 	return types.NewBlock(header, nil, nil, nil, infos), nil
 }
 
@@ -202,6 +196,7 @@ func TestPbftRunForOne(t *testing.T) {
 	c1.StartHeight = common.Big0
 	n.PutCommittee(c1)
 	n.Notify(c1.Id, Start)
+	go CloseStart(start)
 	<-start
 }
 
@@ -270,7 +265,7 @@ func TestPbftRunFor2(t *testing.T) {
 	n2.PutCommittee(c1)
 	n2.PutNodes(common.Big1, cn)
 	n2.Notify(c1.Id, Start)
-
+	go CloseStart(start)
 	<-start
 }
 
@@ -402,7 +397,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n4.PutCommittee(c1)
 	n4.PutNodes(common.Big1, cn)
 	n4.Notify(c1.Id, Start)
-
+	go CloseStart(start)
 	<-start
 }
 
@@ -528,8 +523,6 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	n3.SetCommitteeStop(c1.Id, 16)
 	n4.SetCommitteeStop(c1.Id, 16)
 
-	time.Sleep(30 * time.Second)
-
 	c2 := *c1
 	c2.Id = common.Big2
 	c2.StartHeight = big.NewInt(17)
@@ -553,7 +546,7 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	n4.PutNodes(common.Big2, cn)
 	n4.Notify(c1.Id, Stop)
 	n4.Notify(c2.Id, Start)
-
+	go CloseStart(start)
 	<-start
 }
 
@@ -707,7 +700,7 @@ func TestPbftRunFor5(t *testing.T) {
 	n1.PutNodes(common.Big1, cn)
 	n2.PutNodes(common.Big1, cn)
 	n3.PutNodes(common.Big1, cn)
-
+	go CloseStart(start)
 	<-start
 }
 
@@ -783,6 +776,7 @@ func TestRunPbft1(t *testing.T) {
 	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	//	n1.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
 
@@ -858,6 +852,7 @@ func TestRunPbft2(t *testing.T) {
 	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	//	n2.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
 
@@ -939,6 +934,7 @@ func TestRunPbft3(t *testing.T) {
 	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	//	n3.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
 
@@ -1014,6 +1010,7 @@ func TestRunPbft4(t *testing.T) {
 	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	//	n4.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
 
@@ -1078,7 +1075,7 @@ func signVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, height uint
 		Round:            round,
 		Timestamp:        time.Now().UTC(),
 		Type:             typeB,
-		BlockID:          ttypes.BlockID{hash, header},
+		BlockID:          ttypes.BlockID{Hash: hash, PartsHeader: header},
 	}
 
 	err := privV.SignVote(chainid, vote)
@@ -1115,7 +1112,7 @@ func TestVote(t *testing.T) {
 }
 
 func makeBlockID(hash []byte, header ttypes.PartSetHeader) ttypes.BlockID {
-	blockid := ttypes.BlockID{hash, header}
+	blockid := ttypes.BlockID{Hash: hash, PartsHeader: header}
 	fmt.Println(blockid.String())
 	return blockid
 }
@@ -1235,11 +1232,12 @@ func TestPutNodes(t *testing.T) {
 	n1.PutNodes(common.Big1, cn)
 	n1.Notify(c1.Id, Start)
 
+	go CloseStart(start)
+
 	<-start
 }
 
 func TestWatch(t *testing.T) {
-	return
 	log.OpenLogDebug(5)
 	help.BeginWatchMgr()
 	w := help.NewTWatch(3, "111")

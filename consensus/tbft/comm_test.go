@@ -48,7 +48,7 @@ func TestReader(t *testing.T) {
 	}
 
 	header2 := &types.Header{}
-	n, e := cdc.UnmarshalBinaryReader(pe.GetReader(), &header2, 32451)
+	n, e := cdc.UnmarshalBinaryReader(pe.GetReader(), &header2, 37502)
 	fmt.Println(n, e)
 	fmt.Println(header)
 	fmt.Println(header2)

@@ -189,7 +189,7 @@ func checkResult(end chan<- int, out <-chan *ttypes.SwitchValidator) {
 }
 
 func TestWatch2(t *testing.T) {
-	log.OpenLogDebug(3)
+	//log.OpenLogDebug(3)
 	help.BeginWatchMgr()
 	defer help.EndWatchMgr()
 	defer fmt.Println("End WatchMgr...")
@@ -199,7 +199,7 @@ func TestWatch2(t *testing.T) {
 	normal := func() {
 		wg.Add(1)
 		ws := make([]*help.TWatch, 0, 0)
-		for i := 0; i < 20000; i++ {
+		for i := 0; i < 200; i++ {
 			w := help.NewTWatch(2, fmt.Sprintf("normal,index:%d", i))
 			ws = append(ws, w)
 		}
@@ -216,7 +216,7 @@ func TestWatch2(t *testing.T) {
 
 	wg.Wait()
 
-	<-time.After(130 * time.Second)
+	<-time.After(70 * time.Second)
 	fmt.Println("cur watchs count", help.WatchsCountInMgr())
 }
 
@@ -478,12 +478,12 @@ func TestPbftRunForHealth(t *testing.T) {
 	n4.PutNodes(common.Big1, cn)
 	n4.Notify(c1.Id, Start)
 
-	time.Sleep(time.Second * 20)
+	//time.Sleep(time.Second * 20)
 
 	n4.Notify(c1.Id, Stop)
 	c1.Members[3].Flag = types.StateRemovedFlag
 
-	time.Sleep(70 * time.Second)
+	//time.Sleep(70 * time.Second)
 
 	n4.PutCommittee(c1)
 	n4.PutNodes(common.Big1, cn)
@@ -494,7 +494,13 @@ func TestPbftRunForHealth(t *testing.T) {
 	n3.UpdateCommittee(c1)
 	n4.UpdateCommittee(c1)
 
+	go CloseStart(start)
 	<-start
+}
+
+func CloseStart(c chan int) {
+	time.Sleep(time.Second * 5)
+	c <- 1
 }
 
 func TestRunPbftChange1(t *testing.T) {
@@ -571,7 +577,6 @@ func TestRunPbftChange1(t *testing.T) {
 	n1.Notify(c1.Id, Start)
 
 	//for {
-	time.Sleep(time.Second * 220)
 	c1.Members[3].Flag = types.StateRemovedFlag
 	c1.Members[3].MType = types.TypeWorked
 	c1.BackMembers[0].Flag = types.StateUsedFlag
@@ -579,6 +584,9 @@ func TestRunPbftChange1(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n1.UpdateCommittee(c1)
 	//}
+
+	go CloseStart(start)
+
 	<-start
 }
 
@@ -656,7 +664,7 @@ func TestRunPbftChange2(t *testing.T) {
 	n2.PutNodes(common.Big1, cn)
 
 	//for {
-	time.Sleep(time.Second * 220)
+	//time.Sleep(time.Second * 220)
 	c1.Members[3].Flag = types.StateRemovedFlag
 	c1.Members[3].MType = types.TypeWorked
 	c1.BackMembers[0].Flag = types.StateUsedFlag
@@ -664,6 +672,8 @@ func TestRunPbftChange2(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n2.UpdateCommittee(c1)
 	//}
+
+	go CloseStart(start)
 	<-start
 }
 
@@ -741,7 +751,7 @@ func TestRunPbftChange3(t *testing.T) {
 	n3.PutNodes(common.Big1, cn)
 
 	//for {
-	time.Sleep(time.Second * 220)
+	//time.Sleep(time.Second * 220)
 	c1.Members[3].Flag = types.StateRemovedFlag
 	c1.Members[3].MType = types.TypeWorked
 	c1.BackMembers[0].Flag = types.StateUsedFlag
@@ -749,6 +759,8 @@ func TestRunPbftChange3(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n3.UpdateCommittee(c1)
 	//}
+
+	go CloseStart(start)
 	<-start
 }
 
@@ -827,7 +839,7 @@ func TestRunPbftChange4(t *testing.T) {
 	n4.PutNodes(common.Big1, cn)
 
 	//for {
-	time.Sleep(time.Second * 220)
+	//time.Sleep(time.Second * 220)
 	c1.Members[3].Flag = types.StateRemovedFlag
 	c1.Members[3].MType = types.TypeWorked
 	c1.BackMembers[0].Flag = types.StateUsedFlag
@@ -835,6 +847,8 @@ func TestRunPbftChange4(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n4.UpdateCommittee(c1)
 	//}
+
+	go CloseStart(start)
 	<-start
 }
 
@@ -921,5 +935,6 @@ func TestRunPbftChange5(t *testing.T) {
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n4.UpdateCommittee(c1)
 	//}
+	go CloseStart(start)
 	<-start
 }
