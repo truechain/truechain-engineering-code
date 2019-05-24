@@ -151,16 +151,18 @@ func (tab *Table) ReadRandomNodes(buf []*enode.Node) (n int) {
 
 	// Find all non-empty buckets and get a fresh slice of their entries.
 	var buckets [][]*node
+	count := 0
 	for _, b := range &tab.buckets {
 		if len(b.entries) > 0 {
 			buckets = append(buckets, b.entries)
 		}
-		log.Trace("ReadRandomNodes", "entries", len(b.entries), "replacements", len(b.replacements), "ips", b.ips.String())
+		count += len(b.entries)
+		log.Trace("ReadRandomNodes", "context", fmt.Sprintf("entries %d replacements %d ips %d ips %s", len(b.entries), len(b.replacements), b.ips.Len(), b.ips.String()))
 	}
 	if len(buckets) == 0 {
 		return 0
 	}
-	log.Trace("ReadRandomNodes", "buckets", len(buckets)*len(buckets[0]), "ips", tab.ips.String(), "buf", len(buf))
+	log.Trace("ReadRandomNodes", "buckets", count, "ips", tab.ips.String(), "buf", len(buf))
 	// Shuffle the buckets.
 	for i := len(buckets) - 1; i > 0; i-- {
 		j := tab.rand.Intn(len(buckets))
