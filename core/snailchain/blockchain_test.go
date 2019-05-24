@@ -59,7 +59,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 	fastChain, _ := core.NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewSnailBlockChain(db, params.TestChainConfig, engine, fastChain)
+	blockchain, _ := NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{}, fastChain)
 	//blockchain.SetValidator(NewBlockValidator(chainConfig, fastChain, blockchain, engine))
 	// Create and inject the requested chain
 	if n == 0 {
@@ -390,7 +390,7 @@ func testBrokenChain(t *testing.T, full bool) {
 func TestReorgLongBlocks(t *testing.T) { testReorgLong(t, true) }
 
 func testReorgLong(t *testing.T, full bool) {
-	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 4733411880, full)
+	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 5127713801, full)
 }
 
 // Tests that reorganising a short difficult chain after a long easy one
@@ -410,7 +410,7 @@ func testReorgShort(t *testing.T, full bool) {
 	for i := 0; i < len(diff); i++ {
 		diff[i] = -9
 	}
-	testReorg(t, easy, diff, 23752762584, full)
+	testReorg(t, easy, diff, 25575204405, full)
 }
 
 func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
@@ -476,11 +476,13 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	// Make sure the chain total difficulty is the correct one
 	want := new(big.Int).Add(blockchain.genesisBlock.Difficulty(), big.NewInt(td))
 	if full {
+		log.Info("genesisBlock", "total", blockchain.GetTdByHash(blockchain.CurrentBlock().Hash()), "genesisBlock", blockchain.genesisBlock.Difficulty())
 		if have := blockchain.GetTdByHash(blockchain.CurrentBlock().Hash()); have.Cmp(want) != 0 {
 			log.Info("CurrentBlock", "blockchain.genesisBlock.Difficulty()", blockchain.genesisBlock.Difficulty(), "td", td, "want", want, "have", have)
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
 		}
 	} else {
+		log.Info("genesisBlock", "total", blockchain.GetTdByHash(blockchain.CurrentHeader().Hash()), "genesisBlock", blockchain.genesisBlock.Difficulty())
 		if have := blockchain.GetTdByHash(blockchain.CurrentHeader().Hash()); have.Cmp(want) != 0 {
 			log.Info("CurrentHeader", "blockchain.genesisBlock.Difficulty()", blockchain.genesisBlock.Difficulty(), "td", td, "want", want, "have", have)
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
@@ -558,7 +560,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 	blockchain.Stop()
 
 	// Create a new BlockChain and check that it rolled back the state.
-	ncm, err := NewSnailBlockChain(blockchain.db, blockchain.chainConfig, minerva.NewFaker(), fastChain)
+	ncm, err := NewSnailBlockChain(blockchain.db, blockchain.chainConfig, minerva.NewFaker(), vm.Config{}, fastChain)
 	if err != nil {
 		t.Fatalf("failed to create new chain manager: %v", err)
 	}
@@ -1241,7 +1243,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	diskdb := etruedb.NewMemDatabase()
 	commonGenesis.MustSnailCommit(diskdb)
 
-	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, fastChain)
+	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}

@@ -64,7 +64,7 @@ func poolinit() {
 	fastchainpool.InsertChain(fastblocks)
 
 	snailGenesis = genesispool.MustSnailCommit(peerDbpool)
-	snailblockchain, _ = NewSnailBlockChain(peerDbpool, params.TestChainConfig, enginepool, fastchainpool)
+	snailblockchain, _ = NewSnailBlockChain(peerDbpool, params.TestChainConfig, enginepool, vm.Config{}, fastchainpool)
 	/*if err != nil{
 		fmt.Print(err)
 	}*/
@@ -245,7 +245,7 @@ func validateFruitEvents(events chan types.NewFruitsEvent, count int) error {
 		case ev := <-events:
 			received = append(received, ev.Fruits...)
 		case <-time.After(time.Second):
-			return fmt.Errorf("event #%v not fired", received)
+			return fmt.Errorf("event #%d not fired", received)
 		}
 	}
 	if len(received) > count {
@@ -268,22 +268,22 @@ func TestInvalidFruits(t *testing.T) {
 	t.Parallel()
 	var header *types.SnailHeader
 	header = &types.SnailHeader{
-		ParentHash:      header.Hash(),
-		Coinbase:        common.BytesToAddress([]byte{0}),
-		PointerHash:     header.Hash(),
-		PointerNumber:   big.NewInt(0),
-		FruitsHash:      header.Hash(),
-		FastHash:        header.Hash(),
-		FastNumber:      big.NewInt(182),
-		SignHash:        header.Hash(),
-		Difficulty:      big.NewInt(0),
-		FruitDifficulty: big.NewInt(1789570),
-		Number:          big.NewInt(0),
-		Publickey:       []byte{0},
-		Time:            nil,
-		Extra:           []byte{0},
-		MixDigest:       header.Hash(),
-		Nonce:           [8]byte{},
+		header.Hash(),
+		common.BytesToAddress([]byte{0}),
+		header.Hash(),
+		big.NewInt(0),
+		header.Hash(),
+		header.Hash(),
+		big.NewInt(182),
+		header.Hash(),
+		big.NewInt(0),
+		big.NewInt(1789570),
+		big.NewInt(0),
+		[]byte{0},
+		nil,
+		[]byte{0},
+		header.Hash(),
+		[8]byte{},
 	}
 	var ft *types.SnailBlock
 	ft = types.NewSnailBlock(header, nil, nil, nil)
@@ -345,9 +345,9 @@ func TestFruitDropping(t *testing.T) {
 		ft11 = fruit(182, big.NewInt(1789570))
 		ft12 = fruit(183, big.NewInt(1789570))
 	)
-	pool.addFruits([]*types.SnailBlock{ft10})
-	pool.addFruits([]*types.SnailBlock{ft11})
-	pool.addFruits([]*types.SnailBlock{ft12})
+	pool.addFruit(ft10)
+	pool.addFruit(ft11)
+	pool.addFruit(ft12)
 
 	pool.RemovePendingFruitByFastHash(ft10.FastHash())
 	// Check that pre and post validations leave the pool as is
@@ -358,7 +358,7 @@ func TestFruitDropping(t *testing.T) {
 		t.Errorf(
 			"queued fruit mismatch: have %d, want %d", len(pool.allFruits), 2)
 	}
-	if err := validateFruitEvents(events, 3); err != nil {
+	if err := validateFruitEvents(events, 0); err != nil {
 		t.Fatalf(" replacement event firing failed: %v", err)
 	}
 }
@@ -381,8 +381,8 @@ func TestFruitReplacement(t *testing.T) {
 		ft2 = fruit(181, big.NewInt(1789570))
 	)
 
-	pool.addFruits([]*types.SnailBlock{ft0})
-	pool.addFruits([]*types.SnailBlock{ft2})
+	pool.addFruit(ft0)
+	pool.addFruit(ft2)
 
 	if pool.fruitPending[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(1789570)) != 0 {
 		t.Errorf("pending fruit's difficulty mismatch: is %d, want %d", pool.fruitPending[ft0.FastHash()].FruitDifficulty(), big.NewInt(1789570))
@@ -390,8 +390,8 @@ func TestFruitReplacement(t *testing.T) {
 	if pool.allFruits[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(1789570)) != 0 {
 		t.Errorf("allFruits's difficulty mismatch: is %d, want %d", pool.allFruits[ft0.FastHash()].FruitDifficulty(), big.NewInt(1789570))
 	}
-	if err := validateFruitEvents(events, 1); err != nil {
-		t.Fatalf("replacement event firing failed: %v", err)
+	if err := validateFruitEvents(events, 0); err != nil {
+		t.Fatalf(" replacement event firing failed: %v", err)
 	}
 
 }
