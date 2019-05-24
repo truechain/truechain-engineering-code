@@ -93,7 +93,7 @@ type PbftAgent struct {
 	nextCommitteeInfo        *types.CommitteeInfo
 	isCurrentCommitteeMember bool
 	committeeIds             []*big.Int
-	endFastNumber            map[*big.Int]*big.Int
+	endFastNumber            map[uint64]*big.Int
 
 	server   types.PbftServerProxy
 	election *elect.Election
@@ -156,7 +156,7 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		currentCommitteeInfo: new(types.CommitteeInfo),
 		nextCommitteeInfo:    new(types.CommitteeInfo),
 		committeeIds:         make([]*big.Int, committeeIDChanSize),
-		endFastNumber:        make(map[*big.Int]*big.Int),
+		endFastNumber:        make(map[uint64]*big.Int),
 		electionCh:           make(chan types.ElectionEvent, electionChanSize),
 		chainHeadCh:          make(chan types.FastChainHeadEvent, chainHeadSize),
 		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage, nodeSize),
@@ -421,7 +421,9 @@ func (agent *PbftAgent) loop() {
 				}
 			case types.CommitteeOver:
 				committeeID := copyCommitteeID(ch.CommitteeID)
-				agent.endFastNumber[committeeID] = ch.EndFastNumber
+				agent.endFastNumber[committeeID.Uint64()] = ch.EndFastNumber
+				agent.clearEndFastNumber(committeeID)
+
 				help.CheckAndPrintError(agent.server.SetCommitteeStop(committeeID, ch.EndFastNumber.Uint64()))
 			default:
 				log.Warn("unknown election option:", "option", ch.Option)
@@ -453,6 +455,7 @@ func (agent *PbftAgent) loop() {
 					if bool && savedTime.(*big.Int).Cmp(cryNodeInfo.CreatedAt) > 0 {
 						continue
 					}
+
 					agent.MarkNodeInfo(cryNodeInfo, nodeTagHash)
 					differentReceivedMetrics.Mark(1)
 
@@ -477,6 +480,15 @@ func (agent *PbftAgent) loop() {
 func copyCommitteeID(CommitteeID *big.Int) *big.Int {
 	copyID := *CommitteeID
 	return &copyID
+}
+
+func (agent *PbftAgent) clearEndFastNumber(committeeID *big.Int) {
+	if committeeID.Uint64()-2 <= 0 {
+		return
+	}
+	if agent.endFastNumber[committeeID.Uint64()-2] != nil {
+		delete(agent.endFastNumber, committeeID.Uint64()-2)
+	}
 }
 
 //  when receive block insert chain event ,put cacheBlock into fastchain
@@ -694,11 +706,12 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		feeAmount    = big.NewInt(0)
 		tstamp       = time.Now().Unix()
 	)
-
-	//validate newBlock number exceed endNumber
-	if endNumber := agent.endFastNumber[committeeID]; endNumber != nil && endNumber.Cmp(parentNumber) != 1 {
-		log.Error("FetchFastBlock error", "number:", endNumber, "err", core.ErrExceedNumber)
-		return fastBlock, core.ErrExceedNumber
+	if committeeID != nil {
+		//validate newBlock number exceed endNumber
+		if endNumber := agent.endFastNumber[committeeID.Uint64()]; endNumber != nil && endNumber.Cmp(parentNumber) != 1 {
+			log.Error("FetchFastBlock error", "number:", endNumber, "err", core.ErrExceedNumber)
+			return fastBlock, core.ErrExceedNumber
+		}
 	}
 
 	log.Info("FetchFastBlock ", "parent:", parent.Number(), "hash", parent.Hash())
@@ -817,6 +830,23 @@ func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 			log.Error("cannot find snailBlock by rewardSnailHegiht.", "snailHeight", rewardSnailHegiht.Uint64())
 		}
 	}
+}
+
+func (agent *PbftAgent) GetSnailRewardContent(rewardSnailHegiht uint64) *types.SnailRewardContenet {
+	//currentNumber := agent.snailChain.CurrentBlock().Number().Uint64()
+	/*if space := currentNumber - rewardSnailHegiht; space < params.SnailRewardInterval.Uint64() && rewardSnailHegiht < currentNumber {
+		return nil
+	}*/
+	blockReward := agent.fastChain.CurrentReward()
+	if blockReward == nil || blockReward.SnailNumber.Uint64() < rewardSnailHegiht {
+		return nil
+	}
+	snailBlock := agent.snailChain.GetBlockByNumber(rewardSnailHegiht)
+	if snailBlock == nil {
+		return nil
+	}
+	content := agent.engine.GetRewardContentBySnailNumber(snailBlock)
+	return content
 }
 
 //GenerateSignWithVote  generate sign from committeeMember in fastBlock

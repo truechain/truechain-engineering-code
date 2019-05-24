@@ -53,8 +53,8 @@ func generateCommitteeMemberBySelfPriKey() *types.CommitteeMember {
 	committeeBase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
 	pubKeyBytes := crypto.FromECDSAPub(&priKey.PublicKey)
 	committeeMember := &types.CommitteeMember{
-		common.Address{}, committeeBase,
-		pubKeyBytes, 0xa1, 0}
+		Coinbase: common.Address{}, CommitteeBase: committeeBase,
+		Publickey: pubKeyBytes, Flag: 0xa1, MType: 0}
 
 	return committeeMember
 }
@@ -63,8 +63,10 @@ func generateMember() (*ecdsa.PrivateKey, *types.CommitteeMember) {
 	priKey, _ := crypto.GenerateKey()
 	committeeBase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
 	pubKeyBytes := crypto.FromECDSAPub(&priKey.PublicKey)
-	m := &types.CommitteeMember{common.Address{}, committeeBase, pubKeyBytes, 0xa1, 0}
-	return priKey, m
+	committeeMember := &types.CommitteeMember{
+		Coinbase: common.Address{}, CommitteeBase: committeeBase,
+		Publickey: pubKeyBytes, Flag: 0xa1, MType: 0}
+	return priKey, committeeMember
 }
 
 func initCommitteeInfo() (*types.CommitteeInfo, []*ecdsa.PrivateKey) {

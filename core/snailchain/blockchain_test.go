@@ -59,7 +59,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 	fastChain, _ := core.NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{}, fastChain)
+	blockchain, _ := NewSnailBlockChain(db, params.TestChainConfig, engine, fastChain)
 	//blockchain.SetValidator(NewBlockValidator(chainConfig, fastChain, blockchain, engine))
 	// Create and inject the requested chain
 	if n == 0 {
@@ -390,7 +390,7 @@ func testBrokenChain(t *testing.T, full bool) {
 func TestReorgLongBlocks(t *testing.T) { testReorgLong(t, true) }
 
 func testReorgLong(t *testing.T, full bool) {
-	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 5127713801, full)
+	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 4733411880, full)
 }
 
 // Tests that reorganising a short difficult chain after a long easy one
@@ -410,7 +410,7 @@ func testReorgShort(t *testing.T, full bool) {
 	for i := 0; i < len(diff); i++ {
 		diff[i] = -9
 	}
-	testReorg(t, easy, diff, 25575204405, full)
+	testReorg(t, easy, diff, 23752762584, full)
 }
 
 func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
@@ -477,10 +477,12 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	want := new(big.Int).Add(blockchain.genesisBlock.Difficulty(), big.NewInt(td))
 	if full {
 		if have := blockchain.GetTdByHash(blockchain.CurrentBlock().Hash()); have.Cmp(want) != 0 {
+			log.Info("CurrentBlock", "blockchain.genesisBlock.Difficulty()", blockchain.genesisBlock.Difficulty(), "td", td, "want", want, "have", have)
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
 		}
 	} else {
 		if have := blockchain.GetTdByHash(blockchain.CurrentHeader().Hash()); have.Cmp(want) != 0 {
+			log.Info("CurrentHeader", "blockchain.genesisBlock.Difficulty()", blockchain.genesisBlock.Difficulty(), "td", td, "want", want, "have", have)
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
 		}
 	}
@@ -556,7 +558,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 	blockchain.Stop()
 
 	// Create a new BlockChain and check that it rolled back the state.
-	ncm, err := NewSnailBlockChain(blockchain.db, blockchain.chainConfig, minerva.NewFaker(), vm.Config{}, fastChain)
+	ncm, err := NewSnailBlockChain(blockchain.db, blockchain.chainConfig, minerva.NewFaker(), fastChain)
 	if err != nil {
 		t.Fatalf("failed to create new chain manager: %v", err)
 	}
@@ -1239,7 +1241,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	diskdb := etruedb.NewMemDatabase()
 	commonGenesis.MustSnailCommit(diskdb)
 
-	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
+	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, fastChain)
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1257,197 +1259,4 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 			t.Errorf(" fork %d: current block/header mismatch: block #%d [%x…], header #%d [%x…]", i, chain.CurrentBlock().Number(), chain.CurrentBlock().Hash().Bytes()[:4], chain.CurrentHeader().Number, chain.CurrentHeader().Hash().Bytes()[:4])
 		}
 	}
-}
-
-// Tests that importing small side forks doesn't leave junk in the trie database
-// cache (which would eventually cause memory issues).
-func TestTrieForkGC(t *testing.T) {
-	// Generate a canonical chain to act as the main dataset
-	engine := minerva.NewFaker()
-
-	db := etruedb.NewMemDatabase()
-	commonGenesis := core.DefaultGenesisBlock()
-	genesis := commonGenesis.MustSnailCommit(db)
-	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
-	blocks := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{genesis}, 256, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
-
-	// Generate a bunch of fork blocks, each side forking from the canonical chain
-	forks := make([]*types.SnailBlock, len(blocks))
-	for i := 0; i < len(forks); i++ {
-		parent := genesis
-		if i > 0 {
-			parent = blocks[i-1]
-		}
-		fork := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{parent}, 1, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
-		forks[i] = fork[0]
-	}
-	// Import the canonical and fork chain side by side, forcing the trie cache to cache both
-	diskdb := etruedb.NewMemDatabase()
-	commonGenesis.MustSnailCommit(diskdb)
-
-	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
-	if err != nil {
-		t.Fatalf("failed to create tester chain: %v", err)
-	}
-	for i := 0; i < len(blocks); i++ {
-		if _, err := chain.InsertChain(blocks[i : i+1]); err != nil {
-			t.Fatalf("block %d: failed to insert into chain: %v", i, err)
-		}
-		if _, err := chain.InsertChain(forks[i : i+1]); err != nil {
-			t.Fatalf("fork %d: failed to insert into chain: %v", i, err)
-		}
-	}
-}
-
-// Tests that doing large reorgs works even if the state associated with the
-// forking point is not available any more.
-func TestLargeReorgTrieGC(t *testing.T) {
-	// Generate the original common chain segment and the two competing forks
-	engine := minerva.NewFaker()
-
-	db := etruedb.NewMemDatabase()
-	genesis := new(core.Genesis).MustSnailCommit(db)
-
-	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
-	shared := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{genesis}, 64, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
-	original := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{shared[len(shared)-1]}, 256, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
-	competitor := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{shared[len(shared)-1]}, 256+1, 7, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
-
-	// Import the shared chain and the original canonical one
-	diskdb := etruedb.NewMemDatabase()
-	new(core.Genesis).MustSnailCommit(diskdb)
-
-	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
-	if err != nil {
-		t.Fatalf("failed to create tester chain: %v", err)
-	}
-	if _, err := chain.InsertChain(shared); err != nil {
-		t.Fatalf("failed to insert shared chain: %v", err)
-	}
-	if _, err := chain.InsertChain(original); err != nil {
-		t.Fatalf("failed to insert shared chain: %v", err)
-	}
-
-	// Import the competitor chain without exceeding the canonical's TD and ensure
-	// we have not processed any of the blocks (protection against malicious blocks)
-	if _, err := chain.InsertChain(competitor[:len(competitor)-2]); err != nil {
-		t.Fatalf("failed to insert competitor chain: %v", err)
-	}
-
-	// Import the head of the competitor chain, triggering the reorg and ensure we
-	// successfully reprocess all the stashed away blocks.
-	if _, err := chain.InsertChain(competitor[len(competitor)-2:]); err != nil {
-		t.Fatalf("failed to finalize competitor chain: %v", err)
-	}
-}
-
-// Benchmarks large blocks with value transfers to non-existing accounts
-func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address, dataFn func(uint64) []byte) {
-	var (
-		//signer         = types.HomesteadSigner{}
-		//testBankKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		//testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
-		//bankFunds       = big.NewInt(100000000000000000)
-		gspec = core.Genesis{
-			Config: params.TestChainConfig,
-			/*	Alloc: GenesisAlloc{
-				testBankAddress: {Balance: bankFunds},
-				common.HexToAddress("0xc0de"): {
-					Code:    []byte{0x60, 0x01, 0x50},
-					Balance: big.NewInt(0),
-				}, // push 1, pop
-			},*/
-			GasLimit: 100e6, // 100 M
-		}
-	)
-	// Generate the original common chain segment and the two competing forks
-	engine := minerva.NewFaker()
-	db := etruedb.NewMemDatabase()
-	genesis := gspec.MustSnailCommit(db)
-
-	blockGenerator := func(i int, block *BlockGen) {
-		block.SetCoinbase(common.Address{1})
-		/*for txi := 0; txi < numTxs; txi++ {
-			uniq := uint64(i*numTxs + txi)
-			recipient := recipientFn(uniq)
-			//recipient := common.BigToAddress(big.NewInt(0).SetUint64(1337 + uniq))
-			tx, err := types.SignTx(types.NewTransaction(uniq, recipient, big.NewInt(1), params.TxGas, big.NewInt(1), nil), signer, testBankKey)
-			if err != nil {
-				b.Error(err)
-			}
-			block.AddTx(tx)
-		}*/
-	}
-	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
-	shared := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{genesis}, numBlocks, 7, blockGenerator)
-	b.StopTimer()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		// Import the shared chain and the original canonical one
-		diskdb := etruedb.NewMemDatabase()
-		gspec.MustSnailCommit(diskdb)
-
-		chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
-		if err != nil {
-			b.Fatalf("failed to create tester chain: %v", err)
-		}
-		b.StartTimer()
-		if _, err := chain.InsertChain(shared); err != nil {
-			b.Fatalf("failed to insert shared chain: %v", err)
-		}
-		b.StopTimer()
-		if got := len(chain.CurrentBlock().Fruits()); got != numTxs*numBlocks {
-			b.Fatalf("Transactions were not included, expected %d, got %d", numTxs*numBlocks, got)
-
-		}
-	}
-}
-func BenchmarkBlockChain_1x1000ValueTransferToNonexisting(b *testing.B) {
-	var (
-		numTxs    = 1000
-		numBlocks = 1
-	)
-
-	recipientFn := func(nonce uint64) common.Address {
-		return common.BigToAddress(big.NewInt(0).SetUint64(1337 + nonce))
-	}
-	dataFn := func(nonce uint64) []byte {
-		return nil
-	}
-
-	benchmarkLargeNumberOfValueToNonexisting(b, numTxs, numBlocks, recipientFn, dataFn)
-}
-func BenchmarkBlockChain_1x1000ValueTransferToExisting(b *testing.B) {
-	var (
-		numTxs    = 1000
-		numBlocks = 1
-	)
-	b.StopTimer()
-	b.ResetTimer()
-
-	recipientFn := func(nonce uint64) common.Address {
-		return common.BigToAddress(big.NewInt(0).SetUint64(1337))
-	}
-	dataFn := func(nonce uint64) []byte {
-		return nil
-	}
-
-	benchmarkLargeNumberOfValueToNonexisting(b, numTxs, numBlocks, recipientFn, dataFn)
-}
-func BenchmarkBlockChain_1x1000Executions(b *testing.B) {
-	var (
-		numTxs    = 1000
-		numBlocks = 1
-	)
-	b.StopTimer()
-	b.ResetTimer()
-
-	recipientFn := func(nonce uint64) common.Address {
-		return common.BigToAddress(big.NewInt(0).SetUint64(0xc0de))
-	}
-	dataFn := func(nonce uint64) []byte {
-		return nil
-	}
-
-	benchmarkLargeNumberOfValueToNonexisting(b, numTxs, numBlocks, recipientFn, dataFn)
 }

@@ -22,7 +22,7 @@ func (t txdata) MarshalJSON() ([]byte, error) {
 		Amount       *hexutil.Big    `json:"value"    gencodec:"required"`
 		Payload      hexutil.Bytes   `json:"input"    gencodec:"required"`
 		Payer        *common.Address `json:"payer"    rlp:"nil"`
-		Fee          *hexutil.Big    `json:"fee"    	rlp:"nil"`
+		Fee          *hexutil.Big    `json:"fee" rlp:"nil"`
 		V            *hexutil.Big    `json:"v" gencodec:"required"`
 		R            *hexutil.Big    `json:"r" gencodec:"required"`
 		S            *hexutil.Big    `json:"s" gencodec:"required"`
@@ -58,15 +58,15 @@ func (t *txdata) UnmarshalJSON(input []byte) error {
 		Recipient    *common.Address `json:"to"       rlp:"nil"`
 		Amount       *hexutil.Big    `json:"value"    gencodec:"required"`
 		Payload      *hexutil.Bytes  `json:"input"    gencodec:"required"`
-		Payer        *common.Address `json:"payer"    rlp:"nil"`
-		Fee          *hexutil.Big    `json:"fee"    	rlp:"nil"`
-		V            *hexutil.Big    `json:"v" 		gencodec:"required"`
-		R            *hexutil.Big    `json:"r" 		gencodec:"required"`
-		S            *hexutil.Big    `json:"s" 		gencodec:"required"`
-		PV           *hexutil.Big    `json:"pv" 		rlp:"nil"`
-		PR           *hexutil.Big    `json:"pr" 		rlp:"nil"`
-		PS           *hexutil.Big    `json:"ps" 		rlp:"nil"`
-		Hash         *common.Hash    `json:"hash" 		rlp:"-"`
+		Payer        *common.Address `json:"payer" rlp:"nil"`
+		Fee          *hexutil.Big    `json:"fee" rlp:"nil"`
+		V            *hexutil.Big    `json:"v" gencodec:"required"`
+		R            *hexutil.Big    `json:"r" gencodec:"required"`
+		S            *hexutil.Big    `json:"s" gencodec:"required"`
+		PV           *hexutil.Big    `json:"pv"  rlp:"nil"`
+		PR           *hexutil.Big    `json:"pr"  rlp:"nil"`
+		PS           *hexutil.Big    `json:"ps"  rlp:"nil"`
+		Hash         *common.Hash    `json:"hash" rlp:"-"`
 	}
 	var dec txdata
 	if err := json.Unmarshal(input, &dec); err != nil {

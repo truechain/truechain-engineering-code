@@ -31,8 +31,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -883,4 +883,10 @@ func (b *SnailBlock) Difficulty() *big.Int {
 
 		return td
 	}
+}
+
+type SnailRewardContenet struct {
+	BlockMinerReward map[common.Address]*big.Int
+	FruitMinerReward []map[common.Address]*big.Int
+	CommitteeReward  map[common.Address]*big.Int
 }

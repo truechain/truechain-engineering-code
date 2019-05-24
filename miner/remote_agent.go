@@ -127,6 +127,8 @@ func (a *RemoteAgent) GetWork() ([4]string, error) {
 	defer a.mu.Unlock()
 
 	var res [4]string
+	var fruitTarget *big.Int
+	var blockTarget *big.Int
 
 	if a.currentWork != nil {
 		block := a.currentWork.Block
@@ -138,21 +140,21 @@ func (a *RemoteAgent) GetWork() ([4]string, error) {
 		block.Fruits()
 		if block.IsFruit() {
 			// is fruit  so the block target set zore
-			fruitTarget := new(big.Int).Div(maxUint128, block.FruitDifficulty())
-			blockTarget := new(big.Int).SetInt64(0)
-			//res[2] = "0x" + hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
-			//res[3] = "0x" + hex.EncodeToString(blockTarget.Bytes())
-			res[2] = a.CompletionHexString(32, hex.EncodeToString(fruitTarget.Bytes()))
-			res[3] = a.CompletionHexString(32, hex.EncodeToString(blockTarget.Bytes()))
+			fruitTarget = new(big.Int).Div(maxUint128, block.FruitDifficulty())
+			blockTarget = new(big.Int).SetInt64(0)
 		} else {
-			fruitTarget := new(big.Int).Div(maxUint128, block.FruitDifficulty())
-			blockTarget := new(big.Int).Div(maxUint128, block.BlockDifficulty())
-			//res[2] = "0x" + hex.EncodeToString(fruitTarget.Bytes()) //common.BytesToHash(fruitTarget.Bytes()).Hex()
-			//res[3] = "0x" + hex.EncodeToString(blockTarget.Bytes())
-			res[2] = a.CompletionHexString(32, hex.EncodeToString(fruitTarget.Bytes()))
-			res[3] = a.CompletionHexString(32, hex.EncodeToString(blockTarget.Bytes()))
-		}
 
+			if block.FastNumber().Cmp(big.NewInt(0)) == 0 {
+				// only block
+				fruitTarget = new(big.Int).SetInt64(0)
+				blockTarget = new(big.Int).Div(maxUint128, block.BlockDifficulty())
+			} else {
+				fruitTarget = new(big.Int).Div(maxUint128, block.FruitDifficulty())
+				blockTarget = new(big.Int).Div(maxUint128, block.BlockDifficulty())
+			}
+		}
+		res[2] = a.CompletionHexString(32, hex.EncodeToString(fruitTarget.Bytes()))
+		res[3] = a.CompletionHexString(32, hex.EncodeToString(blockTarget.Bytes()))
 		a.work[block.HashNoNonce()] = a.currentWork
 		return res, nil
 	}
@@ -232,7 +234,7 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	}
 
 	block := work.Block.WithSeal(result)
-	block.Number()
+
 	if isFruit {
 		block.SetSnailBlockFruits(nil)
 	} else {
@@ -249,16 +251,17 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 }
 
 //GetWork return the current block hash without nonce
-func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH][]byte, error) {
+func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH]string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	var res [DATASETHEADLENGH][]byte
+	//var res [DATASETHEADLENGH][]byte
+	var res [DATASETHEADLENGH]string
 	if a.currentWork != nil {
 		block := a.currentWork.Block
 		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
 		if epoch == 0 {
-			return res, nil
+			return res, errors.New("the epoch is zore not need dataset")
 		}
 		st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
 
@@ -268,9 +271,8 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH][]byte, error) {
 				log.Error("header is nill  ", "blockNum is:  ", (uint64(i) + st_block_num))
 				return res, errors.New("GetDataset get heard fial")
 			}
-			res[i] = header.Hash().Bytes()
+			res[i] = "0x" + hex.EncodeToString(header.Hash().Bytes()[:16])
 		}
-
 		return res, nil
 	}
 	return res, errors.New("No work available yet, Don't panic.")

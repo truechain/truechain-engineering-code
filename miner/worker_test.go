@@ -64,9 +64,10 @@ type testWorkerBackend struct {
 
 func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, n int) *testWorkerBackend {
 	var (
-		db = etruedb.NewMemDatabase()
+		db      = etruedb.NewMemDatabase()
+		genesis = core.DefaultGenesisBlock()
 	)
-	snailChainLocal, fastChainLocal = snailchain.MakeChain(fastChainHight, blockNum, minerva.NewFaker())
+	snailChainLocal, fastChainLocal = snailchain.MakeChain(fastChainHight, blockNum, genesis, minerva.NewFaker())
 	//sv := snailchain.NewBlockValidator(chainConfig, fastChainLocal, snailChainLocal, engine)
 
 	return &testWorkerBackend{
@@ -116,7 +117,7 @@ func TestCommitFastBlock(t *testing.T) {
 	//fruitset1 = nil
 	err0 := worker.CommitFastBlocksByWoker(nil, snailChainLocal, fastChainLocal, nil)
 	if err0 != nil {
-		fmt.Errorf("1 is err", err0)
+		fmt.Println("1 is err", err0)
 	}
 
 	// situation 2   1 2 3 4
@@ -124,14 +125,14 @@ func TestCommitFastBlock(t *testing.T) {
 
 		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 		if fruit == nil {
-			fmt.Errorf("fruit is nil  2")
+			fmt.Println("fruit is nil  2")
 		}
 		fruitset2 = append(fruitset2, fruit)
 	}
 
 	err := worker.CommitFastBlocksByWoker(fruitset2, snailChainLocal, fastChainLocal, nil)
 	if err != nil {
-		fmt.Errorf("1 is err", err)
+		fmt.Println("1 is err", err)
 	}
 
 	// situation 3   1 2 3 5 7
@@ -143,27 +144,27 @@ func TestCommitFastBlock(t *testing.T) {
 		}
 		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 		if fruit == nil {
-			fmt.Errorf("fruit is nil  3")
+			fmt.Println("fruit is nil  3")
 		}
 		fruitset3 = append(fruitset3, fruit)
 	}
 
 	err2 := worker.CommitFastBlocksByWoker(fruitset2, snailChainLocal, fastChainLocal, nil)
 	if err != nil {
-		fmt.Errorf("2 is err", err2)
+		fmt.Println("2 is err", err2)
 	}
 	// situation 4   1 2 3...60
 	for i := startFastNum; i < startFastNum+60; i++ {
 
 		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 		if fruit == nil {
-			fmt.Errorf("fruit is nil 4 ")
+			fmt.Println("fruit is nil 4 ")
 		}
 		fruitset4 = append(fruitset4, fruit)
 	}
 	err3 := worker.CommitFastBlocksByWoker(fruitset2, snailChainLocal, fastChainLocal, nil)
 	if err != nil {
-		fmt.Errorf("2 is err", err3)
+		fmt.Println("2 is err", err3)
 	}
 
 	// situation 5   10000 10001...
@@ -171,13 +172,13 @@ func TestCommitFastBlock(t *testing.T) {
 
 		fruit, _ := snailchain.MakeSnailBlockFruit(snailChainLocal, fastChainLocal, blockNum, i, gensisSnail.PublicKey(), gensisSnail.Coinbase(), false, nil)
 		if fruit == nil {
-			fmt.Errorf("fruit is nil  5")
+			fmt.Println("fruit is nil  5")
 		}
 		fruitset5 = append(fruitset5, fruit)
 	}
 	err5 := worker.CommitFastBlocksByWoker(fruitset2, snailChainLocal, fastChainLocal, nil)
 	if err != nil {
-		fmt.Errorf("2 is err", err5)
+		fmt.Println("2 is err", err5)
 	}
 
 }
@@ -209,5 +210,5 @@ func TestCommitFruits(t *testing.T) {
 	}
 	fruitset = append(fruitset, fruitNofresh)
 
-	worker.CommitFruits(fruitset, snailChainLocal, engine)
+	worker.CommitFruits(fruitset, snailChainLocal, fastChainLocal, engine)
 }

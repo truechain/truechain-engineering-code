@@ -130,7 +130,7 @@ func (b *LesApiBackend) GetTd(hash common.Hash) *big.Int {
 
 func (b *LesApiBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
 	state.SetBalance(msg.From(), math.MaxBig256)
-	context := core.NewEVMContext(msg, header, b.etrue.blockchain)
+	context := core.NewEVMContext(msg, header, b.etrue.blockchain,nil,nil)
 	return vm.NewEVM(context, state, b.etrue.chainConfig, vmCfg), state.Error, nil
 }
 
@@ -197,6 +197,10 @@ func (b *LesApiBackend) GetReward(number int64) *types.BlockReward {
 
 func (b *LesApiBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
 	return nil, nil
+}
+
+func (b *LesApiBackend) GetSnailRewardContent(number rpc.BlockNumber) *types.SnailRewardContenet {
+	return nil
 }
 
 func (b *LesApiBackend) SnailPoolContent() []*types.SnailBlock {

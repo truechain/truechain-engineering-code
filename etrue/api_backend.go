@@ -192,7 +192,7 @@ func (b *TrueAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *st
 	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
-	context := core.NewEVMContext(msg, header, b.etrue.BlockChain())
+	context := core.NewEVMContext(msg, header, b.etrue.BlockChain(),nil,nil)
 	return vm.NewEVM(context, state, b.etrue.chainConfig, vmCfg), vmError, nil
 }
 
@@ -221,6 +221,10 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 		return b.etrue.blockchain.CurrentReward()
 	}
 	return b.etrue.blockchain.GetBlockReward(uint64(number))
+}
+
+func (b *TrueAPIBackend) GetSnailRewardContent(snailNumber rpc.BlockNumber) *types.SnailRewardContenet {
+	return b.etrue.agent.GetSnailRewardContent(uint64(snailNumber))
 }
 
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {

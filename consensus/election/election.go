@@ -199,6 +199,10 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
 
 	if election.singleNode {
+		committeeMember := election.getGenesisCommittee()
+		if committeeMember == nil {
+			log.Error("genesis block committee member is nil.")
+		}
 		election.genesisCommittee = election.getGenesisCommittee()[:1]
 	}
 	if !election.singleNode && len(election.genesisCommittee) < 4 {

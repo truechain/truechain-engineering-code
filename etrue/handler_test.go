@@ -58,7 +58,7 @@ func TestProtocolCompatibility(t *testing.T) {
 	for i, tt := range tests {
 		ProtocolVersions = []uint{tt.version}
 
-		pm, _, err := newTestProtocolManager(tt.mode, 0, nil, nil, nil, nil)
+		pm, _, err := newTestProtocolManager(tt.mode, 0, 0, nil, nil, nil, nil)
 		if pm != nil {
 			defer pm.Stop()
 		}
@@ -72,7 +72,7 @@ func TestProtocolCompatibility(t *testing.T) {
 func TestGetBlockHeaders63(t *testing.T) { testGetBlockHeaders(t, 63) }
 
 func testGetBlockHeaders(t *testing.T, protocol int) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxHashFetch+15, nil, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxHashFetch+15, 0, nil, nil, nil, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
 
@@ -232,7 +232,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 func TestGetBlockBodies63(t *testing.T) { testGetBlockBodies(t, 63) }
 
 func testGetBlockBodies(t *testing.T, protocol int) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, nil, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, 0, nil, nil, nil, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
 
@@ -310,7 +310,7 @@ func testGetNodeData(t *testing.T, protocol int) {
 	acc1Addr := crypto.PubkeyToAddress(acc1Key.PublicKey)
 	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
 
-	signer := types.NewTIP1Signer(new(big.Int).Set(common.Big1))
+	signer := types.NewTIP1Signer(params.AllMinervaProtocolChanges.ChainID)
 	// Create a chain generator with some simple transactions (blatantly stolen from @fjl/chain_markets_test)
 	generator := func(i int, block *core.BlockGen) {
 		switch i {
@@ -338,7 +338,7 @@ func testGetNodeData(t *testing.T, protocol int) {
 		}
 	}
 	// Assemble the test environment
-	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, nil, nil)
+	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, 0, generator, nil, nil, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
 
@@ -400,7 +400,7 @@ func testGetReceipt(t *testing.T, protocol int) {
 	acc1Addr := crypto.PubkeyToAddress(acc1Key.PublicKey)
 	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
 
-	signer := types.NewTIP1Signer(new(big.Int).Set(common.Big1))
+	signer := types.NewTIP1Signer(params.AllMinervaProtocolChanges.ChainID)
 	// Create a chain generator with some simple transactions (blatantly stolen from @fjl/chain_markets_test)
 	generator := func(i int, block *core.BlockGen) {
 		switch i {
@@ -428,7 +428,7 @@ func testGetReceipt(t *testing.T, protocol int) {
 		}
 	}
 	// Assemble the test environment
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 4, 0, generator, nil, nil, nil)
 	peer, _ := newTestPeer("peer", protocol, pm, true)
 	defer peer.close()
 
@@ -500,7 +500,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
 
-	snailChain, _ := snailchain.NewSnailBlockChain(db, gspec.Config, pow, vm.Config{}, blockchain)
+	snailChain, _ := snailchain.NewSnailBlockChain(db, gspec.Config, pow, blockchain)
 
 	//
 	pm, err := NewProtocolManager(gspec.Config, downloader.FullSync, DefaultConfig.NetworkId, evmux, new(testTxPool), new(testSnailPool), pow, blockchain, snailChain, db, pbftAgent)

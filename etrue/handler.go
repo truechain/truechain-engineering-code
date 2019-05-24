@@ -1304,7 +1304,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 
 				for i := 0; i < txLen; {
 					i = i + maxSize
-					if i < txLen {
+					if i <= txLen {
 						pm.BroadcastTxs(txs[:maxSize])
 						txs = append(txs[:0], txs[maxSize:]...)
 					} else {

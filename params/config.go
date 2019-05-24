@@ -30,8 +30,8 @@ var (
 	MainnetGenesisHash      = common.HexToHash("0x0c6e644fcbd396f7b235ecef44551c45afd9274e87cd77ec6e9778cf8bfb46fc")
 	MainnetSnailGenesisHash = common.HexToHash("0xf82fd9c0c8a53474c9e40e4f1c0583a94609eaf88dae01a5496da459398485c6")
 
-	TestnetGenesisHash      = common.HexToHash("0x8559a3cad3e5702fe057fe6709234183140537504f2167338a7d851f4426c2b6")
-	TestnetSnailGenesisHash = common.HexToHash("0x386389953605bf5fae7296a0523dd02b8a28c2bbbbd5c8a8f395319cbb938b74")
+	TestnetGenesisHash      = common.HexToHash("0x4b82a68ebbf32f2e816754f2b50eda0ae2c0a71dd5f4e0ecd93ccbfb7dba00b8")
+	TestnetSnailGenesisHash = common.HexToHash("0x4ab1748c057b744de202d6ebea64e8d3a0b2ec4c19abbc59e8639967b14b7c96")
 )
 
 var (
@@ -53,6 +53,7 @@ var (
 			MinimumFruitDifficulty: big.NewInt(200),
 			DurationLimit:          big.NewInt(600),
 		}),
+		TIP12Block: big.NewInt(306346),
 	}
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -65,14 +66,15 @@ var (
 		}),
 	}
 
+	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{big.NewInt(1337), new(MinervaConfig)}
+	AllMinervaProtocolChanges = &ChainConfig{chainId, new(MinervaConfig), big.NewInt(0)}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}}
+	TestChainConfig = &ChainConfig{chainId, &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, big.NewInt(0)}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -86,6 +88,8 @@ type ChainConfig struct {
 	// Various consensus engines
 	Minerva *MinervaConfig `json:"minerva"`
 	//Clique *CliqueConfig  `json:"clique,omitempty"`
+
+	TIP12Block *big.Int
 }
 
 func (c *ChainConfig) UnmarshalJSON(input []byte) error {
@@ -281,6 +285,7 @@ func (err *ConfigCompatError) Error() string {
 // phases.
 type Rules struct {
 	ChainID *big.Int
+	IsTIP12 bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -289,5 +294,13 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	if chainID == nil {
 		chainID = new(big.Int)
 	}
-	return Rules{ChainID: new(big.Int).Set(chainID)}
+	return Rules{
+		ChainID: new(big.Int).Set(chainID),
+		IsTIP12: c.IsTIP12(num),
+	}
+}
+
+// IsTIP12 returns whether num is either equal to the TIP12 fork block or greater.
+func (c *ChainConfig) IsTIP12(num *big.Int) bool {
+	return isForked(c.TIP12Block, num)
 }

@@ -51,45 +51,45 @@ func (t *BlockTest) UnmarshalJSON(in []byte) error {
 }
 
 type btJSON struct {
-	FastBlocks     []btBlock             	`json:"fastBlocks"`
-	SnailBlocks    []snailBlock             	`json:"snailBlocks"`
+	FastBlocks  []btBlock    `json:"fastBlocks"`
+	SnailBlocks []snailBlock `json:"snailBlocks"`
 
-	FastGenesis    btHeader              	`json:"genesisFastBlockHeader"`
-	Genesis    snailHeader              	`json:"genesisBlockHeader"`
+	FastGenesis btHeader    `json:"genesisFastBlockHeader"`
+	Genesis     snailHeader `json:"genesisBlockHeader"`
 
-	Pre        types.GenesisAlloc    	`json:"pre"`
-	Post       types.GenesisAlloc    	`json:"postState"`
-	BestBlock  common.UnprefixedHash 	`json:"lastblockhash"`
-	Network    string                	`json:"network"`
-	Committee  types.CommitteeMembers	`json:"committee"`
-	SealEngine string                	`json:"sealEngine"`
+	Pre        types.GenesisAlloc     `json:"pre"`
+	Post       types.GenesisAlloc     `json:"postState"`
+	BestBlock  common.UnprefixedHash  `json:"lastblockhash"`
+	Network    string                 `json:"network"`
+	Committee  types.CommitteeMembers `json:"committee"`
+	SealEngine string                 `json:"sealEngine"`
 }
 
 type btBlock struct {
-	BlockHeader  *btHeader
-	Txs    []*types.Transaction
-	Signs  []*types.PbftSign
-	Infos  []*types.CommitteeMember
-	Rlp          string
+	BlockHeader *btHeader
+	Txs         []*types.Transaction
+	Signs       []*types.PbftSign
+	Infos       []*types.CommitteeMember
+	Rlp         string
 }
 
 type snailBlock struct {
 	BlockHeader *snailHeader
-	Fruits []*types.SnailBlock
-	Signs  []*types.PbftSign
-	Rlp          string
+	Fruits      []*types.SnailBlock
+	Signs       []*types.PbftSign
+	Rlp         string
 }
 
 //go:generate gencodec -type btHeader -field-override btHeaderMarshaling -out gen_btheader.go
 type btHeader struct {
-	SnailHash		 common.Hash
-	SnailNumber		 *big.Int
-	CommitteeHash	 common.Hash
+	SnailHash        common.Hash
+	SnailNumber      *big.Int
+	CommitteeHash    common.Hash
 	Bloom            types.Bloom
 	Number           *big.Int
 	Hash             common.Hash
 	ParentHash       common.Hash
-	ReceiptsRoot      common.Hash
+	ReceiptsRoot     common.Hash
 	StateRoot        common.Hash
 	TransactionsRoot common.Hash
 	ExtraData        []byte
@@ -97,7 +97,6 @@ type btHeader struct {
 	GasUsed          uint64
 	Timestamp        *big.Int
 }
-
 
 type btHeaderMarshaling struct {
 	ExtraData  hexutil.Bytes
@@ -108,28 +107,25 @@ type btHeaderMarshaling struct {
 	Timestamp  *math.HexOrDecimal256
 }
 
-
-
 //go:generate gencodec -type snailHeader -field-override snailHeaderMarshaling -out gen_snailheader.go
 type snailHeader struct {
-	ParentHash       	common.Hash
-	Miner				common.Address
-	PointerHash			common.Hash
-	PointerNumber		*big.Int
-	FruitsHash			common.Hash
-	FastHash			common.Hash
-	FastNumber			*big.Int
-	SignHash			common.Hash
-	Difficulty			*big.Int
-	FruitDifficulty		*big.Int
-	Number				*big.Int
-	PublicKey			[]byte
-	Timestamp			*big.Int
-	ExtraData			[]byte
-	MixHash				common.Hash
-	Nonce				types.BlockNonce
+	ParentHash      common.Hash
+	Miner           common.Address
+	PointerHash     common.Hash
+	PointerNumber   *big.Int
+	FruitsHash      common.Hash
+	FastHash        common.Hash
+	FastNumber      *big.Int
+	SignHash        common.Hash
+	Difficulty      *big.Int
+	FruitDifficulty *big.Int
+	Number          *big.Int
+	PublicKey       []byte
+	Timestamp       *big.Int
+	ExtraData       []byte
+	MixHash         common.Hash
+	Nonce           types.BlockNonce
 }
-
 
 type snailHeaderMarshaling struct {
 	ExtraData  hexutil.Bytes
@@ -149,7 +145,6 @@ func (t *BlockTest) Run() error {
 	genesis := core.DefaultGenesisBlock()
 	gblock := genesis.MustFastCommit(db)
 
-
 	if gblock.Hash() != t.json.FastGenesis.Hash {
 		return fmt.Errorf("genesis block hash doesn't match test: computed=%x, test=%x", gblock.Hash().Bytes()[:6], t.json.FastGenesis.Hash[:6])
 	}
@@ -168,25 +163,25 @@ func (t *BlockTest) Run() error {
 
 	genesis.MustSnailCommit(db)
 	// Initialize a fresh chain with only a genesis block
-	blockchain, err := snailchain.NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{}, fastChain)
+	blockchain, err := snailchain.NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{},fastChain)
 
 	if err != nil {
 		return err
 	}
 
 	defer fastChain.Stop()
-	 _ , err = t.insertFastBlocks(fastChain)
+	_, err = t.insertFastBlocks(fastChain)
 
 	if err != nil {
 		return err
 	}
 
-	_ , err = t.insertSnailBlocks(blockchain)
+	_, err = t.insertSnailBlocks(blockchain)
 
 	if err != nil {
 		return err
 	}
-	
+
 	newDB, err := fastChain.State()
 	if err != nil {
 		return err
@@ -208,7 +203,7 @@ func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
 		GasLimit:   t.json.FastGenesis.GasLimit,
 		GasUsed:    t.json.FastGenesis.GasUsed,
 		Alloc:      t.json.Pre,
-		Committee:	t.json.Committee,
+		Committee:  t.json.Committee,
 	}
 }
 
@@ -259,7 +254,6 @@ func (t *BlockTest) insertFastBlocks(blockchain *core.BlockChain) ([]btBlock, er
 	return validBlocks, nil
 }
 
-
 /* See https://github.com/ethereum/tests/wiki/Blockchain-Tests-II
 
    Whether a block is valid or not is a bit subtle, it's defined by presence of
@@ -306,8 +300,6 @@ func (t *BlockTest) insertSnailBlocks(blockchain *snailchain.SnailBlockChain) ([
 	}
 	return validBlocks, nil
 }
-
-
 
 func validateHeader(h *btHeader, h2 *types.Header) error {
 	if h.Bloom != h2.Bloom {
@@ -391,8 +383,6 @@ func (bb *btBlock) decode() (*types.Block, error) {
 	err = rlp.DecodeBytes(data, &b)
 	return &b, err
 }
-
-
 
 func (bb *snailBlock) decode() (*types.SnailBlock, error) {
 	data, err := hexutil.Decode(bb.Rlp)

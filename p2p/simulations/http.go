@@ -439,8 +439,13 @@ func (s *Server) StreamNetworkEvents(w http.ResponseWriter, req *http.Request) {
 			writeErr(err)
 			return
 		}
-		for _, node := range snap.Nodes {
-			event := NewEvent(&node.Node)
+		for i := 0; i < len(snap.Nodes); i++ {
+			nodeCopy := &Node{
+				Node:   snap.Nodes[i].Node.Node,
+				Config: snap.Nodes[i].Node.Config,
+				up:     snap.Nodes[i].Node.up,
+			}
+			event := NewEvent(nodeCopy)
 			if err := writeEvent(event); err != nil {
 				writeErr(err)
 				return

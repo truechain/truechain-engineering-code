@@ -30,8 +30,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
+	"golang.org/x/crypto/sha3"
 )
 
 // Tests whether the truehash lookup works for both light as well as the full
@@ -50,11 +50,8 @@ func TestTruehash(t *testing.T) {
 	hash := hexutil.MustDecode("0xc9149cc0386e689d789a1c2f3d5d169a61a6218ed30e74414dc736e442ef3d1f")
 	nonce := uint64(0)
 
-	wantDigest := hexutil.MustDecode("0xe4073cffaef931d37117cefd9afd27ea0f1cad6a981dd2605c4a1ac97c519800")
-	wantResult := hexutil.MustDecode("0xd3539235ee2e6f8db665c0a72169f55b7f6c605712330b778ec3944f0eb5a557")
-
-	//wantDigest := hexutil.MustDecode("0x47af990afa74cf47281fe85246e796e7963fce8e05c443d221aaf1ebaf238b1d")
-	//wantResult := hexutil.MustDecode("0x47af990afa74cf47281fe85246e796e7963fce8e05c443d221aaf1ebaf238b1d")
+	wantDigest := hexutil.MustDecode("0x47af990afa74cf47281fe85246e796e7963fce8e05c443d221aaf1ebaf238b1d")
+	wantResult := hexutil.MustDecode("0x47af990afa74cf47281fe85246e796e7963fce8e05c443d221aaf1ebaf238b1d")
 
 	digest, result := truehashLight(dataset, hash, nonce)
 	//println("have %x",digest)
@@ -196,7 +193,6 @@ func readLine(fileName string, handler func(string)) error {
 			return err
 		}
 	}
-	return nil
 }
 func fetchhashfromFile(fileName string) []common.Hash {
 	heads := make([]common.Hash, 0)
@@ -207,30 +203,7 @@ func fetchhashfromFile(fileName string) []common.Hash {
 	})
 	return heads
 }
-func TestMakeDatasetHash(t *testing.T) {
-	dataset1 := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
 
-	for k := 0; k < TBLSIZE; k++ {
-		for x := 0; x < DATALENGTH*PMTSIZE; x++ {
-			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
-		}
-	}
-	genLookupTable(dataset1[:], table[:])
-	makeDatasetHash(dataset1)
-
-	filename := "d:\\1.txt"
-	aheads := fetchhashfromFile(filename)
-	heads := aheads[:10240]
-	fmt.Println("test head:", len(heads))
-	headhash := makeDatasetHash4(heads)
-	fmt.Println("headhash:", hexutil.Encode(headhash))
-	fmt.Println("test 2 dataset")
-	dataset2 := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-	dataset2 = updateLookupTBL(dataset2, heads)
-	makeDatasetHash(dataset2)
-	fmt.Println("finish2...")
-}
 func updateLookupTBL(plookupTbl []uint64, heads []common.Hash) []uint64 {
 	const offsetCnst = 0x7
 	const skipCnst = 0x3
@@ -274,54 +247,7 @@ func updateLookupTBL(plookupTbl []uint64, heads []common.Hash) []uint64 {
 	ds := updateTBL(offset, skip, plookupTbl)
 	return ds
 }
-func getdataset(pos int) []uint64 {
-	dataset1 := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
 
-	for k := 0; k < TBLSIZE; k++ {
-		for x := 0; x < DATALENGTH*PMTSIZE; x++ {
-			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
-		}
-	}
-	genLookupTable(dataset1[:], table[:])
-	if pos == 0 {
-		makeDatasetHash(dataset1)
-		return dataset1
-	}
-	filename := "d:\\1.txt"
-	aheads := fetchhashfromFile(filename)
-	heads := aheads[:10240]
-	dataset2 := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-	dataset2 = updateLookupTBL(dataset2, heads)
-	makeDatasetHash(dataset2)
-	return dataset2
-}
-
-func TestTrueHash3(t *testing.T) {
-	dataset := getdataset(1)
-	hash := hexutil.MustDecode("0xf99f2b620894fee2d313937eb2492a571df0db77aa48f7f51ec99cd9f96c2a6d")
-	nonce := uint64(11) // mining for windows
-
-	btarget, _ := hexutil.Decode("0x0ccccccccccccccccccccccccccccccc")
-	target := new(big.Int).SetBytes(btarget)
-
-	for {
-		_, result := truehashLight(dataset, hash, nonce)
-		headResult := result[:16]
-		if new(big.Int).SetBytes(headResult).Cmp(target) <= 0 {
-			// get block
-			break
-
-		} else {
-			lastResult := result[16:]
-			if new(big.Int).SetBytes(lastResult).Cmp(target) <= 0 {
-				break
-			}
-		}
-		nonce++
-	}
-
-}
 func TestTrueHash2(t *testing.T) {
 	makeTestsha256()
 	makeTestSha3()

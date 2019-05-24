@@ -222,7 +222,6 @@ func TestProtocolHandshake(t *testing.T) {
 }
 
 func TestProtocolHandshakeErrors(t *testing.T) {
-	our := &protoHandshake{Version: 3, Caps: []Cap{{"foo", 2}, {"bar", 3}}, Name: "quux"}
 	tests := []struct {
 		code uint64
 		msg  interface{}
@@ -258,7 +257,7 @@ func TestProtocolHandshakeErrors(t *testing.T) {
 	for i, test := range tests {
 		p1, p2 := MsgPipe()
 		go Send(p1, test.code, test.msg)
-		_, err := readProtocolHandshake(p2, our)
+		_, err := readProtocolHandshake(p2)
 		if !reflect.DeepEqual(err, test.err) {
 			t.Errorf("test %d: error mismatch: got %q, want %q", i, err, test.err)
 		}
@@ -521,49 +520,6 @@ func TestHandshakeForwardCompatibility(t *testing.T) {
 		copy(msg.InitiatorPubkey[:], pubA)
 		copy(msg.Nonce[:], nonceA)
 		return msg
-	}
-	makeAck := func(test handshakeAckTest) *authRespV4 {
-		msg := &authRespV4{Version: test.wantVersion, Rest: test.wantRest}
-		copy(msg.RandomPubkey[:], ephPubB)
-		copy(msg.Nonce[:], nonceB)
-		return msg
-	}
-
-	// check auth msg parsing
-	for _, test := range eip8HandshakeAuthTests {
-		r := bytes.NewReader(unhex(test.input))
-		msg := new(authMsgV4)
-		ciphertext, err := readHandshakeMsg(msg, encAuthMsgLen, keyB, r)
-		if err != nil {
-			t.Errorf("error for input %x:\n  %v", unhex(test.input), err)
-			continue
-		}
-		if !bytes.Equal(ciphertext, unhex(test.input)) {
-			t.Errorf("wrong ciphertext for input %x:\n  %x", unhex(test.input), ciphertext)
-		}
-		want := makeAuth(test)
-		if !reflect.DeepEqual(msg, want) {
-			t.Errorf("wrong msg for input %x:\ngot %s\nwant %s", unhex(test.input), spew.Sdump(msg), spew.Sdump(want))
-		}
-	}
-
-	// check auth resp parsing
-	for _, test := range eip8HandshakeRespTests {
-		input := unhex(test.input)
-		r := bytes.NewReader(input)
-		msg := new(authRespV4)
-		ciphertext, err := readHandshakeMsg(msg, encAuthRespLen, keyA, r)
-		if err != nil {
-			t.Errorf("error for input %x:\n  %v", input, err)
-			continue
-		}
-		if !bytes.Equal(ciphertext, input) {
-			t.Errorf("wrong ciphertext for input %x:\n  %x", input, err)
-		}
-		want := makeAck(test)
-		if !reflect.DeepEqual(msg, want) {
-			t.Errorf("wrong msg for input %x:\ngot %s\nwant %s", input, spew.Sdump(msg), spew.Sdump(want))
-		}
 	}
 
 	// check derivation for (Auth₂, Ack₂) on recipient side
