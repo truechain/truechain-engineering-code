@@ -84,7 +84,7 @@ func NewSync(root common.Hash, database DatabaseReader, callback LeafCallback) *
 		database: database,
 		membatch: newSyncMemBatch(),
 		requests: make(map[common.Hash]*request),
-		queue:    prque.New(),
+		queue:    prque.New(nil),
 	}
 	ts.AddSubTrie(root, 0, common.Hash{}, callback)
 	return ts
@@ -157,7 +157,7 @@ func (s *Sync) AddRawEntry(hash common.Hash, depth int, parent common.Hash) {
 
 // Missing retrieves the known missing nodes from the trie for retrieval.
 func (s *Sync) Missing(max int) []common.Hash {
-	var requests []common.Hash
+	requests := []common.Hash{}
 	for !s.queue.Empty() && (max == 0 || len(requests) < max) {
 		requests = append(requests, s.queue.PopItem().(common.Hash))
 	}
@@ -242,7 +242,7 @@ func (s *Sync) schedule(req *request) {
 		return
 	}
 	// Schedule the request for future retrieval
-	s.queue.Push(req.hash, float32(req.depth))
+	s.queue.Push(req.hash, int64(req.depth))
 	s.requests[req.hash] = req
 }
 
@@ -254,7 +254,7 @@ func (s *Sync) children(req *request, object node) ([]*request, error) {
 		node  node
 		depth int
 	}
-	var children []child
+	children := []child{}
 
 	switch node := (object).(type) {
 	case *shortNode:

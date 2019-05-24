@@ -72,14 +72,13 @@ const (
 	GetHeaderProofsMsg = 0x0d
 	HeaderProofsMsg    = 0x0e
 	// Protocol messages belonging to LPV2
-	GetProofsV2Msg          = 0x0f
-	ProofsV2Msg             = 0x10
-	GetHelperTrieProofsMsg  = 0x11
-	HelperTrieProofsMsg     = 0x12
-	SendTxV2Msg             = 0x13
-	GetTxStatusMsg          = 0x14
-	TxStatusMsg             = 0x15
-	GetSnailBlockHeadersMsg = 0x16
+	GetProofsV2Msg         = 0x0f
+	ProofsV2Msg            = 0x10
+	GetHelperTrieProofsMsg = 0x11
+	HelperTrieProofsMsg    = 0x12
+	SendTxV2Msg            = 0x13
+	GetTxStatusMsg         = 0x14
+	TxStatusMsg            = 0x15
 )
 
 type errCode int
@@ -157,11 +156,10 @@ func (a *announceData) checkSignature(id enode.ID) error {
 	if err != nil {
 		return err
 	}
-
 	if id == enode.PubkeyToIDV4(recPubkey) {
 		return nil
 	}
-	return errors.New("Wrong signature")
+	return errors.New("wrong signature")
 }
 
 type blockInfo struct {

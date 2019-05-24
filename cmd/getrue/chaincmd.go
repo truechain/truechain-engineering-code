@@ -397,7 +397,7 @@ func copyDb(ctx *cli.Context) error {
 
 	fdl := fastdownloader.New(fsyncmode, chainDb, new(event.TypeMux), fchain, nil, nil)
 
-	sdl := downloader.New(syncmode, chainDb, new(event.TypeMux), schain, nil, nil, fdl)
+	sdl := downloader.New(syncmode, 0, chainDb, new(event.TypeMux), schain, nil, nil, fdl)
 
 	// Create a source peer to satisfy downloader requests from
 	db, err := etruedb.NewLDBDatabase(ctx.Args().First(), ctx.GlobalInt(utils.CacheFlag.Name), 256)

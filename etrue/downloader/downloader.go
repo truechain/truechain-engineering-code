@@ -75,6 +75,7 @@ var (
 	errUnknownPeer             = errors.New("snail peer is unknown or unhealthy")
 	errBadPeer                 = errors.New("snail action from bad peer ignored")
 	errStallingPeer            = errors.New("snail peer is stalling")
+	errUnsyncedPeer            = errors.New("snail unsynced peer")
 	errNoPeers                 = errors.New("snail no peers to keep download active")
 	errTimeout                 = errors.New("snail timeout")
 	errEmptyHeaderSet          = errors.New("snail empty header set by peer")
@@ -88,6 +89,7 @@ var (
 	errCancelHeaderFetch       = errors.New("snail block header download canceled (requested)")
 	errCancelBodyFetch         = errors.New("snail block body download canceled (requested)")
 	errCancelReceiptFetch      = errors.New("snail receipt download canceled (requested)")
+	errCancelStateFetch        = errors.New("state data download canceled (requested)")
 	errCancelHeaderProcessing  = errors.New("snail header processing canceled (requested)")
 	errCancelContentProcessing = errors.New("snail content processing canceled (requested)")
 	errNoSyncActive            = errors.New("snail no sync active")
@@ -98,10 +100,11 @@ var (
 type Downloader struct {
 	mode SyncMode // Synchronisation mode defining the strategy used (per sync cycle)
 
-	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
-	queue   *queue         // Scheduler for selecting the hashes to download
-	peers   *etrue.PeerSet // Set of active peers from which download can proceed
-	stateDB etruedb.Database
+	checkpoint uint64         // Checkpoint block number to enforce head against (e.g. fast sync
+	genesis    uint64         // Genesis block number to limit sync to (e.g. light client CHT)
+	queue      *queue         // Scheduler for selecting the hashes to download
+	peers      *etrue.PeerSet // Set of active peers from which download can proceed
+	stateDB    etruedb.Database
 
 	rttEstimate   uint64 // Round trip time to target for download requests
 	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)
@@ -198,7 +201,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer etrue.PeerDropFn, fdown *fastdownloader.Downloader) *Downloader {
+func New(mode SyncMode, checkpoint uint64, stateDb etruedb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer etrue.PeerDropFn, fdown *fastdownloader.Downloader) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -206,6 +209,7 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 	dl := &Downloader{
 		mode:           mode,
 		stateDB:        stateDb,
+		checkpoint:     checkpoint,
 		queue:          newQueue(),
 		peers:          etrue.NewPeerSet(),
 		rttEstimate:    uint64(rttMaxEstimate),
@@ -324,7 +328,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 	case nil:
 	case errBusy:
 	case types.ErrSnailHeightNotYet:
-	case errTimeout, errBadPeer, errStallingPeer,
+	case errTimeout, errBadPeer, errStallingPeer, errUnsyncedPeer,
 		errEmptyHeaderSet, errPeersUnavailable, errTooOld,
 		errInvalidAncestor, errInvalidChain:
 		log.Warn("Snail Synchronisation failed, dropping peer", "peer", id, "err", err)
@@ -564,9 +568,9 @@ func (d *Downloader) fetchHeight(p etrue.PeerConnection) (*types.SnailHeader, er
 				return nil, errBadPeer
 			}
 			head := headers[0]
-			if head == nil || head.Number == nil {
-				p.GetLog().Debug("Remote head header is nil", "head", head)
-				return nil, errBadPeer
+			if d.mode == FastSync && head.Number.Uint64() < d.checkpoint {
+				p.GetLog().Warn("Remote head below checkpoint", "number", head.Number, "hash", head.Hash())
+				return nil, errUnsyncedPeer
 			}
 			p.GetLog().Debug("Remote head header identified", "number", head.Number, "hash", head.Hash())
 			return head, nil
@@ -592,7 +596,7 @@ func calculateRequestSpan(remoteHeight, localHeight uint64) (int64, int, int, ui
 	var (
 		from     int
 		count    int
-		MaxCount = MaxHeaderFetch / 16	//12
+		MaxCount = MaxHeaderFetch / 16 //12
 	)
 	// requestHead is the highest block that we will ask for. If requestHead is not offset,
 	// the highest block that we will get is 16 blocks back from head, which means we

@@ -101,7 +101,7 @@ func newTester() *downloadTester {
 	tester.stateDb = etruedb.NewMemDatabase()
 
 	tester.ftester = fastdownloader.NewTester(testdb)
-	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer, tester.ftester.GetDownloader())
+	tester.downloader = New(FullSync, 0, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer, tester.ftester.GetDownloader())
 	tester.fdownloader = tester.ftester.GetDownloader()
 
 	return tester

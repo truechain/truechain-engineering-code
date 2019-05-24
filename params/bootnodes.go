@@ -43,3 +43,9 @@ var DevnetBootnodes = []string{
 	"enode://fd5fd74681adc587c187c4e74a1fd5c814612cf30729f0cde7852ca6727a956ca8719cdb758e74d3557ee5aff9ca8cdcccab8c61022d4df820091af7ff773298@172.26.73.55:30314",
 	"enode://5f8f37510d880693e3b8f68f76c2d12fa11074bdf0f11695743af4546b374065fb1dc2ec83dc0f31e1ae7d5304102d429c664869aa7f6b2b70bda45d2a1716ee@172.26.73.56:30314",
 }
+
+// DiscoveryV5Bootnodes are the enode URLs of the P2P bootstrap nodes for the
+// experimental RLPx v5 topic-discovery network.
+var DiscoveryV5Bootnodes = []string{
+	"enode://85c85d7143ae8bb96924f2b54f1b3e70d8c4d367af305325d30a61385a432f247d2c75c45c6b4a60335060d072d7f5b35dd1d4c45f76941f62a4f83b6e75daaf@40.118.3.223:30307",
+}
