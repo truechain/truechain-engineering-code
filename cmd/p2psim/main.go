@@ -47,11 +47,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/p2p"
-	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 	"github.com/truechain/truechain-engineering-code/p2p/simulations"
 	"github.com/truechain/truechain-engineering-code/p2p/simulations/adapters"
 	"github.com/truechain/truechain-engineering-code/rpc"
-	"gopkg.in/urfave/cli.v1"
+	cli "gopkg.in/urfave/cli.v1"
 )
 
 var client *simulations.Client
@@ -285,7 +285,8 @@ func createNode(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		config.ID = discover.PubkeyID(&privKey.PublicKey)
+		nodeid := discv5.PubkeyID(&privKey.PublicKey)
+		copy(config.ID[:], nodeid[:32])
 		config.PrivateKey = privKey
 	}
 	if services := ctx.String("services"); services != "" {
