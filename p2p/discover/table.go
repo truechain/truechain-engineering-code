@@ -155,10 +155,12 @@ func (tab *Table) ReadRandomNodes(buf []*enode.Node) (n int) {
 		if len(b.entries) > 0 {
 			buckets = append(buckets, b.entries)
 		}
+		log.Trace("ReadRandomNodes", "entries", len(b.entries), "replacements", len(b.replacements), "ips", b.ips.String())
 	}
 	if len(buckets) == 0 {
 		return 0
 	}
+	log.Trace("ReadRandomNodes", "buckets", len(buckets)*len(buckets[0]), "ips", tab.ips.String(), "buf", len(buf))
 	// Shuffle the buckets.
 	for i := len(buckets) - 1; i > 0; i-- {
 		j := tab.rand.Intn(len(buckets))
@@ -314,7 +316,7 @@ func (tab *Table) findnode(n *node, targetKey encPubkey, reply chan<- []*node) {
 		// Avoid recording failures on shutdown.
 		reply <- nil
 		return
-	} else if err != nil || len(r) == 0 {
+	} else if len(r) == 0 {
 		fails++
 		tab.db.UpdateFindFails(n.ID(), n.IP(), fails)
 		log.Trace("Findnode failed", "id", n.ID(), "failcount", fails, "err", err)
