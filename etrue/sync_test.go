@@ -84,7 +84,7 @@ func TestFullFastTXsSync(t *testing.T) {
 		key2, _ = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
-		signer  = types.NewTIP1Signer(big.NewInt(1))
+		signer  = types.NewTIP1Signer(params.AllMinervaProtocolChanges.ChainID)
 	)
 	// Create a pristine protocol manager, check that fast sync is left enabled
 	pmEmpty, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, 0, nil, nil, nil, nil)

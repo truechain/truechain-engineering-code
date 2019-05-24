@@ -175,7 +175,7 @@ func (f *fetcherTester) insertChain(blocks types.Blocks) (int, error) {
 
 // dropPeer is an emulator for the peer removal, simply accumulating the various
 // peers dropped by the fetcher.
-func (f *fetcherTester) dropPeer(peer string, call uint32) {
+func (f *fetcherTester) dropPeer(peer string) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 

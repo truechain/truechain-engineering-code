@@ -65,7 +65,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, sBlocks int, g
 		blockchain, _ = core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
 
 		snailGenesis  = gspec.MustSnailCommit(db)
-		snailChain, _ = snailchain.NewSnailBlockChain(db, gspec.Config, engine, blockchain)
+		snailChain, _ = snailchain.NewSnailBlockChain(db, gspec.Config, engine, vm.Config{}, blockchain)
 
 		priKey, _     = crypto.GenerateKey()
 		coinbase      = crypto.PubkeyToAddress(priKey.PublicKey) //coinbase

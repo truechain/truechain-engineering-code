@@ -500,7 +500,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
 
-	snailChain, _ := snailchain.NewSnailBlockChain(db, gspec.Config, pow, blockchain)
+	snailChain, _ := snailchain.NewSnailBlockChain(db, gspec.Config, pow, vm.Config{}, blockchain)
 
 	//
 	pm, err := NewProtocolManager(gspec.Config, downloader.FullSync, DefaultConfig.NetworkId, evmux, new(testTxPool), new(testSnailPool), pow, blockchain, snailChain, db, pbftAgent)
