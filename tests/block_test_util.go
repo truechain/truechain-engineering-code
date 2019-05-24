@@ -163,7 +163,7 @@ func (t *BlockTest) Run() error {
 
 	genesis.MustSnailCommit(db)
 	// Initialize a fresh chain with only a genesis block
-	blockchain, err := snailchain.NewSnailBlockChain(db, params.TestChainConfig, engine, fastChain)
+	blockchain, err := snailchain.NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{},fastChain)
 
 	if err != nil {
 		return err
