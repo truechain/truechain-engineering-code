@@ -107,10 +107,10 @@ var (
 
 	FruitFreshness = big.NewInt(17) // fruit freshness
 
-	MinimumFruits int = 5
+	MinimumFruits int = 60
 	MaximumFruits int = 600
 
-	MinTimeGap = big.NewInt(30)
+	MinTimeGap = big.NewInt(360)
 )
 
 var (
