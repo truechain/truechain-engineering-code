@@ -568,7 +568,9 @@ func (d *Downloader) cancel() {
 // finish before returning.
 func (d *Downloader) Cancel() {
 	d.cancel()
-	d.cancelWg.Wait()
+	if d.cancelCh != nil {
+		d.cancelWg.Wait()
+	}
 }
 
 // Terminate interrupts the downloader, canceling all pending operations.
