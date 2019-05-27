@@ -222,7 +222,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 	randomCandidates := needDynDials / 2
 	if randomCandidates > 0 {
 		n := s.ntab.ReadRandomNodes(s.randomNodes)
-		log.Debug("New tasks random candidates", "n", n, "randomNodes", len(s.randomNodes), "randomCandid ates", randomCandidates, "lookupRunning", s.lookupRunning)
+		log.Debug("New tasks random candidates", "context", fmt.Sprintf("n %d randomNodes %d  randomCandidates %d lookupRunning %t randomNodes %v", n, len(s.randomNodes), randomCandidates, s.lookupRunning, s.randomNodes))
 		for i := 0; i < randomCandidates && i < n; i++ {
 			if addDial(dynDialedConn, s.randomNodes[i]) {
 				needDynDials--
