@@ -155,9 +155,9 @@ func (tab *Table) ReadRandomNodes(buf []*enode.Node) (n int) {
 	for _, b := range &tab.buckets {
 		if len(b.entries) > 0 {
 			buckets = append(buckets, b.entries)
+			count += len(b.entries)
+			log.Trace("ReadRandomNodes", "context", fmt.Sprintf("entries %d replacements %d ips %d ips %s", len(b.entries), len(b.replacements), b.ips.Len(), b.ips.String()))
 		}
-		count += len(b.entries)
-		log.Trace("ReadRandomNodes", "context", fmt.Sprintf("entries %d replacements %d ips %d ips %s", len(b.entries), len(b.replacements), b.ips.Len(), b.ips.String()))
 	}
 	if len(buckets) == 0 {
 		return 0
