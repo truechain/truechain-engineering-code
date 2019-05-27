@@ -125,7 +125,7 @@ func TestCalcSnailDifficulty(t *testing.T) {
 	//for i:0;i<n;i++{
 	targeDiff = append(targeDiff, tdiff)
 
-	config := &params.ChainConfig{ChainID: big.NewInt(1), Minerva: &params.MinervaConfig{MinimumDifficulty: params.MinimumDifficulty, MinimumFruitDifficulty: params.MinimumFruitDifficulty, DurationLimit: params.DurationLimit}, TIP12Block: common.Big0}
+	config := &params.ChainConfig{ChainID: big.NewInt(1), Minerva: &params.MinervaConfig{MinimumDifficulty: params.MinimumDifficulty, MinimumFruitDifficulty: params.MinimumFruitDifficulty, DurationLimit: params.DurationLimit}, TIP3Block: common.Big0}
 
 	for k, v := range SnailHeadersMap {
 		//i:= timeCurrent[k.Uint64()]

@@ -53,7 +53,7 @@ var (
 			MinimumFruitDifficulty: big.NewInt(200),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP12Block: big.NewInt(306346),
+		TIP3Block: big.NewInt(306346),
 	}
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -89,7 +89,7 @@ type ChainConfig struct {
 	Minerva *MinervaConfig `json:"minerva"`
 	//Clique *CliqueConfig  `json:"clique,omitempty"`
 
-	TIP12Block *big.Int
+	TIP3Block *big.Int
 }
 
 func (c *ChainConfig) UnmarshalJSON(input []byte) error {
@@ -285,7 +285,7 @@ func (err *ConfigCompatError) Error() string {
 // phases.
 type Rules struct {
 	ChainID *big.Int
-	IsTIP12 bool
+	IsTIP3 bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -296,11 +296,11 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	}
 	return Rules{
 		ChainID: new(big.Int).Set(chainID),
-		IsTIP12: c.IsTIP12(num),
+		IsTIP3: c.IsTIP3(num),
 	}
 }
 
-// IsTIP12 returns whether num is either equal to the TIP12 fork block or greater.
-func (c *ChainConfig) IsTIP12(num *big.Int) bool {
-	return isForked(c.TIP12Block, num)
+// IsTIP3 returns whether num is either equal to the IsTIP3 fork block or greater.
+func (c *ChainConfig) IsTIP3(num *big.Int) bool {
+	return isForked(c.TIP3Block, num)
 }
