@@ -23,12 +23,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/p2p/enr"
-
-	"github.com/ethereum/go-ethereum/rlp"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -756,6 +756,9 @@ running:
 			// A peer disconnected.
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			pd.log.Debug("Removing p2p peer", "duration", d, "peers", len(peers)-1, "req", pd.requested, "err", pd.err)
+			if pd.err != nil && strings.Contains(pd.err.Error(), blockMismatch) {
+				srv.ntab.Delete(pd.Node())
+			}
 			delete(peers, pd.ID())
 			if pd.Inbound() {
 				inboundCount--

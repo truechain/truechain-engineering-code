@@ -36,6 +36,7 @@ import (
 
 var (
 	ErrShuttingDown = errors.New("shutting down")
+	blockMismatch   = "Genesis block mismatch"
 )
 
 const (

@@ -248,6 +248,11 @@ func (tab *Table) LookupRandom() []*enode.Node {
 	return unwrapNodes(tab.lookup(target, true))
 }
 
+// Delete remove genesis block mismatch peer.
+func (tab *Table) Delete(node *enode.Node) {
+	tab.delete(wrapNode(node))
+}
+
 // lookup performs a network search for nodes close to the given target. It approaches the
 // target by querying nodes that are closer to it on each iteration. The given target does
 // not need to be an actual node identifier.
@@ -638,7 +643,7 @@ func (tab *Table) addVerifiedNode(n *node) {
 func (tab *Table) delete(node *node) {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
-
+	log.Trace("Node delete", "ip", node.IP(), "node", node.String())
 	tab.deleteInBucket(tab.bucket(node.ID()), node)
 }
 

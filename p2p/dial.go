@@ -89,6 +89,7 @@ type discoverTable interface {
 	Resolve(*enode.Node) *enode.Node
 	LookupRandom() []*enode.Node
 	ReadRandomNodes([]*enode.Node) int
+	Delete(node *enode.Node)
 }
 
 // the dial history remembers recent dials.
@@ -221,7 +222,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 	randomCandidates := needDynDials / 2
 	if randomCandidates > 0 {
 		n := s.ntab.ReadRandomNodes(s.randomNodes)
-		log.Debug("New tasks random candidates", "n", n, "randomNodes", len(s.randomNodes), "randomCandidates", randomCandidates, "lookupRunning", s.lookupRunning)
+		log.Debug("New tasks random candidates", "n", n, "randomNodes", len(s.randomNodes), "randomCandid ates", randomCandidates, "lookupRunning", s.lookupRunning)
 		for i := 0; i < randomCandidates && i < n; i++ {
 			if addDial(dynDialedConn, s.randomNodes[i]) {
 				needDynDials--
@@ -236,7 +237,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 			needDynDials--
 		}
 	}
-	log.Trace("New tasks lookupBuf", "context", fmt.Sprintf("lookupBuf %d i %d lookupBuf %d randomNodes %v ", len(s.lookupBuf), i, len(s.lookupBuf), s.randomNodes))
+	log.Debug("New tasks lookupBuf", "context", fmt.Sprintf("lookupBuf %d i %d  dialing %d randomNodes %v ", len(s.lookupBuf), i, len(s.dialing), s.randomNodes))
 	s.lookupBuf = s.lookupBuf[:copy(s.lookupBuf, s.lookupBuf[i:])]
 	// Launch a discovery lookup if more candidates are needed.
 	if len(s.lookupBuf) < needDynDials && !s.lookupRunning {
