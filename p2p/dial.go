@@ -237,7 +237,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 			needDynDials--
 		}
 	}
-	log.Debug("New tasks lookupBuf", "context", fmt.Sprintf("lookupBuf %d i %d  dialing %d randomNodes %v ", len(s.lookupBuf), i, len(s.dialing), s.randomNodes))
+	log.Trace("New tasks lookupBuf", "context", fmt.Sprintf("lookupBuf %d i %d  dialing %d randomNodes %v ", len(s.lookupBuf), i, len(s.dialing), s.randomNodes))
 	s.lookupBuf = s.lookupBuf[:copy(s.lookupBuf, s.lookupBuf[i:])]
 	// Launch a discovery lookup if more candidates are needed.
 	if len(s.lookupBuf) < needDynDials && !s.lookupRunning {

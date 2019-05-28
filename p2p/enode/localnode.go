@@ -163,7 +163,6 @@ func (ln *LocalNode) UDPEndpointStatement(fromaddr, endpoint *net.UDPAddr) {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
-	log.Debug("Update endpoints statement", "fromaddr", fromaddr.String(), "endpoint", endpoint.String())
 	ln.udpTrack.AddStatement(fromaddr.String(), endpoint.String())
 	ln.updateEndpoints()
 }
@@ -174,13 +173,11 @@ func (ln *LocalNode) UDPContact(toaddr *net.UDPAddr) {
 	ln.mu.Lock()
 	defer ln.mu.Unlock()
 
-	log.Debug("Update udp contact", "toaddr", toaddr.String())
 	ln.udpTrack.AddContact(toaddr.String())
 	ln.updateEndpoints()
 }
 
 func (ln *LocalNode) updateEndpoints() {
-	log.Debug("Update endpoints", "staticIP", ln.staticIP, "fallbackIP", ln.fallbackIP, "fallbackUDP", ln.fallbackUDP)
 	// Determine the endpoints.
 	newIP := ln.fallbackIP
 	newUDP := ln.fallbackUDP
@@ -202,7 +199,13 @@ func (ln *LocalNode) updateEndpoints() {
 	} else {
 		ln.delete(enr.IP{})
 	}
-	log.Debug("Update endpoints", "newIP", newIP.String(), "newUDP", newUDP, "fallbackUDP", ln.fallbackUDP, "seq", ln.seq)
+}
+
+// PredictAddr wraps IPTracker.PredictEndpoint, converting from its string-based
+// endpoint representation to IP and port types.
+func (ln *LocalNode) PredictAddr() string {
+	ep := ln.udpTrack.PredictEndpoint()
+	return ep
 }
 
 // predictAddr wraps IPTracker.PredictEndpoint, converting from its string-based
