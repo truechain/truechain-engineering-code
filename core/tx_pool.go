@@ -100,7 +100,6 @@ var (
 	evictionInterval      = time.Minute     // Time interval to check for evictable transactions
 	statsReportInterval   = 8 * time.Second // Time interval to report transaction pool stats
 	remoteTxsDiscardCount *big.Int
-	allSendCount          *big.Int
 )
 
 var (
@@ -278,7 +277,6 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	pool.priced = newTxPricedList(pool.all)
 	pool.reset(nil, chain.CurrentBlock().Header())
 	remoteTxsDiscardCount = new(big.Int).SetUint64(0)
-	allSendCount = new(big.Int).SetUint64(0)
 
 	// If local transactions and journaling is enabled, load from disk
 	if !config.NoLocals && config.Journal != "" {
@@ -743,8 +741,6 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		pool.journalTx(from, tx)
 
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
-		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(1)))
-		log.Trace("pending send", "allSendCount", allSendCount)
 		// We've directly injected a replacement transaction, notify subsystems
 		go pool.txFeed.Send(types.NewTxsEvent{Txs: types.Transactions{tx}})
 
@@ -1077,8 +1073,6 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 	}
 	// Notify subsystem for new promoted transactions.
 	if len(promoted) > 0 {
-		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(len(promoted))))
-		log.Trace("pending send", "allSendCount", allSendCount)
 		go pool.txFeed.Send(types.NewTxsEvent{Txs: promoted})
 	}
 	// If the pending limit is overflown, start equalizing allowances
