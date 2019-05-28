@@ -474,24 +474,22 @@ func SeedHash(block uint64) []byte {
 	return seedHash(block)
 }
 
-func (m *Minerva) DataSetHash(block uint64) []byte {
+func (m *Minerva) DataSetHash(epoch uint64) string {
 
-	var datas []byte
-	tmp := make([]byte, 8)
-	output := make([]byte, DGSTSIZE)
-	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
+	//epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*Dataset)
 
+	return current.datasetHash
 	//getDataset
-	sha256 := makeHasher(sha3.New256())
+	/*sha256 := makeHasher(sha3.New256())
 
 	for _, v := range current.dataset {
 		binary.LittleEndian.PutUint64(tmp, v)
 		datas = append(datas, tmp...)
 	}
 	sha256(output, datas[:])
-	return output
+	return output*/
 
 }
 func (d *Dataset) GetDatasetSeedhash(dataset []uint64) string {

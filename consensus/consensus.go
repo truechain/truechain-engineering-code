@@ -145,7 +145,7 @@ type Engine interface {
 	// APIs returns the RPC APIs this consensus engine provides.
 	APIs(chain ChainReader) []rpc.API
 
-	DataSetHash(block uint64) []byte
+	DataSetHash(epoch uint64) string
 
 	GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types.SnailRewardContenet
 }
