@@ -53,7 +53,7 @@ var (
 			MinimumFruitDifficulty: big.NewInt(200),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP3Block: big.NewInt(306346),
+		TIP3: &BlockConfig{FastNumber: big.NewInt(306346)},
 	}
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -69,12 +69,12 @@ var (
 	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{chainId, new(MinervaConfig), big.NewInt(0)}
+	AllMinervaProtocolChanges = &ChainConfig{ChainID:chainId, Minerva:new(MinervaConfig), TIP3 :&BlockConfig{FastNumber:big.NewInt(0)}}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	TestChainConfig = &ChainConfig{chainId, &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, big.NewInt(0)}
+	TestChainConfig = &ChainConfig{ChainID:chainId,  Minerva:&MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit},  TIP3 :&BlockConfig{FastNumber:big.NewInt(0)}}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -89,7 +89,12 @@ type ChainConfig struct {
 	Minerva *MinervaConfig `json:"minerva"`
 	//Clique *CliqueConfig  `json:"clique,omitempty"`
 
-	TIP3Block *big.Int
+	TIP3 *BlockConfig `json:"tip3"`
+}
+
+type BlockConfig struct {
+	FastNumber  *big.Int
+	SnailNumber *big.Int
 }
 
 func (c *ChainConfig) UnmarshalJSON(input []byte) error {
@@ -285,7 +290,7 @@ func (err *ConfigCompatError) Error() string {
 // phases.
 type Rules struct {
 	ChainID *big.Int
-	IsTIP3 bool
+	IsTIP3  bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -296,11 +301,11 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	}
 	return Rules{
 		ChainID: new(big.Int).Set(chainID),
-		IsTIP3: c.IsTIP3(num),
+		IsTIP3:  c.IsTIP3(num),
 	}
 }
 
 // IsTIP3 returns whether num is either equal to the IsTIP3 fork block or greater.
 func (c *ChainConfig) IsTIP3(num *big.Int) bool {
-	return isForked(c.TIP3Block, num)
+	return isForked(c.TIP3.FastNumber, num)
 }
