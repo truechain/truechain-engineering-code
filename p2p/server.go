@@ -474,6 +474,7 @@ func (srv *Server) setupLocalNode() error {
 	srv.ourHandshake = &protoHandshake{Version: baseProtocolVersion, Name: srv.Name, ID: pubkey[1:]}
 	for _, p := range srv.Protocols {
 		srv.ourHandshake.Caps = append(srv.ourHandshake.Caps, p.cap())
+		log.Debug("Setup local node", "cap", p.cap(), "database", srv.Config.NodeDatabase)
 	}
 	sort.Sort(capsByNameAndVersion(srv.ourHandshake.Caps))
 
@@ -879,7 +880,7 @@ func (srv *Server) listenLoop() {
 			ip = tcp.IP
 		}
 		fd = newMeteredConn(fd, true, ip)
-		srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr())
+		srv.log.Debug("Accepted connection", "addr", fd.RemoteAddr())
 		go func() {
 			srv.SetupConn(fd, inboundConn, nil)
 			slots <- struct{}{}
