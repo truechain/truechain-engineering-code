@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -151,7 +152,7 @@ type Dataset struct {
 	once        sync.Once // Ensures the cache is generated only once
 	dateInit    int
 	consistent  common.Hash // Consistency of generated data
-	datasetHash common.Hash // dataset hash
+	datasetHash string      // dataset hash
 }
 
 // newDataset creates a new truehash mining dataset
@@ -326,7 +327,7 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 			if epoch <= 0 {
 				log.Info("TableInit is start", "epoch", epoch)
 				d.truehashTableInit(d.dataset)
-				d.datasetHash = d.Hash()
+				d.datasetHash = d.GetDatasetSeedhash(d.dataset)
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
 				log.Info("updateLookupTBL is start", "epoch", epoch)
@@ -334,7 +335,7 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 				if flag {
 					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))
-					d.datasetHash = d.Hash()
+					d.datasetHash = d.GetDatasetSeedhash(d.dataset)
 
 					log.Info("updateLookupTBL change success", "epoch", epoch, "consistent", d.consistent.String())
 				} else {
@@ -491,6 +492,28 @@ func (m *Minerva) DataSetHash(block uint64) []byte {
 	}
 	sha256(output, datas[:])
 	return output
+
+}
+func (d *Dataset) GetDatasetSeedhash(dataset []uint64) string {
+	//getDataset
+
+	var datas []byte
+	tmp := make([]byte, 8)
+	output := make([]byte, DGSTSIZE)
+
+	if len(dataset) == 0 {
+		return ""
+	}
+
+	sha256 := makeHasher(sha3.New256())
+
+	for _, v := range dataset {
+		binary.LittleEndian.PutUint64(tmp, v)
+		datas = append(datas, tmp...)
+	}
+	sha256(output, datas[:])
+
+	return "0x" + hex.EncodeToString(output)
 
 }
 
