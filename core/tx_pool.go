@@ -118,6 +118,10 @@ var (
 	// General tx metrics
 	invalidTxCounter     = metrics.NewRegisteredCounter("txpool/invalid", nil)
 	underpricedTxCounter = metrics.NewRegisteredCounter("txpool/underpriced", nil)
+
+	// Metrics for the send to handler
+	promotedSend = metrics.NewRegisteredCounter("txpool/send/promoted", nil)
+	replacedSend = metrics.NewRegisteredCounter("txpool/send/replaced", nil)
 )
 
 // TxStatus is the current status of a transaction as seen by the pool.
@@ -742,6 +746,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
 		// We've directly injected a replacement transaction, notify subsystems
+		replacedSend.Inc(1)
 		go pool.txFeed.Send(types.NewTxsEvent{Txs: types.Transactions{tx}})
 
 		return old != nil, nil
@@ -1073,6 +1078,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 	}
 	// Notify subsystem for new promoted transactions.
 	if len(promoted) > 0 {
+		promotedSend.Inc(int64(len(promoted)))
 		go pool.txFeed.Send(types.NewTxsEvent{Txs: promoted})
 	}
 	// If the pending limit is overflown, start equalizing allowances
