@@ -194,7 +194,7 @@ func (p *peer) broadcast() {
 				txs = append(txs, tx)
 			}
 
-			for len(p.queuedTxs) > 0 && len(txs) < txPackSize {
+			for len(p.queuedTxs) > txPackSize && len(txs) < txPackSize*2 {
 				select {
 				case event := <-p.queuedTxs:
 					for _, tx := range event {
@@ -661,6 +661,7 @@ func (p *peer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 }
 
 func (p *peer) Send(msgcode uint64, data interface{}) error {
+	log.Trace("Send", "msgcode", msgcode, "data", data, "ip", p.RemoteAddr(), "id", p.id)
 	err := p2p.Send(p.rw, msgcode, data)
 
 	if err != nil {
