@@ -314,8 +314,12 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 		return nil // known block
 	}
 	count := len(parents) - len(headers) + index
-	parentHeaders := parents[:count]
-
+	var parentHeaders []*types.SnailHeader
+	if len(parents)-len(headers) < int(params.DifficultyPeriod.Int64()) {
+		parentHeaders = parents[:count]
+	} else {
+		parentHeaders = parents[index:count]
+	}
 	return m.verifySnailHeader(chain, nil, headers[index], nil, parentHeaders, false, seals[index], false)
 }
 
@@ -888,8 +892,8 @@ func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types
 		blockFruitsLen = big.NewInt(int64(len(blockFruits)))
 
 		blockMinerReward = make(map[common.Address]*big.Int)
-		fruitMinerReward = make([]map[common.Address]*big.Int,len(blockFruits))
-		committeeReward = make(map[common.Address]*big.Int)
+		fruitMinerReward = make([]map[common.Address]*big.Int, len(blockFruits))
+		committeeReward  = make(map[common.Address]*big.Int)
 	)
 	if blockFruitsLen.Uint64() == 0 {
 		return nil
@@ -905,9 +909,9 @@ func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types
 	//miner's award
 	blockMinerReward[sBlock.Coinbase()] = minerCoin
 	for i, fruit := range blockFruits {
-		fruitMap :=make(map[common.Address]*big.Int)
+		fruitMap := make(map[common.Address]*big.Int)
 		fruitMap[fruit.Coinbase()] = minerFruitCoinOne
-		fruitMinerReward[i]= fruitMap
+		fruitMinerReward[i] = fruitMap
 		//committee reward
 		getCommitteeVoted(committeeReward, m.election, fruit, failAddr, committeeCoinFruit)
 	}
