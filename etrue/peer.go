@@ -661,7 +661,7 @@ func (p *peer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 }
 
 func (p *peer) Send(msgcode uint64, data interface{}) error {
-	log.Trace("Send", "msgcode", msgcode, "data", data, "ip", p.RemoteAddr(), "id", p.id)
+	log.Trace("Send", "msgcode", data, "ip", p.RemoteAddr(), "id", p.id)
 	err := p2p.Send(p.rw, msgcode, data)
 
 	if err != nil {
