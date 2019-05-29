@@ -36,6 +36,7 @@ var (
 	errClosed            = errors.New("peer set is closed")
 	errAlreadyRegistered = errors.New("peer is already registered")
 	errNotRegistered     = errors.New("peer is not registered")
+	notHandle            = "not handled"
 )
 
 const (
@@ -194,7 +195,7 @@ func (p *peer) broadcast() {
 				txs = append(txs, tx)
 			}
 
-			for len(p.queuedTxs) > txPackSize && len(txs) < txPackSize*2 {
+			for len(p.queuedTxs) > 1 && len(txs) < txPackSize {
 				select {
 				case event := <-p.queuedTxs:
 					for _, tx := range event {
@@ -225,8 +226,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Broadcast node info ")
 		case nodeInfo := <-p.queuedNodeInfoHash:
 			if err := p.SendNodeInfoHash(nodeInfo); err != nil {
-				log.Warn("SendNodeInfoHash error", "err", err)
-				return
+				log.Info("SendNodeInfoHash error", "err", err)
 			}
 			p.Log().Trace("Broadcast node info hash")
 		//add for fruit
@@ -259,7 +259,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Announced fast block", "number", block.number, "hash", block.hash)
 		case block := <-p.queuedSnailAnns:
 			if err := p.SendNewFastBlockHashes([]common.Hash{block.hash}, []uint64{block.number}, block.fast); err != nil {
-				return
+				p.Log().Info("Announced snail block", "number", block.number, "hash", block.hash, "err", err)
 			}
 			p.Log().Trace("Announced snail block", "number", block.number, "hash", block.hash)
 		case event := <-p.dropEvent:
@@ -661,10 +661,9 @@ func (p *peer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 }
 
 func (p *peer) Send(msgcode uint64, data interface{}) error {
-	log.Trace("Send", "msgcode", msgcode, "ip", p.RemoteAddr(), "id", p.id)
 	err := p2p.Send(p.rw, msgcode, data)
 
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), notHandle) {
 		select {
 		case p.dropEvent <- &dropPeerEvent{p.id, err.Error()}:
 		default:
