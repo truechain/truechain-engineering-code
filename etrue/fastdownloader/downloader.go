@@ -134,6 +134,7 @@ type Downloader struct {
 	cancelCh   chan struct{}  // Channel to cancel mid-flight syncs
 	cancelLock sync.RWMutex   // Lock to protect the cancel channel and peer in delivers
 	cancelWg   sync.WaitGroup // Make sure all fetcher goroutines have exited.
+	cancelTemp bool
 
 	quitCh   chan struct{} // Quit channel to signal termination
 	quitLock sync.RWMutex  // Lock to prevent double closes
@@ -207,7 +208,7 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 		bodyWakeCh:    make(chan bool, 1),
 		receiptWakeCh: make(chan bool, 1),
 		headerProcCh:  make(chan []*types.Header, 1),
-
+		cancelTemp:	   true,
 		quitCh: make(chan struct{}),
 	}
 
@@ -568,8 +569,9 @@ func (d *Downloader) cancel() {
 // finish before returning.
 func (d *Downloader) Cancel() {
 	d.cancel()
-	if d.cancelCh != nil {
+	if d.cancelTemp {
 		d.cancelWg.Wait()
+		d.cancelTemp = false
 	}
 }
 
