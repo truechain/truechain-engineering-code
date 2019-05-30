@@ -50,7 +50,24 @@ type ChainMessage struct {
 }
 
 type TxPoolMessage struct {
-	/* TODO (kurkomisi) */
+	TxStatusQueued  ChartEntries `json:"txStatusQueued,omitempty"`
+	TxStatusPending ChartEntries `json:"txStatusPending,omitempty"`
+
+	PromotedSend ChartEntries `json:"promotedSend,omitempty"`
+	ReplacedSend ChartEntries `json:"replacedSend,omitempty"`
+
+	PendingDiscardCounter   ChartEntries `json:"pendingDiscardCounter,omitempty"`
+	PendingReplaceCounter   ChartEntries `json:"pendingReplaceCounter,omitempty"`
+	PendingRateLimitCounter ChartEntries `json:"pendingRateLimitCounter,omitempty"`
+	PendingNofundsCounter   ChartEntries `json:"pendingNofundsCounter,omitempty"`
+
+	QueuedDiscardCounter   ChartEntries `json:"queuedDiscardCounter,omitempty"`
+	QueuedReplaceCounter   ChartEntries `json:"queuedReplaceCounter,omitempty"`
+	QueuedRateLimitCounter ChartEntries `json:"queuedRateLimitCounter,omitempty"`
+	QueuedNofundsCounter   ChartEntries `json:"queuedNofundsCounter,omitempty"`
+
+	InvalidTxCounter     ChartEntries `json:"queuedRateLimitCounter,omitempty"`
+	UnderpricedTxCounter ChartEntries `json:"queuedNofundsCounter,omitempty"`
 }
 
 // NetworkMessage contains information about the peers
