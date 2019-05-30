@@ -44,7 +44,7 @@ func TestValidateBody(t *testing.T) {
 			fn: func() error {
 				snail, fast, block := makeChain(1, 0)
 				validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
-				return validator.ValidateBody(block)
+				return validator.ValidateBody(block, true)
 			},
 			wantErr: nil,
 		},
@@ -53,7 +53,7 @@ func TestValidateBody(t *testing.T) {
 			fn: func() error {
 				snail, fast, _ := makeChain(1, 0)
 				validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
-				return validator.ValidateBody(validator.bc.CurrentBlock())
+				return validator.ValidateBody(validator.bc.CurrentBlock(), true)
 			},
 			wantErr: ErrKnownBlock,
 		},

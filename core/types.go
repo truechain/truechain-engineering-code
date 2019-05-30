@@ -58,7 +58,7 @@ type SnailValidator interface {
 	//SetElection(e consensus.CommitteeElection, fc consensus.ChainReader) error
 
 	// ValidateBody validates the given block's content.
-	ValidateBody(block *types.SnailBlock) error
+	ValidateBody(block *types.SnailBlock, verifyFruits bool) error
 
 	// ValidateFruit validates the given fruit's content
 	ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error

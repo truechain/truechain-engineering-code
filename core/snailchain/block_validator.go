@@ -90,7 +90,7 @@ func (v *BlockValidator) ValidateRewarded(number uint64) error {
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
-func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
+func (v *BlockValidator) ValidateBody(block *types.SnailBlock, verifyFruits bool) error {
 	// Check whether the block's known, and if not, that it's linkable.
 	if v.bc.IsCanonicalBlock(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
@@ -147,7 +147,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 			return ErrInvalidFruits
 		}
 		wg.Add(1)
-		go v.parallelValidateFruit(fruit, block, &wg, ch)
+		go v.parallelValidateFruit(fruit, block, &wg, ch, verifyFruits)
 		/*if err := v.ValidateFruit(fruit, block, false); err != nil {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "hash", fruit.FastHash(), "err", err)
 			return err
@@ -230,8 +230,20 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 }
 
 //parallelValidateFruit is parallel to verify if the fruit is legal
-func (v *BlockValidator) parallelValidateFruit(fruit, block *types.SnailBlock, wg *sync.WaitGroup, ch chan error) {
+func (v *BlockValidator) parallelValidateFruit(fruit, block *types.SnailBlock, wg *sync.WaitGroup, ch chan error, verifyFruits bool) {
 	defer wg.Done()
+	if !verifyFruits {
+		//check integrity
+		getSignHash := types.CalcSignHash(fruit.Signs())
+		if fruit.Header().SignHash != getSignHash {
+			log.Info("parallelValidateFruit sign hash failed.", "number", fruit.FastNumber(), "hash", fruit.Hash())
+			ch <- ErrInvalidSignHash
+			return
+		}
+		ch <- nil
+		return
+	}
+
 	//check number(fb)
 	//
 	currentNumber := v.fastchain.CurrentHeader().Number

@@ -785,7 +785,42 @@ func (bc *SnailBlockChain) InsertChain(chain types.SnailBlocks) (int, error) {
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
 	log.Debug("InsertChain...", "start", chain[0].NumberU64(), "end", chain[len(chain)-1].NumberU64())
-	n, events, err := bc.insertChain(chain, true)
+	n, events, err := bc.insertChain(chain, true, true)
+	bc.chainmu.Unlock()
+	bc.wg.Done()
+
+	bc.PostChainEvents(events)
+	return n, err
+}
+
+// FastInsertChain attempts to insert the given batch of blocks in to the canonical
+// chain or, otherwise, create a fork. If an error is returned it will return
+// the index number of the failing block as well an error describing what went
+// wrong.
+// This does not check fruits
+//
+// After insertion is done, all accumulated events will be fired.
+func (bc *SnailBlockChain) FastInsertChain(chain types.SnailBlocks) (int, error) {
+	// Sanity check that we have something meaningful to import
+	if len(chain) == 0 {
+		return 0, nil
+	}
+	// Do a sanity check that the provided chain is actually ordered and linked
+	for i := 1; i < len(chain); i++ {
+		if chain[i].NumberU64() != chain[i-1].NumberU64()+1 || chain[i].ParentHash() != chain[i-1].Hash() {
+			// Chain broke ancestry, log a message (programming error) and skip insertion
+			log.Error("Non contiguous block insert", "number", chain[i].Number(), "hash", chain[i].Hash(),
+				"parent", chain[i].ParentHash(), "prevnumber", chain[i-1].Number(), "prevhash", chain[i-1].Hash())
+
+			return 0, fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])", i-1, chain[i-1].NumberU64(),
+				chain[i-1].Hash().Bytes()[:4], i, chain[i].NumberU64(), chain[i].Hash().Bytes()[:4], chain[i].ParentHash().Bytes()[:4])
+		}
+	}
+	// Pre-checks passed, start the full block imports
+	bc.wg.Add(1)
+	bc.chainmu.Lock()
+	log.Debug("InsertChain...", "start", chain[0].NumberU64(), "end", chain[len(chain)-1].NumberU64())
+	n, events, err := bc.insertChain(chain, true, false)
 	bc.chainmu.Unlock()
 	bc.wg.Done()
 
@@ -801,7 +836,7 @@ func (bc *SnailBlockChain) InsertChain(chain types.SnailBlocks) (int, error) {
 // racey behaviour. If a sidechain import is in progress, and the historic state
 // is imported, but then new canon-head is added before the actual sidechain
 // completes, then the historic state could be pruned again
-func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool) (int, []interface{}, error) {
+func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool, verifyFruits bool) (int, []interface{}, error) {
 	// If the chain is terminating, don't even bother starting u
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		return 0, nil, nil
@@ -830,7 +865,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 	// Peek the error for the first block to decide the directing import logic
 	it := newInsertIterator(chain, results, bc.Validator())
 
-	block, err := it.next()
+	block, err := it.next(verifyFruits)
 	bstart := time.Now()
 	switch {
 	// First block is pruned, insert as sidechain and reorg only if TD grows enough
@@ -843,7 +878,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 			if err := bc.addFutureBlock(block); err != nil {
 				return it.index, events, err
 			}
-			block, err = it.next()
+			block, err = it.next(verifyFruits)
 		}
 		stats.queued += it.processed()
 		stats.ignored += it.remaining()
@@ -861,7 +896,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 
 		for block != nil && err == ErrKnownBlock && current >= block.NumberU64() {
 			stats.ignored++
-			block, err = it.next()
+			block, err = it.next(verifyFruits)
 		}
 		// Falls through to the block import
 
@@ -872,7 +907,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 		return it.index, events, err
 	}
 	// No validation errors for the first block (or chain prefix skipped)
-	for ; block != nil && (err == nil || err == consensus.ErrPrunedAncestor); block, err = it.next() {
+	for ; block != nil && (err == nil || err == consensus.ErrPrunedAncestor); block, err = it.next(verifyFruits) {
 		// If the chain is terminating, stop processing blocks
 		if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 			log.Debug("Premature abort during blocks processing")
@@ -923,9 +958,9 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 		if err := bc.addFutureBlock(block); err != nil {
 			return it.index, events, err
 		}
-		block, err = it.next()
+		block, err = it.next(verifyFruits)
 
-		for ; block != nil && err == consensus.ErrUnknownAncestor; block, err = it.next() {
+		for ; block != nil && err == consensus.ErrUnknownAncestor; block, err = it.next(verifyFruits) {
 			if err := bc.addFutureBlock(block); err != nil {
 				return it.index, events, err
 			}
@@ -957,7 +992,7 @@ func (bc *SnailBlockChain) insertSidechain(block *types.SnailBlock, it *insertIt
 	// ones. Any other errors means that the block is invalid, and should not be written
 	// to disk.
 	err := consensus.ErrPrunedAncestor
-	for ; block != nil && (err == consensus.ErrPrunedAncestor); block, err = it.next() {
+	for ; block != nil && (err == consensus.ErrPrunedAncestor); block, err = it.next(false) {
 		if externTd == nil {
 			externTd = bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 		}
@@ -1016,7 +1051,7 @@ func (bc *SnailBlockChain) insertSidechain(block *types.SnailBlock, it *insertIt
 		// memory here.
 		if len(blocks) >= 2048 || memory > 64*1024*1024 {
 			log.Info("Importing heavy sidechain segment", "blocks", len(blocks), "start", blocks[0].NumberU64(), "end", block.NumberU64())
-			if _, _, err := bc.insertChain(blocks, false); err != nil {
+			if _, _, err := bc.insertChain(blocks, false, false); err != nil {
 				return 0, nil, err
 			}
 			blocks, memory = blocks[:0], 0
@@ -1030,7 +1065,7 @@ func (bc *SnailBlockChain) insertSidechain(block *types.SnailBlock, it *insertIt
 	}
 	if len(blocks) > 0 {
 		log.Info("Importing sidechain segment", "start", blocks[0].NumberU64(), "end", blocks[len(blocks)-1].NumberU64())
-		return bc.insertChain(blocks, false)
+		return bc.insertChain(blocks, false, false)
 	}
 	return 0, nil, nil
 }
