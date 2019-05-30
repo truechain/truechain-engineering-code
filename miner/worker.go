@@ -892,11 +892,11 @@ func (w *worker) commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumbe
 		return nil
 	}
 
-	log.Info("--------commitFastBlocksByWoker Info", "snailFruitsLastFastNumber", snailFruitsLastFastNumber, "fastBlockHight", fastBlockHight)
+	log.Debug("commitFastBlocksByWoker Info", "snailFruitsLastFastNumber", snailFruitsLastFastNumber, "fastBlockHight", fastBlockHight)
 
-	log.Info("---the info", "len copyPendingFruits", len(copyPendingFruits), "the pool len", len(w.fastBlockPool))
+	log.Debug("the copyPendingFruits info", "len copyPendingFruits", len(copyPendingFruits), "the pool len", len(w.fastBlockPool))
 	if len(copyPendingFruits) > 0 {
-		log.Info("---the info", "len copyPendingFruits 1", copyPendingFruits[0].FastNumber(), "copyPendingFruits 2", copyPendingFruits[len(copyPendingFruits)-1].FastNumber())
+		log.Debug("the copyPendingFruits info", "len copyPendingFruits 1", copyPendingFruits[0].FastNumber(), "copyPendingFruits 2", copyPendingFruits[len(copyPendingFruits)-1].FastNumber())
 	}
 	//log.Info("---the info","len copyPendingFruits",len(copyPendingFruits),"the pool len",len(w.fastBlockPool))
 
@@ -911,14 +911,13 @@ func (w *worker) commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumbe
 				if fb.Cmp(snailFruitsLastFastNumber) > 0 {
 					pool = append(pool, fb)
 				}
-				log.Info("----------------not need del", "fb", fb)
 			}
 		}
 
 		w.fastBlockPool = pool
 
 	}
-	log.Info("after del the pool len is ", ",", len(w.fastBlockPool))
+
 	if len(w.fastBlockPool) == 0 {
 		// find ten need mine fastblock
 		if len(copyPendingFruits) > 0 {
@@ -979,11 +978,10 @@ func (w *worker) commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumbe
 		return nil
 	}
 
-	for i, _ := range w.fastBlockPool {
-		log.Info("___-----____------- lasttt  w.fastBlockPool[i]", "i", w.fastBlockPool[i])
-	}
 	//rand find one
 	mineFastBlock := rand.Intn(len(w.fastBlockPool))
+
+	log.Info("need mine fruit info", "random one", mineFastBlock, "len pool", len(w.fastBlockPool), "begin", w.fastBlockPool[0], "end", w.fastBlockPool[len(w.fastBlockPool)-1])
 
 	return w.fastBlockPool[mineFastBlock]
 }
