@@ -37,6 +37,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/mohae/deepcopy"
+	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
@@ -65,8 +66,9 @@ type Dashboard struct {
 	geodb  *geoDB // geoip database instance for IP to geographical information conversions
 	logdir string // Directory containing the log files
 
-	quit chan chan error // Channel used for graceful exit
-	wg   sync.WaitGroup  // Wait group used to close the data collector threads
+	quit  chan chan error  // Channel used for graceful exit
+	wg    sync.WaitGroup   // Wait group used to close the data collector threads
+	etrue *etrue.Truechain // Full Truechain service if monitoring a full node
 }
 
 // client represents active websocket connection with a remote browser.
@@ -77,7 +79,7 @@ type client struct {
 }
 
 // New creates a new dashboard instance with the given configuration.
-func New(config *Config, commit string, logdir string) *Dashboard {
+func New(config *Config, commit string, logdir string, ethServ *etrue.Truechain) *Dashboard {
 	now := time.Now()
 	versionMeta := ""
 	if len(params.VersionMeta) > 0 {
@@ -86,6 +88,7 @@ func New(config *Config, commit string, logdir string) *Dashboard {
 	return &Dashboard{
 		conns:  make(map[uint32]*client),
 		config: config,
+		etrue:  ethServ,
 		quit:   make(chan chan error),
 		history: &Message{
 			General: &GeneralMessage{
