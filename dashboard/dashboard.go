@@ -28,12 +28,8 @@ package dashboard
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
-
-	"io"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/mohae/deepcopy"
@@ -42,6 +38,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"golang.org/x/net/websocket"
+	"io"
+	"net/http"
+	"sync/atomic"
 )
 
 const (
@@ -62,13 +61,14 @@ type Dashboard struct {
 	sysLock    sync.RWMutex // Lock protecting the stored system data
 	peerLock   sync.RWMutex // Lock protecting the stored peer data
 	logLock    sync.RWMutex // Lock protecting the stored log data
-	txPoolLock sync.RWMutex // Lock protecting the stored txpool data
+	txPoolLock sync.RWMutex // Lock protecting the stored txPool data
 
 	geodb  *geoDB // geoip database instance for IP to geographical information conversions
 	logdir string // Directory containing the log files
 
-	quit  chan chan error  // Channel used for graceful exit
-	wg    sync.WaitGroup   // Wait group used to close the data collector threads
+	quit chan chan error // Channel used for graceful exit
+	wg   sync.WaitGroup  // Wait group used to close the data collector threads
+
 	etrue *etrue.Truechain // Full Truechain service if monitoring a full node
 }
 
@@ -106,6 +106,22 @@ func New(config *Config, commit string, logdir string, ethServ *etrue.Truechain)
 				DiskRead:       emptyChartEntries(now, sampleLimit),
 				DiskWrite:      emptyChartEntries(now, sampleLimit),
 			},
+			TxPool: &TxPoolMessage{
+				TxStatusQueued:          emptyChartEntries(now, sampleLimit),
+				TxStatusPending:         emptyChartEntries(now, sampleLimit),
+				PromotedSend:            emptyChartEntries(now, sampleLimit),
+				ReplacedSend:            emptyChartEntries(now, sampleLimit),
+				PendingDiscardCounter:   emptyChartEntries(now, sampleLimit),
+				PendingReplaceCounter:   emptyChartEntries(now, sampleLimit),
+				PendingRateLimitCounter: emptyChartEntries(now, sampleLimit),
+				PendingNofundsCounter:   emptyChartEntries(now, sampleLimit),
+				QueuedDiscardCounter:    emptyChartEntries(now, sampleLimit),
+				QueuedReplaceCounter:    emptyChartEntries(now, sampleLimit),
+				QueuedRateLimitCounter:  emptyChartEntries(now, sampleLimit),
+				QueuedNofundsCounter:    emptyChartEntries(now, sampleLimit),
+				InvalidTxCounter:        emptyChartEntries(now, sampleLimit),
+				UnderpricedTxCounter:    emptyChartEntries(now, sampleLimit),
+			},
 		},
 		logdir: logdir,
 	}
@@ -135,6 +151,7 @@ func (db *Dashboard) Start(server *p2p.Server) error {
 	go db.collectSystemData()
 	go db.streamLogs()
 	go db.collectPeerData()
+	go db.collectTxpoolData()
 
 	http.HandleFunc("/", db.webHandler)
 	http.Handle("/api", websocket.Handler(db.apiHandler))

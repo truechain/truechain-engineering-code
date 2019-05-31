@@ -130,6 +130,8 @@ func (db *Dashboard) collectTxpoolData() {
 
 			db.sendToAll(&Message{
 				TxPool: &TxPoolMessage{
+					TxStatusQueued:          ChartEntries{txStatusQueued},
+					TxStatusPending:         ChartEntries{txStatusPending},
 					PendingDiscardCounter:   ChartEntries{pendingDiscardCounter},
 					PendingReplaceCounter:   ChartEntries{pendingReplaceCounter},
 					PendingRateLimitCounter: ChartEntries{pendingRateLimitCounter},
