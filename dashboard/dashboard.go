@@ -58,10 +58,11 @@ type Dashboard struct {
 
 	history *Message // Stored historical data
 
-	lock     sync.Mutex   // Lock protecting the dashboard's internals
-	sysLock  sync.RWMutex // Lock protecting the stored system data
-	peerLock sync.RWMutex // Lock protecting the stored peer data
-	logLock  sync.RWMutex // Lock protecting the stored log data
+	lock       sync.Mutex   // Lock protecting the dashboard's internals
+	sysLock    sync.RWMutex // Lock protecting the stored system data
+	peerLock   sync.RWMutex // Lock protecting the stored peer data
+	logLock    sync.RWMutex // Lock protecting the stored log data
+	txPoolLock sync.RWMutex // Lock protecting the stored txpool data
 
 	geodb  *geoDB // geoip database instance for IP to geographical information conversions
 	logdir string // Directory containing the log files
