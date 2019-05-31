@@ -119,6 +119,7 @@ type Engine interface {
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error
 	PrepareSnail(chain ChainReader, snailchain SnailChainReader, header *types.SnailHeader) error
+	PrepareSnailWithParent(chain ChainReader, snailchain SnailChainReader, header *types.SnailHeader, parents []*types.SnailHeader) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.
