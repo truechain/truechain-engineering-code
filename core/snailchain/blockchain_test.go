@@ -390,7 +390,7 @@ func testBrokenChain(t *testing.T, full bool) {
 func TestReorgLongBlocks(t *testing.T) { testReorgLong(t, true) }
 
 func testReorgLong(t *testing.T, full bool) {
-	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 4733411880, full)
+	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 5131292940, full)
 }
 
 // Tests that reorganising a short difficult chain after a long easy one
@@ -410,7 +410,7 @@ func testReorgShort(t *testing.T, full bool) {
 	for i := 0; i < len(diff); i++ {
 		diff[i] = -9
 	}
-	testReorg(t, easy, diff, 23752762584, full)
+	testReorg(t, easy, diff, 25578783544, full)
 }
 
 func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
