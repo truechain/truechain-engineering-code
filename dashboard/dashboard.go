@@ -123,6 +123,20 @@ func New(config *Config, commit string, logdir string, ethServ *etrue.Truechain)
 				InvalidTxCounter:        emptyChartEntries(now, sampleLimit),
 				UnderpricedTxCounter:    emptyChartEntries(now, sampleLimit),
 			},
+			FtPool: &FtPoolMessage{
+				FtStatusQueued:             emptyChartEntries(now, sampleLimit),
+				FtStatusPending:            emptyChartEntries(now, sampleLimit),
+				FruitPendingDiscardCounter: emptyChartEntries(now, sampleLimit),
+				FruitpendingReplaceCounter: emptyChartEntries(now, sampleLimit),
+				AllDiscardCounter:          emptyChartEntries(now, sampleLimit),
+				AllReplaceCounter:          emptyChartEntries(now, sampleLimit),
+				AllReceivedCounter:         emptyChartEntries(now, sampleLimit),
+				AllTimesCounter:            emptyChartEntries(now, sampleLimit),
+				AllFilterCounter:           emptyChartEntries(now, sampleLimit),
+				AllMinedCounter:            emptyChartEntries(now, sampleLimit),
+				AllSendCounter:             emptyChartEntries(now, sampleLimit),
+				AllSendTimesCounter:        emptyChartEntries(now, sampleLimit),
+			},
 		},
 		logdir: logdir,
 	}
@@ -153,6 +167,7 @@ func (db *Dashboard) Start(server *p2p.Server) error {
 	go db.streamLogs()
 	go db.collectPeerData()
 	go db.collectTxpoolData()
+	go db.collectFruitpoolData()
 
 	http.HandleFunc("/", db.webHandler)
 	http.Handle("/api", websocket.Handler(db.apiHandler))
