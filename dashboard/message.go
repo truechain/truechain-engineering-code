@@ -49,6 +49,7 @@ type ChainMessage struct {
 	/* TODO (kurkomisi) */
 }
 
+// TxPoolMessage contains the collected txpool data samples.
 type TxPoolMessage struct {
 	TxStatusQueued  ChartEntries `json:"txStatusQueued,omitempty"`
 	TxStatusPending ChartEntries `json:"txStatusPending,omitempty"`
