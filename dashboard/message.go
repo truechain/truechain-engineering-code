@@ -71,6 +71,26 @@ type TxPoolMessage struct {
 	UnderpricedTxCounter ChartEntries `json:"queuedNofundsCounter,omitempty"`
 }
 
+// FtPoolMessage contains the collected ftpool data samples.
+type FtPoolMessage struct {
+	FtStatusQueued  ChartEntries `json:"ftStatusQueued,omitempty"`
+	FtStatusPending ChartEntries `json:"ftStatusPending,omitempty"`
+
+	FruitPendingDiscardCounter ChartEntries `json:"fruitPendingDiscardCounter,omitempty"`
+	FruitpendingReplaceCounter ChartEntries `json:"fruitpendingReplaceCounter,omitempty"`
+
+	AllDiscardCounter ChartEntries `json:"allDiscardCounter,omitempty"`
+	AllReplaceCounter ChartEntries `json:"allReplaceCounter,omitempty"`
+
+	AllReceivedCounter ChartEntries `json:"allReceivedCounter,omitempty"`
+	AllTimesCounter    ChartEntries `json:"allTimesCounter,omitempty"`
+	AllFilterCounter   ChartEntries `json:"allFilterCounter,omitempty"`
+	AllMinedCounter    ChartEntries `json:"allMinedCounter,omitempty"`
+
+	AllSendCounter      ChartEntries `json:"allSendCounter,omitempty"`
+	AllSendTimesCounter ChartEntries `json:"allSendTimesCounter,omitempty"`
+}
+
 // NetworkMessage contains information about the peers
 // organized based on their IP address and node ID.
 type NetworkMessage struct {
