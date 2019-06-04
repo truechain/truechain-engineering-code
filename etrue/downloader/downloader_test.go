@@ -1031,12 +1031,19 @@ func testMultiProtoSync(t *testing.T, protocol int, mode SyncMode) {
 	tester.fdownloader.SetSD(tester.downloader)
 
 
+
 	// Create peers of every type
+	tester.newPeer("peer 62", 62, hashes, headers, blocks)
+	tester.ftester.NewPeer("peer 62", 62, fhashes, fheaders, fblocks, freceipt)
+
+
 	tester.newPeer("peer 63", 63, hashes, headers, blocks)
-	tester.ftester.NewPeer("peer 63", protocol, fhashes, fheaders, fblocks, freceipt)
+	tester.ftester.NewPeer("peer 63", 63, fhashes, fheaders, fblocks, freceipt)
+
 
 	tester.newPeer("peer 64", 64, hashes, headers, blocks)
-	tester.ftester.NewPeer("peer 64", protocol, fhashes, fheaders, fblocks, freceipt)
+	tester.ftester.NewPeer("peer 64", 64, fhashes, fheaders, fblocks, freceipt)
+
 
 	// Synchronise with the requested peer and make sure all blocks were retrieved
 	if err := tester.sync(fmt.Sprintf("peer %d", protocol), nil, mode); err != nil {
@@ -1045,7 +1052,7 @@ func testMultiProtoSync(t *testing.T, protocol int, mode SyncMode) {
 	assertOwnChain(t, tester, targetBlocks+1)
 
 	// Check that no peers have been dropped off
-	for _, version := range []int{63, 64} {
+	for _, version := range []int{62, 63, 64} {
 		peer := fmt.Sprintf("peer %d", version)
 		if _, ok := tester.peerHashes[peer]; !ok {
 			t.Errorf("%s dropped", peer)
