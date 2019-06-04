@@ -194,6 +194,8 @@ type BlockChain interface {
 	// InsertChain inserts a batch of blocks into the local chain.
 	InsertChain(types.SnailBlocks) (int, error)
 
+	FastInsertChain(types.SnailBlocks) (int, error)
+
 	HasConfirmedBlock(hash common.Hash, number uint64) bool
 }
 
@@ -1440,6 +1442,19 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 		return err
 	}
 	log.Info("Insert snail blocks", "blocks", len(blocks), "fbLastNumber", fbLastNumber, "first", firstB.Number(), "last", result.Number())
+
+
+	if d.mode == FastSync || d.mode == SnapShotSync {
+		if index, err := d.blockchain.FastInsertChain(blocks); err != nil {
+			log.Error("Snail Fastdownloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
+			if err == types.ErrSnailHeightNotYet {
+				return err
+			}
+			return errInvalidChain
+		}
+		return nil
+	}
+
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Error("Snail downloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
 		if err == types.ErrSnailHeightNotYet {
@@ -1447,6 +1462,8 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 		}
 		return errInvalidChain
 	}
+
+
 	return nil
 }
 
