@@ -25,6 +25,7 @@ type Message struct {
 	Home    *HomeMessage    `json:"home,omitempty"`
 	Chain   *ChainMessage   `json:"chain,omitempty"`
 	TxPool  *TxPoolMessage  `json:"txpool,omitempty"`
+	FtPool  *FtPoolMessage  `json:"ftpool,omitempty"`
 	Network *NetworkMessage `json:"network,omitempty"`
 	System  *SystemMessage  `json:"system,omitempty"`
 	Logs    *LogsMessage    `json:"logs,omitempty"`
