@@ -96,12 +96,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock, verifyFruits bool
 		return ErrKnownBlock
 	}
 
-	if !v.bc.IsCanonicalBlock(block.ParentHash(), block.NumberU64()-1) {
-		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
-			return consensus.ErrUnknownAncestor
-		}
-		return consensus.ErrPrunedAncestor
-	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
 
@@ -165,7 +159,12 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock, verifyFruits bool
 	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
 		return fmt.Errorf("fruits hash mismatch: have %x, want %x", hash, header.FruitsHash)
 	}
-
+	if !v.bc.IsCanonicalBlock(block.ParentHash(), block.NumberU64()-1) {
+		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
+			return consensus.ErrUnknownAncestor
+		}
+		return consensus.ErrPrunedAncestor
+	}
 	log.Info("Validate new snail body", "block", block.Number(), "hash", block.Hash(), "fruits", header.FruitsHash, "first", fruits[0].FastNumber(), "count", len(fruits))
 	return nil
 }
