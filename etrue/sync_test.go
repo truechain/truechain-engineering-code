@@ -45,9 +45,10 @@ func TestFastSyncDisabling(t *testing.T) {
 		t.Fatalf("fast sync not disabled on non-empty blockchain")
 	}
 	// Sync up the two peers
-	io1, _ := p2p.MsgPipe()
+	io1, io2 := p2p.MsgPipe()
 
-	go pmEmpty.handle(pmEmpty.newPeer(63, p2p.NewPeer(enode.ID{}, "full", nil), io1))
+	go pmFull.handle(pmFull.newPeer(63, p2p.NewPeer(enode.ID{0}, "empty", nil), io2))
+	go pmEmpty.handle(pmEmpty.newPeer(63, p2p.NewPeer(enode.ID{1}, "full", nil), io1))
 
 	time.Sleep(250 * time.Millisecond)
 	pmEmpty.synchronise(pmEmpty.peers.BestPeer())

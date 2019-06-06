@@ -305,6 +305,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
 			}
+			atomic.StoreUint32(&pm.fastSync, 0)
+			atomic.StoreUint32(&pm.snapSync, 0)
 			atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
 			atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		}
