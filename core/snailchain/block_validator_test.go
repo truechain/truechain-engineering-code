@@ -102,7 +102,7 @@ func makeChain(n int, i int) (*SnailBlockChain, *core.BlockChain, *types.SnailBl
 	snailGenesis := genesis.MustSnailCommit(testdb)
 	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, fastchain)
 
-	blocks1, err := MakeSnailBlockFruitsWithoutInsert(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
+	blocks1, err := MakeSnailBlockFruitsWithoutInsert(snailChain, fastchain, n, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
 	if err != nil {
 		return nil, nil, nil
 	}

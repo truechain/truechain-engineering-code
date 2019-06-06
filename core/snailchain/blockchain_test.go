@@ -220,7 +220,7 @@ func TestLastBlock(t *testing.T) {
 	}
 	defer blockchain.Stop()
 
-	chain, _ := MakeSnailChain(1, core.DefaultGenesisBlock(), engine)
+	chain, _ := MakeSnailChain(5, core.DefaultGenesisBlock(), engine)
 	blocks := chain.GetBlocksFromNumber(1)
 	defer chain.Stop()
 	for _, block := range blocks {

@@ -1271,7 +1271,8 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				// R: Nothing to give
 
 				head := d.blockchain.CurrentBlock()
-				if !gotHeaders && td.Cmp(d.blockchain.GetTd(head.Hash(), head.NumberU64())) > 0 {
+				ptd := d.blockchain.GetTd(head.Hash(), head.NumberU64())
+				if !gotHeaders && td.Cmp(ptd) > 0 {
 					return errStallingPeer
 				}
 

@@ -774,6 +774,34 @@ func (m *Minerva) PrepareSnail(fastchain consensus.ChainReader, chain consensus.
 	return nil
 }
 
+// PrepareSnail implements consensus.Engine, initializing the difficulty field of a
+//// header to conform to the minerva protocol. The changes are done inline.
+func (m *Minerva) PrepareSnailWithParent(fastchain consensus.ChainReader, chain consensus.SnailChainReader, header *types.SnailHeader, parents []*types.SnailHeader) error {
+	//parents := m.getParents(chain, header)
+	//parent := m.sbc.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if parents == nil {
+		return consensus.ErrUnknownAncestor
+	}
+	header.Difficulty = m.CalcSnailDifficulty(chain, header.Time.Uint64(), parents)
+
+	if header.FastNumber == nil {
+		header.FruitDifficulty = new(big.Int).Set(chain.Config().Minerva.MinimumFruitDifficulty)
+	} else {
+		pointer := chain.GetHeader(header.PointerHash, header.PointerNumber.Uint64())
+		if pointer == nil {
+			return consensus.ErrUnknownPointer
+		}
+		fast := fastchain.GetHeader(header.FastHash, header.FastNumber.Uint64())
+		if fast == nil {
+			return consensus.ErrUnknownFast
+		}
+
+		header.FruitDifficulty = m.CalcFruitDifficulty(chain, header.Time.Uint64(), fast.Time.Uint64(), pointer)
+	}
+
+	return nil
+}
+
 // Finalize implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
