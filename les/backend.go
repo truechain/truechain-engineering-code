@@ -157,8 +157,6 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 func lesTopic(genesisHash common.Hash, protocolVersion uint) discv5.Topic {
 	var name string
 	switch protocolVersion {
-	case lpv1:
-		name = "LES"
 	case lpv2:
 		name = "LES2"
 	default:
@@ -263,6 +261,7 @@ func (s *LightEtrue) Stop() error {
 	s.bloomIndexer.Close()
 	s.chtIndexer.Close()
 	s.blockchain.Stop()
+	s.fblockchain.Stop()
 	s.protocolManager.Stop()
 	s.txPool.Stop()
 

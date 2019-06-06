@@ -185,8 +185,6 @@ func (p *peer) GetTxRelayCost(amount, size int) uint64 {
 
 	var msgcode uint64
 	switch p.version {
-	case lpv1:
-		msgcode = SendTxMsg
 	case lpv2:
 		msgcode = SendTxV2Msg
 	default:
@@ -246,19 +244,9 @@ func (p *peer) SendReceiptsRLP(reqID, bv uint64, receipts []rlp.RawValue) error 
 	return sendResponse(p.rw, ReceiptsMsg, reqID, bv, receipts)
 }
 
-// SendProofs sends a batch of legacy LES/1 merkle proofs, corresponding to the ones requested.
-func (p *peer) SendProofs(reqID, bv uint64, proofs proofsData) error {
-	return sendResponse(p.rw, ProofsV1Msg, reqID, bv, proofs)
-}
-
 // SendProofsV2 sends a batch of merkle proofs, corresponding to the ones requested.
 func (p *peer) SendProofsV2(reqID, bv uint64, proofs public.NodeList) error {
 	return sendResponse(p.rw, ProofsV2Msg, reqID, bv, proofs)
-}
-
-// SendHeaderProofs sends a batch of legacy LES/1 header proofs, corresponding to the ones requested.
-func (p *peer) SendHeaderProofs(reqID, bv uint64, proofs []ChtResp) error {
-	return sendResponse(p.rw, HeaderProofsMsg, reqID, bv, proofs)
 }
 
 // SendHelperTrieProofs sends a batch of HelperTrie proofs, corresponding to the ones requested.
@@ -273,16 +261,16 @@ func (p *peer) SendTxStatus(reqID, bv uint64, stats []txStatus) error {
 
 // RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
 // specified header query, based on the hash of an origin block.
-func (p *peer) RequestHeadersByHash(reqID, cost uint64, origin common.Hash, amount int, skip int, reverse bool) error {
+func (p *peer) RequestHeadersByHash(reqID, cost uint64, origin common.Hash, amount int, skip int, reverse bool, fast bool) error {
 	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
-	return sendRequest(p.rw, GetBlockHeadersMsg, reqID, cost, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+	return sendRequest(p.rw, GetBlockHeadersMsg, reqID, cost, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse, Fast: fast})
 }
 
 // RequestHeadersByNumber fetches a batch of blocks' headers corresponding to the
 // specified header query, based on the number of an origin block.
-func (p *peer) RequestHeadersByNumber(reqID, cost, origin uint64, amount int, skip int, reverse bool) error {
+func (p *peer) RequestHeadersByNumber(reqID, cost, origin uint64, amount int, skip int, reverse bool, fast bool) error {
 	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
-	return sendRequest(p.rw, GetBlockHeadersMsg, reqID, cost, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+	return sendRequest(p.rw, GetBlockHeadersMsg, reqID, cost, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse, Fast: fast})
 }
 
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
@@ -309,8 +297,6 @@ func (p *peer) RequestReceipts(reqID, cost uint64, hashes []common.Hash) error {
 func (p *peer) RequestProofs(reqID, cost uint64, reqs []ProofReq) error {
 	p.Log().Debug("Fetching batch of proofs", "count", len(reqs))
 	switch p.version {
-	case lpv1:
-		return sendRequest(p.rw, GetProofsV1Msg, reqID, cost, reqs)
 	case lpv2:
 		return sendRequest(p.rw, GetProofsV2Msg, reqID, cost, reqs)
 	default:
@@ -321,13 +307,6 @@ func (p *peer) RequestProofs(reqID, cost uint64, reqs []ProofReq) error {
 // RequestHelperTrieProofs fetches a batch of HelperTrie merkle proofs from a remote node.
 func (p *peer) RequestHelperTrieProofs(reqID, cost uint64, data interface{}) error {
 	switch p.version {
-	case lpv1:
-		reqs, ok := data.([]ChtReq)
-		if !ok {
-			return errInvalidHelpTrieReq
-		}
-		p.Log().Debug("Fetching batch of header proofs", "count", len(reqs))
-		return sendRequest(p.rw, GetHeaderProofsMsg, reqID, cost, reqs)
 	case lpv2:
 		reqs, ok := data.([]HelperTrieReq)
 		if !ok {
@@ -350,8 +329,6 @@ func (p *peer) RequestTxStatus(reqID, cost uint64, txHashes []common.Hash) error
 func (p *peer) SendTxs(reqID, cost uint64, txs rlp.RawValue) error {
 	p.Log().Debug("Fetching batch of transactions", "size", len(txs))
 	switch p.version {
-	case lpv1:
-		return p2p.Send(p.rw, SendTxMsg, txs) // old message format does not include reqID
 	case lpv2:
 		return sendRequest(p.rw, SendTxV2Msg, reqID, cost, txs)
 	default:

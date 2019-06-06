@@ -62,9 +62,9 @@ func LesRequest(req light.OdrRequest) LesOdrRequest {
 		return (*BlockRequest)(r)
 	case *fast.ReceiptsRequest:
 		return (*ReceiptsRequest)(r)
-	case *light.TrieRequest:
+	case *fast.TrieRequest:
 		return (*TrieRequest)(r)
-	case *light.CodeRequest:
+	case *fast.CodeRequest:
 		return (*CodeRequest)(r)
 	case *light.ChtRequest:
 		return (*ChtRequest)(r)
@@ -185,14 +185,12 @@ type ProofReq struct {
 }
 
 // ODR request type for state/storage trie entries, see LesOdrRequest interface
-type TrieRequest light.TrieRequest
+type TrieRequest fast.TrieRequest
 
 // GetCost returns the cost of the given ODR request according to the serving
 // peer's cost table (implementation of LesOdrRequest)
 func (r *TrieRequest) GetCost(peer *peer) uint64 {
 	switch peer.version {
-	case lpv1:
-		return peer.GetRequestCost(GetProofsV1Msg, 1)
 	case lpv2:
 		return peer.GetRequestCost(GetProofsV2Msg, 1)
 	default:
@@ -262,7 +260,7 @@ type CodeReq struct {
 }
 
 // ODR request type for node data (used for retrieving contract code), see LesOdrRequest interface
-type CodeRequest light.CodeRequest
+type CodeRequest fast.CodeRequest
 
 // GetCost returns the cost of the given ODR request according to the serving
 // peer's cost table (implementation of LesOdrRequest)
@@ -351,8 +349,6 @@ type ChtRequest light.ChtRequest
 // peer's cost table (implementation of LesOdrRequest)
 func (r *ChtRequest) GetCost(peer *peer) uint64 {
 	switch peer.version {
-	case lpv1:
-		return peer.GetRequestCost(GetHeaderProofsMsg, 1)
 	case lpv2:
 		return peer.GetRequestCost(GetHelperTrieProofsMsg, 1)
 	default:

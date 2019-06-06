@@ -47,7 +47,7 @@ var (
 )
 
 // Number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = map[uint]uint64{lpv1: 15, lpv2: 22}
+var ProtocolLengths = map[uint]uint64{lpv2: 37}
 
 const (
 	NetworkId          = 1
@@ -65,13 +65,8 @@ const (
 	BlockBodiesMsg     = 0x05
 	GetReceiptsMsg     = 0x06
 	ReceiptsMsg        = 0x07
-	GetProofsV1Msg     = 0x08
-	ProofsV1Msg        = 0x09
 	GetCodeMsg         = 0x0a
 	CodeMsg            = 0x0b
-	SendTxMsg          = 0x0c
-	GetHeaderProofsMsg = 0x0d
-	HeaderProofsMsg    = 0x0e
 	// Protocol messages belonging to LPV2
 	GetProofsV2Msg         = 0x0f
 	ProofsV2Msg            = 0x10
@@ -128,6 +123,7 @@ type announceBlock struct {
 	Hash   common.Hash // Hash of one particular block being announced
 	Number uint64      // Number of one particular block being announced
 	Td     *big.Int    // Total difficulty of one particular block being announced
+	Signs  []*types.PbftSign
 }
 
 // announceData is the network packet for the block announcements.
@@ -142,7 +138,7 @@ type announceData struct {
 
 // sign adds a signature to the block announcement by the given privKey
 func (a *announceData) sign(privKey *ecdsa.PrivateKey) {
-	rlp, _ := rlp.EncodeToBytes(announceBlock{a.Hash, a.Number, a.Td})
+	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, Signs: a.Signs})
 	sig, _ := crypto.Sign(crypto.Keccak256(rlp), privKey)
 	a.Update = a.Update.add("sign", sig)
 }
@@ -153,7 +149,7 @@ func (a *announceData) checkSignature(id enode.ID) error {
 	if err := a.Update.decode().get("sign", &sig); err != nil {
 		return err
 	}
-	rlp, _ := rlp.EncodeToBytes(announceBlock{a.Hash, a.Number, a.Td})
+	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, Signs: a.Signs})
 	recPubkey, err := crypto.SigToPub(crypto.Keccak256(rlp), sig)
 	if err != nil {
 		return err
@@ -176,6 +172,7 @@ type getBlockHeadersData struct {
 	Amount  uint64       // Maximum number of headers to retrieve
 	Skip    uint64       // Blocks to skip between consecutive headers
 	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
+	Fast    bool
 }
 
 // hashOrNumber is a combined field for specifying an origin block.
@@ -217,6 +214,13 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 // CodeData is the network response packet for a node data retrieval.
 type CodeData []struct {
 	Value []byte
+}
+
+// BlockHeadersData represents a block header send.
+type BlockHeadersData struct {
+	Headers      []*types.Header
+	SnailHeaders []*types.SnailHeader
+	Call         uint32 // Distinguish fetcher and downloader
 }
 
 type proofsData [][]rlp.RawValue

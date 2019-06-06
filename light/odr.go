@@ -26,7 +26,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -43,8 +42,6 @@ var ErrNoPeers = errors.New("no suitable peers available")
 type OdrBackend interface {
 	Database() etruedb.Database
 	ChtIndexer() *snailchain.ChainIndexer
-	BloomTrieIndexer() *core.ChainIndexer
-	BloomIndexer() *core.ChainIndexer
 	Retrieve(ctx context.Context, req OdrRequest) error
 	IndexerConfig() *public.IndexerConfig
 }
@@ -52,62 +49,6 @@ type OdrBackend interface {
 // OdrRequest is an interface for retrieval requests
 type OdrRequest interface {
 	StoreResult(db etruedb.Database)
-}
-
-// TrieID identifies a state or account storage trie
-type TrieID struct {
-	BlockHash, Root common.Hash
-	BlockNumber     uint64
-	AccKey          []byte
-}
-
-// StateTrieID returns a TrieID for a state trie belonging to a certain block
-// header.
-func StateTrieID(header *types.Header) *TrieID {
-	return &TrieID{
-		BlockHash:   header.Hash(),
-		BlockNumber: header.Number.Uint64(),
-		AccKey:      nil,
-		Root:        header.Root,
-	}
-}
-
-// StorageTrieID returns a TrieID for a contract storage trie at a given account
-// of a given state trie. It also requires the root hash of the trie for
-// checking Merkle proofs.
-func StorageTrieID(state *TrieID, addrHash, root common.Hash) *TrieID {
-	return &TrieID{
-		BlockHash:   state.BlockHash,
-		BlockNumber: state.BlockNumber,
-		AccKey:      addrHash[:],
-		Root:        root,
-	}
-}
-
-// TrieRequest is the ODR request type for state/storage trie entries
-type TrieRequest struct {
-	OdrRequest
-	Id    *TrieID
-	Key   []byte
-	Proof *public.NodeSet
-}
-
-// StoreResult stores the retrieved data in local database
-func (req *TrieRequest) StoreResult(db etruedb.Database) {
-	req.Proof.Store(db)
-}
-
-// CodeRequest is the ODR request type for retrieving contract code
-type CodeRequest struct {
-	OdrRequest
-	Id   *TrieID // references storage trie of the account
-	Hash common.Hash
-	Data []byte
-}
-
-// StoreResult stores the retrieved data in local database
-func (req *CodeRequest) StoreResult(db etruedb.Database) {
-	db.Put(req.Hash[:], req.Data)
 }
 
 // BlockRequest is the ODR request type for retrieving block bodies
