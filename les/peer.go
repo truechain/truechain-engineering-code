@@ -20,6 +20,7 @@ package les
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
 	"sync"
 	"time"
@@ -29,7 +30,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/les/flowcontrol"
-	"github.com/truechain/truechain-engineering-code/light"
 	"github.com/truechain/truechain-engineering-code/p2p"
 )
 
@@ -252,7 +252,7 @@ func (p *peer) SendProofs(reqID, bv uint64, proofs proofsData) error {
 }
 
 // SendProofsV2 sends a batch of merkle proofs, corresponding to the ones requested.
-func (p *peer) SendProofsV2(reqID, bv uint64, proofs light.NodeList) error {
+func (p *peer) SendProofsV2(reqID, bv uint64, proofs public.NodeList) error {
 	return sendResponse(p.rw, ProofsV2Msg, reqID, bv, proofs)
 }
 

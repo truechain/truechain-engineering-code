@@ -16,18 +16,17 @@
 
 // Package light implements on-demand retrieval capable state and chain objects
 // for the Ethereum Light Client.
-package light
+package fast
 
 import (
 	"context"
 	"errors"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 )
@@ -42,11 +41,11 @@ var ErrNoPeers = errors.New("no suitable peers available")
 // OdrBackend is an interface to a backend service that handles ODR retrievals type
 type OdrBackend interface {
 	Database() etruedb.Database
-	ChtIndexer() *snailchain.ChainIndexer
+	FastChtIndexer() *core.ChainIndexer
 	BloomTrieIndexer() *core.ChainIndexer
 	BloomIndexer() *core.ChainIndexer
-	Retrieve(ctx context.Context, req OdrRequest) error
-	IndexerConfig() *public.IndexerConfig
+	FastRetrieve(ctx context.Context, req OdrRequest) error
+	FastIndexerConfig() *IndexerConfig
 }
 
 // OdrRequest is an interface for retrieval requests
@@ -123,13 +122,26 @@ func (req *BlockRequest) StoreResult(db etruedb.Database) {
 	rawdb.WriteBodyRLP(db, req.Hash, req.Number, req.Rlp)
 }
 
+// ReceiptsRequest is the ODR request type for retrieving block bodies
+type ReceiptsRequest struct {
+	OdrRequest
+	Hash     common.Hash
+	Number   uint64
+	Receipts types.Receipts
+}
+
+// StoreResult stores the retrieved data in local database
+func (req *ReceiptsRequest) StoreResult(db etruedb.Database) {
+	rawdb.WriteReceipts(db, req.Hash, req.Number, req.Receipts)
+}
+
 // ChtRequest is the ODR request type for state/storage trie entries
 type ChtRequest struct {
 	OdrRequest
-	Config           *public.IndexerConfig
+	Config           *IndexerConfig
 	ChtNum, BlockNum uint64
 	ChtRoot          common.Hash
-	Header           *types.SnailHeader
+	Header           *types.Header
 	Td               *big.Int
 	Proof            *public.NodeSet
 }
@@ -141,4 +153,28 @@ func (req *ChtRequest) StoreResult(db etruedb.Database) {
 	rawdb.WriteHeader(db, req.Header)
 	rawdb.WriteTd(db, hash, num, req.Td)
 	rawdb.WriteCanonicalHash(db, hash, num)
+}
+
+// BloomRequest is the ODR request type for retrieving bloom filters from a CHT structure
+type BloomRequest struct {
+	OdrRequest
+	Config           *IndexerConfig
+	BloomTrieNum     uint64
+	BitIdx           uint
+	SectionIndexList []uint64
+	BloomTrieRoot    common.Hash
+	BloomBits        [][]byte
+	Proofs           *public.NodeSet
+}
+
+// StoreResult stores the retrieved data in local database
+func (req *BloomRequest) StoreResult(db etruedb.Database) {
+	for i, sectionIdx := range req.SectionIndexList {
+		sectionHead := rawdb.ReadCanonicalHash(db, (sectionIdx+1)*req.Config.BloomTrieSize-1)
+		// if we don't have the canonical hash stored for this section head number, we'll still store it under
+		// a key with a zero sectionHead. GetBloomBits will look there too if we still don't have the canonical
+		// hash. In the unlikely case we've retrieved the section head hash since then, we'll just retrieve the
+		// bit vector again from the network.
+		rawdb.WriteBloomBits(db, req.BitIdx, sectionIdx, sectionHead, req.BloomBits[i])
+	}
 }

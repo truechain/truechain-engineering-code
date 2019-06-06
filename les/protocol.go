@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"io"
 	"math/big"
 
@@ -136,6 +137,7 @@ type announceData struct {
 	Td         *big.Int    // Total difficulty of one particular block being announced
 	ReorgDepth uint64
 	Update     keyValueList
+	Signs      []*types.PbftSign
 }
 
 // sign adds a signature to the block announcement by the given privKey

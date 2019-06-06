@@ -19,6 +19,8 @@ package les
 
 import (
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/light/fast"
+	"github.com/truechain/truechain-engineering-code/light/public"
 	"sync"
 	"time"
 
@@ -55,12 +57,13 @@ type LightEtrue struct {
 	shutdownChan chan bool
 
 	// Handlers
-	peers      *peerSet
-	txPool     *light.TxPool
-	blockchain *light.LightChain
-	serverPool *serverPool
-	reqDist    *requestDistributor
-	retriever  *retrieveManager
+	peers       *peerSet
+	txPool      *fast.TxPool
+	blockchain  *light.LightChain
+	fblockchain *fast.LightChain
+	serverPool  *serverPool
+	reqDist     *requestDistributor
+	retriever   *retrieveManager
 
 	bloomRequests chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 	bloomIndexer  *core.ChainIndexer
@@ -95,14 +98,14 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 		lesCommons: lesCommons{
 			chainDb: chainDb,
 			config:  config,
-			iConfig: light.DefaultClientIndexerConfig,
+			iConfig: public.DefaultClientIndexerConfig,
 		},
 		chainConfig:    chainConfig,
 		eventMux:       ctx.EventMux,
 		peers:          peers,
 		reqDist:        newRequestDistributor(peers, quitSync),
 		accountManager: ctx.AccountManager,
-		engine:         etrue.CreateConsensusEngine(ctx, chainConfig, &config.Ethash, nil, false, chainDb),
+		engine:         etrue.CreateConsensusEngine(ctx, &config.MinervaHash, chainConfig, chainDb),
 		shutdownChan:   make(chan bool),
 		networkId:      config.NetworkId,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
@@ -113,9 +116,9 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	leth.serverPool = newServerPool(chainDb, quitSync, &leth.wg)
 	leth.retriever = newRetrieveManager(peers, leth.reqDist, leth.serverPool)
 
-	leth.odr = NewLesOdr(chainDb, light.DefaultClientIndexerConfig, leth.retriever)
+	leth.odr = NewLesOdr(chainDb, public.DefaultClientIndexerConfig, leth.retriever)
 	leth.chtIndexer = light.NewChtIndexer(chainDb, leth.odr, params.CHTFrequencyClient, params.HelperTrieConfirmations)
-	leth.bloomTrieIndexer = light.NewBloomTrieIndexer(chainDb, leth.odr, params.BloomBitsBlocksClient, params.BloomTrieFrequency)
+	leth.bloomTrieIndexer = fast.NewBloomTrieIndexer(chainDb, leth.odr, params.BloomBitsBlocksClient, params.BloomTrieFrequency)
 	leth.odr.SetIndexers(leth.chtIndexer, leth.bloomTrieIndexer, leth.bloomIndexer)
 
 	// Note: NewLightChain adds the trusted checkpoint so it needs an ODR with
@@ -123,10 +126,13 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	if leth.blockchain, err = light.NewLightChain(leth.odr, leth.chainConfig, leth.engine); err != nil {
 		return nil, err
 	}
+	if leth.fblockchain, err = fast.NewLightChain(leth.odr, leth.chainConfig, leth.engine); err != nil {
+		return nil, err
+	}
 	// Note: AddChildIndexer starts the update process for the child
 	leth.bloomIndexer.AddChildIndexer(leth.bloomTrieIndexer)
 	leth.chtIndexer.Start(leth.blockchain)
-	leth.bloomIndexer.Start(leth.blockchain)
+	leth.bloomIndexer.Start(leth.fblockchain)
 
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
@@ -135,14 +141,14 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 
-	leth.txPool = light.NewTxPool(leth.chainConfig, leth.blockchain, leth.relay)
-	if leth.protocolManager, err = NewProtocolManager(leth.chainConfig, light.DefaultClientIndexerConfig, true, config.NetworkId, leth.eventMux, leth.engine, leth.peers, nil, nil, chainDb, leth.odr, leth.relay, leth.serverPool, quitSync, &leth.wg); err != nil {
+	leth.txPool = fast.NewTxPool(leth.chainConfig, leth.fblockchain, leth.relay)
+	if leth.protocolManager, err = NewProtocolManager(leth.chainConfig, public.DefaultClientIndexerConfig, true, config.NetworkId, leth.eventMux, leth.engine, leth.peers, leth.fblockchain, leth.blockchain, nil, chainDb, leth.odr, leth.relay, leth.serverPool, quitSync, &leth.wg); err != nil {
 		return nil, err
 	}
 	leth.ApiBackend = &LesApiBackend{leth, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
-		gpoParams.Default = config.MinerGasPrice
+		gpoParams.Default = config.GasPrice
 	}
 	leth.ApiBackend.gpo = gasprice.NewOracle(leth.ApiBackend, gpoParams)
 	return leth, nil
@@ -220,11 +226,12 @@ func (s *LightEtrue) APIs() []rpc.API {
 }
 
 func (s *LightEtrue) ResetWithGenesisBlock(gb *types.Block) {
-	s.blockchain.ResetWithGenesisBlock(gb)
+	s.fblockchain.ResetWithGenesisBlock(gb)
 }
 
 func (s *LightEtrue) BlockChain() *light.LightChain      { return s.blockchain }
-func (s *LightEtrue) TxPool() *light.TxPool              { return s.txPool }
+func (s *LightEtrue) FastBlockChain() *fast.LightChain   { return s.fblockchain }
+func (s *LightEtrue) TxPool() *fast.TxPool               { return s.txPool }
 func (s *LightEtrue) Engine() consensus.Engine           { return s.engine }
 func (s *LightEtrue) LesVersion() int                    { return int(ClientProtocolVersions[0]) }
 func (s *LightEtrue) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
@@ -258,7 +265,6 @@ func (s *LightEtrue) Stop() error {
 	s.blockchain.Stop()
 	s.protocolManager.Stop()
 	s.txPool.Stop()
-	s.engine.Close()
 
 	s.eventMux.Stop()
 

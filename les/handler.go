@@ -22,9 +22,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
+	"github.com/truechain/truechain-engineering-code/light/fast"
+	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
 	"net"
 	"sync"
@@ -70,13 +70,12 @@ func errResp(code errCode, format string, v ...interface{}) error {
 	return fmt.Errorf("%v - %v", code, fmt.Sprintf(format, v...))
 }
 
-type BlockChain interface {
+type FastBlockChain interface {
 	Config() *params.ChainConfig
 	HasHeader(hash common.Hash, number uint64) bool
 	GetHeader(hash common.Hash, number uint64) *types.Header
 	GetHeaderByHash(hash common.Hash) *types.Header
 	CurrentHeader() *types.Header
-	GetTd(hash common.Hash, number uint64) *big.Int
 	State() (*state.StateDB, error)
 	InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error)
 	Rollback(chain []common.Hash)
@@ -86,7 +85,7 @@ type BlockChain interface {
 	SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription
 }
 
-type SnailBlockChain interface {
+type BlockChain interface {
 	Config() *params.ChainConfig
 	HasHeader(hash common.Hash, number uint64) bool
 	GetHeader(hash common.Hash, number uint64) *types.SnailHeader
@@ -112,8 +111,9 @@ type ProtocolManager struct {
 	txrelay     *LesTxRelay
 	networkId   uint64
 	chainConfig *params.ChainConfig
-	iConfig     *light.IndexerConfig
+	iConfig     *public.IndexerConfig
 	blockchain  BlockChain
+	fblockchain FastBlockChain
 	chainDb     etruedb.Database
 	odr         *LesOdr
 	server      *LesServer
@@ -143,12 +143,13 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the ethereum network.
-func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *light.IndexerConfig, lightSync bool, networkId uint64, mux *event.TypeMux, engine consensus.Engine, peers *peerSet, blockchain BlockChain, snailchain *snailchain.SnailBlockChain, txpool txPool, chainDb etruedb.Database, odr *LesOdr, txrelay *LesTxRelay, serverPool *serverPool, quitSync chan struct{}, wg *sync.WaitGroup) (*ProtocolManager, error) {
+func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *public.IndexerConfig, lightSync bool, networkId uint64, mux *event.TypeMux, engine consensus.Engine, peers *peerSet, blockchain FastBlockChain, snailchain BlockChain, txpool txPool, chainDb etruedb.Database, odr *LesOdr, txrelay *LesTxRelay, serverPool *serverPool, quitSync chan struct{}, wg *sync.WaitGroup) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		lightSync:   lightSync,
 		eventMux:    mux,
-		blockchain:  blockchain,
+		blockchain:  snailchain,
+		fblockchain: blockchain,
 		chainConfig: chainConfig,
 		iConfig:     indexerConfig,
 		chainDb:     chainDb,
@@ -180,7 +181,7 @@ func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *light.In
 		mode := downloader.LightSync
 		fmode := fastdownloader.SyncMode(mode)
 		manager.fdownloader = fastdownloader.New(fmode, chainDb, manager.eventMux, nil, blockchain, removePeer)
-		manager.downloader = downloader.New(mode, checkpoint, chainDb, manager.eventMux, nil, blockchain, removePeer, manager.fdownloader)
+		manager.downloader = downloader.New(mode, checkpoint, chainDb, manager.eventMux, nil, snailchain, removePeer, manager.fdownloader)
 		manager.peers.notify((*downloaderPeerNotify)(manager))
 		manager.fetcher = newLightFetcher(manager)
 	}
@@ -449,20 +450,20 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			unknown bool
 		)
 		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
-			// Retrieve the next header satisfying the query
+			// FastRetrieve the next header satisfying the query
 			var origin *types.Header
 			if hashMode {
 				if first {
 					first = false
-					origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
+					origin = pm.fblockchain.GetHeaderByHash(query.Origin.Hash)
 					if origin != nil {
 						query.Origin.Number = origin.Number.Uint64()
 					}
 				} else {
-					origin = pm.blockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
+					origin = pm.fblockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
 				}
 			} else {
-				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
+				origin = pm.fblockchain.GetHeaderByNumber(query.Origin.Number)
 			}
 			if origin == nil {
 				break
@@ -569,7 +570,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if bytes >= softResponseLimit {
 				break
 			}
-			// Retrieve the requested block body, stopping if enough was found
+			// FastRetrieve the requested block body, stopping if enough was found
 			if number := rawdb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
 				if data := rawdb.ReadBodyRLP(pm.chainDb, hash, *number); len(data) != 0 {
 					bodies = append(bodies, data)
@@ -622,10 +623,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrRequestRejected, "")
 		}
 		for _, req := range req.Reqs {
-			// Retrieve the requested state entry, stopping if enough was found
+			// FastRetrieve the requested state entry, stopping if enough was found
 			if number := rawdb.ReadHeaderNumber(pm.chainDb, req.BHash); number != nil {
 				if header := rawdb.ReadHeader(pm.chainDb, req.BHash, *number); header != nil {
-					statedb, err := pm.blockchain.State()
+					statedb, err := pm.fblockchain.State()
 					if err != nil {
 						continue
 					}
@@ -690,13 +691,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if bytes >= softResponseLimit {
 				break
 			}
-			// Retrieve the requested block's receipts, skipping if unknown to us
+			// FastRetrieve the requested block's receipts, skipping if unknown to us
 			var results types.Receipts
 			if number := rawdb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
 				results = rawdb.ReadReceipts(pm.chainDb, hash, *number)
 			}
 			if results == nil {
-				if header := pm.blockchain.GetHeaderByHash(hash); header == nil || header.ReceiptHash != types.EmptyRootHash {
+				if header := pm.fblockchain.GetHeaderByHash(hash); header == nil || header.ReceiptHash != types.EmptyRootHash {
 					continue
 				}
 			}
@@ -753,10 +754,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrRequestRejected, "")
 		}
 		for _, req := range req.Reqs {
-			// Retrieve the requested state entry, stopping if enough was found
+			// FastRetrieve the requested state entry, stopping if enough was found
 			if number := rawdb.ReadHeaderNumber(pm.chainDb, req.BHash); number != nil {
 				if header := rawdb.ReadHeader(pm.chainDb, req.BHash, *number); header != nil {
-					statedb, err := pm.blockchain.State()
+					statedb, err := pm.fblockchain.State()
 					if err != nil {
 						continue
 					}
@@ -771,7 +772,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						trie, _ = statedb.Database().OpenTrie(header.Root)
 					}
 					if trie != nil {
-						var proof light.NodeList
+						var proof public.NodeList
 						trie.Prove(req.Key, 0, &proof)
 
 						proofs = append(proofs, proof)
@@ -807,7 +808,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrRequestRejected, "")
 		}
 
-		nodes := light.NewNodeSet()
+		nodes := public.NewNodeSet()
 
 		for _, req := range req.Reqs {
 			// Look up the state belonging to the request
@@ -816,7 +817,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 				if number := rawdb.ReadHeaderNumber(pm.chainDb, req.BHash); number != nil {
 					if header := rawdb.ReadHeader(pm.chainDb, req.BHash, *number); header != nil {
-						statedb, _ = pm.blockchain.State()
+						statedb, _ = pm.fblockchain.State()
 						root = header.Root
 					}
 				}
@@ -857,7 +858,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of merkle proofs arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			Data      []light.NodeList
+			Data      []public.NodeList
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
@@ -878,7 +879,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of merkle proofs arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			Data      light.NodeList
+			Data      public.NodeList
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
@@ -921,7 +922,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					var encNumber [8]byte
 					binary.BigEndian.PutUint64(encNumber[:], req.BlockNum)
 
-					var proof light.NodeList
+					var proof public.NodeList
 					trie.Prove(encNumber[:], 0, &proof)
 
 					proofs = append(proofs, ChtResp{Header: header, Proof: proof})
@@ -961,7 +962,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			root     common.Hash
 			auxTrie  *trie.Trie
 		)
-		nodes := light.NewNodeSet()
+		nodes := public.NewNodeSet()
 		for _, req := range req.Reqs {
 			if auxTrie == nil || req.Type != lastType || req.TrieIdx != lastIdx {
 				auxTrie, lastType, lastIdx = nil, req.Type, req.TrieIdx
@@ -1172,7 +1173,7 @@ func (pm *ProtocolManager) getHelperTrie(id uint, idx uint64) (common.Hash, stri
 		return light.GetChtRoot(pm.chainDb, idxV1, sectionHead), light.ChtTablePrefix
 	case htBloomBits:
 		sectionHead := rawdb.ReadCanonicalHash(pm.chainDb, (idx+1)*pm.iConfig.BloomTrieSize-1)
-		return light.GetBloomTrieRoot(pm.chainDb, idx, sectionHead), light.BloomTrieTablePrefix
+		return fast.GetBloomTrieRoot(pm.chainDb, idx, sectionHead), fast.BloomTrieTablePrefix
 	}
 	return common.Hash{}, ""
 }

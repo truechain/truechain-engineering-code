@@ -22,6 +22,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/light/fast"
+	"github.com/truechain/truechain-engineering-code/light/public"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -58,7 +60,7 @@ func LesRequest(req light.OdrRequest) LesOdrRequest {
 	switch r := req.(type) {
 	case *light.BlockRequest:
 		return (*BlockRequest)(r)
-	case *light.ReceiptsRequest:
+	case *fast.ReceiptsRequest:
 		return (*ReceiptsRequest)(r)
 	case *light.TrieRequest:
 		return (*TrieRequest)(r)
@@ -66,7 +68,7 @@ func LesRequest(req light.OdrRequest) LesOdrRequest {
 		return (*CodeRequest)(r)
 	case *light.ChtRequest:
 		return (*ChtRequest)(r)
-	case *light.BloomRequest:
+	case *fast.BloomRequest:
 		return (*BloomRequest)(r)
 	default:
 		return nil
@@ -109,7 +111,7 @@ func (r *BlockRequest) Validate(db etruedb.Database, msg *Msg) error {
 	}
 	body := bodies[0]
 
-	// Retrieve our stored header and validate block content against it
+	// FastRetrieve our stored header and validate block content against it
 	header := rawdb.ReadHeader(db, r.Hash, r.Number)
 	if header == nil {
 		return errHeaderUnavailable
@@ -128,7 +130,7 @@ func (r *BlockRequest) Validate(db etruedb.Database, msg *Msg) error {
 }
 
 // ReceiptsRequest is the ODR request type for block receipts by block hash
-type ReceiptsRequest light.ReceiptsRequest
+type ReceiptsRequest fast.ReceiptsRequest
 
 // GetCost returns the cost of the given ODR request according to the serving
 // peer's cost table (implementation of LesOdrRequest)
@@ -163,7 +165,7 @@ func (r *ReceiptsRequest) Validate(db etruedb.Database, msg *Msg) error {
 	}
 	receipt := receipts[0]
 
-	// Retrieve our stored header and validate receipt content against it
+	// FastRetrieve our stored header and validate receipt content against it
 	header := rawdb.ReadHeader(db, r.Hash, r.Number)
 	if header == nil {
 		return errHeaderUnavailable
@@ -222,7 +224,7 @@ func (r *TrieRequest) Validate(db etruedb.Database, msg *Msg) error {
 
 	switch msg.MsgType {
 	case MsgProofsV1:
-		proofs := msg.Obj.([]light.NodeList)
+		proofs := msg.Obj.([]public.NodeList)
 		if len(proofs) != 1 {
 			return errInvalidEntryCount
 		}
@@ -235,7 +237,7 @@ func (r *TrieRequest) Validate(db etruedb.Database, msg *Msg) error {
 		return nil
 
 	case MsgProofsV2:
-		proofs := msg.Obj.(light.NodeList)
+		proofs := msg.Obj.(public.NodeList)
 		// Verify the proof and store if checks out
 		nodeSet := proofs.NodeSet()
 		reads := &readTraceDB{db: nodeSet}
@@ -326,7 +328,7 @@ type HelperTrieReq struct {
 }
 
 type HelperTrieResps struct { // describes all responses, not just a single one
-	Proofs  light.NodeList
+	Proofs  public.NodeList
 	AuxData [][]byte
 }
 
@@ -338,7 +340,7 @@ type ChtReq struct {
 
 // legacy LES/1
 type ChtResp struct {
-	Header *types.Header
+	Header *types.SnailHeader
 	Proof  []rlp.RawValue
 }
 
@@ -412,7 +414,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 		var encNumber [8]byte
 		binary.BigEndian.PutUint64(encNumber[:], r.BlockNum)
 
-		value, _, err := trie.VerifyProof(r.ChtRoot, encNumber[:], light.NodeList(proof.Proof).NodeSet())
+		value, _, err := trie.VerifyProof(r.ChtRoot, encNumber[:], public.NodeList(proof.Proof).NodeSet())
 		if err != nil {
 			return err
 		}
@@ -425,7 +427,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 		}
 		// Verifications passed, store and return
 		r.Header = proof.Header
-		r.Proof = light.NodeList(proof.Proof).NodeSet()
+		r.Proof = public.NodeList(proof.Proof).NodeSet()
 		r.Td = node.Td
 	case MsgHelperTrieProofs:
 		resp := msg.Obj.(HelperTrieResps)
@@ -437,7 +439,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 		if len(headerEnc) == 0 {
 			return errHeaderUnavailable
 		}
-		header := new(types.Header)
+		header := new(types.SnailHeader)
 		if err := rlp.DecodeBytes(headerEnc, header); err != nil {
 			return errHeaderUnavailable
 		}
@@ -480,7 +482,7 @@ type BloomReq struct {
 }
 
 // ODR request type for requesting headers by Canonical Hash Trie, see LesOdrRequest interface
-type BloomRequest light.BloomRequest
+type BloomRequest fast.BloomRequest
 
 // GetCost returns the cost of the given ODR request according to the serving
 // peer's cost table (implementation of LesOdrRequest)

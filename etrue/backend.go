@@ -156,7 +156,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		gasPrice:       config.GasPrice,
 		etherbase:      config.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
-		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
+		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 	}
 
 	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId)
@@ -179,7 +179,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	bl := etrue.blockchain.GetBlockByNumber(0)
 	fmt.Print(bl)
-
 
 	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, etrue.chainConfig, etrue.engine, etrue.blockchain)
 	if err != nil {

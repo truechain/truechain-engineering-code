@@ -8,17 +8,13 @@ const (
 
 	Normal = iota
 	DiscTooManyPeers
-	FetcherCall
 	DownloaderCall
-	SFetcherCall
-	SDownloaderCall
-
-	PeerSendCall
+	ServerSimpleCall
+	ServerSignedCall
+	FetcherSyncCall
 	FetcherHeadCall
-	SFetcherHeadCall
-	DownloaderFetchCall
-	DownloaderPartCall
-	SDownloaderFetchCall
-	SDownloaderLoopCall
-	SDownloaderPartCall
+	FetcherKnownCall
+	FetcherTimerCall
+	FetcherDeliverCall
+	FetcherAnnounceCall
 )

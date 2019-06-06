@@ -18,10 +18,13 @@ package les
 
 import (
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/light/fast"
+	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/light"
@@ -32,11 +35,12 @@ import (
 
 // lesCommons contains fields needed by both server and client.
 type lesCommons struct {
-	config                       *etrue.Config
-	iConfig                      *light.IndexerConfig
-	chainDb                      etruedb.Database
-	protocolManager              *ProtocolManager
-	chtIndexer, bloomTrieIndexer *core.ChainIndexer
+	config           *etrue.Config
+	iConfig          *public.IndexerConfig
+	chainDb          etruedb.Database
+	protocolManager  *ProtocolManager
+	chtIndexer       *snailchain.ChainIndexer
+	bloomTrieIndexer *core.ChainIndexer
 }
 
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata
@@ -102,7 +106,7 @@ func (c *lesCommons) nodeInfo() interface{} {
 			SectionIndex: sectionIndex,
 			SectionHead:  sectionHead,
 			CHTRoot:      chtRoot,
-			BloomRoot:    light.GetBloomTrieRoot(c.chainDb, sectionIndex, sectionHead),
+			BloomRoot:    fast.GetBloomTrieRoot(c.chainDb, sectionIndex, sectionHead),
 		}
 	}
 

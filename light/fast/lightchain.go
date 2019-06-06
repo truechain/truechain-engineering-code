@@ -14,13 +14,11 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package light
+package fast
 
 import (
 	"context"
 	"errors"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -32,7 +30,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -49,15 +47,15 @@ var (
 // headers, downloading block bodies and receipts on demand through an ODR
 // interface. It only does header validation during chain insertion.
 type LightChain struct {
-	hc            *snailchain.HeaderChain
-	indexerConfig *public.IndexerConfig
+	hc            *core.HeaderChain
+	indexerConfig *IndexerConfig
 	chainDb       etruedb.Database
 	odr           OdrBackend
 	chainFeed     event.Feed
 	chainSideFeed event.Feed
 	chainHeadFeed event.Feed
 	scope         event.SubscriptionScope
-	genesisBlock  *types.SnailBlock
+	genesisBlock  *types.Block
 
 	mu      sync.RWMutex
 	chainmu sync.RWMutex
@@ -85,7 +83,7 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 
 	bc := &LightChain{
 		chainDb:       odr.Database(),
-		indexerConfig: odr.IndexerConfig(),
+		indexerConfig: odr.FastIndexerConfig(),
 		odr:           odr,
 		quit:          make(chan struct{}),
 		bodyCache:     bodyCache,
@@ -94,7 +92,7 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 		engine:        engine,
 	}
 	var err error
-	bc.hc, err = snailchain.NewHeaderChain(odr.Database(), config, bc.engine, bc.getProcInterrupt)
+	bc.hc, err = core.NewHeaderChain(odr.Database(), config, bc.engine, bc.getProcInterrupt)
 	if err != nil {
 		return nil, err
 	}
@@ -121,9 +119,16 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 
 // addTrustedCheckpoint adds a trusted checkpoint to the blockchain
 func (self *LightChain) addTrustedCheckpoint(cp *params.TrustedCheckpoint) {
-	if self.odr.ChtIndexer() != nil {
+	if self.odr.FastChtIndexer() != nil {
 		StoreChtRoot(self.chainDb, cp.SectionIndex, cp.SectionHead, cp.CHTRoot)
-		self.odr.ChtIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
+		self.odr.FastChtIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
+	}
+	if self.odr.BloomTrieIndexer() != nil {
+		StoreBloomTrieRoot(self.chainDb, cp.SectionIndex, cp.SectionHead, cp.BloomRoot)
+		self.odr.BloomTrieIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
+	}
+	if self.odr.BloomIndexer() != nil {
+		self.odr.BloomIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
 	}
 	log.Info("Added trusted checkpoint", "chain", cp.Name, "block", (cp.SectionIndex+1)*self.indexerConfig.ChtSize-1, "hash", cp.SectionHead)
 }
@@ -167,6 +172,11 @@ func (bc *LightChain) SetHead(head uint64) {
 	bc.loadLastState()
 }
 
+// GasLimit returns the gas limit of the current HEAD block.
+func (self *LightChain) GasLimit() uint64 {
+	return self.hc.CurrentHeader().GasLimit
+}
+
 // Reset purges the entire blockchain, restoring it to its genesis state.
 func (bc *LightChain) Reset() {
 	bc.ResetWithGenesisBlock(bc.genesisBlock)
@@ -174,7 +184,7 @@ func (bc *LightChain) Reset() {
 
 // ResetWithGenesisBlock purges the entire blockchain, restoring it to the
 // specified genesis state.
-func (bc *LightChain) ResetWithGenesisBlock(genesis *types.SnailBlock) {
+func (bc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
 	// Dump the entire block chain and purge the caches
 	bc.SetHead(0)
 
@@ -182,7 +192,6 @@ func (bc *LightChain) ResetWithGenesisBlock(genesis *types.SnailBlock) {
 	defer bc.mu.Unlock()
 
 	// Prepare the genesis block and reinitialise the chain
-	rawdb.WriteTd(bc.chainDb, genesis.Hash(), genesis.NumberU64(), genesis.Difficulty())
 	rawdb.WriteBlock(bc.chainDb, genesis)
 
 	bc.genesisBlock = genesis
@@ -196,7 +205,7 @@ func (bc *LightChain) ResetWithGenesisBlock(genesis *types.SnailBlock) {
 func (bc *LightChain) Engine() consensus.Engine { return bc.engine }
 
 // Genesis returns the genesis block
-func (bc *LightChain) Genesis() *types.SnailBlock {
+func (bc *LightChain) Genesis() *types.Block {
 	return bc.genesisBlock
 }
 
@@ -207,10 +216,10 @@ func (bc *LightChain) State() (*state.StateDB, error) {
 
 // GetBody retrieves a block body (transactions and uncles) from the database
 // or ODR service by hash, caching it if found.
-func (self *LightChain) GetBody(ctx context.Context, hash common.Hash) (*types.SnailBody, error) {
+func (self *LightChain) GetBody(ctx context.Context, hash common.Hash) (*types.Body, error) {
 	// Short circuit if the body's already in the cache, retrieve otherwise
 	if cached, ok := self.bodyCache.Get(hash); ok {
-		body := cached.(*types.SnailBody)
+		body := cached.(*types.Body)
 		return body, nil
 	}
 	number := self.hc.GetBlockNumber(hash)
@@ -255,10 +264,10 @@ func (bc *LightChain) HasBlock(hash common.Hash, number uint64) bool {
 
 // GetBlock retrieves a block from the database or ODR service by hash and number,
 // caching it if found.
-func (self *LightChain) GetBlock(ctx context.Context, hash common.Hash, number uint64) (*types.SnailBlock, error) {
+func (self *LightChain) GetBlock(ctx context.Context, hash common.Hash, number uint64) (*types.Block, error) {
 	// Short circuit if the block's already in the cache, retrieve otherwise
 	if block, ok := self.blockCache.Get(hash); ok {
-		return block.(*types.SnailBlock), nil
+		return block.(*types.Block), nil
 	}
 	block, err := GetBlock(ctx, self.odr, hash, number)
 	if err != nil {
@@ -271,7 +280,7 @@ func (self *LightChain) GetBlock(ctx context.Context, hash common.Hash, number u
 
 // GetBlockByHash retrieves a block from the database or ODR service by hash,
 // caching it if found.
-func (self *LightChain) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.SnailBlock, error) {
+func (self *LightChain) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	number := self.hc.GetBlockNumber(hash)
 	if number == nil {
 		return nil, errors.New("unknown block")
@@ -279,15 +288,9 @@ func (self *LightChain) GetBlockByHash(ctx context.Context, hash common.Hash) (*
 	return self.GetBlock(ctx, hash, *number)
 }
 
-// GetFruit retrieves a fruit from the database by FastHash
-func (self *LightChain) GetFruit(fastHash common.Hash) *types.SnailBlock {
-	fruit, _, _, _ := rawdb.ReadFruit(self.chainDb, fastHash)
-	return fruit
-}
-
 // GetBlockByNumber retrieves a block from the database or ODR service by
 // number, caching it (associated with its hash) if found.
-func (self *LightChain) GetBlockByNumber(ctx context.Context, number uint64) (*types.SnailBlock, error) {
+func (self *LightChain) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block, error) {
 	hash, err := GetCanonicalHash(ctx, self.odr, number)
 	if hash == (common.Hash{}) || err != nil {
 		return nil, err
@@ -350,7 +353,7 @@ func (self *LightChain) postChainEvents(events []interface{}) {
 //
 // In the case of a light chain, InsertHeaderChain also creates and posts light
 // chain events when necessary.
-func (self *LightChain) InsertHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
+func (self *LightChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
 	start := time.Now()
 	if i, err := self.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
 		return i, err
@@ -367,20 +370,20 @@ func (self *LightChain) InsertHeaderChain(chain []*types.SnailHeader, checkFreq 
 	defer self.wg.Done()
 
 	var events []interface{}
-	whFunc := func(header *types.SnailHeader) error {
+	whFunc := func(header *types.Header) error {
 		self.mu.Lock()
 		defer self.mu.Unlock()
 
 		status, err := self.hc.WriteHeader(header)
 
 		switch status {
-		case snailchain.CanonStatTy:
+		case core.CanonStatTy:
 			log.Debug("Inserted new header", "number", header.Number, "hash", header.Hash())
-			events = append(events, types.SnailChainEvent{Block: types.NewSnailBlockWithHeader(header), Hash: header.Hash()})
+			events = append(events, types.FastChainEvent{Block: types.NewBlockWithHeader(header), Hash: header.Hash()})
 
-		case snailchain.SideStatTy:
+		case core.SideStatTy:
 			log.Debug("Inserted forked header", "number", header.Number, "hash", header.Hash())
-			events = append(events, types.SnailChainSideEvent{Block: types.NewSnailBlockWithHeader(header)})
+			events = append(events, types.FastChainSideEvent{Block: types.NewBlockWithHeader(header)})
 		}
 		return err
 	}
@@ -391,31 +394,19 @@ func (self *LightChain) InsertHeaderChain(chain []*types.SnailHeader, checkFreq 
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
-func (self *LightChain) CurrentHeader() *types.SnailHeader {
+func (self *LightChain) CurrentHeader() *types.Header {
 	return self.hc.CurrentHeader()
-}
-
-// GetTd retrieves a block's total difficulty in the canonical chain from the
-// database by hash and number, caching it if found.
-func (self *LightChain) GetTd(hash common.Hash, number uint64) *big.Int {
-	return self.hc.GetTd(hash, number)
-}
-
-// GetTdByHash retrieves a block's total difficulty in the canonical chain from the
-// database by hash, caching it if found.
-func (self *LightChain) GetTdByHash(hash common.Hash) *big.Int {
-	return self.hc.GetTdByHash(hash)
 }
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (self *LightChain) GetHeader(hash common.Hash, number uint64) *types.SnailHeader {
+func (self *LightChain) GetHeader(hash common.Hash, number uint64) *types.Header {
 	return self.hc.GetHeader(hash, number)
 }
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
-func (self *LightChain) GetHeaderByHash(hash common.Hash) *types.SnailHeader {
+func (self *LightChain) GetHeaderByHash(hash common.Hash) *types.Header {
 	return self.hc.GetHeaderByHash(hash)
 }
 
@@ -445,13 +436,13 @@ func (bc *LightChain) GetAncestor(hash common.Hash, number, ancestor uint64, max
 
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
-func (self *LightChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
+func (self *LightChain) GetHeaderByNumber(number uint64) *types.Header {
 	return self.hc.GetHeaderByNumber(number)
 }
 
 // GetHeaderByNumberOdr retrieves a block header from the database or network
 // by number, caching it (associated with its hash) if found.
-func (self *LightChain) GetHeaderByNumberOdr(ctx context.Context, number uint64) (*types.SnailHeader, error) {
+func (self *LightChain) GetHeaderByNumberOdr(ctx context.Context, number uint64) (*types.Header, error) {
 	if header := self.hc.GetHeaderByNumber(number); header != nil {
 		return header, nil
 	}
@@ -463,12 +454,12 @@ func (self *LightChain) Config() *params.ChainConfig { return self.hc.Config() }
 
 func (self *LightChain) SyncCht(ctx context.Context) bool {
 	// If we don't have a CHT indexer, abort
-	if self.odr.ChtIndexer() == nil {
+	if self.odr.FastChtIndexer() == nil {
 		return false
 	}
 	// Ensure the remote CHT head is ahead of us
 	head := self.CurrentHeader().Number.Uint64()
-	sections, _, _ := self.odr.ChtIndexer().Sections()
+	sections, _, _ := self.odr.FastChtIndexer().Sections()
 
 	latest := sections*self.indexerConfig.ChtSize - 1
 	if head >= latest {
@@ -501,17 +492,17 @@ func (self *LightChain) UnlockChain() {
 }
 
 // SubscribeChainEvent registers a subscription of ChainEvent.
-func (self *LightChain) SubscribeChainEvent(ch chan<- types.SnailChainEvent) event.Subscription {
+func (self *LightChain) SubscribeChainEvent(ch chan<- types.FastChainEvent) event.Subscription {
 	return self.scope.Track(self.chainFeed.Subscribe(ch))
 }
 
 // SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.
-func (self *LightChain) SubscribeChainHeadEvent(ch chan<- types.SnailChainHeadEvent) event.Subscription {
+func (self *LightChain) SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription {
 	return self.scope.Track(self.chainHeadFeed.Subscribe(ch))
 }
 
 // SubscribeChainSideEvent registers a subscription of ChainSideEvent.
-func (self *LightChain) SubscribeChainSideEvent(ch chan<- types.SnailChainSideEvent) event.Subscription {
+func (self *LightChain) SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent) event.Subscription {
 	return self.scope.Track(self.chainSideFeed.Subscribe(ch))
 }
 

@@ -18,6 +18,9 @@ package les
 
 import (
 	"context"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/light/fast"
+	"github.com/truechain/truechain-engineering-code/light/public"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -27,14 +30,16 @@ import (
 
 // LesOdr implements light.OdrBackend
 type LesOdr struct {
-	db                                         etruedb.Database
-	indexerConfig                              *light.IndexerConfig
-	chtIndexer, bloomTrieIndexer, bloomIndexer *core.ChainIndexer
-	retriever                                  *retrieveManager
-	stop                                       chan struct{}
+	db                                             etruedb.Database
+	indexerConfig                                  *public.IndexerConfig
+	fastIndexerConfig                              *fast.IndexerConfig
+	chtIndexer                                     *snailchain.ChainIndexer
+	fastChtIndexer, bloomTrieIndexer, bloomIndexer *core.ChainIndexer
+	retriever                                      *retrieveManager
+	stop                                           chan struct{}
 }
 
-func NewLesOdr(db etruedb.Database, config *light.IndexerConfig, retriever *retrieveManager) *LesOdr {
+func NewLesOdr(db etruedb.Database, config *public.IndexerConfig, retriever *retrieveManager) *LesOdr {
 	return &LesOdr{
 		db:            db,
 		indexerConfig: config,
@@ -54,15 +59,20 @@ func (odr *LesOdr) Database() etruedb.Database {
 }
 
 // SetIndexers adds the necessary chain indexers to the ODR backend
-func (odr *LesOdr) SetIndexers(chtIndexer, bloomTrieIndexer, bloomIndexer *core.ChainIndexer) {
+func (odr *LesOdr) SetIndexers(chtIndexer *snailchain.ChainIndexer, bloomTrieIndexer, bloomIndexer *core.ChainIndexer) {
 	odr.chtIndexer = chtIndexer
 	odr.bloomTrieIndexer = bloomTrieIndexer
 	odr.bloomIndexer = bloomIndexer
 }
 
 // ChtIndexer returns the CHT chain indexer
-func (odr *LesOdr) ChtIndexer() *core.ChainIndexer {
+func (odr *LesOdr) ChtIndexer() *snailchain.ChainIndexer {
 	return odr.chtIndexer
+}
+
+// FastChtIndexer returns the CHT chain indexer
+func (odr *LesOdr) FastChtIndexer() *core.ChainIndexer {
+	return odr.fastChtIndexer
 }
 
 // BloomTrieIndexer returns the bloom trie chain indexer
@@ -76,8 +86,13 @@ func (odr *LesOdr) BloomIndexer() *core.ChainIndexer {
 }
 
 // IndexerConfig returns the indexer config.
-func (odr *LesOdr) IndexerConfig() *light.IndexerConfig {
+func (odr *LesOdr) IndexerConfig() *public.IndexerConfig {
 	return odr.indexerConfig
+}
+
+// FastIndexerConfig returns the indexer config.
+func (odr *LesOdr) FastIndexerConfig() *fast.IndexerConfig {
+	return odr.fastIndexerConfig
 }
 
 const (
@@ -100,6 +115,37 @@ type Msg struct {
 // Retrieve tries to fetch an object from the LES network.
 // If the network retrieval was successful, it stores the object in local db.
 func (odr *LesOdr) Retrieve(ctx context.Context, req light.OdrRequest) (err error) {
+	lreq := LesRequest(req)
+
+	reqID := genReqID()
+	rq := &distReq{
+		getCost: func(dp distPeer) uint64 {
+			return lreq.GetCost(dp.(*peer))
+		},
+		canSend: func(dp distPeer) bool {
+			p := dp.(*peer)
+			return lreq.CanSend(p)
+		},
+		request: func(dp distPeer) func() {
+			p := dp.(*peer)
+			cost := lreq.GetCost(p)
+			p.fcServer.QueueRequest(reqID, cost)
+			return func() { lreq.Request(reqID, p) }
+		},
+	}
+
+	if err = odr.retriever.retrieve(ctx, reqID, rq, func(p distPeer, msg *Msg) error { return lreq.Validate(odr.db, msg) }, odr.stop); err == nil {
+		// retrieved from network, store in db
+		req.StoreResult(odr.db)
+	} else {
+		log.Debug("Failed to retrieve data from network", "err", err)
+	}
+	return
+}
+
+// FastRetrieve tries to fetch an object from the LES network.
+// If the network retrieval was successful, it stores the object in local db.
+func (odr *LesOdr) FastRetrieve(ctx context.Context, req fast.OdrRequest) (err error) {
 	lreq := LesRequest(req)
 
 	reqID := genReqID()

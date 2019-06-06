@@ -156,7 +156,7 @@ func (s *Service) loop() {
 		txpool = s.etrue.TxPool()
 		snailBlockChain = s.etrue.SnailBlockChain()
 	} else {
-		blockchain = s.les.BlockChain()
+		blockchain = s.les.FastBlockChain()
 		txpool = s.les.TxPool()
 	}
 	//fastBlock
@@ -644,7 +644,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		if block != nil {
 			header = block.Header()
 		} else {
-			header = s.les.BlockChain().CurrentHeader()
+			header = s.les.FastBlockChain().CurrentHeader()
 		}
 		txs = []txStats{}
 	}
@@ -736,7 +736,7 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 		if s.etrue != nil {
 			block = s.etrue.BlockChain().GetBlockByNumber(number)
 		} else {
-			if header := s.les.BlockChain().GetHeaderByNumber(number); header != nil {
+			if header := s.les.FastBlockChain().GetHeaderByNumber(number); header != nil {
 				block = types.NewBlockWithHeader(header)
 			}
 		}
