@@ -17,18 +17,18 @@
 package etrue
 
 import (
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 // Tests that fast sync gets disabled as soon as a real block is successfully
@@ -45,9 +45,8 @@ func TestFastSyncDisabling(t *testing.T) {
 		t.Fatalf("fast sync not disabled on non-empty blockchain")
 	}
 	// Sync up the two peers
-	io1, io2 := p2p.MsgPipe()
+	io1, _ := p2p.MsgPipe()
 
-	go pmFull.handle(pmFull.newPeer(63, p2p.NewPeer(enode.ID{}, "empty", nil), io2))
 	go pmEmpty.handle(pmEmpty.newPeer(63, p2p.NewPeer(enode.ID{}, "full", nil), io1))
 
 	time.Sleep(250 * time.Millisecond)
