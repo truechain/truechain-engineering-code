@@ -875,7 +875,7 @@ func LogPrint(info string, addr common.Address, amount *big.Int) {
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.StateDB, sBlock *types.SnailBlock) error {
-	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(sBlock.Header().Number)
+	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
 	if e != nil {
 		return e
 	}
@@ -911,7 +911,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 }
 
 func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types.SnailRewardContenet {
-	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(sBlock.Header().Number)
+	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
 	if e != nil {
 		return nil
 	}
@@ -1019,7 +1019,7 @@ func rewardFruitCommitteeMember(state *state.StateDB, election consensus.Committ
 }
 
 //Reward for block allocation
-func getBlockReward(num *big.Int) (committee, minerBlock, minerFruit *big.Int, e error) {
+func GetBlockReward(num *big.Int) (committee, minerBlock, minerFruit *big.Int, e error) {
 	base := new(big.Int).Div(getCurrentCoin(num), Big1e6).Int64()
 	m, c, e := getDistributionRatio(NetworkFragmentsNuber)
 	if e != nil {

@@ -217,7 +217,7 @@ func TestSnailAwardForHeight(t *testing.T) {
 	for i := 1; i < 1000; i++ {
 		snailBlockNumber := new(big.Int).SetInt64(int64(1 + 4500*(i-1)))
 		fmt.Println("snailBlockNumber:", snailBlockNumber, "Award:", getCurrentCoin(snailBlockNumber))
-		committeeAward, minerAward, minerFruitAward, _ := getBlockReward(snailBlockNumber)
+		committeeAward, minerAward, minerFruitAward, _ := GetBlockReward(snailBlockNumber)
 		fmt.Println("committeeAward:", committeeAward, "minerAward:", minerAward, "minerFruitAward:", minerFruitAward)
 	}
 }
