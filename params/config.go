@@ -43,7 +43,7 @@ var (
 			MinimumFruitDifficulty: big.NewInt(262144),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP3:&BlockConfig{},
+		TIP3: &BlockConfig{},
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -65,18 +65,18 @@ var (
 			MinimumFruitDifficulty: big.NewInt(100),
 			DurationLimit:          big.NewInt(150),
 		}),
-		TIP3:&BlockConfig{},
+		TIP3: &BlockConfig{},
 	}
 
 	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{ChainID:chainId, Minerva:new(MinervaConfig), TIP3 :&BlockConfig{FastNumber:big.NewInt(0)}}
+	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)}}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	TestChainConfig = &ChainConfig{ChainID:chainId,  Minerva:&MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit},  TIP3 :&BlockConfig{FastNumber:big.NewInt(0)}}
+	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)}}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -309,7 +309,7 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 
 // IsTIP3 returns whether num is either equal to the IsTIP3 fork block or greater.
 func (c *ChainConfig) IsTIP3(num *big.Int) bool {
-	if c.TIP3 ==nil{
+	if c.TIP3 == nil {
 		return false
 	}
 	return isForked(c.TIP3.FastNumber, num)
