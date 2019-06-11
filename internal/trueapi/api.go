@@ -649,12 +649,12 @@ func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr
 	block, err := s.b.SnailBlockByNumber(ctx, blockNr)
 	if block != nil {
 		response, err := s.rpcOutputSnailBlock(block, inclFruit)
-		if err == nil && blockNr == rpc.PendingBlockNumber {
+		/*if err == nil && blockNr == rpc.PendingBlockNumber {
 			// Pending blocks need to nil out a few fields
 			for _, field := range []string{"hash", "nonce", "miner"} {
 				response[field] = nil
 			}
-		}
+		}*/
 		return response, err
 	}
 	return nil, err
