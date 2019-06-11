@@ -194,7 +194,9 @@ type BlockChain interface {
 	// InsertChain inserts a batch of blocks into the local chain.
 	InsertChain(types.SnailBlocks) (int, error)
 
+
 	FastInsertChain(types.SnailBlocks) (int, error)
+
 
 	HasConfirmedBlock(hash common.Hash, number uint64) bool
 }

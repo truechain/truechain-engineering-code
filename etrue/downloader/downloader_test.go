@@ -393,6 +393,24 @@ func (dl *downloadTester) InsertHeaderChain(headers []*types.SnailHeader, checkF
 }
 
 // InsertChain injects a new batch of blocks into the simulated chain.
+func (dl *downloadTester) FastInsertChain(blocks types.SnailBlocks) (int, error) {
+	dl.lock.Lock()
+	defer dl.lock.Unlock()
+	for _, block := range blocks {
+
+		if _, ok := dl.ownHeaders[block.Hash()]; !ok {
+			dl.ownHashes = append(dl.ownHashes, block.Hash())
+			dl.ownHeaders[block.Hash()] = block.Header()
+		}
+		dl.ownBlocks[block.Hash()] = block
+		dl.ownChainTd[block.Hash()] = new(big.Int).Add(dl.ownChainTd[block.ParentHash()], block.Difficulty())
+	}
+	return len(blocks), nil
+}
+
+
+
+// InsertChain injects a new batch of blocks into the simulated chain.
 func (dl *downloadTester) InsertChain(blocks types.SnailBlocks) (int, error) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
