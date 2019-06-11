@@ -719,7 +719,7 @@ func MakeSnailBloocks(fastchain *core.BlockChain, snailchain *SnailBlockChain, s
 		snailblockParent = block
 		parantsnail = append(parantsnail, block)
 		snailblocks = append(snailblocks, block)
-
+		snailchain.SetValidator(NewBlockValidator(snailchain.Config(), fastchain, snailchain, snailchain.Engine()))
 		if _, err := snailchain.InsertChain(types.SnailBlocks{block}); err != nil {
 			panic(err)
 		}
