@@ -121,12 +121,12 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	leth.bloomTrieIndexer = fast.NewBloomTrieIndexer(chainDb, leth.odr, params.BloomBitsBlocksClient, params.BloomTrieFrequency)
 	leth.odr.SetIndexers(leth.chtIndexer, leth.bloomTrieIndexer, leth.bloomIndexer)
 
-	// Note: NewLightChain adds the trusted checkpoint so it needs an ODR with
-	// indexers already set but not started yet
-	if leth.blockchain, err = light.NewLightChain(leth.odr, leth.chainConfig, leth.engine); err != nil {
+	if leth.fblockchain, err = fast.NewLightChain(leth.odr, leth.chainConfig, leth.engine); err != nil {
 		return nil, err
 	}
-	if leth.fblockchain, err = fast.NewLightChain(leth.odr, leth.chainConfig, leth.engine); err != nil {
+	// Note: NewLightChain adds the trusted checkpoint so it needs an ODR with
+	// indexers already set but not started yet
+	if leth.blockchain, err = light.NewLightChain(leth.fblockchain, leth.odr, leth.chainConfig, leth.engine); err != nil {
 		return nil, err
 	}
 	// Note: AddChildIndexer starts the update process for the child

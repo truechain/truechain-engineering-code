@@ -41,32 +41,7 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 		}
 		return header, nil
 	}
-
-	var (
-		chtCount, sectionHeadNum uint64
-		sectionHead              common.Hash
-	)
-	if odr.FastChtIndexer() != nil {
-		chtCount, sectionHeadNum, sectionHead = odr.FastChtIndexer().Sections()
-		canonicalHash := rawdb.ReadCanonicalHash(db, sectionHeadNum)
-		// if the CHT was injected as a trusted checkpoint, we have no canonical hash yet so we accept zero hash too
-		for chtCount > 0 && canonicalHash != sectionHead && canonicalHash != (common.Hash{}) {
-			chtCount--
-			if chtCount > 0 {
-				sectionHeadNum = chtCount*odr.FastIndexerConfig().ChtSize - 1
-				sectionHead = odr.FastChtIndexer().SectionHead(chtCount - 1)
-				canonicalHash = rawdb.ReadCanonicalHash(db, sectionHeadNum)
-			}
-		}
-	}
-	if number >= chtCount*odr.FastIndexerConfig().ChtSize {
-		return nil, ErrNoTrustedCht
-	}
-	r := &ChtRequest{ChtRoot: GetChtRoot(db, chtCount-1, sectionHead), ChtNum: chtCount - 1, BlockNum: number, Config: odr.FastIndexerConfig()}
-	if err := odr.FastRetrieve(ctx, r); err != nil {
-		return nil, err
-	}
-	return r.Header, nil
+	return nil, nil
 }
 
 func GetCanonicalHash(ctx context.Context, odr OdrBackend, number uint64) (common.Hash, error) {

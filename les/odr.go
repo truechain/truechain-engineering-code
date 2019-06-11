@@ -30,21 +30,21 @@ import (
 
 // LesOdr implements light.OdrBackend
 type LesOdr struct {
-	db                                             etruedb.Database
-	indexerConfig                                  *public.IndexerConfig
-	fastIndexerConfig                              *fast.IndexerConfig
-	chtIndexer                                     *snailchain.ChainIndexer
-	fastChtIndexer, bloomTrieIndexer, bloomIndexer *core.ChainIndexer
-	retriever                                      *retrieveManager
-	stop                                           chan struct{}
+	db                               etruedb.Database
+	indexerConfig, fastIndexerConfig *public.IndexerConfig
+	chtIndexer                       *snailchain.ChainIndexer
+	bloomTrieIndexer, bloomIndexer   *core.ChainIndexer
+	retriever                        *retrieveManager
+	stop                             chan struct{}
 }
 
 func NewLesOdr(db etruedb.Database, config *public.IndexerConfig, retriever *retrieveManager) *LesOdr {
 	return &LesOdr{
-		db:            db,
-		indexerConfig: config,
-		retriever:     retriever,
-		stop:          make(chan struct{}),
+		db:                db,
+		indexerConfig:     config,
+		fastIndexerConfig: config,
+		retriever:         retriever,
+		stop:              make(chan struct{}),
 	}
 }
 
@@ -70,11 +70,6 @@ func (odr *LesOdr) ChtIndexer() *snailchain.ChainIndexer {
 	return odr.chtIndexer
 }
 
-// FastChtIndexer returns the CHT chain indexer
-func (odr *LesOdr) FastChtIndexer() *core.ChainIndexer {
-	return odr.fastChtIndexer
-}
-
 // BloomTrieIndexer returns the bloom trie chain indexer
 func (odr *LesOdr) BloomTrieIndexer() *core.ChainIndexer {
 	return odr.bloomTrieIndexer
@@ -91,7 +86,7 @@ func (odr *LesOdr) IndexerConfig() *public.IndexerConfig {
 }
 
 // FastIndexerConfig returns the indexer config.
-func (odr *LesOdr) FastIndexerConfig() *fast.IndexerConfig {
+func (odr *LesOdr) FastIndexerConfig() *public.IndexerConfig {
 	return odr.fastIndexerConfig
 }
 

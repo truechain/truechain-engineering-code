@@ -19,7 +19,7 @@ package fast
 import (
 	"context"
 	"errors"
-	"math/big"
+	"github.com/truechain/truechain-engineering-code/light/public"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -48,7 +48,7 @@ var (
 // interface. It only does header validation during chain insertion.
 type LightChain struct {
 	hc            *core.HeaderChain
-	indexerConfig *IndexerConfig
+	indexerConfig *public.IndexerConfig
 	chainDb       etruedb.Database
 	odr           OdrBackend
 	chainFeed     event.Feed
@@ -119,10 +119,6 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 
 // addTrustedCheckpoint adds a trusted checkpoint to the blockchain
 func (self *LightChain) addTrustedCheckpoint(cp *params.TrustedCheckpoint) {
-	if self.odr.FastChtIndexer() != nil {
-		StoreChtRoot(self.chainDb, cp.SectionIndex, cp.SectionHead, cp.CHTRoot)
-		self.odr.FastChtIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
-	}
 	if self.odr.BloomTrieIndexer() != nil {
 		StoreBloomTrieRoot(self.chainDb, cp.SectionIndex, cp.SectionHead, cp.BloomRoot)
 		self.odr.BloomTrieIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
@@ -156,8 +152,7 @@ func (self *LightChain) loadLastState() error {
 
 	// Issue a status log and return
 	header := self.hc.CurrentHeader()
-	headerTd := self.GetTd(header.Hash(), header.Number.Uint64())
-	log.Info("Loaded most recent local header", "number", header.Number, "hash", header.Hash(), "td", headerTd, "age", common.PrettyAge(time.Unix(header.Time.Int64(), 0)))
+	log.Info("Loaded most recent local header", "number", header.Number, "hash", header.Hash(), "age", common.PrettyAge(time.Unix(header.Time.Int64(), 0)))
 
 	return nil
 }
@@ -451,34 +446,6 @@ func (self *LightChain) GetHeaderByNumberOdr(ctx context.Context, number uint64)
 
 // Config retrieves the header chain's chain configuration.
 func (self *LightChain) Config() *params.ChainConfig { return self.hc.Config() }
-
-func (self *LightChain) SyncCht(ctx context.Context) bool {
-	// If we don't have a CHT indexer, abort
-	if self.odr.FastChtIndexer() == nil {
-		return false
-	}
-	// Ensure the remote CHT head is ahead of us
-	head := self.CurrentHeader().Number.Uint64()
-	sections, _, _ := self.odr.FastChtIndexer().Sections()
-
-	latest := sections*self.indexerConfig.ChtSize - 1
-	if head >= latest {
-		return false
-	}
-	// FastRetrieve the latest useful header and update to it
-	if header, err := GetHeaderByNumber(ctx, self.odr, latest); header != nil && err == nil {
-		self.mu.Lock()
-		defer self.mu.Unlock()
-
-		// Ensure the chain didn't move past the latest block while retrieving it
-		if self.hc.CurrentHeader().Number.Uint64() < header.Number.Uint64() {
-			log.Info("Updated latest header based on CHT", "number", header.Number, "hash", header.Hash(), "age", common.PrettyAge(time.Unix(header.Time.Int64(), 0)))
-			self.hc.SetCurrentHeader(header)
-		}
-		return true
-	}
-	return false
-}
 
 // LockChain locks the chain mutex for reading so that multiple canonical hashes can be
 // retrieved while it is guaranteed that they belong to the same version of the chain

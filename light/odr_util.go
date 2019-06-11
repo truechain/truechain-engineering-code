@@ -122,3 +122,33 @@ func GetBlock(ctx context.Context, odr OdrBackend, hash common.Hash, number uint
 	// Reassemble the block and return
 	return types.NewSnailBlockWithHeader(header).WithBody(body.Fruits, nil), nil
 }
+
+// GetFruitBody retrieves the fruit body (transactons, uncles) corresponding to the
+// hash.
+func GetFruitBody(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (*types.SnailBody, error) {
+	data, err := GetBodyRLP(ctx, odr, hash, number)
+	if err != nil {
+		return nil, err
+	}
+	body := new(types.SnailBody)
+	if err := rlp.Decode(bytes.NewReader(data), body); err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+// GetFruit retrieves an entire fruit corresponding to the hash, assembling it
+// back from the stored header and body.
+func GetFruit(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (*types.SnailBlock, error) {
+	// FastRetrieve the block header and body contents
+	header := rawdb.ReadHeader(odr.Database(), hash, number)
+	if header == nil {
+		return nil, ErrNoHeader
+	}
+	body, err := GetFruitBody(ctx, odr, hash, number)
+	if err != nil {
+		return nil, err
+	}
+	// Reassemble the block and return
+	return types.NewSnailBlockWithHeader(header).WithBody(body.Fruits, nil), nil
+}

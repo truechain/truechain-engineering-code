@@ -21,14 +21,12 @@ package fast
 import (
 	"context"
 	"errors"
-	"github.com/truechain/truechain-engineering-code/light/public"
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/light/public"
 )
 
 // NoOdr is the default context passed to an ODR capable function when the ODR
@@ -41,11 +39,10 @@ var ErrNoPeers = errors.New("no suitable peers available")
 // OdrBackend is an interface to a backend service that handles ODR retrievals type
 type OdrBackend interface {
 	Database() etruedb.Database
-	FastChtIndexer() *core.ChainIndexer
 	BloomTrieIndexer() *core.ChainIndexer
 	BloomIndexer() *core.ChainIndexer
 	FastRetrieve(ctx context.Context, req OdrRequest) error
-	FastIndexerConfig() *IndexerConfig
+	FastIndexerConfig() *public.IndexerConfig
 }
 
 // OdrRequest is an interface for retrieval requests
@@ -135,30 +132,10 @@ func (req *ReceiptsRequest) StoreResult(db etruedb.Database) {
 	rawdb.WriteReceipts(db, req.Hash, req.Number, req.Receipts)
 }
 
-// ChtRequest is the ODR request type for state/storage trie entries
-type ChtRequest struct {
-	OdrRequest
-	Config           *IndexerConfig
-	ChtNum, BlockNum uint64
-	ChtRoot          common.Hash
-	Header           *types.Header
-	Td               *big.Int
-	Proof            *public.NodeSet
-}
-
-// StoreResult stores the retrieved data in local database
-func (req *ChtRequest) StoreResult(db etruedb.Database) {
-	hash, num := req.Header.Hash(), req.Header.Number.Uint64()
-
-	rawdb.WriteHeader(db, req.Header)
-	rawdb.WriteTd(db, hash, num, req.Td)
-	rawdb.WriteCanonicalHash(db, hash, num)
-}
-
 // BloomRequest is the ODR request type for retrieving bloom filters from a CHT structure
 type BloomRequest struct {
 	OdrRequest
-	Config           *IndexerConfig
+	Config           *public.IndexerConfig
 	BloomTrieNum     uint64
 	BitIdx           uint
 	SectionIndexList []uint64

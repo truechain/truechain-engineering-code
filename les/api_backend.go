@@ -34,7 +34,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/light"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
@@ -98,19 +97,17 @@ func (b *LesApiBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.
 	if header == nil || err != nil {
 		return nil, nil, err
 	}
-	return light.NewState(ctx, header, b.etrue.odr), header, nil
+	return fast.NewState(ctx, header, b.etrue.odr), header, nil
 }
 
 func (b *LesApiBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error) {
 	return b.etrue.fblockchain.GetBlockByHash(ctx, blockHash)
 }
 
-// TODO: fixed lightchain func.
 func (b *LesApiBackend) GetFruit(ctx context.Context, fastblockHash common.Hash) (*types.SnailBlock, error) {
-	return b.etrue.blockchain.GetFruit(fastblockHash), nil
+	return b.etrue.blockchain.GetFruit(ctx, fastblockHash)
 }
 
-// TODO: fixed lightchain func.
 func (b *LesApiBackend) GetSnailBlock(ctx context.Context, blockHash common.Hash) (*types.SnailBlock, error) {
 	return b.etrue.blockchain.GetBlockByHash(ctx, blockHash)
 }
@@ -184,11 +181,11 @@ func (b *LesApiBackend) SubscribeChainSideEvent(ch chan<- types.FastChainSideEve
 }
 
 func (b *LesApiBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
-	return b.etrue.blockchain.SubscribeLogsEvent(ch)
+	return b.etrue.fblockchain.SubscribeLogsEvent(ch)
 }
 
 func (b *LesApiBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
-	return b.etrue.blockchain.SubscribeRemovedLogsEvent(ch)
+	return b.etrue.fblockchain.SubscribeRemovedLogsEvent(ch)
 }
 
 func (b *LesApiBackend) GetReward(number int64) *types.BlockReward {

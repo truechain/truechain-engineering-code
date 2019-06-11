@@ -364,7 +364,7 @@ func (pm *ProtocolManager) blockLoop() {
 								select {
 								case p.announceChn <- announce:
 								default:
-									pm.removePeer(p.id, light.ServerSimpleCall)
+									pm.removePeer(p.id, public.ServerSimpleCall)
 								}
 
 							case announceTypeSigned:
@@ -377,7 +377,7 @@ func (pm *ProtocolManager) blockLoop() {
 								select {
 								case p.announceChn <- signedAnnounce:
 								default:
-									pm.removePeer(p.id, light.ServerSignedCall)
+									pm.removePeer(p.id, public.ServerSignedCall)
 								}
 							}
 						}
@@ -407,7 +407,7 @@ func (pm *ProtocolManager) blockLoop() {
 								select {
 								case p.announceChn <- announce:
 								default:
-									pm.removePeer(p.id, light.ServerSimpleCall)
+									pm.removePeer(p.id, public.ServerSimpleCall)
 								}
 
 							case announceTypeSigned:
@@ -420,7 +420,7 @@ func (pm *ProtocolManager) blockLoop() {
 								select {
 								case p.announceChn <- signedAnnounce:
 								default:
-									pm.removePeer(p.id, light.ServerSignedCall)
+									pm.removePeer(p.id, public.ServerSignedCall)
 								}
 							}
 						}

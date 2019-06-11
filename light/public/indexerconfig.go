@@ -2,6 +2,20 @@ package public
 
 import "github.com/truechain/truechain-engineering-code/params"
 
+const (
+	Normal = iota
+	DiscTooManyPeers
+	DownloaderCall
+	ServerSimpleCall
+	ServerSignedCall
+	FetcherSyncCall
+	FetcherHeadCall
+	FetcherKnownCall
+	FetcherTimerCall
+	FetcherDeliverCall
+	FetcherAnnounceCall
+)
+
 // IndexerConfig includes a set of configs for chain indexers.
 type IndexerConfig struct {
 	// The block frequency for creating CHTs.

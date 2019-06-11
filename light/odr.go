@@ -83,3 +83,16 @@ func (req *ChtRequest) StoreResult(db etruedb.Database) {
 	rawdb.WriteTd(db, hash, num, req.Td)
 	rawdb.WriteCanonicalHash(db, hash, num)
 }
+
+// BlockRequest is the ODR request type for retrieving block bodies
+type FruitRequest struct {
+	OdrRequest
+	Hash   common.Hash
+	Number uint64
+	Rlp    []byte
+}
+
+// StoreResult stores the retrieved data in local database
+func (req *FruitRequest) StoreResult(db etruedb.Database) {
+	rawdb.WriteBodyRLP(db, req.Hash, req.Number, req.Rlp)
+}

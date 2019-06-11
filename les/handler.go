@@ -52,7 +52,7 @@ const (
 	softResponseLimit = 2 * 1024 * 1024 // Target maximum size of returned blocks, headers or node data.
 	estHeaderRlpSize  = 500             // Approximate size of an RLP encoded block header
 
-	ethVersion = 63 // equivalent etrue version for the downloader
+	etrueVersion = 63 // equivalent etrue version for the downloader
 
 	MaxHeaderFetch           = 192 // Amount of block headers to be fetched per retrieval request
 	MaxBodyFetch             = 32  // Amount of block bodies to be fetched per retrieval request
@@ -292,7 +292,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		// test peer address is not a tcp address, don't use client pool if can not typecast
 		if ok {
 			id := addr.IP.String()
-			if !pm.clientPool.connect(id, func() { go pm.removePeer(p.id, light.DiscTooManyPeers) }) {
+			if !pm.clientPool.connect(id, func() { go pm.removePeer(p.id, public.DiscTooManyPeers) }) {
 				return p2p.DiscTooManyPeers
 			}
 			defer pm.clientPool.disconnect(id)
@@ -311,7 +311,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		if pm.server != nil && pm.server.fcManager != nil && p.fcClient != nil {
 			p.fcClient.Remove(pm.server.fcManager)
 		}
-		pm.removePeer(p.id, light.Normal)
+		pm.removePeer(p.id, public.Normal)
 	}()
 	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
 	if pm.lightSync {
@@ -351,9 +351,8 @@ func (pm *ProtocolManager) handle(p *peer) error {
 }
 
 var (
-	reqList   = []uint64{GetBlockHeadersMsg, GetBlockBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
-	reqListV1 = []uint64{GetBlockHeadersMsg, GetBlockBodiesMsg, GetCodeMsg, GetReceiptsMsg}
-	reqListV2 = []uint64{GetBlockHeadersMsg, GetBlockBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
+	reqList   = []uint64{GetFastBlockHeadersMsg, GetFastBlockBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
+	reqListV2 = []uint64{GetFastBlockHeadersMsg, GetFastBlockBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
 )
 
 // handleMsg is invoked whenever an inbound message is received from a remote
@@ -423,7 +422,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			pm.fetcher.announce(p, &req)
 		}
 
-	case GetBlockHeadersMsg:
+	case GetFastBlockHeadersMsg:
 		p.Log().Trace("Received block header request")
 		// Decode the complex header query
 		var req struct {
@@ -464,6 +463,185 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				}
 			} else {
 				origin = pm.fblockchain.GetHeaderByNumber(query.Origin.Number)
+			}
+			if origin == nil {
+				break
+			}
+			headers = append(headers, origin)
+			bytes += estHeaderRlpSize
+
+			// Advance to the next header of the query
+			switch {
+			case hashMode && query.Reverse:
+				// Hash based traversal towards the genesis block
+				ancestor := query.Skip + 1
+				if ancestor == 0 {
+					unknown = true
+				} else {
+					query.Origin.Hash, query.Origin.Number = pm.fblockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
+					unknown = (query.Origin.Hash == common.Hash{})
+				}
+			case hashMode && !query.Reverse:
+				// Hash based traversal towards the leaf block
+				var (
+					current = origin.Number.Uint64()
+					next    = current + query.Skip + 1
+				)
+				if next <= current {
+					infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")
+					p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
+					unknown = true
+				} else {
+					if header := pm.fblockchain.GetHeaderByNumber(next); header != nil {
+						nextHash := header.Hash()
+						expOldHash, _ := pm.fblockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
+						if expOldHash == query.Origin.Hash {
+							query.Origin.Hash, query.Origin.Number = nextHash, next
+						} else {
+							unknown = true
+						}
+					} else {
+						unknown = true
+					}
+				}
+			case query.Reverse:
+				// Number based traversal towards the genesis block
+				if query.Origin.Number >= query.Skip+1 {
+					query.Origin.Number -= query.Skip + 1
+				} else {
+					unknown = true
+				}
+
+			case !query.Reverse:
+				// Number based traversal towards the leaf block
+				query.Origin.Number += query.Skip + 1
+			}
+		}
+
+		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + query.Amount*costs.reqCost)
+		pm.server.fcCostStats.update(msg.Code, query.Amount, rcost)
+		return p.SendBlockHeaders(req.ReqID, bv, headers)
+
+	case FastBlockHeadersMsg:
+		if pm.fdownloader == nil {
+			return errResp(ErrUnexpectedResponse, "")
+		}
+
+		p.Log().Trace("Received block header response message")
+		// A batch of headers arrived to one of our previous requests
+		var resp struct {
+			ReqID, BV uint64
+			Headers   []*types.Header
+		}
+		if err := msg.Decode(&resp); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		if pm.fetcher != nil && pm.fetcher.requestedID(resp.ReqID) {
+			pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
+		} else {
+			err := pm.fdownloader.DeliverHeaders(p.id, resp.Headers, types.DownloaderCall)
+			if err != nil {
+				log.Debug(fmt.Sprint(err))
+			}
+		}
+
+	case GetFastBlockBodiesMsg:
+		p.Log().Trace("Received block bodies request")
+		// Decode the retrieval message
+		var req struct {
+			ReqID  uint64
+			Hashes []common.Hash
+		}
+		if err := msg.Decode(&req); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		// Gather blocks until the fetch or network limits is reached
+		var (
+			bytes  int
+			bodies []rlp.RawValue
+		)
+		reqCnt := len(req.Hashes)
+		if reject(uint64(reqCnt), MaxBodyFetch) {
+			return errResp(ErrRequestRejected, "")
+		}
+		for _, hash := range req.Hashes {
+			if bytes >= softResponseLimit {
+				break
+			}
+			// FastRetrieve the requested block body, stopping if enough was found
+			if number := rawdb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
+				if data := rawdb.ReadBodyRLP(pm.chainDb, hash, *number); len(data) != 0 {
+					bodies = append(bodies, data)
+					bytes += len(data)
+				}
+			}
+		}
+		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
+		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
+		return p.SendBlockBodiesRLP(req.ReqID, bv, bodies)
+
+	case FastBlockBodiesMsg:
+		if pm.odr == nil {
+			return errResp(ErrUnexpectedResponse, "")
+		}
+
+		p.Log().Trace("Received block bodies response")
+		// A batch of block bodies arrived to one of our previous requests
+		var resp struct {
+			ReqID, BV uint64
+			Data      []*types.Body
+		}
+		if err := msg.Decode(&resp); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		deliverMsg = &Msg{
+			MsgType: MsgBlockBodies,
+			ReqID:   resp.ReqID,
+			Obj:     resp.Data,
+		}
+	case GetSnailBlockHeadersMsg:
+		p.Log().Trace("Received block header request")
+		// Decode the complex header query
+		var req struct {
+			ReqID uint64
+			Query getBlockHeadersData
+		}
+		if err := msg.Decode(&req); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
+		}
+
+		query := req.Query
+		if reject(query.Amount, MaxHeaderFetch) {
+			return errResp(ErrRequestRejected, "")
+		}
+
+		hashMode := query.Origin.Hash != (common.Hash{})
+		first := true
+		maxNonCanonical := uint64(100)
+
+		// Gather headers until the fetch or network limits is reached
+		var (
+			bytes   common.StorageSize
+			headers []*types.SnailHeader
+			unknown bool
+		)
+		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
+			// FastRetrieve the next header satisfying the query
+			var origin *types.SnailHeader
+			if hashMode {
+				if first {
+					first = false
+					origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
+					if origin != nil {
+						query.Origin.Number = origin.Number.Uint64()
+					}
+				} else {
+					origin = pm.blockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
+				}
+			} else {
+				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
 			}
 			if origin == nil {
 				break
@@ -521,9 +699,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + query.Amount*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, query.Amount, rcost)
-		return p.SendBlockHeaders(req.ReqID, bv, headers)
+		return p.SendSnailBlockHeaders(req.ReqID, bv, headers)
 
-	case BlockHeadersMsg:
+	case SnailBlockHeadersMsg:
 		if pm.downloader == nil {
 			return errResp(ErrUnexpectedResponse, "")
 		}
@@ -532,22 +710,22 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of headers arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			Headers   []*types.Header
+			Headers   []*types.SnailHeader
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		if pm.fetcher != nil && pm.fetcher.requestedID(resp.ReqID) {
-			pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
+			pm.fetcher.deliverSnailHeaders(p, resp.ReqID, resp.Headers)
 		} else {
-			err := pm.fdownloader.DeliverHeaders(p.id, resp.Headers, types.DownloaderCall)
+			err := pm.downloader.DeliverHeaders(p.id, resp.Headers)
 			if err != nil {
 				log.Debug(fmt.Sprint(err))
 			}
 		}
 
-	case GetBlockBodiesMsg:
+	case GetSnailBlockBodiesMsg:
 		p.Log().Trace("Received block bodies request")
 		// Decode the retrieval message
 		var req struct {
@@ -582,7 +760,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
 		return p.SendBlockBodiesRLP(req.ReqID, bv, bodies)
 
-	case BlockBodiesMsg:
+	case SnailBlockBodiesMsg:
 		if pm.odr == nil {
 			return errResp(ErrUnexpectedResponse, "")
 		}
@@ -1065,14 +1243,23 @@ func (pc *peerConnection) RequestHeadersByHash(origin common.Hash, amount int, s
 	rq := &distReq{
 		getCost: func(dp distPeer) uint64 {
 			peer := dp.(*peer)
-			return peer.GetRequestCost(GetBlockHeadersMsg, amount)
+			if fast {
+				return peer.GetRequestCost(GetFastBlockHeadersMsg, amount)
+			} else {
+				return peer.GetRequestCost(GetSnailBlockHeadersMsg, amount)
+			}
 		},
 		canSend: func(dp distPeer) bool {
 			return dp.(*peer) == pc.peer
 		},
 		request: func(dp distPeer) func() {
 			peer := dp.(*peer)
-			cost := peer.GetRequestCost(GetBlockHeadersMsg, amount)
+			cost := uint64(0)
+			if fast {
+				cost = peer.GetRequestCost(GetFastBlockHeadersMsg, amount)
+			} else {
+				cost = peer.GetRequestCost(GetSnailBlockHeadersMsg, amount)
+			}
 			peer.fcServer.QueueRequest(reqID, cost)
 			return func() { peer.RequestHeadersByHash(reqID, cost, origin, amount, skip, reverse, fast) }
 		},
@@ -1089,14 +1276,23 @@ func (pc *peerConnection) RequestHeadersByNumber(origin uint64, amount int, skip
 	rq := &distReq{
 		getCost: func(dp distPeer) uint64 {
 			peer := dp.(*peer)
-			return peer.GetRequestCost(GetBlockHeadersMsg, amount)
+			if fast {
+				return peer.GetRequestCost(GetFastBlockHeadersMsg, amount)
+			} else {
+				return peer.GetRequestCost(GetSnailBlockHeadersMsg, amount)
+			}
 		},
 		canSend: func(dp distPeer) bool {
 			return dp.(*peer) == pc.peer
 		},
 		request: func(dp distPeer) func() {
 			peer := dp.(*peer)
-			cost := peer.GetRequestCost(GetBlockHeadersMsg, amount)
+			cost := uint64(0)
+			if fast {
+				cost = peer.GetRequestCost(GetFastBlockHeadersMsg, amount)
+			} else {
+				cost = peer.GetRequestCost(GetSnailBlockHeadersMsg, amount)
+			}
 			peer.fcServer.QueueRequest(reqID, cost)
 			return func() { peer.RequestHeadersByNumber(reqID, cost, origin, amount, skip, reverse, fast) }
 		},
@@ -1114,11 +1310,13 @@ func (d *downloaderPeerNotify) registerPeer(p *peer) {
 		manager: pm,
 		peer:    p,
 	}
-	pm.downloader.RegisterLightPeer(p.id, ethVersion, p.RemoteAddr().String(), pc)
+	pm.downloader.RegisterLightPeer(p.id, etrueVersion, p.RemoteAddr().String(), pc)
+	pm.fdownloader.RegisterLightPeer(p.id, etrueVersion, pc)
 }
 
 func (d *downloaderPeerNotify) unregisterPeer(p *peer) {
 	pm := (*ProtocolManager)(d)
 	pm.downloader.UnregisterPeer(p.id)
+	pm.fdownloader.UnregisterPeer(p.id)
 
 }

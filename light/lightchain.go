@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/light/fast"
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
 	"sync"
@@ -42,6 +43,7 @@ import (
 var (
 	bodyCacheLimit  = 256
 	blockCacheLimit = 256
+	fruitCacheLimit = 1024
 )
 
 // LightChain represents a canonical chain that by default only handles block
@@ -49,6 +51,7 @@ var (
 // interface. It only does header validation during chain insertion.
 type LightChain struct {
 	hc            *snailchain.HeaderChain
+	fastchain     *fast.LightChain
 	indexerConfig *public.IndexerConfig
 	chainDb       etruedb.Database
 	odr           OdrBackend
@@ -64,6 +67,7 @@ type LightChain struct {
 	bodyCache    *lru.Cache // Cache for the most recent block bodies
 	bodyRLPCache *lru.Cache // Cache for the most recent block bodies in RLP encoded format
 	blockCache   *lru.Cache // Cache for the most recent entire blocks
+	fruitCache   *lru.Cache // Cache for the most recent entire fruits
 
 	quit    chan struct{}
 	running int32 // running must be called automically
@@ -77,10 +81,11 @@ type LightChain struct {
 // NewLightChain returns a fully initialised light chain using information
 // available in the database. It initialises the default Ethereum header
 // validator.
-func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.Engine) (*LightChain, error) {
+func NewLightChain(fastchain *fast.LightChain, odr OdrBackend, config *params.ChainConfig, engine consensus.Engine) (*LightChain, error) {
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	blockCache, _ := lru.New(blockCacheLimit)
+	fruitCache, _ := lru.New(fruitCacheLimit)
 
 	bc := &LightChain{
 		chainDb:       odr.Database(),
@@ -90,7 +95,9 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 		bodyCache:     bodyCache,
 		bodyRLPCache:  bodyRLPCache,
 		blockCache:    blockCache,
+		fruitCache:    fruitCache,
 		engine:        engine,
+		fastchain:     fastchain,
 	}
 	var err error
 	bc.hc, err = snailchain.NewHeaderChain(odr.Database(), config, bc.engine, bc.getProcInterrupt)
@@ -274,9 +281,20 @@ func (self *LightChain) GetBlockByHash(ctx context.Context, hash common.Hash) (*
 }
 
 // GetFruit retrieves a fruit from the database by FastHash
-func (self *LightChain) GetFruit(fastHash common.Hash) *types.SnailBlock {
-	fruit, _, _, _ := rawdb.ReadFruit(self.chainDb, fastHash)
-	return fruit
+func (self *LightChain) GetFruit(ctx context.Context, hash common.Hash) (*types.SnailBlock, error) {
+
+	// Short circuit if the block's already in the cache, retrieve otherwise
+	if fruit, ok := self.fruitCache.Get(hash); ok {
+		return fruit.(*types.SnailBlock), nil
+	}
+
+	fruit, err := GetFruit(ctx, self.odr, hash, self.fastchain.GetHeaderByHash(hash).Number.Uint64())
+	if err != nil {
+		return nil, err
+	}
+	// Cache the found block for next time and return
+	self.fruitCache.Add(fruit.Hash(), fruit)
+	return fruit, nil
 }
 
 // GetBlockByNumber retrieves a block from the database or ODR service by
@@ -507,16 +525,4 @@ func (self *LightChain) SubscribeChainHeadEvent(ch chan<- types.SnailChainHeadEv
 // SubscribeChainSideEvent registers a subscription of ChainSideEvent.
 func (self *LightChain) SubscribeChainSideEvent(ch chan<- types.SnailChainSideEvent) event.Subscription {
 	return self.scope.Track(self.chainSideFeed.Subscribe(ch))
-}
-
-// SubscribeLogsEvent implements the interface of filters.Backend
-// LightChain does not send logs events, so return an empty subscription.
-func (self *LightChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
-	return self.scope.Track(new(event.Feed).Subscribe(ch))
-}
-
-// SubscribeRemovedLogsEvent implements the interface of filters.Backend
-// LightChain does not send types.RemovedLogsEvent, so return an empty subscription.
-func (self *LightChain) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
-	return self.scope.Track(new(event.Feed).Subscribe(ch))
 }

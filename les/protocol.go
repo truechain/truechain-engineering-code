@@ -35,14 +35,13 @@ import (
 
 // Constants to match up protocol versions and messages
 const (
-	lpv1 = 1
 	lpv2 = 2
 )
 
 // Supported versions of the les protocol (first is primary)
 var (
-	ClientProtocolVersions    = []uint{lpv2, lpv1}
-	ServerProtocolVersions    = []uint{lpv2, lpv1}
+	ClientProtocolVersions    = []uint{lpv2}
+	ServerProtocolVersions    = []uint{lpv2}
 	AdvertiseProtocolVersions = []uint{lpv2} // clients are searching for the first advertised protocol in the list
 )
 
@@ -57,24 +56,31 @@ const (
 // les protocol message codes
 const (
 	// Protocol messages belonging to LPV1
-	StatusMsg          = 0x00
-	AnnounceMsg        = 0x01
-	GetBlockHeadersMsg = 0x02
-	BlockHeadersMsg    = 0x03
-	GetBlockBodiesMsg  = 0x04
-	BlockBodiesMsg     = 0x05
-	GetReceiptsMsg     = 0x06
-	ReceiptsMsg        = 0x07
-	GetCodeMsg         = 0x0a
-	CodeMsg            = 0x0b
+	StatusMsg               = 0x00
+	AnnounceMsg             = 0x01
+	GetFastBlockHeadersMsg  = 0x02
+	FastBlockHeadersMsg     = 0x03
+	GetFastBlockBodiesMsg   = 0x04
+	FastBlockBodiesMsg      = 0x05
+	GetSnailBlockHeadersMsg = 0x06
+	SnailBlockHeadersMsg    = 0x07
+	GetSnailBlockBodiesMsg  = 0x08
+	SnailBlockBodiesMsg     = 0x09
+	GetFruitBodiesMsg       = 0x0a
+	FruitBodiesMsg          = 0x0b
+
+	GetReceiptsMsg = 0x0c
+	ReceiptsMsg    = 0x0d
 	// Protocol messages belonging to LPV2
-	GetProofsV2Msg         = 0x0f
-	ProofsV2Msg            = 0x10
-	GetHelperTrieProofsMsg = 0x11
-	HelperTrieProofsMsg    = 0x12
-	SendTxV2Msg            = 0x13
-	GetTxStatusMsg         = 0x14
-	TxStatusMsg            = 0x15
+	GetCodeMsg             = 0x0e
+	CodeMsg                = 0x0f
+	GetProofsV2Msg         = 0x10
+	ProofsV2Msg            = 0x11
+	GetHelperTrieProofsMsg = 0x12
+	HelperTrieProofsMsg    = 0x13
+	SendTxV2Msg            = 0x15
+	GetTxStatusMsg         = 0x16
+	TxStatusMsg            = 0x17
 )
 
 type errCode int
@@ -120,10 +126,11 @@ var errorToString = map[int]string{
 }
 
 type announceBlock struct {
-	Hash   common.Hash // Hash of one particular block being announced
-	Number uint64      // Number of one particular block being announced
-	Td     *big.Int    // Total difficulty of one particular block being announced
-	Signs  []*types.PbftSign
+	Hash       common.Hash // Hash of one particular block being announced
+	Number     uint64      // Number of one particular block being announced
+	Td         *big.Int    // Total difficulty of one particular block being announced
+	FastHash   common.Hash // Hash of one particular block being announced
+	FastNumber uint64      // Number of one particular block being announced
 }
 
 // announceData is the network packet for the block announcements.
@@ -131,14 +138,15 @@ type announceData struct {
 	Hash       common.Hash // Hash of one particular block being announced
 	Number     uint64      // Number of one particular block being announced
 	Td         *big.Int    // Total difficulty of one particular block being announced
+	FastHash   common.Hash // Hash of one particular block being announced
+	FastNumber uint64      // Number of one particular block being announced
 	ReorgDepth uint64
 	Update     keyValueList
-	Signs      []*types.PbftSign
 }
 
 // sign adds a signature to the block announcement by the given privKey
 func (a *announceData) sign(privKey *ecdsa.PrivateKey) {
-	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, Signs: a.Signs})
+	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, FastHash: a.FastHash, FastNumber: a.FastNumber})
 	sig, _ := crypto.Sign(crypto.Keccak256(rlp), privKey)
 	a.Update = a.Update.add("sign", sig)
 }
@@ -149,7 +157,7 @@ func (a *announceData) checkSignature(id enode.ID) error {
 	if err := a.Update.decode().get("sign", &sig); err != nil {
 		return err
 	}
-	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, Signs: a.Signs})
+	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, FastHash: a.FastHash, FastNumber: a.FastNumber})
 	recPubkey, err := crypto.SigToPub(crypto.Keccak256(rlp), sig)
 	if err != nil {
 		return err
@@ -161,9 +169,11 @@ func (a *announceData) checkSignature(id enode.ID) error {
 }
 
 type blockInfo struct {
-	Hash   common.Hash // Hash of one particular block being announced
-	Number uint64      // Number of one particular block being announced
-	Td     *big.Int    // Total difficulty of one particular block being announced
+	Hash       common.Hash // Hash of one particular block being announced
+	Number     uint64      // Number of one particular block being announced
+	Td         *big.Int    // Total difficulty of one particular block being announced
+	FastHash   common.Hash // Hash of one particular block being announced
+	FastNumber uint64      // Number of one particular block being announced
 }
 
 // getBlockHeadersData represents a block header query.

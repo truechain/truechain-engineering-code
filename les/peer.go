@@ -132,7 +132,7 @@ func (p *peer) headBlockInfo() blockInfo {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	return blockInfo{Hash: p.headInfo.Hash, Number: p.headInfo.Number, Td: p.headInfo.Td}
+	return blockInfo{Hash: p.headInfo.Hash, Number: p.headInfo.Number, Td: p.headInfo.Td, FastHash: p.headInfo.FastHash, FastNumber: p.headInfo.FastNumber}
 }
 
 // Td retrieves the current total difficulty of a peer.
@@ -223,13 +223,18 @@ func (p *peer) SendAnnounce(request announceData) error {
 
 // SendBlockHeaders sends a batch of block headers to the remote peer.
 func (p *peer) SendBlockHeaders(reqID, bv uint64, headers []*types.Header) error {
-	return sendResponse(p.rw, BlockHeadersMsg, reqID, bv, headers)
+	return sendResponse(p.rw, FastBlockHeadersMsg, reqID, bv, headers)
+}
+
+// SendBlockHeaders sends a batch of block headers to the remote peer.
+func (p *peer) SendSnailBlockHeaders(reqID, bv uint64, headers []*types.SnailHeader) error {
+	return sendResponse(p.rw, SnailBlockHeadersMsg, reqID, bv, headers)
 }
 
 // SendBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
 func (p *peer) SendBlockBodiesRLP(reqID, bv uint64, bodies []rlp.RawValue) error {
-	return sendResponse(p.rw, BlockBodiesMsg, reqID, bv, bodies)
+	return sendResponse(p.rw, FastBlockBodiesMsg, reqID, bv, bodies)
 }
 
 // SendCodeRLP sends a batch of arbitrary internal data, corresponding to the
@@ -263,21 +268,21 @@ func (p *peer) SendTxStatus(reqID, bv uint64, stats []txStatus) error {
 // specified header query, based on the hash of an origin block.
 func (p *peer) RequestHeadersByHash(reqID, cost uint64, origin common.Hash, amount int, skip int, reverse bool, fast bool) error {
 	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
-	return sendRequest(p.rw, GetBlockHeadersMsg, reqID, cost, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse, Fast: fast})
+	return sendRequest(p.rw, GetFastBlockHeadersMsg, reqID, cost, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse, Fast: fast})
 }
 
 // RequestHeadersByNumber fetches a batch of blocks' headers corresponding to the
 // specified header query, based on the number of an origin block.
 func (p *peer) RequestHeadersByNumber(reqID, cost, origin uint64, amount int, skip int, reverse bool, fast bool) error {
 	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
-	return sendRequest(p.rw, GetBlockHeadersMsg, reqID, cost, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse, Fast: fast})
+	return sendRequest(p.rw, GetFastBlockHeadersMsg, reqID, cost, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse, Fast: fast})
 }
 
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
 func (p *peer) RequestBodies(reqID, cost uint64, hashes []common.Hash) error {
 	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
-	return sendRequest(p.rw, GetBlockBodiesMsg, reqID, cost, hashes)
+	return sendRequest(p.rw, GetFastBlockBodiesMsg, reqID, cost, hashes)
 }
 
 // RequestCode fetches a batch of arbitrary data from a node's known state
@@ -503,8 +508,6 @@ func (p *peer) Handshake(td *big.Int, head common.Hash, headNum uint64, genesis 
 		p.fcCosts = MRC.decode()
 		var checkList []uint64
 		switch p.version {
-		case lpv1:
-			checkList = reqListV1
 		case lpv2:
 			checkList = reqListV2
 		default:
