@@ -68,8 +68,8 @@ type TxPoolMessage struct {
 	QueuedRateLimitCounter ChartEntries `json:"queuedRateLimitCounter,omitempty"`
 	QueuedNofundsCounter   ChartEntries `json:"queuedNofundsCounter,omitempty"`
 
-	InvalidTxCounter     ChartEntries `json:"queuedRateLimitCounter,omitempty"`
-	UnderpricedTxCounter ChartEntries `json:"queuedNofundsCounter,omitempty"`
+	InvalidTxCounter     ChartEntries `json:"invalidTxCounter,omitempty"`
+	UnderpricedTxCounter ChartEntries `json:"underpricedTxCounter,omitempty"`
 }
 
 // FtPoolMessage contains the collected ftpool data samples.
