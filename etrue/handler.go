@@ -390,17 +390,28 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		fastHead = pm.blockchain.CurrentHeader()
 		fastHash = fastHead.Hash()
 
-		genesis    = pm.snailchain.Genesis()
-		head       = pm.snailchain.CurrentHeader()
-		hash       = head.Hash()
-		number     = head.Number.Uint64()
-		td         = pm.snailchain.GetTd(hash, number)
-		fastHeight = pm.blockchain.CurrentBlock().Number()
+		genesis      = pm.snailchain.Genesis()
+		head         = pm.snailchain.CurrentHeader()
+		hash         = head.Hash()
+		number       = head.Number.Uint64()
+		td           = pm.snailchain.GetTd(hash, number)
+		fastHeight   = pm.blockchain.CurrentBlock().Number()
+		gcHeight     = pm.blockchain.CurrentGcHeight()
+		commitHeight = pm.blockchain.CurrentCommitHeight()
 	)
-	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastHeight); err != nil {
-		p.Log().Debug("Truechain handshake failed", "err", err)
-		return err
+
+	if p.version >= etrue64 {
+		if err := p.SnapHandshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastHeight, gcHeight, commitHeight); err != nil {
+			p.Log().Debug("Truechain handshake failed", "err", err)
+			return err
+		}
+	} else {
+		if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastHeight); err != nil {
+			p.Log().Debug("Truechain handshake failed", "err", err)
+			return err
+		}
 	}
+
 	if !resolveVersionFromName(p.Name()) {
 		p.Log().Info("Peer connected failed,version not match", "name", p.Name())
 		return fmt.Errorf("version not match,name:%v", p.Name())

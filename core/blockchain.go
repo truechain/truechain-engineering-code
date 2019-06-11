@@ -432,6 +432,25 @@ func (bc *BlockChain) CurrentBlock() *types.Block {
 	return bc.currentBlock.Load().(*types.Block)
 }
 
+// CurrentBlock retrieves the current head block of the canonical chain. The
+// block is retrieved from the blockchain's internal cache.
+func (bc *BlockChain) CurrentGcHeight() *big.Int {
+	if bc.currentBlock.Load() == nil {
+		return nil
+	}
+	return new(big.Int).SetUint64(bc.cacheConfig.HeightGcState.Load().(uint64))
+}
+
+// CurrentBlock retrieves the current head block of the canonical chain. The
+// block is retrieved from the blockchain's internal cache.
+func (bc *BlockChain) CurrentCommitHeight() *big.Int {
+	if bc.currentBlock.Load() == nil {
+		return nil
+	}
+	commitHeight := bc.CurrentBlock().Number().Uint64() / uint64(blockDeleteHeight) * blockDeleteHeight
+	return new(big.Int).SetUint64(commitHeight)
+}
+
 func (bc *BlockChain) CurrentReward() *types.BlockReward {
 	if bc.currentReward.Load() == nil {
 		return nil
@@ -1308,7 +1327,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 				"root", block.Root())
 
 			coalescedLogs = append(coalescedLogs, logs...)
-			events = append(events, types.FastChainEvent{Block:block, Hash:block.Hash(), Logs:logs})
+			events = append(events, types.FastChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
 			lastCanon = block
 
 			// Only count canonical blocks for GC processing time
@@ -1340,7 +1359,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, types.FastChainHeadEvent{Block:lastCanon})
+		events = append(events, types.FastChainHeadEvent{Block: lastCanon})
 	}
 	return it.index, events, coalescedLogs, err
 }
@@ -1548,7 +1567,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	batch.Write()
 
 	if len(deletedLogs) > 0 {
-		go bc.rmLogsFeed.Send(types.RemovedLogsEvent{Logs:deletedLogs})
+		go bc.rmLogsFeed.Send(types.RemovedLogsEvent{Logs: deletedLogs})
 	}
 	if len(oldChain) > 0 {
 		go func() {
