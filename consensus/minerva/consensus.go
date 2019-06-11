@@ -850,7 +850,7 @@ func (m *Minerva) FinalizeCommittee(block *types.Block) error {
 
 // gas allocation
 func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
-	if feeAmount.Uint64() == 0 {
+	if feeAmount == nil || feeAmount.Uint64() == 0 {
 		return nil
 	}
 	committee := m.election.GetCommittee(fastNumber)
