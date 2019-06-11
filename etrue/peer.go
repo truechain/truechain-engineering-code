@@ -241,7 +241,7 @@ func (p *peer) broadcast() {
 
 		case snailBlock := <-p.queuedSnailProps:
 			if err := p.SendNewBlock(nil, snailBlock.sblock, snailBlock.td); err != nil {
-				p.Log().Debug("Propagated snailBlock success", "peer", p.RemoteAddr(), "number", snailBlock.sblock.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
+				p.Log().Debug("Propagated snailBlock success", "peer", p.RemoteAddr(), "number", snailBlock.sblock.Number(), "hash", snailBlock.sblock.Hash(), "td", snailBlock.td)
 				return
 			}
 			p.Log().Trace("Propagated snailBlock", "number", snailBlock.sblock.Number(), "hash", snailBlock.sblock.Hash(), "td", snailBlock.td)
