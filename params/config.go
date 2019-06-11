@@ -44,6 +44,7 @@ var (
 			DurationLimit:          big.NewInt(600),
 		}),
 		TIP3: &BlockConfig{},
+		TIP5: nil,
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -55,6 +56,7 @@ var (
 			DurationLimit:          big.NewInt(600),
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(306346)},
+		TIP5: nil,
 	}
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -66,17 +68,18 @@ var (
 			DurationLimit:          big.NewInt(150),
 		}),
 		TIP3: &BlockConfig{},
+		TIP5: nil,
 	}
 
 	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)}}
+	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)}}
+	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -92,6 +95,8 @@ type ChainConfig struct {
 	//Clique *CliqueConfig  `json:"clique,omitempty"`
 
 	TIP3 *BlockConfig `json:"tip3"`
+
+	TIP5 *BlockConfig `json:"tip5"`
 }
 
 type BlockConfig struct {
@@ -189,8 +194,8 @@ func (c *ChainConfig) String() string {
 	switch {
 	case c.Minerva != nil:
 		engine = c.Minerva
-	// case c.Clique != nil:
-	// 	engine = c.Clique
+		// case c.Clique != nil:
+		// 	engine = c.Clique
 	default:
 		engine = "unknown"
 	}
@@ -313,4 +318,12 @@ func (c *ChainConfig) IsTIP3(num *big.Int) bool {
 		return false
 	}
 	return isForked(c.TIP3.FastNumber, num)
+}
+
+// IsTIP5 returns whether num is either equal to the IsTIP5 fork block or greater.
+func (c *ChainConfig) IsTIP5(num *big.Int) bool {
+	if c.TIP5 == nil {
+		return false
+	}
+	return isForked(c.TIP5.SnailNumber, num)
 }

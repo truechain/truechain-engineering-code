@@ -174,7 +174,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 			return nil
 		}
 
-		return types.NewSnailBlock(b.header, fruitSet, nil, nil)
+		return types.NewSnailBlock(b.header, fruitSet, nil, nil, config)
 	}
 	for i := 0; i < n; i++ {
 		if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < i+len(parents) {
@@ -223,6 +223,7 @@ func makeFruit(chain consensus.SnailChainReader, fast *types.Block, parent *type
 		nil,
 		fast.Signs(),
 		nil,
+		chain.Config(),
 	)
 	return fruit, nil
 }
@@ -296,8 +297,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 		testdb = etruedb.NewMemDatabase()
 	)
 	cache := &core.CacheConfig{
-		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -415,6 +416,7 @@ func MakeSnailBlock(chain *SnailBlockChain, fastchain *core.BlockChain, parent *
 		fruitSet,
 		nil,
 		nil,
+		chain.Config(),
 	)
 	return block, nil
 }
@@ -588,6 +590,7 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 			nil,
 			fSign,
 			nil,
+			chain.Config(),
 		)
 		return fruit, nil
 	}
@@ -615,6 +618,7 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 			fruitsetCopy,
 			nil,
 			nil,
+			chain.Config(),
 		)
 		return block, nil
 
@@ -640,6 +644,7 @@ func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, ma
 
 		blocks2 = append(blocks2, block)
 		blocks = append(blocks, block)
+		chain.SetValidator(NewBlockValidator(chain.Config(), fastchain, chain, chain.Engine()))
 		if _, error := chain.InsertChain(blocks2); error != nil {
 			panic(error)
 		}
@@ -650,7 +655,7 @@ func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, ma
 
 //MakeSnailBlockFruitsWithoutInsert return fruits or blocks by given params
 func MakeSnailBlockFruitsWithoutInsert(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
-	 pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
+	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
 	var blocks types.SnailBlocks
 
 	//parent := chain.genesisBlock
@@ -675,14 +680,14 @@ func MakeSnailChain(snailBlockNumbers int, genesis *core.Genesis, engine consens
 
 type MakechianConfig struct {
 	FruitNumber     uint64 //each block fruits number
-	FruitFresh      int64 //fruit fresh
-	DifficultyLevel int // 1: low  2 :hight
+	FruitFresh      int64  //fruit fresh
+	DifficultyLevel int    // 1: low  2 :hight
 }
 
 func MakeSnailBloocks(fastchain *core.BlockChain, snailchain *SnailBlockChain, snailparents []*types.SnailBlock, blockCount int64, config MakechianConfig) ([]*types.SnailBlock, error) {
 
-	if blockCount <=0 {
-		return nil,nil
+	if blockCount <= 0 {
+		return nil, nil
 	}
 
 	if fastchain == nil {
@@ -695,10 +700,9 @@ func MakeSnailBloocks(fastchain *core.BlockChain, snailchain *SnailBlockChain, s
 	var snailblocks types.SnailBlocks
 	var snailblockParent *types.SnailBlock
 	var parantsnail []*types.SnailBlock
-	for _,block := range  snailparents{
-		parantsnail = append(parantsnail,block)
+	for _, block := range snailparents {
+		parantsnail = append(parantsnail, block)
 	}
-
 
 	snailblockParent = snailparents[len(snailparents)-1]
 	startBlockNumber := snailblockParent.Number().Uint64()
@@ -727,7 +731,7 @@ func MakeSnailBloocks(fastchain *core.BlockChain, snailchain *SnailBlockChain, s
 func makeSnailBlock(fastchain *core.BlockChain, snailchain *SnailBlockChain, blockNumber uint64, parent *types.SnailBlock, snailparents []*types.SnailBlock, config MakechianConfig) (*types.SnailBlock, error) {
 
 	var fruitsetCopy []*types.SnailBlock
-	var pointerHashFresh= config.FruitFresh
+	var pointerHashFresh = config.FruitFresh
 	var headers []*types.SnailHeader
 
 	for _, b := range snailparents {
@@ -806,6 +810,7 @@ func makeSnailBlock(fastchain *core.BlockChain, snailchain *SnailBlockChain, blo
 			nil,
 			fSign,
 			nil,
+			chain.Config(),
 		)
 		return fruit, nil
 	}
@@ -833,6 +838,7 @@ func makeSnailBlock(fastchain *core.BlockChain, snailchain *SnailBlockChain, blo
 		fruitsetCopy,
 		nil,
 		nil,
+		snailchain.Config(),
 	)
 
 	return block, nil

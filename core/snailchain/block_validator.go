@@ -156,9 +156,16 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock, verifyFruits bool
 			return err
 		}
 	}
-	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
-		return fmt.Errorf("fruits hash mismatch: have %x, want %x", hash, header.FruitsHash)
+	if v.config.IsTIP5(block.Number()) {
+		if hash := types.DeriveSha(types.Headers(block.Headers())); hash != header.FruitsHash {
+			return fmt.Errorf("fruits hash mismatch: have %x, want %x", hash, header.FruitsHash)
+		}
+	} else {
+		if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
+			return fmt.Errorf("fruits hash mismatch: have %x, want %x", hash, header.FruitsHash)
+		}
 	}
+
 	if !v.bc.IsCanonicalBlock(block.ParentHash(), block.NumberU64()-1) {
 		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor

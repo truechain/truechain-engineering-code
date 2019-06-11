@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/params"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -76,6 +77,21 @@ func (fs Fruits) Len() int { return len(fs) }
 
 // GetRlp returns the RLP encoding of one fruit from the list.
 func (fs Fruits) GetRlp(i int) []byte {
+	bytes, err := rlp.EncodeToBytes(fs[i])
+	if err != nil {
+		panic(err)
+	}
+	return bytes
+}
+
+// Headers is a wrapper around a fruit header array to implement DerivableList.
+type Headers []*SnailHeader
+
+// Len returns the number of headers in this list.
+func (fs Headers) Len() int { return len(fs) }
+
+// GetRlp returns the RLP encoding of one fruit header from the list.
+func (fs Headers) GetRlp(i int) []byte {
 	bytes, err := rlp.EncodeToBytes(fs[i])
 	if err != nil {
 		panic(err)
@@ -612,7 +628,7 @@ func (b *SnailBlock) DeprecatedTd() *big.Int {
 // NewSnailBlock creates a new block. The input data is copied,
 // changes to header and to the field values will not affect the
 // block.
-func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign, uncles []*SnailHeader) *SnailBlock {
+func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign, uncles []*SnailHeader, config *params.ChainConfig) *SnailBlock {
 	b := &SnailBlock{
 		header: CopySnailHeader(header),
 		//body:   body,
@@ -623,6 +639,13 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 		b.header.FruitsHash = EmptyRootHash
 	} else {
 		b.header.FruitsHash = DeriveSha(Fruits(fruits))
+		if config.IsTIP5(header.Number) {
+			var headers []*SnailHeader
+			for i := 0; i < len(b.fruits); i++ {
+				headers = append(headers, b.fruits[i].header)
+			}
+			b.header.FruitsHash = DeriveSha(Headers(headers))
+		}
 		b.fruits = make([]*SnailBlock, len(fruits))
 		for i := range fruits {
 			b.fruits[i] = CopyFruit(fruits[i])
@@ -770,7 +793,14 @@ func (b *SnailBlock) IsFruit() bool {
 	}
 }
 func (b *SnailBlock) Fruits() []*SnailBlock { return b.fruits }
-func (b *SnailBlock) Signs() PbftSigns      { return b.signs }
+func (b *SnailBlock) Headers() []*SnailHeader {
+	var headers []*SnailHeader
+	for i := 0; i < len(b.fruits); i++ {
+		headers = append(headers, b.fruits[i].header)
+	}
+	return headers
+}
+func (b *SnailBlock) Signs() PbftSigns { return b.signs }
 
 func (b *SnailBlock) ToElect() bool {
 	if len(b.header.Publickey) > 0 {

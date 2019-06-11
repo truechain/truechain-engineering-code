@@ -369,9 +369,9 @@ func (g *Genesis) ToSnailBlock(db etruedb.Database) *types.SnailBlock {
 		FruitDifficulty: new(big.Int).Div(g.Difficulty, params.FruitBlockRatio),
 		Coinbase:        g.Coinbase,
 	}
-	fruit := types.NewSnailBlock(fruitHead, nil, nil, nil)
+	fruit := types.NewSnailBlock(fruitHead, nil, nil, nil, g.Config)
 
-	return types.NewSnailBlock(head, []*types.SnailBlock{fruit}, nil, nil)
+	return types.NewSnailBlock(head, []*types.SnailBlock{fruit}, nil, nil, g.Config)
 }
 
 // CommitSnail writes the block and state of a genesis specification to the database.

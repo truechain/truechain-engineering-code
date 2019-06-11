@@ -46,7 +46,7 @@ var (
 	engine       = minerva.NewFaker()
 	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress  = crypto.PubkeyToAddress(testKey.PublicKey)
-	unknownBlock = types.NewSnailBlock(&types.SnailHeader{Number: big.NewInt(0), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(3)}, nil, nil, nil)
+	unknownBlock = types.NewSnailBlock(&types.SnailHeader{Number: big.NewInt(0), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(3)}, nil, nil, nil, nil)
 
 	gspec = &core.Genesis{
 		Config:     params.TestChainConfig,

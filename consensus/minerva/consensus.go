@@ -840,7 +840,7 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 
 	//header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// Header seems complete, assemble into a block and return
-	return types.NewSnailBlock(header, fruits, signs, uncles), nil
+	return types.NewSnailBlock(header, fruits, signs, uncles, chain.Config()), nil
 }
 
 // FinalizeCommittee upddate current committee state

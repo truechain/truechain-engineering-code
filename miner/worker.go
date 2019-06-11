@@ -615,6 +615,7 @@ func (w *worker) commitNewWork() {
 		w.current.fruits,
 		w.current.signs,
 		nil,
+		w.current.config,
 	)
 
 	if w.current.Block.FastNumber().Cmp(big.NewInt(0)) == 0 && w.current.Block.Fruits() == nil {
@@ -688,6 +689,7 @@ func (w *worker) updateSnapshot() {
 		w.current.fruits,
 		w.current.signs,
 		nil,
+		w.current.config,
 	)
 
 }

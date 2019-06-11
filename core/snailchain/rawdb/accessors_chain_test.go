@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/params"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -67,7 +68,7 @@ func TestBodyStorage(t *testing.T) {
 	// Create a test body to move around the database and make sure it's really new
 	//body := &types.SnailBody{Fruits: []*types.Header{{Extra: []byte("test header")}}}
 	snailHeader := types.SnailHeader{Extra: []byte("test header")}
-	snailBlock := types.NewSnailBlock(&snailHeader, []*types.SnailBlock{}, []*types.PbftSign{}, []*types.SnailHeader{})
+	snailBlock := types.NewSnailBlock(&snailHeader, []*types.SnailBlock{}, []*types.PbftSign{}, []*types.SnailHeader{}, params.TestChainConfig)
 	body := &types.SnailBody{Fruits: []*types.SnailBlock{snailBlock}, Signs: nil}
 
 	hasher := sha3.NewLegacyKeccak256()
@@ -258,11 +259,11 @@ func TestHeadStorage(t *testing.T) {
 func TestCommitteeStates(t *testing.T) {
 	db := etruedb.NewMemDatabase()
 
-	stateNums   := []int64{10, 12, 14}
-	updateNums  := []int64{10, 12, 14, 20, 30}
+	stateNums := []int64{10, 12, 14}
+	updateNums := []int64{10, 12, 14, 20, 30}
 
-	states      := []*big.Int{}
-	updated     := []*big.Int{}
+	states := []*big.Int{}
+	updated := []*big.Int{}
 
 	for n := range stateNums {
 		states = append(states, big.NewInt(int64(n)))
