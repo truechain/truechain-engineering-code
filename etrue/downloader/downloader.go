@@ -1340,7 +1340,6 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 
 	var (
 		stateSync *stateSync
-		oldPivot  *types.Block // Locked in pivot block, might change eventually
 	)
 
 	if d.mode == FastSync || d.mode == SnapShotSync {
@@ -1356,15 +1355,11 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 
 	for {
 
-		results := d.queue.Results(d.mode == FullSync || oldPivot == nil)
+		results := d.queue.Results(d.mode == FullSync)
 		if d.mode == FullSync && len(results) == 0 {
 			return nil
 		}
 		if d.mode == FastSync && len(results) == 0 {
-			// If pivot sync is done, stop
-			if oldPivot == nil {
-				return stateSync.Cancel()
-			}
 			// If sync failed, stop
 			select {
 			case <-d.cancelCh:
