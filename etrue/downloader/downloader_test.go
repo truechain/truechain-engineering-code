@@ -19,14 +19,15 @@ package downloader
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -62,17 +63,17 @@ type downloadTester struct {
 	stateDb     etruedb.Database  // Database used by the tester for syncing from peers
 	peerDb      etruedb.Database  // Database of the peers containing all data
 
-	ownHashes  []common.Hash                      // Hash chain belonging to the tester
-	ownHeaders map[common.Hash]*types.SnailHeader // Headers belonging to the tester
-	ownBlocks  map[common.Hash]*types.SnailBlock  // Blocks belonging to the tester
-	ownReceipts map[common.Hash]types.Receipts // Receipts belonging to the tester
-	ownChainTd map[common.Hash]*big.Int // Total difficulties of the blocks in the local chain
+	ownHashes   []common.Hash                      // Hash chain belonging to the tester
+	ownHeaders  map[common.Hash]*types.SnailHeader // Headers belonging to the tester
+	ownBlocks   map[common.Hash]*types.SnailBlock  // Blocks belonging to the tester
+	ownReceipts map[common.Hash]types.Receipts     // Receipts belonging to the tester
+	ownChainTd  map[common.Hash]*big.Int           // Total difficulties of the blocks in the local chain
 
-	peerHashes  map[string][]common.Hash                      // Hash chain belonging to different test peers
-	peerHeaders map[string]map[common.Hash]*types.SnailHeader // Headers belonging to different test peers
-	peerBlocks  map[string]map[common.Hash]*types.SnailBlock  // Blocks belonging to different test peers
-	peerReceipts map[string]map[common.Hash]types.Receipts // Receipts belonging to different test peers
-	peerChainTds map[string]map[common.Hash]*big.Int // Total difficulties of the blocks in the peer chains
+	peerHashes   map[string][]common.Hash                      // Hash chain belonging to different test peers
+	peerHeaders  map[string]map[common.Hash]*types.SnailHeader // Headers belonging to different test peers
+	peerBlocks   map[string]map[common.Hash]*types.SnailBlock  // Blocks belonging to different test peers
+	peerReceipts map[string]map[common.Hash]types.Receipts     // Receipts belonging to different test peers
+	peerChainTds map[string]map[common.Hash]*big.Int           // Total difficulties of the blocks in the peer chains
 
 	peerMissingStates map[string]map[common.Hash]bool // State entries that fast sync should not return
 
@@ -99,9 +100,7 @@ func newTester() *downloadTester {
 	}
 
 	tester.stateDb = etruedb.NewMemDatabase()
-	tester.ftester = fastdownloader.NewTester(testdb,tester.stateDb)
-
-
+	tester.ftester = fastdownloader.NewTester(testdb, tester.stateDb)
 
 	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer, tester.ftester.GetDownloader())
 	tester.fdownloader = tester.ftester.GetDownloader()
@@ -126,11 +125,11 @@ func (dl *downloadTester) makeFastChain(n int) ([]common.Hash, map[common.Hash]*
 
 	var remoteHeader *types.Header
 
-	if len(fastblocks) > 16 && len(fastblocks)!=0  {
+	if len(fastblocks) > 16 && len(fastblocks) != 0 {
 		remoteHeader = fastblocks[len(fastblocks)-16].Header()
-	}else if len(fastblocks)!=0  {
+	} else if len(fastblocks) != 0 {
 		remoteHeader = fastblocks[len(fastblocks)-1].Header()
-	}else {
+	} else {
 		remoteHeader = fgenesis.Header()
 	}
 
@@ -163,7 +162,7 @@ func (dl *downloadTester) makeFastChain(n int) ([]common.Hash, map[common.Hash]*
 // head->parent. In addition, every 3rd block
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
-func (dl *downloadTester) makeChain(n int, seed byte, parents []*types.SnailBlock, heavy bool, fastChain *core.BlockChain,DifficultyLevel int) ([]common.Hash, map[common.Hash]*types.SnailHeader, map[common.Hash]*types.SnailBlock, []*types.SnailBlock) {
+func (dl *downloadTester) makeChain(n int, seed byte, parents []*types.SnailBlock, heavy bool, fastChain *core.BlockChain, DifficultyLevel int) ([]common.Hash, map[common.Hash]*types.SnailHeader, map[common.Hash]*types.SnailBlock, []*types.SnailBlock) {
 
 	// Initialize a new chain
 	var (
@@ -182,7 +181,7 @@ func (dl *downloadTester) makeChain(n int, seed byte, parents []*types.SnailBloc
 		DifficultyLevel: DifficultyLevel,
 	}
 
-	blocks, _ := snailchain.MakeSnailBloocks(fastChain, snailChain, parents, int64(n), mconfig)
+	blocks, _ := snailchain.MakeSnailBlocks(fastChain, snailChain, parents, int64(n), mconfig)
 	for _, block := range blocks {
 		blocks1 = append(blocks1, block)
 	}
@@ -217,22 +216,22 @@ func (dl *downloadTester) makeChainFork(n, f int, parent *types.SnailBlock, bala
 	var parents []*types.SnailBlock
 
 	parents = append(parents, parent)
-	fhashes, fheaderm, fblockm, receiptm, fastChain,remoteHeader := dl.makeFastChain(n + f)
+	fhashes, fheaderm, fblockm, receiptm, fastChain, remoteHeader := dl.makeFastChain(n + f)
 
-	hashes, headers, blocks, blocks_ := dl.makeChain(n-f, 0, parents, false, fastChain,1)
+	hashes, headers, blocks, blocks_ := dl.makeChain(n-f, 0, parents, false, fastChain, 1)
 	for _, block := range blocks_ {
 		parents = append(parents, block)
 	}
 
 	// Create the forks, making the second heavier if non balanced forks were requested
-	hashes1, headers1, blocks1, _ := dl.makeChain(f, 1, parents, false, fastChain,1)
+	hashes1, headers1, blocks1, _ := dl.makeChain(f, 1, parents, false, fastChain, 1)
 	hashes1 = append(hashes1, hashes[1:]...)
 
 	heavy := false
 	if !balanced {
 		heavy = true
 	}
-	hashes2, headers2, blocks2, _ := dl.makeChain(f, 1, parents, heavy, fastChain,2)
+	hashes2, headers2, blocks2, _ := dl.makeChain(f, 1, parents, heavy, fastChain, 2)
 	hashes2 = append(hashes2, hashes[1:]...)
 
 	for hash, header := range headers {
@@ -244,7 +243,7 @@ func (dl *downloadTester) makeChainFork(n, f int, parent *types.SnailBlock, bala
 		blocks2[hash] = block
 	}
 
-	return hashes1, hashes2, headers1, headers2, blocks1, blocks2, fhashes, fheaderm, fblockm, receiptm ,remoteHeader
+	return hashes1, hashes2, headers1, headers2, blocks1, blocks2, fhashes, fheaderm, fblockm, receiptm, remoteHeader
 }
 
 // terminate aborts any operations on the embedded downloader and releases all
@@ -408,8 +407,6 @@ func (dl *downloadTester) FastInsertChain(blocks types.SnailBlocks) (int, error)
 	return len(blocks), nil
 }
 
-
-
 // InsertChain injects a new batch of blocks into the simulated chain.
 func (dl *downloadTester) InsertChain(blocks types.SnailBlocks) (int, error) {
 	dl.lock.Lock()
@@ -428,9 +425,8 @@ func (dl *downloadTester) InsertChain(blocks types.SnailBlocks) (int, error) {
 
 // HasConfirmedBlock checks if a block is fully present in the database or not.and number must bigger than currentBlockNumber
 func (bc *downloadTester) HasConfirmedBlock(hash common.Hash, number uint64) bool {
-	return bc.HasBlock(hash,number)
+	return bc.HasBlock(hash, number)
 }
-
 
 // InsertReceiptChain injects a new batch of receipts into the simulated chain.
 func (dl *downloadTester) InsertReceiptChain(blocks types.SnailBlocks, receipts []types.Receipts) (int, error) {
@@ -687,11 +683,11 @@ func assertOwnForkedChain(t *testing.T, tester *downloadTester, common int, leng
 // Tests that simple synchronization against a canonical chain works correctly.
 // In this test common ancestor lookup should be short circuited and not require
 // binary searching.
-func TestCanonicalSynchronisation62(t *testing.T)      { testCanonicalSynchronisation(t, 62, FullSync) }
-func TestCanonicalSynchronisation63Full(t *testing.T)  { testCanonicalSynchronisation(t, 63, FullSync) }
-func TestCanonicalSynchronisation63Fast(t *testing.T)  { testCanonicalSynchronisation(t, 63, FastSync) }
-func TestCanonicalSynchronisation64Full(t *testing.T)  { testCanonicalSynchronisation(t, 64, FullSync) }
-func TestCanonicalSynchronisation64Fast(t *testing.T)  { testCanonicalSynchronisation(t, 64, FastSync) }
+func TestCanonicalSynchronisation62(t *testing.T)     { testCanonicalSynchronisation(t, 62, FullSync) }
+func TestCanonicalSynchronisation63Full(t *testing.T) { testCanonicalSynchronisation(t, 63, FullSync) }
+func TestCanonicalSynchronisation63Fast(t *testing.T) { testCanonicalSynchronisation(t, 63, FastSync) }
+func TestCanonicalSynchronisation64Full(t *testing.T) { testCanonicalSynchronisation(t, 64, FullSync) }
+func TestCanonicalSynchronisation64Fast(t *testing.T) { testCanonicalSynchronisation(t, 64, FastSync) }
 
 func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -704,17 +700,15 @@ func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = tester.genesis
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := tester.makeFastChain(targetBlocks)
-	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := tester.makeFastChain(targetBlocks)
+	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain, 1)
 
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
 
-
 	tester.newPeer("peer", protocol, hashes, headers, blocks)
 	tester.ftester.NewPeer("peer", protocol, fhashes, fheaders, fblocks, freceipt)
-
 
 	// Synchronise with the peer and make sure all relevant data was retrieved
 	if err := tester.sync("peer", nil, mode); err != nil {
@@ -723,18 +717,15 @@ func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	assertOwnChain(t, tester, targetBlocks+1)
 }
 
-
-
-
 // Tests that simple synchronization against a forked chain works correctly. In
 // this test common ancestor lookup should *not* be short circuited, and a full
 // binary search should be executed.
 
-func TestForkedSync62(t *testing.T)      { testForkedSync(t, 62, FullSync) }
-func TestForkedSync63Full(t *testing.T)  { testForkedSync(t, 63, FullSync) }
-func TestForkedSync63Fast(t *testing.T)  { testForkedSync(t, 63, FastSync) }
-func TestForkedSync64Full(t *testing.T)  { testForkedSync(t, 64, FullSync) }
-func TestForkedSync64Fast(t *testing.T)  { testForkedSync(t, 64, FastSync) }
+func TestForkedSync62(t *testing.T)     { testForkedSync(t, 62, FullSync) }
+func TestForkedSync63Full(t *testing.T) { testForkedSync(t, 63, FullSync) }
+func TestForkedSync63Fast(t *testing.T) { testForkedSync(t, 63, FastSync) }
+func TestForkedSync64Full(t *testing.T) { testForkedSync(t, 64, FullSync) }
+func TestForkedSync64Fast(t *testing.T) { testForkedSync(t, 64, FastSync) }
 
 func testForkedSync(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -745,19 +736,17 @@ func testForkedSync(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a long enough forked chain
 	common, fork := MaxHashFetch, 2*MaxHashFetch
-	hashesA, hashesB, headersA, headersB, blocksA, blocksB, fhashes, fheaders, fblocks, freceipt,remoteHeader := tester.makeChainFork(common+fork, fork, tester.genesis, true)
+	hashesA, hashesB, headersA, headersB, blocksA, blocksB, fhashes, fheaders, fblocks, freceipt, remoteHeader := tester.makeChainFork(common+fork, fork, tester.genesis, true)
 
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
-
 
 	err := tester.newPeer("fork A", protocol, hashesA, headersA, blocksA)
 	err = tester.ftester.NewPeer("fork A", protocol, fhashes, fheaders, fblocks, freceipt)
 
 	err = tester.newPeer("fork B", protocol, hashesB, headersB, blocksB)
 	err = tester.ftester.NewPeer("fork B", protocol, fhashes, fheaders, fblocks, freceipt)
-
 
 	// Synchronise with the peer and make sure all blocks were retrieved
 	if err = tester.sync("fork A", nil, mode); err != nil {
@@ -770,14 +759,13 @@ func testForkedSync(t *testing.T, protocol int, mode SyncMode) {
 	}
 }
 
-
 // Tests that synchronising against a much shorter but much heavyer fork works
 // corrently and is not dropped.
-func TestHeavyForkedSync62(t *testing.T)      { testHeavyForkedSync(t, 62, FullSync) }
-func TestHeavyForkedSync63Full(t *testing.T)  { testHeavyForkedSync(t, 63, FullSync) }
-func TestHeavyForkedSync63Fast(t *testing.T)  { testHeavyForkedSync(t, 63, FastSync) }
-func TestHeavyForkedSync64Full(t *testing.T)  { testHeavyForkedSync(t, 64, FullSync) }
-func TestHeavyForkedSync64Fast(t *testing.T)  { testHeavyForkedSync(t, 64, FastSync) }
+func TestHeavyForkedSync62(t *testing.T)     { testHeavyForkedSync(t, 62, FullSync) }
+func TestHeavyForkedSync63Full(t *testing.T) { testHeavyForkedSync(t, 63, FullSync) }
+func TestHeavyForkedSync63Fast(t *testing.T) { testHeavyForkedSync(t, 63, FastSync) }
+func TestHeavyForkedSync64Full(t *testing.T) { testHeavyForkedSync(t, 64, FullSync) }
+func TestHeavyForkedSync64Fast(t *testing.T) { testHeavyForkedSync(t, 64, FastSync) }
 
 func testHeavyForkedSync(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -790,19 +778,17 @@ func testHeavyForkedSync(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a long enough forked chain
 	common, fork := MaxHashFetch, 4*MaxHashFetch
-	hashesA, hashesB, headersA, headersB, blocksA, blocksB, fhashes, fheaders, fblocks, freceipt,remoteHeader := tester.makeChainFork(common+fork, fork, tester.genesis, true)
+	hashesA, hashesB, headersA, headersB, blocksA, blocksB, fhashes, fheaders, fblocks, freceipt, remoteHeader := tester.makeChainFork(common+fork, fork, tester.genesis, true)
 
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
-
 
 	err := tester.newPeer("light", protocol, hashesA, headersA, blocksA)
 	err = tester.ftester.NewPeer("light", protocol, fhashes, fheaders, fblocks, freceipt)
 
 	err = tester.newPeer("heavy", protocol, hashesB[fork/2:], headersB, blocksB)
 	err = tester.ftester.NewPeer("heavy", protocol, fhashes, fheaders, fblocks, freceipt)
-
 
 	// Synchronise with the peer and make sure all blocks were retrieved
 	if err = tester.sync("light", nil, mode); err != nil {
@@ -902,8 +888,6 @@ func testHeavyForkedSync(t *testing.T, protocol int, mode SyncMode) {
 //	}
 //}
 
-
-
 // Tests that an inactive downloader will not accept incoming block headers and
 // bodies.
 func TestInactiveDownloader62(t *testing.T) {
@@ -939,11 +923,11 @@ func TestInactiveDownloader63(t *testing.T) {
 }
 
 // Tests that a canceled download wipes all previously accumulated state.
-func TestCancel62(t *testing.T)      { testCancel(t, 62, FullSync) }
-func TestCancel63Full(t *testing.T)  { testCancel(t, 63, FullSync) }
-func TestCancel63Fast(t *testing.T)  { testCancel(t, 63, FastSync) }
-func TestCancel64Full(t *testing.T)  { testCancel(t, 64, FullSync) }
-func TestCancel64Fast(t *testing.T)  { testCancel(t, 64, FastSync) }
+func TestCancel62(t *testing.T)     { testCancel(t, 62, FullSync) }
+func TestCancel63Full(t *testing.T) { testCancel(t, 63, FullSync) }
+func TestCancel63Fast(t *testing.T) { testCancel(t, 63, FastSync) }
+func TestCancel64Full(t *testing.T) { testCancel(t, 64, FullSync) }
+func TestCancel64Fast(t *testing.T) { testCancel(t, 64, FastSync) }
 
 func testCancel(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -957,13 +941,12 @@ func testCancel(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = tester.genesis
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := tester.makeFastChain(targetBlocks)
-	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := tester.makeFastChain(targetBlocks)
+	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain, 1)
 
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
-
 
 	tester.newPeer("peer", protocol, hashes, headers, blocks)
 	tester.ftester.NewPeer("peer", protocol, fhashes, fheaders, fblocks, freceipt)
@@ -983,11 +966,11 @@ func testCancel(t *testing.T, protocol int, mode SyncMode) {
 }
 
 // Tests that synchronisation from multiple peers works as intended (multi thread sanity test).
-func TestMultiSynchronisation62(t *testing.T)      { testMultiSynchronisation(t, 62, FullSync) }
-func TestMultiSynchronisation63Full(t *testing.T)  { testMultiSynchronisation(t, 63, FullSync) }
-func TestMultiSynchronisation63Fast(t *testing.T)  { testMultiSynchronisation(t, 63, FastSync) }
-func TestMultiSynchronisation64Full(t *testing.T)  { testMultiSynchronisation(t, 64, FullSync) }
-func TestMultiSynchronisation64Fast(t *testing.T)  { testMultiSynchronisation(t, 64, FastSync) }
+func TestMultiSynchronisation62(t *testing.T)     { testMultiSynchronisation(t, 62, FullSync) }
+func TestMultiSynchronisation63Full(t *testing.T) { testMultiSynchronisation(t, 63, FullSync) }
+func TestMultiSynchronisation63Fast(t *testing.T) { testMultiSynchronisation(t, 63, FastSync) }
+func TestMultiSynchronisation64Full(t *testing.T) { testMultiSynchronisation(t, 64, FullSync) }
+func TestMultiSynchronisation64Fast(t *testing.T) { testMultiSynchronisation(t, 64, FastSync) }
 
 func testMultiSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -1002,8 +985,8 @@ func testMultiSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = tester.genesis
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := tester.makeFastChain(targetBlocks)
-	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := tester.makeFastChain(targetBlocks)
+	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain, 1)
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
@@ -1021,11 +1004,11 @@ func testMultiSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 
 // Tests that synchronisations behave well in multi-version protocol environments
 // and not wreak havoc on other nodes in the network.
-func TestMultiProtoSynchronisation62(t *testing.T)      { testMultiProtoSync(t, 62, FullSync) }
-func TestMultiProtoSynchronisation63Full(t *testing.T)  { testMultiProtoSync(t, 63, FullSync) }
-func TestMultiProtoSynchronisation63Fast(t *testing.T)  { testMultiProtoSync(t, 63, FastSync) }
-func TestMultiProtoSynchronisation64Full(t *testing.T)  { testMultiProtoSync(t, 64, FullSync) }
-func TestMultiProtoSynchronisation64Fast(t *testing.T)  { testMultiProtoSync(t, 64, FastSync) }
+func TestMultiProtoSynchronisation62(t *testing.T)     { testMultiProtoSync(t, 62, FullSync) }
+func TestMultiProtoSynchronisation63Full(t *testing.T) { testMultiProtoSync(t, 63, FullSync) }
+func TestMultiProtoSynchronisation63Fast(t *testing.T) { testMultiProtoSync(t, 63, FastSync) }
+func TestMultiProtoSynchronisation64Full(t *testing.T) { testMultiProtoSync(t, 64, FullSync) }
+func TestMultiProtoSynchronisation64Fast(t *testing.T) { testMultiProtoSync(t, 64, FastSync) }
 
 func testMultiProtoSync(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -1038,26 +1021,21 @@ func testMultiProtoSync(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = tester.genesis
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := tester.makeFastChain(targetBlocks)
-	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := tester.makeFastChain(targetBlocks)
+	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain, 1)
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
-
-
 
 	// Create peers of every type
 	tester.newPeer("peer 62", 62, hashes, headers, blocks)
 	tester.ftester.NewPeer("peer 62", 62, fhashes, fheaders, fblocks, freceipt)
 
-
 	tester.newPeer("peer 63", 63, hashes, headers, blocks)
 	tester.ftester.NewPeer("peer 63", 63, fhashes, fheaders, fblocks, freceipt)
 
-
 	tester.newPeer("peer 64", 64, hashes, headers, blocks)
 	tester.ftester.NewPeer("peer 64", 64, fhashes, fheaders, fblocks, freceipt)
-
 
 	// Synchronise with the requested peer and make sure all blocks were retrieved
 	if err := tester.sync(fmt.Sprintf("peer %d", protocol), nil, mode); err != nil {
@@ -1076,11 +1054,11 @@ func testMultiProtoSync(t *testing.T, protocol int, mode SyncMode) {
 
 // Tests that if a block is empty (e.g. header only), no body request should be
 // made, and instead the header should be assembled into a whole block in itself.
-func TestEmptyShortCircuit62(t *testing.T)      { testEmptyShortCircuit(t, 62, FullSync) }
-func TestEmptyShortCircuit63Full(t *testing.T)  { testEmptyShortCircuit(t, 63, FullSync) }
-func TestEmptyShortCircuit63Fast(t *testing.T)  { testEmptyShortCircuit(t, 63, FastSync) }
-func TestEmptyShortCircuit64Full(t *testing.T)  { testEmptyShortCircuit(t, 64, FullSync) }
-func TestEmptyShortCircuit64Fast(t *testing.T)  { testEmptyShortCircuit(t, 64, FastSync) }
+func TestEmptyShortCircuit62(t *testing.T)     { testEmptyShortCircuit(t, 62, FullSync) }
+func TestEmptyShortCircuit63Full(t *testing.T) { testEmptyShortCircuit(t, 63, FullSync) }
+func TestEmptyShortCircuit63Fast(t *testing.T) { testEmptyShortCircuit(t, 63, FastSync) }
+func TestEmptyShortCircuit64Full(t *testing.T) { testEmptyShortCircuit(t, 64, FullSync) }
+func TestEmptyShortCircuit64Fast(t *testing.T) { testEmptyShortCircuit(t, 64, FastSync) }
 
 func testEmptyShortCircuit(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -1094,12 +1072,11 @@ func testEmptyShortCircuit(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = tester.genesis
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := tester.makeFastChain(targetBlocks)
-	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := tester.makeFastChain(targetBlocks)
+	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain, 1)
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
-
 
 	tester.newPeer("peer", protocol, hashes, headers, blocks)
 	tester.ftester.NewPeer("peer", protocol, fhashes, fheaders, fblocks, freceipt)
@@ -1130,11 +1107,11 @@ func testEmptyShortCircuit(t *testing.T, protocol int, mode SyncMode) {
 
 // Tests that headers are enqueued continuously, preventing malicious nodes from
 // stalling the downloader by feeding gapped header chains.
-func TestMissingHeaderAttack62(t *testing.T)      { testMissingHeaderAttack(t, 62, FullSync) }
-func TestMissingHeaderAttack63Full(t *testing.T)  { testMissingHeaderAttack(t, 63, FullSync) }
-func TestMissingHeaderAttack63Fast(t *testing.T)  { testMissingHeaderAttack(t, 63, FastSync) }
-func TestMissingHeaderAttack64Full(t *testing.T)  { testMissingHeaderAttack(t, 64, FullSync) }
-func TestMissingHeaderAttack64Fast(t *testing.T)  { testMissingHeaderAttack(t, 64, FastSync) }
+func TestMissingHeaderAttack62(t *testing.T)     { testMissingHeaderAttack(t, 62, FullSync) }
+func TestMissingHeaderAttack63Full(t *testing.T) { testMissingHeaderAttack(t, 63, FullSync) }
+func TestMissingHeaderAttack63Fast(t *testing.T) { testMissingHeaderAttack(t, 63, FastSync) }
+func TestMissingHeaderAttack64Full(t *testing.T) { testMissingHeaderAttack(t, 64, FullSync) }
+func TestMissingHeaderAttack64Fast(t *testing.T) { testMissingHeaderAttack(t, 64, FastSync) }
 
 func testMissingHeaderAttack(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -1147,8 +1124,8 @@ func testMissingHeaderAttack(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = tester.genesis
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := tester.makeFastChain(targetBlocks)
-	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := tester.makeFastChain(targetBlocks)
+	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain, 1)
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
@@ -1174,11 +1151,11 @@ func testMissingHeaderAttack(t *testing.T, protocol int, mode SyncMode) {
 
 // Tests that if requested headers are shifted (i.e. first is missing), the queue
 // detects the invalid numbering.
-func TestShiftedHeaderAttack62(t *testing.T)      { testShiftedHeaderAttack(t, 62, FullSync) }
-func TestShiftedHeaderAttack63Full(t *testing.T)  { testShiftedHeaderAttack(t, 63, FullSync) }
-func TestShiftedHeaderAttack63Fast(t *testing.T)  { testShiftedHeaderAttack(t, 63, FastSync) }
-func TestShiftedHeaderAttack64Full(t *testing.T)  { testShiftedHeaderAttack(t, 64, FullSync) }
-func TestShiftedHeaderAttack64Fast(t *testing.T)  { testShiftedHeaderAttack(t, 64, FastSync) }
+func TestShiftedHeaderAttack62(t *testing.T)     { testShiftedHeaderAttack(t, 62, FullSync) }
+func TestShiftedHeaderAttack63Full(t *testing.T) { testShiftedHeaderAttack(t, 63, FullSync) }
+func TestShiftedHeaderAttack63Fast(t *testing.T) { testShiftedHeaderAttack(t, 63, FastSync) }
+func TestShiftedHeaderAttack64Full(t *testing.T) { testShiftedHeaderAttack(t, 64, FullSync) }
+func TestShiftedHeaderAttack64Fast(t *testing.T) { testShiftedHeaderAttack(t, 64, FastSync) }
 
 func testShiftedHeaderAttack(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -1191,12 +1168,11 @@ func testShiftedHeaderAttack(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = tester.genesis
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := tester.makeFastChain(targetBlocks)
-	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := tester.makeFastChain(targetBlocks)
+	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain, 1)
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
-
 
 	// Attempt a full sync with an attacker feeding shifted headers
 	tester.newPeer("attack", protocol, hashes, headers, blocks)
@@ -1210,15 +1186,13 @@ func testShiftedHeaderAttack(t *testing.T, protocol int, mode SyncMode) {
 	}
 }
 
-
-
 // Tests that a peer advertising an high TD doesn't get to stall the downloader
 // afterwards by not sending any useful hashes.
-func TestHighTDStarvationAttack62(t *testing.T)      { testHighTDStarvationAttack(t, 62, FullSync) }
-func TestHighTDStarvationAttack63Full(t *testing.T)  { testHighTDStarvationAttack(t, 63, FullSync) }
-func TestHighTDStarvationAttack63Fast(t *testing.T)  { testHighTDStarvationAttack(t, 63, FastSync) }
-func TestHighTDStarvationAttack64Full(t *testing.T)  { testHighTDStarvationAttack(t, 64, FullSync) }
-func TestHighTDStarvationAttack64Fast(t *testing.T)  { testHighTDStarvationAttack(t, 64, FastSync) }
+func TestHighTDStarvationAttack62(t *testing.T)     { testHighTDStarvationAttack(t, 62, FullSync) }
+func TestHighTDStarvationAttack63Full(t *testing.T) { testHighTDStarvationAttack(t, 63, FullSync) }
+func TestHighTDStarvationAttack63Fast(t *testing.T) { testHighTDStarvationAttack(t, 63, FastSync) }
+func TestHighTDStarvationAttack64Full(t *testing.T) { testHighTDStarvationAttack(t, 64, FullSync) }
+func TestHighTDStarvationAttack64Fast(t *testing.T) { testHighTDStarvationAttack(t, 64, FastSync) }
 
 func testHighTDStarvationAttack(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -1229,8 +1203,8 @@ func testHighTDStarvationAttack(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = tester.genesis
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := tester.makeFastChain(0)
-	hashes, headers, blocks, _ := tester.makeChain(0, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := tester.makeFastChain(0)
+	hashes, headers, blocks, _ := tester.makeChain(0, 0, parents1, false, fastChain, 1)
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
@@ -1302,11 +1276,11 @@ func testBlockHeaderAttackerDropping(t *testing.T, protocol int) {
 
 // Tests that synchronisation progress (origin block number, current block number
 // and highest block number) is tracked and updated correctly.
-func TestSyncProgress62(t *testing.T)      { testSyncProgress(t, 62, FullSync) }
-func TestSyncProgress63Full(t *testing.T)  { testSyncProgress(t, 63, FullSync) }
-func TestSyncProgress63Fast(t *testing.T)  { testSyncProgress(t, 63, FastSync) }
-func TestSyncProgress64Full(t *testing.T)  { testSyncProgress(t, 64, FullSync) }
-func TestSyncProgress64Fast(t *testing.T)  { testSyncProgress(t, 64, FastSync) }
+func TestSyncProgress62(t *testing.T)     { testSyncProgress(t, 62, FullSync) }
+func TestSyncProgress63Full(t *testing.T) { testSyncProgress(t, 63, FullSync) }
+func TestSyncProgress63Fast(t *testing.T) { testSyncProgress(t, 63, FastSync) }
+func TestSyncProgress64Full(t *testing.T) { testSyncProgress(t, 64, FullSync) }
+func TestSyncProgress64Fast(t *testing.T) { testSyncProgress(t, 64, FastSync) }
 
 func testSyncProgress(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
@@ -1319,12 +1293,11 @@ func testSyncProgress(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = tester.genesis
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := tester.makeFastChain(targetBlocks)
-	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := tester.makeFastChain(targetBlocks)
+	hashes, headers, blocks, _ := tester.makeChain(targetBlocks, 0, parents1, false, fastChain, 1)
 	tester.fdownloader.SetHeader(remoteHeader)
 	tester.downloader.SetHeader(remoteHeader)
 	tester.fdownloader.SetSD(tester.downloader)
-
 
 	// Set a sync init hook to catch progress changes
 	starting := make(chan struct{})
@@ -1475,13 +1448,11 @@ func testSyncProgress(t *testing.T, protocol int, mode SyncMode) {
 //	}
 //}
 
-
-func TestDeliverHeadersHang62(t *testing.T)      { testDeliverHeadersHang(t, 62, FullSync) }
-func TestDeliverHeadersHang63Full(t *testing.T)  { testDeliverHeadersHang(t, 63, FullSync) }
-func TestDeliverHeadersHang63Fast(t *testing.T)  { testDeliverHeadersHang(t, 63, FastSync) }
-func TestDeliverHeadersHang64Full(t *testing.T)  { testDeliverHeadersHang(t, 64, FullSync) }
-func TestDeliverHeadersHang64Fast(t *testing.T)  { testDeliverHeadersHang(t, 64, FastSync) }
-
+func TestDeliverHeadersHang62(t *testing.T)     { testDeliverHeadersHang(t, 62, FullSync) }
+func TestDeliverHeadersHang63Full(t *testing.T) { testDeliverHeadersHang(t, 63, FullSync) }
+func TestDeliverHeadersHang63Fast(t *testing.T) { testDeliverHeadersHang(t, 63, FastSync) }
+func TestDeliverHeadersHang64Full(t *testing.T) { testDeliverHeadersHang(t, 64, FullSync) }
+func TestDeliverHeadersHang64Fast(t *testing.T) { testDeliverHeadersHang(t, 64, FastSync) }
 
 type floodingTestPeer struct {
 	peer   dtypes.Peer
@@ -1537,11 +1508,10 @@ func testDeliverHeadersHang(t *testing.T, protocol int, mode SyncMode) {
 	parents1 := make([]*types.SnailBlock, 1)
 	parents1[0] = master.genesis
 
-
 	targetBlocks := 5
 
-	fhashes, fheaders, fblocks, freceipt, fastChain,remoteHeader := master.makeFastChain(targetBlocks)
-	hashes, headers, blocks, _ := master.makeChain(targetBlocks, 0, parents1, false, fastChain,1)
+	fhashes, fheaders, fblocks, freceipt, fastChain, remoteHeader := master.makeFastChain(targetBlocks)
+	hashes, headers, blocks, _ := master.makeChain(targetBlocks, 0, parents1, false, fastChain, 1)
 	master.fdownloader.SetHeader(remoteHeader)
 	master.downloader.SetHeader(remoteHeader)
 	master.fdownloader.SetSD(master.downloader)
