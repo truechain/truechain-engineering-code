@@ -63,6 +63,7 @@ type Dashboard struct {
 	logLock       sync.RWMutex // Lock protecting the stored log data
 	txPoolLock    sync.RWMutex // Lock protecting the stored txPool data
 	fruitPoolLock sync.RWMutex // Lock protecting the stored fruitPool data
+	chainLock     sync.RWMutex // Lock protecting the stored chain data
 
 	geodb  *geoDB // geoip database instance for IP to geographical information conversions
 	logdir string // Directory containing the log files
@@ -168,6 +169,7 @@ func (db *Dashboard) Start(server *p2p.Server) error {
 	go db.collectPeerData()
 	go db.collectTxpoolData()
 	go db.collectFruitpoolData()
+	go db.collectChainData()
 
 	http.HandleFunc("/", db.webHandler)
 	http.Handle("/api", websocket.Handler(db.apiHandler))

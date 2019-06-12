@@ -47,7 +47,8 @@ type HomeMessage struct {
 }
 
 type ChainMessage struct {
-	/* TODO (kurkomisi) */
+	FastChain  *fastChainInfo  `json:"fastChain,omitempty"`  // fastChain info tree.
+	SnailChain *snailChainInfo `json:"snailChain,omitempty"` // snailChain info tree.
 }
 
 // TxPoolMessage contains the collected txpool data samples.
