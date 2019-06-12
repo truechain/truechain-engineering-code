@@ -1420,14 +1420,20 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		for i := 0; i < txLen; {
 			i = i + maxSize
 			if i <= txLen {
-				d.importBlockAndSyncFast(sblocks[:maxSize], p, hash)
+				if err := d.importBlockAndSyncFast(sblocks[:maxSize], p, hash); err!=nil{
+					return err
+				}
 				sblocks = append(sblocks[:0], sblocks[maxSize:]...)
 			} else {
-				d.importBlockAndSyncFast(sblocks[:txLen%maxSize], p, hash)
+				if err := d.importBlockAndSyncFast(sblocks[:txLen%maxSize], p, hash); err != nil{
+					return err
+				}
 			}
 		}
 	} else if len(sblocks) > 0 {
-		d.importBlockAndSyncFast(sblocks, p, hash)
+		if err := d.importBlockAndSyncFast(sblocks, p, hash);err !=nil{
+			return err
+		}
 	}
 
 	return nil
