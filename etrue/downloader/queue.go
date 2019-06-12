@@ -34,8 +34,8 @@ import (
 )
 
 var (
-	blockCacheItems      = 16               // Maximum number of blocks to cache before throttling the download
-	blockCacheMemory     = 64 * 1024 * 1024 // Maximum amount of memory to use for block caching
+	blockCacheItems      = 256               // Maximum number of blocks to cache before throttling the download
+	blockCacheMemory     = 128 * 1024 * 1024 // Maximum amount of memory to use for block caching
 	blockCacheSizeWeight = 0.1               // Multiplier to approximate the average block size based on past ones
 )
 
@@ -383,6 +383,7 @@ func (q *queue) ReserveHeaders(p etrue.PeerConnection, count int) *etrue.FetchRe
 // returns a flag whether empty blocks were queued requiring processing.
 func (q *queue) ReserveBodies(p etrue.PeerConnection, count int) (*etrue.FetchRequest, bool, error) {
 	isNoop := func(header *types.SnailHeader) bool {
+		log.Info("header.FruitsHash == types.EmptyRootHash","yes",header.FruitsHash == types.EmptyRootHash)
 		return header.FruitsHash == types.EmptyRootHash
 	}
 	q.lock.Lock()
