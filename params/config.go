@@ -68,7 +68,7 @@ var (
 			DurationLimit:          big.NewInt(150),
 		}),
 		TIP3: &BlockConfig{},
-		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(4825)},
 	}
 
 	chainId = big.NewInt(9223372036854775790)
