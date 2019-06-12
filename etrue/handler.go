@@ -824,8 +824,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			fruits = pm.fetcherSnail.FilterBodies(p.id, fruits, time.Now())
 		}
 
+		for _, body := range fruits {
+			log.Info("SnailBlockBodiesMsg22222","fruits", len(body),"call", request.Call)
+		}
+
+
 		if len(fruits) > 0 || !filter {
-			log.Info("SnailBlockBodiesMsg222222","fruits", len(fruits), "filter", filter, "call", request.Call)
+
 			err := pm.downloader.DeliverBodies(p.id, fruits)
 			if err != nil {
 				log.Debug("Failed to deliver bodies", "err", err)
