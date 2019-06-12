@@ -1408,3 +1408,10 @@ func (bc *SnailBlockChain) SubscribeFastBlockEvent(ch chan<- types.NewFastBlocks
 func (bc *SnailBlockChain) SubscribeNewFruitEvent(ch chan<- types.NewMinedFruitEvent) event.Subscription {
 	return bc.scope.Track(bc.fruitFeed.Subscribe(ch))
 }
+
+func (bc *SnailBlockChain) GetFruitsHash(header *types.SnailHeader, body *types.SnailBody) common.Hash {
+	if bc.chainConfig.IsTIP5(header.Number) {
+		return types.DeriveSha(types.FruitsHeaders(body.FruitsHeaders()))
+	}
+	return types.DeriveSha(types.Fruits(body.Fruits))
+}
