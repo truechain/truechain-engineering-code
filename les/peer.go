@@ -226,7 +226,7 @@ func (p *peer) SendBlockHeaders(reqID, bv uint64, headers []*types.Header) error
 	return sendResponse(p.rw, FastBlockHeadersMsg, reqID, bv, headers)
 }
 
-// SendBlockHeaders sends a batch of block headers to the remote peer.
+// SendSnailBlockHeaders sends a batch of block headers to the remote peer.
 func (p *peer) SendSnailBlockHeaders(reqID, bv uint64, headers []*types.SnailHeader) error {
 	return sendResponse(p.rw, SnailBlockHeadersMsg, reqID, bv, headers)
 }
@@ -235,6 +235,18 @@ func (p *peer) SendSnailBlockHeaders(reqID, bv uint64, headers []*types.SnailHea
 // an already RLP encoded format.
 func (p *peer) SendBlockBodiesRLP(reqID, bv uint64, bodies []rlp.RawValue) error {
 	return sendResponse(p.rw, FastBlockBodiesMsg, reqID, bv, bodies)
+}
+
+// SendSnailBlockBodiesRLP sends a batch of block contents to the remote peer from
+// an already RLP encoded format.
+func (p *peer) SendSnailBlockBodiesRLP(reqID, bv uint64, bodies []rlp.RawValue) error {
+	return sendResponse(p.rw, SnailBlockBodiesMsg, reqID, bv, bodies)
+}
+
+// SendFruitBodiesRLP sends a batch of block contents to the remote peer from
+// an already RLP encoded format.
+func (p *peer) SendFruitBodiesRLP(reqID, bv uint64, bodies []rlp.RawValue) error {
+	return sendResponse(p.rw, FruitBodiesMsg, reqID, bv, bodies)
 }
 
 // SendCodeRLP sends a batch of arbitrary internal data, corresponding to the

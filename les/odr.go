@@ -92,6 +92,8 @@ func (odr *LesOdr) FastIndexerConfig() *public.IndexerConfig {
 
 const (
 	MsgBlockBodies = iota
+	MsgSnailBlockBodies
+	MsgFruitBodies
 	MsgCode
 	MsgReceipts
 	MsgProofsV1

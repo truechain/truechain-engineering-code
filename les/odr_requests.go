@@ -104,7 +104,7 @@ func (r *BlockRequest) Validate(db etruedb.Database, msg *Msg) error {
 	log.Debug("Validating block body", "hash", r.Hash)
 
 	// Ensure we have a correct message with a single block body
-	if msg.MsgType != MsgBlockBodies {
+	if msg.MsgType != MsgSnailBlockBodies {
 		return errInvalidMessageType
 	}
 	bodies := msg.Obj.([]*types.Body)
@@ -158,7 +158,7 @@ func (r *FruitRequest) Validate(db etruedb.Database, msg *Msg) error {
 	log.Debug("Validating block body", "hash", r.Hash)
 
 	// Ensure we have a correct message with a single block body
-	if msg.MsgType != MsgBlockBodies {
+	if msg.MsgType != MsgFruitBodies {
 		return errInvalidMessageType
 	}
 	bodies := msg.Obj.([]*types.Body)

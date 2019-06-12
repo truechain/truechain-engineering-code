@@ -36,6 +36,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
@@ -351,8 +352,8 @@ func (pm *ProtocolManager) handle(p *peer) error {
 }
 
 var (
-	reqList   = []uint64{GetFastBlockHeadersMsg, GetFastBlockBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
-	reqListV2 = []uint64{GetFastBlockHeadersMsg, GetFastBlockBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
+	reqList   = []uint64{GetFastBlockHeadersMsg, GetFastBlockBodiesMsg, GetSnailBlockHeadersMsg, GetSnailBlockBodiesMsg, GetFruitBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
+	reqListV2 = []uint64{GetFastBlockHeadersMsg, GetFastBlockBodiesMsg, GetSnailBlockHeadersMsg, GetSnailBlockBodiesMsg, GetFruitBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
 )
 
 // handleMsg is invoked whenever an inbound message is received from a remote
@@ -602,7 +603,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			Obj:     resp.Data,
 		}
 	case GetSnailBlockHeadersMsg:
-		p.Log().Trace("Received block header request")
+		p.Log().Trace("Received snail block header request")
 		// Decode the complex header query
 		var req struct {
 			ReqID uint64
@@ -706,7 +707,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrUnexpectedResponse, "")
 		}
 
-		p.Log().Trace("Received block header response message")
+		p.Log().Trace("Received snail block header response message")
 		// A batch of headers arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
@@ -726,7 +727,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case GetSnailBlockBodiesMsg:
-		p.Log().Trace("Received block bodies request")
+		p.Log().Trace("Received snail block bodies request")
 		// Decode the retrieval message
 		var req struct {
 			ReqID  uint64
@@ -749,8 +750,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				break
 			}
 			// FastRetrieve the requested block body, stopping if enough was found
-			if number := rawdb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
-				if data := rawdb.ReadBodyRLP(pm.chainDb, hash, *number); len(data) != 0 {
+			if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
+				if data := snaildb.ReadBodyRLP(pm.chainDb, hash, *number); len(data) != 0 {
 					bodies = append(bodies, data)
 					bytes += len(data)
 				}
@@ -758,25 +759,83 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendBlockBodiesRLP(req.ReqID, bv, bodies)
+		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, bodies)
 
 	case SnailBlockBodiesMsg:
 		if pm.odr == nil {
 			return errResp(ErrUnexpectedResponse, "")
 		}
 
-		p.Log().Trace("Received block bodies response")
+		p.Log().Trace("Received snail block bodies response")
 		// A batch of block bodies arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			Data      []*types.Body
+			Data      []*types.SnailBody
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		deliverMsg = &Msg{
-			MsgType: MsgBlockBodies,
+			MsgType: MsgSnailBlockBodies,
+			ReqID:   resp.ReqID,
+			Obj:     resp.Data,
+		}
+
+	case GetFruitBodiesMsg:
+		p.Log().Trace("Received fruit bodies request")
+		// Decode the retrieval message
+		var req struct {
+			ReqID  uint64
+			Hashes []common.Hash
+		}
+		if err := msg.Decode(&req); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		// Gather blocks until the fetch or network limits is reached
+		var (
+			bytes  int
+			bodies []rlp.RawValue
+		)
+		reqCnt := len(req.Hashes)
+		if reject(uint64(reqCnt), MaxBodyFetch) {
+			return errResp(ErrRequestRejected, "")
+		}
+		for _, hash := range req.Hashes {
+			if bytes >= softResponseLimit {
+				break
+			}
+			// Retrieve the requested fruit body, stopping if enough was found
+			if fruit, _, _, _ := snaildb.ReadFruit(pm.chainDb, hash); fruit != nil {
+				data, err := rlp.EncodeToBytes(fruit.Body())
+				if err != nil {
+					log.Crit("Failed to RLP encode snail body", "err", err)
+				}
+				bodies = append(bodies, data)
+				bytes += len(data)
+			}
+		}
+		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
+		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
+		return p.SendFruitBodiesRLP(req.ReqID, bv, bodies)
+
+	case FruitBodiesMsg:
+		if pm.odr == nil {
+			return errResp(ErrUnexpectedResponse, "")
+		}
+
+		p.Log().Trace("Received fruit bodies response")
+		// A batch of block bodies arrived to one of our previous requests
+		var resp struct {
+			ReqID, BV uint64
+			Data      []*types.SnailBody
+		}
+		if err := msg.Decode(&resp); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		deliverMsg = &Msg{
+			MsgType: MsgFruitBodies,
 			ReqID:   resp.ReqID,
 			Obj:     resp.Data,
 		}
