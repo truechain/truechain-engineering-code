@@ -85,13 +85,13 @@ func (fs Fruits) GetRlp(i int) []byte {
 }
 
 // Headers is a wrapper around a fruit header array to implement DerivableList.
-type Headers []*SnailHeader
+type FruitsHeaders []*SnailHeader
 
 // Len returns the number of headers in this list.
-func (fs Headers) Len() int { return len(fs) }
+func (fs FruitsHeaders) Len() int { return len(fs) }
 
 // GetRlp returns the RLP encoding of one fruit header from the list.
-func (fs Headers) GetRlp(i int) []byte {
+func (fs FruitsHeaders) GetRlp(i int) []byte {
 	bytes, err := rlp.EncodeToBytes(fs[i])
 	if err != nil {
 		panic(err)
@@ -638,13 +638,14 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 	if len(fruits) == 0 {
 		b.header.FruitsHash = EmptyRootHash
 	} else {
-		b.header.FruitsHash = DeriveSha(Fruits(fruits))
 		if config.IsTIP5(header.Number) {
 			var headers []*SnailHeader
 			for i := 0; i < len(b.fruits); i++ {
 				headers = append(headers, b.fruits[i].header)
 			}
-			b.header.FruitsHash = DeriveSha(Headers(headers))
+			b.header.FruitsHash = DeriveSha(FruitsHeaders(headers))
+		} else {
+			b.header.FruitsHash = DeriveSha(Fruits(fruits))
 		}
 		b.fruits = make([]*SnailBlock, len(fruits))
 		for i := range fruits {
@@ -793,10 +794,10 @@ func (b *SnailBlock) IsFruit() bool {
 	}
 }
 func (b *SnailBlock) Fruits() []*SnailBlock { return b.fruits }
-func (b *SnailBlock) Headers() []*SnailHeader {
+func (b *SnailBody) FruitsHeaders() []*SnailHeader {
 	var headers []*SnailHeader
-	for i := 0; i < len(b.fruits); i++ {
-		headers = append(headers, b.fruits[i].header)
+	for i := 0; i < len(b.Fruits); i++ {
+		headers = append(headers, b.Fruits[i].header)
 	}
 	return headers
 }
