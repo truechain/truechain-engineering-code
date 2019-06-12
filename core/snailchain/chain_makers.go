@@ -297,8 +297,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 		testdb = etruedb.NewMemDatabase()
 	)
 	cache := &core.CacheConfig{
-	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -684,7 +684,7 @@ type MakechianConfig struct {
 	DifficultyLevel int    // 1: low  2 :hight
 }
 
-func MakeSnailBloocks(fastchain *core.BlockChain, snailchain *SnailBlockChain, snailparents []*types.SnailBlock, blockCount int64, config MakechianConfig) ([]*types.SnailBlock, error) {
+func MakeSnailBlocks(fastchain *core.BlockChain, snailchain *SnailBlockChain, snailparents []*types.SnailBlock, blockCount int64, config MakechianConfig) ([]*types.SnailBlock, error) {
 
 	if blockCount <= 0 {
 		return nil, nil
