@@ -1036,21 +1036,20 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]interface{}, error) {
 	head := b.Header() // copies the header once
 	fields := map[string]interface{}{
-		"number":          (*hexutil.Big)(head.Number),
-		"hash":            b.Hash(),
-		"parentHash":      head.ParentHash,
-		"fruitHash":       head.FruitsHash,
-		"nonce":           head.Nonce,
-		"mixHash":         head.MixDigest,
-		"miner":           head.Coinbase,
-		"difficulty":      (*hexutil.Big)(head.Difficulty),
-		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
-		"extraData":       hexutil.Bytes(head.Extra),
-		"publicKey":       hexutil.Bytes(head.Publickey),
-		"pointerNumber":   head.PointerNumber,
-		"fastNumber":      head.FastNumber,
-		"size":            hexutil.Uint64(b.Size()),
-		"timestamp":       (*hexutil.Big)(head.Time),
+		"number":        (*hexutil.Big)(head.Number),
+		"hash":          b.Hash(),
+		"parentHash":    head.ParentHash,
+		"fruitsHash":    head.FruitsHash,
+		"nonce":         head.Nonce,
+		"mixHash":       head.MixDigest,
+		"miner":         head.Coinbase,
+		"difficulty":    (*hexutil.Big)(head.Difficulty),
+		"extraData":     hexutil.Bytes(head.Extra),
+		"publicKey":     hexutil.Bytes(head.Publickey),
+		"pointerNumber": head.PointerNumber,
+		"fastNumber":    head.FastNumber,
+		"size":          hexutil.Uint64(b.Size()),
+		"timestamp":     (*hexutil.Big)(head.Time),
 	}
 
 	fs := b.Fruits()
@@ -1088,7 +1087,6 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		"mixHash":         head.MixDigest,
 		"miner":           head.Coinbase,
 		"publicKey":       hexutil.Bytes(head.Publickey),
-		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
 		"size":            fruit.Size(),
