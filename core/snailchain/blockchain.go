@@ -1409,9 +1409,13 @@ func (bc *SnailBlockChain) SubscribeNewFruitEvent(ch chan<- types.NewMinedFruitE
 	return bc.scope.Track(bc.fruitFeed.Subscribe(ch))
 }
 
-func (bc *SnailBlockChain) GetFruitsHash(header *types.SnailHeader, body *types.SnailBody) common.Hash {
+func (bc *SnailBlockChain) GetFruitsHash(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash {
 	if bc.chainConfig.IsTIP5(header.Number) {
-		return types.DeriveSha(types.FruitsHeaders(body.FruitsHeaders()))
+		var headers []*types.SnailHeader
+		for i := 0; i < len(fruits); i++ {
+			headers = append(headers, fruits[i].Header())
+		}
+		return types.DeriveSha(types.FruitsHeaders(types.FruitsHeaders(headers)))
 	}
-	return types.DeriveSha(types.Fruits(body.Fruits))
+	return types.DeriveSha(types.Fruits(fruits))
 }
