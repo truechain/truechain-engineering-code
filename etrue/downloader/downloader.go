@@ -1401,8 +1401,8 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	sblocks := []*types.SnailBlock{}
 	for _, result := range results {
 		block := types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, nil)
-
 		fruitLen := uint64(len(result.Fruits))
+		log.Info("Snail insert downloa", "Number", block.Number(),"fruitLen",fruitLen)
 		if fruitLen > 0 {
 			fbNumber := result.Fruits[0].FastNumber().Uint64()
 			fbLastNumber := result.Fruits[fruitLen-1].FastNumber().Uint64()
