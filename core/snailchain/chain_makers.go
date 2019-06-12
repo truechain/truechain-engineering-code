@@ -351,7 +351,7 @@ func MakeSnailBlockBlockChain(chain *SnailBlockChain, fastchain *core.BlockChain
 	for i := 0; i <= int(chain.CurrentBlock().Number().Uint64()); i++ {
 		pperents = append(pperents, chain.GetBlockByNumber(uint64(i)))
 	}
-	blocks2, _ := MakeSnailBloocks(fastchain, chain, pperents, int64(n), mconfig)
+	blocks2, _ := MakeSnailBlocks(fastchain, chain, pperents, int64(n), mconfig)
 
 	for _, block := range blocks2 {
 		if _, error := chain.InsertChain(types.SnailBlocks{block}); error != nil {
