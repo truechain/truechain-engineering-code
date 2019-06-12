@@ -24,7 +24,6 @@ import (
 func (db *Dashboard) collectFruitpoolData() {
 	defer db.wg.Done()
 	fruitpool := db.etrue.SnailPool()
-	pending, queued := fruitpool.Stats()
 	var (
 		// Metrics for the pending pool
 		fruitPendingDiscardCounter = standardCounterCollector("fruitpool/pending/discard")
@@ -51,7 +50,7 @@ func (db *Dashboard) collectFruitpoolData() {
 			errc <- nil
 			return
 		case <-time.After(db.config.Refresh):
-
+			pending, queued := fruitpool.Stats()
 			ftStatusQueued := &ChartEntry{
 				Value: float64(queued),
 			}
