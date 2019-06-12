@@ -197,8 +197,10 @@ type BlockChain interface {
 
 	FastInsertChain(types.SnailBlocks) (int, error)
 
-
 	HasConfirmedBlock(hash common.Hash, number uint64) bool
+
+	GetFruitsHash(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash
+
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -210,7 +212,7 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 	dl := &Downloader{
 		mode:           mode,
 		stateDB:        stateDb,
-		queue:          newQueue(),
+		queue:          newQueue(chain),
 		peers:          etrue.NewPeerSet(),
 		rttEstimate:    uint64(rttMaxEstimate),
 		rttConfidence:  uint64(1000000),
