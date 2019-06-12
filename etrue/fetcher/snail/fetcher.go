@@ -68,6 +68,9 @@ type chainInsertFn func(types.SnailBlocks) (int, error)
 // peerDropFn is a callback type for dropping a peer detected as malicious.
 type peerDropFn func(id string, call uint32)
 
+// getFruitsHash is a callback type for get fruit hash.
+type getFruitsHash func(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash
+
 // announce is the hash notification of the availability of a new block in the
 // network.
 type announce struct {
@@ -129,12 +132,13 @@ type Fetcher struct {
 	queued map[common.Hash]*inject // Set of already queued blocks (to dedupe imports)
 
 	// Callbacks
-	getBlock       blockRetrievalFn           // Retrieves a block from the local chain
-	verifyHeader   headerVerifierFn           // Checks if a block's headers have a valid proof of work
-	broadcastBlock blockBroadcasterFn         // Broadcasts a block to connected peers
-	chainHeight    chainHeightFn              // Retrieves the current chain's height
-	insertChain    chainInsertFn              // Injects a batch of blocks into the chain
-	dropPeer       peerDropFn                 // Drops a peer for misbehaving
+	getBlock       blockRetrievalFn   // Retrieves a block from the local chain
+	verifyHeader   headerVerifierFn   // Checks if a block's headers have a valid proof of work
+	broadcastBlock blockBroadcasterFn // Broadcasts a block to connected peers
+	chainHeight    chainHeightFn      // Retrieves the current chain's height
+	insertChain    chainInsertFn      // Injects a batch of blocks into the chain
+	dropPeer       peerDropFn         // Drops a peer for misbehaving
+	fruitsHash     getFruitsHash
 	blockMultiHash map[*big.Int][]common.Hash //solve same height more block question
 
 	// Testing hooks
@@ -146,7 +150,7 @@ type Fetcher struct {
 }
 
 // New creates a block fetcher to retrieve blocks based on hash announcements.
-func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastBlock blockBroadcasterFn, chainHeight chainHeightFn, insertChain chainInsertFn, dropPeer peerDropFn) *Fetcher {
+func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastBlock blockBroadcasterFn, chainHeight chainHeightFn, insertChain chainInsertFn, dropPeer peerDropFn, fruitsHash getFruitsHash) *Fetcher {
 	return &Fetcher{
 		notify:         make(chan *announce),
 		inject:         make(chan *inject),
@@ -169,6 +173,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastBloc
 		insertChain:    insertChain,
 		dropPeer:       dropPeer,
 		blockMultiHash: make(map[*big.Int][]common.Hash),
+		fruitsHash:     fruitsHash,
 	}
 }
 
@@ -526,7 +531,7 @@ func (f *Fetcher) loop() {
 
 				for hash, announce := range f.completing {
 					if f.queued[hash] == nil {
-						ftnHash := types.DeriveSha(types.Fruits(task.fruits[i]))
+						ftnHash := f.fruitsHash(announce.header, types.Fruits(task.fruits[i]))
 
 						if ftnHash == announce.header.FruitsHash && announce.origin == task.peer {
 							// Mark the body matched, reassemble if still unknown

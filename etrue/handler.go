@@ -250,9 +250,12 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		atomic.StoreUint32(&manager.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		return manager.snailchain.InsertChain(blocks)
 	}
+	fruitHash := func(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash {
+		return snailchain.GetFruitsHash(header, fruits)
+	}
 
 	manager.fetcherFast = fetcher.New(blockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent, manager.BroadcastPbSign)
-	manager.fetcherSnail = snailfetcher.New(snailchain.GetBlockByHash, snailValidator, manager.BroadcastSnailBlock, snailHeighter, snailInserter, manager.removePeer)
+	manager.fetcherSnail = snailfetcher.New(snailchain.GetBlockByHash, snailValidator, manager.BroadcastSnailBlock, snailHeighter, snailInserter, manager.removePeer, fruitHash)
 
 	return manager, nil
 }
@@ -824,7 +827,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		if len(fruits) > 0 || !filter {
-			log.Debug("SnailBlockBodiesMsg111111","fruits", len(fruits), "filter", filter, "call", request.Call)
+			log.Debug("SnailBlockBodiesMsg111111", "fruits", len(fruits), "filter", filter, "call", request.Call)
 			err := pm.downloader.DeliverBodies(p.id, fruits)
 			if err != nil {
 				log.Debug("Failed to deliver bodies", "err", err)
