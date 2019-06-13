@@ -308,6 +308,9 @@ func (t *udp) checkHostIP(ip string) {
 		case <-t.ticker.C:
 			if strings.Compare(ip, t.host) != 0 {
 				log.Info("Check host ip", "committee ip must be", t.host, "config ip", ip)
+				if addr := t.localNode.PredictAddr(); addr != "" {
+					t.host = addr
+				}
 			}
 		}
 	}

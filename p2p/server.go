@@ -23,12 +23,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/p2p/enr"
-
-	"github.com/ethereum/go-ethereum/rlp"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -473,6 +473,7 @@ func (srv *Server) setupLocalNode() error {
 	srv.ourHandshake = &protoHandshake{Version: baseProtocolVersion, Name: srv.Name, ID: pubkey[1:]}
 	for _, p := range srv.Protocols {
 		srv.ourHandshake.Caps = append(srv.ourHandshake.Caps, p.cap())
+		log.Debug("Setup local node", "cap", p.cap(), "database", srv.Config.NodeDatabase)
 	}
 	sort.Sort(capsByNameAndVersion(srv.ourHandshake.Caps))
 
@@ -639,7 +640,7 @@ func (srv *Server) run(dialstate dialer) {
 		i := 0
 		for ; len(runningTasks) < maxActiveDialTasks && i < len(ts); i++ {
 			t := ts[i]
-			srv.log.Trace("New dial task", "task", t, "ts", len(ts))
+			srv.log.Debug("New dial task", "task", t, "ts", len(ts))
 			go func() { t.Do(srv); taskdone <- t }()
 			runningTasks = append(runningTasks, t)
 		}
@@ -755,6 +756,9 @@ running:
 			// A peer disconnected.
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			pd.log.Debug("Removing p2p peer", "duration", d, "peers", len(peers)-1, "req", pd.requested, "err", pd.err)
+			if pd.err != nil && strings.Contains(pd.err.Error(), blockMismatch) {
+				srv.ntab.Delete(pd.Node())
+			}
 			delete(peers, pd.ID())
 			if pd.Inbound() {
 				inboundCount--
@@ -874,7 +878,7 @@ func (srv *Server) listenLoop() {
 			ip = tcp.IP
 		}
 		fd = newMeteredConn(fd, true, ip)
-		srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr())
+		srv.log.Debug("Accepted connection", "addr", fd.RemoteAddr())
 		go func() {
 			srv.SetupConn(fd, inboundConn, nil)
 			slots <- struct{}{}

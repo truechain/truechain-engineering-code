@@ -247,54 +247,7 @@ func updateLookupTBL(plookupTbl []uint64, heads []common.Hash) []uint64 {
 	ds := updateTBL(offset, skip, plookupTbl)
 	return ds
 }
-func getdataset(pos int) []uint64 {
-	dataset1 := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
 
-	for k := 0; k < TBLSIZE; k++ {
-		for x := 0; x < DATALENGTH*PMTSIZE; x++ {
-			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
-		}
-	}
-	genLookupTable(dataset1[:], table[:])
-	if pos == 0 {
-		makeDatasetHash(dataset1)
-		return dataset1
-	}
-	filename := "d:\\1.txt"
-	aheads := fetchhashfromFile(filename)
-	heads := aheads[:10240]
-	dataset2 := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-	dataset2 = updateLookupTBL(dataset2, heads)
-	makeDatasetHash(dataset2)
-	return dataset2
-}
-
-func TestTrueHash3(t *testing.T) {
-	dataset := getdataset(1)
-	hash := hexutil.MustDecode("0xf99f2b620894fee2d313937eb2492a571df0db77aa48f7f51ec99cd9f96c2a6d")
-	nonce := uint64(11) // mining for windows
-
-	btarget, _ := hexutil.Decode("0x0ccccccccccccccccccccccccccccccc")
-	target := new(big.Int).SetBytes(btarget)
-
-	for {
-		_, result := truehashLight(dataset, hash, nonce)
-		headResult := result[:16]
-		if new(big.Int).SetBytes(headResult).Cmp(target) <= 0 {
-			// get block
-			break
-
-		} else {
-			lastResult := result[16:]
-			if new(big.Int).SetBytes(lastResult).Cmp(target) <= 0 {
-				break
-			}
-		}
-		nonce++
-	}
-
-}
 func TestTrueHash2(t *testing.T) {
 	makeTestsha256()
 	makeTestSha3()

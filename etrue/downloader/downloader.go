@@ -101,10 +101,10 @@ type Downloader struct {
 	mode SyncMode // Synchronisation mode defining the strategy used (per sync cycle)
 
 	checkpoint uint64         // Checkpoint block number to enforce head against (e.g. fast sync
-	genesis    uint64         // Genesis block number to limit sync to (e.g. light client CHT)
-	queue      *queue         // Scheduler for selecting the hashes to download
-	peers      *etrue.PeerSet // Set of active peers from which download can proceed
-	stateDB    etruedb.Database
+	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
+	queue   *queue         // Scheduler for selecting the hashes to download
+	peers   *etrue.PeerSet // Set of active peers from which download can proceed
+	stateDB etruedb.Database
 
 	rttEstimate   uint64 // Round trip time to target for download requests
 	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)
@@ -197,7 +197,13 @@ type BlockChain interface {
 	// InsertChain inserts a batch of blocks into the local chain.
 	InsertChain(types.SnailBlocks) (int, error)
 
+
+	FastInsertChain(types.SnailBlocks) (int, error)
+
 	HasConfirmedBlock(hash common.Hash, number uint64) bool
+
+	GetFruitsHash(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash
+
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -210,7 +216,7 @@ func New(mode SyncMode, checkpoint uint64, stateDb etruedb.Database, mux *event.
 		mode:           mode,
 		stateDB:        stateDb,
 		checkpoint:     checkpoint,
-		queue:          newQueue(),
+		queue:          newQueue(chain),
 		peers:          etrue.NewPeerSet(),
 		rttEstimate:    uint64(rttMaxEstimate),
 		rttConfidence:  uint64(1000000),
@@ -882,7 +888,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 			if skeleton {
 				filled, proced, err := d.fillHeaderSkeleton(from, headers)
 				if err != nil {
-					p.GetLog().Debug("Skeleton chain invalid", "err", err)
+					p.GetLog().Warn("Skeleton chain invalid", "err", err)
 					return errInvalidChain
 				}
 				headers = filled[proced:]
@@ -1273,7 +1279,8 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				// R: Nothing to give
 
 				head := d.blockchain.CurrentBlock()
-				if !gotHeaders && td.Cmp(d.blockchain.GetTd(head.Hash(), head.NumberU64())) > 0 {
+				ptd := d.blockchain.GetTd(head.Hash(), head.NumberU64())
+				if !gotHeaders && td.Cmp(ptd) > 0 {
 					return errStallingPeer
 				}
 
@@ -1339,7 +1346,6 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 
 	var (
 		stateSync *stateSync
-		oldPivot  *types.Block // Locked in pivot block, might change eventually
 	)
 
 	if d.mode == FastSync || d.mode == SnapShotSync {
@@ -1355,15 +1361,11 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 
 	for {
 
-		results := d.queue.Results(d.mode == FullSync || oldPivot == nil)
+		results := d.queue.Results(d.mode == FullSync)
 		if d.mode == FullSync && len(results) == 0 {
 			return nil
 		}
 		if d.mode == FastSync && len(results) == 0 {
-			// If pivot sync is done, stop
-			if oldPivot == nil {
-				return stateSync.Cancel()
-			}
 			// If sync failed, stop
 			select {
 			case <-d.cancelCh:
@@ -1400,7 +1402,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	sblocks := []*types.SnailBlock{}
 	for _, result := range results {
 		block := types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, nil)
-
 		fruitLen := uint64(len(result.Fruits))
 		if fruitLen > 0 {
 			fbNumber := result.Fruits[0].FastNumber().Uint64()
@@ -1419,14 +1420,20 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		for i := 0; i < txLen; {
 			i = i + maxSize
 			if i <= txLen {
-				d.importBlockAndSyncFast(sblocks[:maxSize], p, hash)
+				if err := d.importBlockAndSyncFast(sblocks[:maxSize], p, hash); err!=nil{
+					return err
+				}
 				sblocks = append(sblocks[:0], sblocks[maxSize:]...)
 			} else {
-				d.importBlockAndSyncFast(sblocks[:txLen%maxSize], p, hash)
+				if err := d.importBlockAndSyncFast(sblocks[:txLen%maxSize], p, hash); err != nil{
+					return err
+				}
 			}
 		}
 	} else if len(sblocks) > 0 {
-		d.importBlockAndSyncFast(sblocks, p, hash)
+		if err := d.importBlockAndSyncFast(sblocks, p, hash);err !=nil{
+			return err
+		}
 	}
 
 	return nil
@@ -1443,7 +1450,17 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 	if err := d.SyncFast(p.GetID(), hash, fbLastNumber, d.mode); err != nil {
 		return err
 	}
-	log.Info("Insert snail blocks", "blocks", len(blocks), "fbLastNumber", fbLastNumber, "first", firstB.Number(), "last", result.Number())
+	if d.mode == FastSync || d.mode == SnapShotSync {
+		if index, err := d.blockchain.FastInsertChain(blocks); err != nil {
+			log.Error("Snail Fastdownloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
+			if err == types.ErrSnailHeightNotYet {
+				return err
+			}
+			return errInvalidChain
+		}
+		return nil
+	}
+
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Error("Snail downloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
 		if err == types.ErrSnailHeightNotYet {

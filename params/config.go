@@ -30,8 +30,8 @@ var (
 	MainnetGenesisHash      = common.HexToHash("0x0c6e644fcbd396f7b235ecef44551c45afd9274e87cd77ec6e9778cf8bfb46fc")
 	MainnetSnailGenesisHash = common.HexToHash("0xf82fd9c0c8a53474c9e40e4f1c0583a94609eaf88dae01a5496da459398485c6")
 
-	TestnetGenesisHash      = common.HexToHash("0x8559a3cad3e5702fe057fe6709234183140537504f2167338a7d851f4426c2b6")
-	TestnetSnailGenesisHash = common.HexToHash("0x386389953605bf5fae7296a0523dd02b8a28c2bbbbd5c8a8f395319cbb938b74")
+	TestnetGenesisHash      = common.HexToHash("0x4b82a68ebbf32f2e816754f2b50eda0ae2c0a71dd5f4e0ecd93ccbfb7dba00b8")
+	TestnetSnailGenesisHash = common.HexToHash("0x4ab1748c057b744de202d6ebea64e8d3a0b2ec4c19abbc59e8639967b14b7c96")
 )
 
 // TrustedCheckpoints associates each known checkpoint with the genesis hash of
@@ -50,6 +50,8 @@ var (
 			MinimumFruitDifficulty: big.NewInt(262144),
 			DurationLimit:          big.NewInt(600),
 		}),
+		TIP3: &BlockConfig{},
+		TIP5: nil,
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
@@ -69,7 +71,8 @@ var (
 			MinimumFruitDifficulty: big.NewInt(200),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP12Block: big.NewInt(306346),
+		TIP3: &BlockConfig{FastNumber: big.NewInt(306346)},
+		TIP5: nil,
 	}
 
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
@@ -89,16 +92,19 @@ var (
 			MinimumFruitDifficulty: big.NewInt(100),
 			DurationLimit:          big.NewInt(150),
 		}),
+		TIP3: &BlockConfig{},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(4825)},
 	}
 
+	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{big.NewInt(1337), new(MinervaConfig), big.NewInt(0)}
+	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, big.NewInt(0)}
+	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil}
 )
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
@@ -125,7 +131,14 @@ type ChainConfig struct {
 	Minerva *MinervaConfig `json:"minerva"`
 	//Clique *CliqueConfig  `json:"clique,omitempty"`
 
-	TIP12Block *big.Int
+	TIP3 *BlockConfig `json:"tip3"`
+
+	TIP5 *BlockConfig `json:"tip5"`
+}
+
+type BlockConfig struct {
+	FastNumber  *big.Int
+	SnailNumber *big.Int
 }
 
 func (c *ChainConfig) UnmarshalJSON(input []byte) error {
@@ -218,8 +231,8 @@ func (c *ChainConfig) String() string {
 	switch {
 	case c.Minerva != nil:
 		engine = c.Minerva
-	// case c.Clique != nil:
-	// 	engine = c.Clique
+		// case c.Clique != nil:
+		// 	engine = c.Clique
 	default:
 		engine = "unknown"
 	}
@@ -321,7 +334,7 @@ func (err *ConfigCompatError) Error() string {
 // phases.
 type Rules struct {
 	ChainID *big.Int
-	IsTIP12 bool
+	IsTIP3  bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -332,8 +345,16 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	}
 	return Rules{
 		ChainID: new(big.Int).Set(chainID),
-		IsTIP12: c.IsTIP12(num),
+		IsTIP3:  c.IsTIP3(num),
 	}
+}
+
+// IsTIP3 returns whether num is either equal to the IsTIP3 fork block or greater.
+func (c *ChainConfig) IsTIP3(num *big.Int) bool {
+	if c.TIP3 == nil {
+		return false
+	}
+	return isForked(c.TIP3.FastNumber, num)
 }
 
 // IsTIP12 returns whether num is either equal to the TIP12 fork block or greater.

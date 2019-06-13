@@ -17,6 +17,7 @@
 package miner
 
 import (
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -132,10 +133,12 @@ func (a *RemoteAgent) GetWork() ([4]string, error) {
 
 	if a.currentWork != nil {
 		block := a.currentWork.Block
+		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
 		block.Number()
 		res[0] = block.HashNoNonce().Hex()
-		DatasetHash := a.engine.DataSetHash(block.NumberU64())
-		res[1] = "0x" + hex.EncodeToString(DatasetHash)
+		//DatasetHash := a.engine.DataSetHash(block.NumberU64())
+		//res[1] = "0x" + hex.EncodeToString(DatasetHash)
+		res[1] = a.engine.DataSetHash(epoch)
 		// Calculate the "target" to be returned to the external miner
 		block.Fruits()
 		if block.IsFruit() {
@@ -257,11 +260,12 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH]string, error) {
 
 	//var res [DATASETHEADLENGH][]byte
 	var res [DATASETHEADLENGH]string
+
 	if a.currentWork != nil {
 		block := a.currentWork.Block
 		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
 		if epoch == 0 {
-			return res, nil
+			return res, errors.New("the epoch is zore not need dataset")
 		}
 		st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
 
@@ -275,6 +279,55 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH]string, error) {
 		}
 		return res, nil
 	}
+
+	return res, errors.New("No work available yet, Don't panic.")
+}
+
+//GetWork return the current block hash without nonce
+func (a *RemoteAgent) GetDatasetBySeedHash(seedHash string) ([DATASETHEADLENGH]string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	//var res [DATASETHEADLENGH][]byte
+	var res [DATASETHEADLENGH]string
+
+	if a.currentWork != nil {
+		var seed1, seed2 string
+		var tarepoch uint64
+		block := a.currentWork.Block
+		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
+		if epoch == 0 {
+			return res, errors.New("the epoch is zore not need dataset")
+		}
+		// only return the current dataset or befor one if epch>=2
+		if epoch >= 2 {
+			seed1 = a.engine.DataSetHash(epoch)
+			seed2 = a.engine.DataSetHash(epoch - 1)
+		} else {
+			seed1 = a.engine.DataSetHash(epoch)
+		}
+
+		if strings.Compare(seedHash, seed1) == 0 {
+			tarepoch = epoch
+		} else if strings.Compare(seedHash, seed2) == 0 {
+			tarepoch = epoch - 1
+		} else {
+			return res, errors.New("GetDataset get heard fial")
+		}
+
+		st_block_num := uint64((tarepoch-1)*UPDATABLOCKLENGTH + 1)
+
+		for i := 0; i < DATASETHEADLENGH; i++ {
+			header := a.snailchain.GetHeaderByNumber(uint64(i) + st_block_num)
+			if header == nil {
+				log.Error("header is nill  ", "blockNum is:  ", (uint64(i) + st_block_num))
+				return res, errors.New("GetDataset get heard fial")
+			}
+			res[i] = "0x" + hex.EncodeToString(header.Hash().Bytes()[:16])
+		}
+		return res, nil
+	}
+
 	return res, errors.New("No work available yet, Don't panic.")
 }
 

@@ -72,12 +72,14 @@ type queue struct {
 	lock   *sync.Mutex
 	active *sync.Cond
 	closed bool
+	blockchain BlockChain
 }
 
 // newQueue creates a new download queue for scheduling block retrieval.
-func newQueue() *queue {
+func newQueue(chain BlockChain) *queue {
 	lock := new(sync.Mutex)
 	return &queue{
+		blockchain:chain,
 		headerPendPool: make(map[string]*etrue.FetchRequest),
 		headerContCh:   make(chan bool),
 		blockTaskPool:  make(map[common.Hash]*types.SnailHeader),
@@ -383,7 +385,7 @@ func (q *queue) ReserveHeaders(p etrue.PeerConnection, count int) *etrue.FetchRe
 // returns a flag whether empty blocks were queued requiring processing.
 func (q *queue) ReserveBodies(p etrue.PeerConnection, count int) (*etrue.FetchRequest, bool, error) {
 	isNoop := func(header *types.SnailHeader) bool {
-		return header.FruitsHash == types.EmptyRootHash
+		return false
 	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -660,7 +662,7 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-		if types.DeriveSha(types.Fruits(fruitsLists[index])) != header.FruitsHash {
+		if 	q.blockchain.GetFruitsHash(header,fruitsLists[index]) != header.FruitsHash {
 			return errInvalidChain
 		}
 		result.Fruits = fruitsLists[index]

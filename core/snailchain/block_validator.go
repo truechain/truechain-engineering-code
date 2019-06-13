@@ -27,6 +27,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
+	"sync"
 )
 
 var (
@@ -89,18 +90,12 @@ func (v *BlockValidator) ValidateRewarded(number uint64) error {
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
-func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
+func (v *BlockValidator) ValidateBody(block *types.SnailBlock, verifyFruits bool) error {
 	// Check whether the block's known, and if not, that it's linkable.
 	if v.bc.IsCanonicalBlock(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
 	}
 
-	if !v.bc.IsCanonicalBlock(block.ParentHash(), block.NumberU64()-1) {
-		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
-			return consensus.ErrUnknownAncestor
-		}
-		return consensus.ErrPrunedAncestor
-	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
 
@@ -137,24 +132,41 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		log.Info("ValidateBody snail validate time gap error", "block", block.Number(), "first fb number", minfb.Number, "first fb time", minfb.Time, "last fb number", maxfb.Number, "last fb time", maxfb.Time, "tim gap", gap)
 		return ErrGapFruits
 	}
+	var wg sync.WaitGroup
+	ch := make(chan error, len(fruits))
 	for _, fruit := range fruits {
 		if fruit.FastNumber().Uint64()-temp != 1 {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "first", fruits[0].FastNumber(), "count", len(fruits),
 				"fruit", fruit.FastNumber(), "pre", temp)
 			return ErrInvalidFruits
 		}
-		if err := v.ValidateFruit(fruit, block, false); err != nil {
+		wg.Add(1)
+		go v.parallelValidateFruit(fruit, block, &wg, ch, verifyFruits)
+		/*if err := v.ValidateFruit(fruit, block, false); err != nil {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "hash", fruit.FastHash(), "err", err)
 			return err
-		}
+		}*/
 
 		temp = fruit.FastNumber().Uint64()
 	}
+	wg.Wait()
+	for i := 0; i < len(ch); i++ {
+		if err := <-ch; err != nil {
+			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "err", err)
+			return err
+		}
+	}
 
-	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
+	if hash := v.bc.GetFruitsHash(header, block.Fruits()); hash != header.FruitsHash {
 		return fmt.Errorf("fruits hash mismatch: have %x, want %x", hash, header.FruitsHash)
 	}
 
+	if !v.bc.IsCanonicalBlock(block.ParentHash(), block.NumberU64()-1) {
+		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
+			return consensus.ErrUnknownAncestor
+		}
+		return consensus.ErrPrunedAncestor
+	}
 	log.Info("Validate new snail body", "block", block.Number(), "hash", block.Hash(), "fruits", header.FruitsHash, "first", fruits[0].FastNumber(), "count", len(fruits))
 	return nil
 }
@@ -216,4 +228,78 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	}
 
 	return nil
+}
+
+//parallelValidateFruit is parallel to verify if the fruit is legal
+func (v *BlockValidator) parallelValidateFruit(fruit, block *types.SnailBlock, wg *sync.WaitGroup, ch chan error, verifyFruits bool) {
+	defer wg.Done()
+	if !verifyFruits {
+		//check integrity
+		getSignHash := types.CalcSignHash(fruit.Signs())
+		if fruit.Header().SignHash != getSignHash {
+			log.Info("parallelValidateFruit sign hash failed.", "number", fruit.FastNumber(), "hash", fruit.Hash())
+			ch <- ErrInvalidSignHash
+			return
+		}
+		ch <- nil
+		return
+	}
+
+	//check number(fb)
+	//
+	currentNumber := v.fastchain.CurrentHeader().Number
+	if fruit.FastNumber().Cmp(currentNumber) > 0 {
+		log.Warn("parallelValidateFruit", "currentHeaderNumber", v.fastchain.CurrentHeader().Number, "currentBlockNumber", v.fastchain.CurrentBlock().Number())
+		ch <- consensus.ErrFutureBlock
+		return
+	}
+
+	fb := v.fastchain.GetHeader(fruit.FastHash(), fruit.FastNumber().Uint64())
+	if fb == nil {
+		ch <- ErrInvalidFast
+		return
+	}
+
+	//check fruit's time
+	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 {
+		log.Info("parallelValidateFruit fruit time failed.", "number", fruit.FastNumber(), "hash", fruit.Hash())
+		ch <- ErrFruitTime
+		return
+	}
+
+	//check integrity
+	getSignHash := types.CalcSignHash(fruit.Signs())
+	if fruit.Header().SignHash != getSignHash {
+		log.Info("parallelValidateFruit sign hash failed.", "number", fruit.FastNumber(), "hash", fruit.Hash())
+		ch <- ErrInvalidSignHash
+		return
+	}
+
+	// check freshness
+	var blockHeader *types.SnailHeader
+	if block != nil {
+		blockHeader = block.Header()
+	}
+	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), blockHeader, false)
+	if err != nil {
+		log.Debug("parallelValidateFruit verify freshness error.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "err", err)
+		ch <- err
+		return
+	}
+
+	header := fruit.Header()
+	if err := v.engine.VerifySnailHeader(v.bc, v.fastchain, header, true, true); err != nil {
+		log.Info("parallelValidateFruit VerifySnailHeader failed.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "err", err)
+		ch <- err
+		return
+	}
+
+	// validate the signatures of this fruit
+	if err := v.engine.VerifySigns(fruit.FastNumber(), fruit.FastHash(), fruit.Signs()); err != nil {
+		log.Info("parallelValidateFruit VerifySigns failed.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "err", err)
+		ch <- err
+		return
+	}
+
+	ch <- nil
 }

@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -43,8 +44,9 @@ func TestValidateBody(t *testing.T) {
 			name: "valid",
 			fn: func() error {
 				snail, fast, block := makeChain(1, 0)
+				t.Log("---the block info", "number", block.Number(), "hash", block.Hash())
 				validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
-				return validator.ValidateBody(block)
+				return validator.ValidateBody(block, true)
 			},
 			wantErr: nil,
 		},
@@ -53,7 +55,7 @@ func TestValidateBody(t *testing.T) {
 			fn: func() error {
 				snail, fast, _ := makeChain(1, 0)
 				validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
-				return validator.ValidateBody(validator.bc.CurrentBlock())
+				return validator.ValidateBody(validator.bc.CurrentBlock(), true)
 			},
 			wantErr: ErrKnownBlock,
 		},
@@ -102,7 +104,31 @@ func makeChain(n int, i int) (*SnailBlockChain, *core.BlockChain, *types.SnailBl
 	snailGenesis := genesis.MustSnailCommit(testdb)
 	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, fastchain)
 
-	blocks1, err := MakeSnailBlockFruitsWithoutInsert(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
+	if _, error := snailChain.InsertChain(types.SnailBlocks{snailGenesis}); error != nil {
+		panic(error)
+	}
+
+	mconfig := MakechianConfig{
+		FruitNumber:     uint64(params.MinimumFruits),
+		FruitFresh:      int64(7),
+		DifficultyLevel: 1,
+	}
+	var pperents []*types.SnailBlock
+
+	fmt.Println("the log is", "snailChain.CurrentBlock().Number()", snailChain.CurrentBlock().Number())
+
+	for i := 0; i <= int(snailChain.CurrentBlock().Number().Uint64()); i++ {
+		pperents = append(pperents, snailChain.GetBlockByNumber(uint64(i)))
+	}
+	//blocks1, err := MakeSnailBloocks(fastchain, snailChain, pperents, int64(n), mconfig)
+	start := uint64(n)
+	if snailChain.CurrentBlock().Number().Uint64() > uint64(n) {
+		start = snailChain.CurrentBlock().Number().Uint64() + uint64(1)
+	}
+	block, err := makeSnailBlock(fastchain, snailChain, start, snailChain.CurrentBlock(), pperents, mconfig)
+
+	//blocks1, err := MakeSnailBlockFruitsWithoutInsert(snailChain, fastchain, n, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
+
 	if err != nil {
 		return nil, nil, nil
 	}
@@ -110,7 +136,7 @@ func makeChain(n int, i int) (*SnailBlockChain, *core.BlockChain, *types.SnailBl
 
 	//InsertChain(blocks)
 
-	return snailChain, fastchain, blocks1[i]
+	return snailChain, fastchain, block
 }
 
 func makeSnail(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailBlock {

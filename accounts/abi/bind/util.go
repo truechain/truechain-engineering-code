@@ -18,12 +18,10 @@ package bind
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // WaitMined waits for tx to be mined on the blockchain.
@@ -54,7 +52,7 @@ func WaitMined(ctx context.Context, b DeployBackend, tx *types.Transaction) (*ty
 
 // WaitDeployed waits for a contract deployment transaction and returns the on-chain
 // contract address when it is mined. It stops waiting when ctx is canceled.
-func WaitDeployed(ctx context.Context, b DeployBackend, tx *types.Transaction) (common.Address, error) {
+/*func WaitDeployed(ctx context.Context, b DeployBackend, tx *types.Transaction) (common.Address, error) {
 	if tx.To() != nil {
 		return common.Address{}, fmt.Errorf("tx is not contract creation")
 	}
@@ -73,4 +71,4 @@ func WaitDeployed(ctx context.Context, b DeployBackend, tx *types.Transaction) (
 		err = ErrNoCodeAfterDeploy
 	}
 	return receipt.ContractAddress, err
-}
+}*/

@@ -189,7 +189,7 @@ func checkResult(end chan<- int, out <-chan *ttypes.SwitchValidator) {
 }
 
 func TestWatch2(t *testing.T) {
-	log.OpenLogDebug(3)
+	//log.OpenLogDebug(3)
 	help.BeginWatchMgr()
 	defer help.EndWatchMgr()
 	defer fmt.Println("End WatchMgr...")
@@ -199,7 +199,7 @@ func TestWatch2(t *testing.T) {
 	normal := func() {
 		wg.Add(1)
 		ws := make([]*help.TWatch, 0, 0)
-		for i := 0; i < 20000; i++ {
+		for i := 0; i < 200; i++ {
 			w := help.NewTWatch(2, fmt.Sprintf("normal,index:%d", i))
 			ws = append(ws, w)
 		}
@@ -216,7 +216,7 @@ func TestWatch2(t *testing.T) {
 
 	wg.Wait()
 
-	<-time.After(130 * time.Second)
+	<-time.After(70 * time.Second)
 	fmt.Println("cur watchs count", help.WatchsCountInMgr())
 }
 

@@ -220,7 +220,7 @@ func TestLastBlock(t *testing.T) {
 	}
 	defer blockchain.Stop()
 
-	chain, _ := MakeSnailChain(1, core.DefaultGenesisBlock(), engine)
+	chain, _ := MakeSnailChain(5, core.DefaultGenesisBlock(), engine)
 	blocks := chain.GetBlocksFromNumber(1)
 	defer chain.Stop()
 	for _, block := range blocks {
@@ -477,10 +477,12 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	want := new(big.Int).Add(blockchain.genesisBlock.Difficulty(), big.NewInt(td))
 	if full {
 		if have := blockchain.GetTdByHash(blockchain.CurrentBlock().Hash()); have.Cmp(want) != 0 {
+			log.Info("CurrentBlock", "blockchain.genesisBlock.Difficulty()", blockchain.genesisBlock.Difficulty(), "td", td, "want", want, "have", have)
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
 		}
 	} else {
 		if have := blockchain.GetTdByHash(blockchain.CurrentHeader().Hash()); have.Cmp(want) != 0 {
+			log.Info("CurrentHeader", "blockchain.genesisBlock.Difficulty()", blockchain.genesisBlock.Difficulty(), "td", td, "want", want, "have", have)
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
 		}
 	}

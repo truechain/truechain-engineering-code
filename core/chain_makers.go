@@ -42,6 +42,7 @@ type BlockGen struct {
 	txs      []*types.Transaction
 	receipts []*types.Receipt
 	uncles   []*types.Header
+	feeAmout *big.Int
 
 	config *params.ChainConfig
 	engine consensus.Engine
@@ -102,6 +103,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
+	b.feeAmout  =feeAmount
 }
 
 // Number returns the block number of the block being generated.
@@ -171,6 +173,10 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	if config == nil {
 		config = params.TestChainConfig
 	}
+
+	if n <= 0 {
+		return nil,nil
+	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	chainreader := &fakeChainReader{config: config}
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
@@ -182,7 +188,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		if b.engine != nil {
-			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, new(big.Int))
+			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, b.feeAmout)
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
 			block.SetSign(sign)
@@ -207,6 +213,62 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		blocks[i] = block
 		receipts[i] = receipt
 		parent = block
+	}
+	return blocks, receipts
+}
+
+func GenerateChainWithReward(config *params.ChainConfig, parent *types.Block, rewardSnailBlock *types.SnailBlock, engine consensus.Engine, db etruedb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
+	if config == nil {
+		config = params.TestChainConfig
+	}
+	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
+	chainreader := &fakeChainReader{config: config}
+	genblock := func(i int, parent *types.Block, statedb *state.StateDB, rewardBlock *types.SnailBlock) (*types.Block, types.Receipts) {
+		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
+		b.header = makeHeader(chainreader, parent, statedb, b.engine)
+		if rewardBlock != nil {
+			b.header.SnailNumber = rewardBlock.Number()
+			b.header.SnailHash = rewardBlock.Hash()
+		}
+		// Execute any user modifications to the block and finalize it
+		if gen != nil {
+			gen(i, b)
+		}
+
+		if b.engine != nil {
+			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, new(big.Int))
+
+			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
+			block.SetSign(sign)
+			// Write state changes to db
+			root, err := statedb.Commit(true)
+			if err != nil {
+				panic(fmt.Sprintf("state write error: %v", err))
+			}
+			if err := statedb.Database().TrieDB().Commit(root, false); err != nil {
+				panic(fmt.Sprintf("trie write error: %v", err))
+			}
+			return block, b.receipts
+		}
+		return nil, nil
+	}
+
+	for i := 0; i < n; i++ {
+		statedb, err := state.New(parent.Root(), state.NewDatabase(db))
+		if err != nil {
+			panic(err)
+		}
+		if i == 0 {
+			block, receipt := genblock(i, parent, statedb, rewardSnailBlock)
+			blocks[i] = block
+			receipts[i] = receipt
+			parent = block
+		} else {
+			block, receipt := genblock(i, parent, statedb, nil)
+			blocks[i] = block
+			receipts[i] = receipt
+			parent = block
+		}
 	}
 	return blocks, receipts
 }
@@ -264,11 +326,11 @@ func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header      
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
 func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }
 
-
 func NewCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *BlockChain, error) {
-	db,blockchain,err := newCanonical(engine, n, full)
-	return db,blockchain,err
+	db, blockchain, err := newCanonical(engine, n, full)
+	return db, blockchain, err
 }
+
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.

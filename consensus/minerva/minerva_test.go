@@ -27,20 +27,26 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 )
 
 // Tests that minerva works correctly in test mode
 func TestTestMode(t *testing.T) {
-	header := &types.SnailHeader{Number: big.NewInt(1), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(3), FastNumber: big.NewInt(2)}
+	header := &types.SnailHeader{Number: big.NewInt(1), Difficulty: params.MinimumFruitDifficulty /*big.NewInt(150)*/, FruitDifficulty: params.MinimumFruitDifficulty /*big.NewInt(3)*/, FastNumber: big.NewInt(2)}
 	minerva := NewTester()
 	results := make(chan *types.SnailBlock)
 
 	block := types.NewSnailBlockWithHeader(header)
-
+	block.SetSnailBlockSigns(nil)
 	go minerva.ConSeal(nil, block, nil, results)
 
-	isFruit := block.IsFruit()
+	var isFruit bool
+	if len(block.Fruits()) > 0 {
+		isFruit = false
+	} else {
+		isFruit = true
+	}
 
 	select {
 	case block := <-results:
@@ -65,7 +71,7 @@ func TestCacheFileEvict(t *testing.T) {
 	e := New(Config{CachesInMem: 3, CachesOnDisk: 10, CacheDir: tmpdir, PowMode: ModeTest})
 
 	workers := 8
-	epochs := 100
+	epochs := 0
 	var wg sync.WaitGroup
 	wg.Add(workers)
 	for i := 0; i < workers; i++ {
@@ -82,10 +88,10 @@ func verifyTest(wg *sync.WaitGroup, e *Minerva, workerIndex, epochs int) {
 	for epoch := 0; epoch < epochs; epoch++ {
 		block := int64(epoch)*epochLength - wiggle/2 + r.Int63n(wiggle)
 		if block < 0 {
-			block = 0
+			block = 1
 		}
 		head := &types.SnailHeader{Number: big.NewInt(block), Difficulty: big.NewInt(180), FruitDifficulty: big.NewInt(100)}
-		e.VerifySnailSeal(nil, head, false)
+		e.VerifySnailSeal(nil, head, true)
 	}
 }
 

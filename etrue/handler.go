@@ -258,9 +258,12 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		atomic.StoreUint32(&manager.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		return manager.snailchain.InsertChain(blocks)
 	}
+	fruitHash := func(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash {
+		return snailchain.GetFruitsHash(header, fruits)
+	}
 
 	manager.fetcherFast = fetcher.New(blockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent, manager.BroadcastPbSign)
-	manager.fetcherSnail = snailfetcher.New(snailchain.GetBlockByHash, snailValidator, manager.BroadcastSnailBlock, snailHeighter, snailInserter, manager.removePeer)
+	manager.fetcherSnail = snailfetcher.New(snailchain.GetBlockByHash, snailValidator, manager.BroadcastSnailBlock, snailHeighter, snailInserter, manager.removePeer, fruitHash)
 
 	return manager, nil
 }
@@ -398,17 +401,28 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		fastHead = pm.blockchain.CurrentHeader()
 		fastHash = fastHead.Hash()
 
-		genesis    = pm.snailchain.Genesis()
-		head       = pm.snailchain.CurrentHeader()
-		hash       = head.Hash()
-		number     = head.Number.Uint64()
-		td         = pm.snailchain.GetTd(hash, number)
-		fastHeight = pm.blockchain.CurrentBlock().Number()
+		genesis      = pm.snailchain.Genesis()
+		head         = pm.snailchain.CurrentHeader()
+		hash         = head.Hash()
+		number       = head.Number.Uint64()
+		td           = pm.snailchain.GetTd(hash, number)
+		fastHeight   = pm.blockchain.CurrentBlock().Number()
+		gcHeight     = pm.blockchain.CurrentGcHeight()
+		commitHeight = pm.blockchain.CurrentCommitHeight()
 	)
-	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastHeight); err != nil {
-		p.Log().Debug("Truechain handshake failed", "err", err)
-		return err
+
+	if p.version >= etrue64 {
+		if err := p.SnapHandshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastHeight, gcHeight, commitHeight); err != nil {
+			p.Log().Debug("Truechain handshake failed", "err", err)
+			return err
+		}
+	} else {
+		if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastHeight); err != nil {
+			p.Log().Debug("Truechain handshake failed", "err", err)
+			return err
+		}
 	}
+
 	if !resolveVersionFromName(p.Name()) {
 		p.Log().Info("Peer connected failed,version not match", "name", p.Name())
 		return fmt.Errorf("version not match,name:%v", p.Name())

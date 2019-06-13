@@ -89,6 +89,7 @@ type discoverTable interface {
 	Resolve(*enode.Node) *enode.Node
 	LookupRandom() []*enode.Node
 	ReadRandomNodes([]*enode.Node) int
+	Delete(node *enode.Node)
 }
 
 // the dial history remembers recent dials.
@@ -221,7 +222,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 	randomCandidates := needDynDials / 2
 	if randomCandidates > 0 {
 		n := s.ntab.ReadRandomNodes(s.randomNodes)
-		log.Debug("New tasks random candidates", "n", n, "randomNodes", len(s.randomNodes), "randomCandidates", randomCandidates)
+		log.Debug("New tasks random candidates", "context", fmt.Sprintf("n %d randomNodes %d  randomCandidates %d lookupRunning %t randomNodes %v", n, len(s.randomNodes), randomCandidates, s.lookupRunning, s.randomNodes))
 		for i := 0; i < randomCandidates && i < n; i++ {
 			if addDial(dynDialedConn, s.randomNodes[i]) {
 				needDynDials--
@@ -236,13 +237,14 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 			needDynDials--
 		}
 	}
+	log.Trace("New tasks lookupBuf", "context", fmt.Sprintf("lookupBuf %d i %d  dialing %d randomNodes %v ", len(s.lookupBuf), i, len(s.dialing), s.randomNodes))
 	s.lookupBuf = s.lookupBuf[:copy(s.lookupBuf, s.lookupBuf[i:])]
 	// Launch a discovery lookup if more candidates are needed.
 	if len(s.lookupBuf) < needDynDials && !s.lookupRunning {
 		s.lookupRunning = true
 		newtasks = append(newtasks, &discoverTask{})
 	}
-	log.Debug("New tasks discover", "newtasks", len(newtasks), "i", i, "lookupBuf", len(s.lookupBuf), "needDynDials", needDynDials)
+	log.Debug("New tasks discover", "context", fmt.Sprintf("newtasks %d i %d lookupBuf %d needDynDials %d ", len(newtasks), i, len(s.lookupBuf), needDynDials))
 	// Launch a timer to wait for the next node to expire if all
 	// candidates have been tried and no task is currently active.
 	// This should prevent cases where the dialer logic is not ticked
@@ -283,12 +285,12 @@ func (s *dialstate) taskDone(t task, now time.Time) {
 	switch t := t.(type) {
 	case *dialTask:
 		s.hist.add(t.dest.ID(), now.Add(dialHistoryExpiration))
-		log.Trace("Dial task done", "flag", t.flags, "ip", t.dest.IP, "id", t.dest.ID())
+		log.Debug("Dial task done", "flag", t.flags, "ip", t.dest.IP, "id", t.dest.ID())
 		delete(s.dialing, t.dest.ID())
 	case *discoverTask:
 		s.lookupRunning = false
 		s.lookupBuf = append(s.lookupBuf, t.results...)
-		log.Trace("Dial task done", "results", t.results, "lookupBuf", s.lookupBuf)
+		log.Debug("Dial task done", "results", t.results, "lookupBuf", s.lookupBuf)
 	}
 }
 
@@ -360,7 +362,7 @@ func (t *dialTask) dial(srv *Server, dest *enode.Node) error {
 
 func (t *dialTask) String() string {
 	id := t.dest.ID()
-	return fmt.Sprintf("%v %x %v:%d", t.flags, id[:8], t.dest.IP(), t.dest.TCP())
+	return fmt.Sprintf("%v %s %v:%d", t.flags, id.String(), t.dest.IP(), t.dest.TCP())
 }
 
 func (t *discoverTask) Do(srv *Server) {

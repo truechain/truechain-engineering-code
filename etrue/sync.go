@@ -305,6 +305,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
 			}
+			atomic.StoreUint32(&pm.fastSync, 0)
+			atomic.StoreUint32(&pm.snapSync, 0)
 			atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
 			atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		}
@@ -356,14 +358,13 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 
-	if atomic.LoadUint32(&pm.fastSync) == 1 {
+	if atomic.LoadUint32(&pm.fastSync) == 1 ||  atomic.LoadUint32(&pm.snapSync) == 1 {
 		if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
 			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.FastSync); err != nil {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
 			}
 		}
-
 	}
 
 	atomic.StoreUint32(&pm.fastSync, 0)

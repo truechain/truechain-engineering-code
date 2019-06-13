@@ -27,6 +27,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -647,6 +648,7 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 	fmacseed := rw.egressMAC.Sum(nil)
 	mac := updateMAC(rw.egressMAC, rw.macCipher, fmacseed)
 	_, err := rw.conn.Write(mac)
+	log.Trace("RLPX write msg", "code", msg.Code, "size", msg.Size, "snappy", rw.snappy, "ptype", len(ptype), "mac", len(mac), "fmacseed", len(fmacseed))
 	return err
 }
 

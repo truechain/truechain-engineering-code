@@ -157,6 +157,19 @@ type statusData struct {
 	CurrentFastBlock common.Hash
 }
 
+// statusSnapData is the network packet for the status message.
+type statusSnapData struct {
+	ProtocolVersion  uint32
+	NetworkId        uint64
+	TD               *big.Int
+	FastHeight       *big.Int
+	CurrentBlock     common.Hash
+	GenesisBlock     common.Hash
+	CurrentFastBlock common.Hash
+	GcHeight         *big.Int
+	CommitHeight     *big.Int
+}
+
 // newBlockHashesData is the network packet for the block announcements.
 type newBlockHashesData []struct {
 	Hash   common.Hash // Hash of one particular block being announced

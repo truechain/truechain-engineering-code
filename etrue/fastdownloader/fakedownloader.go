@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	dtypes "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/trie"
 	"math/big"
 	"sync"
@@ -49,7 +47,7 @@ var (
 )
 
 // newTester creates a new downloader test mocker.
-func NewTester(testdb *etruedb.MemDatabase) *DownloadTester {
+func NewTester(testdb *etruedb.MemDatabase,stateDb etruedb.Database) *DownloadTester {
 
 	genesis := core.GenesisFastBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
 
@@ -68,7 +66,7 @@ func NewTester(testdb *etruedb.MemDatabase) *DownloadTester {
 		peerChainNums:     make(map[string]map[common.Hash]*big.Int),
 		peerMissingStates: make(map[string]map[common.Hash]bool),
 	}
-	tester.stateDb = etruedb.NewMemDatabase()
+	tester.stateDb = stateDb
 	tester.stateDb.Put(genesis.Root().Bytes(), []byte{0x00})
 	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer)
 
@@ -92,90 +90,6 @@ type DownloadTesterPeer struct {
 	lock  sync.RWMutex
 }
 
-// makeChain creates a chain of n blocks starting at and including parent.
-// the returned hash chain is ordered head->parent. In addition, every 3rd block
-// contains a transaction and every 5th an uncle to allow testing correct block
-// reassembly.
-func (dl *DownloadTester) makeChain(n int, seed byte, parent *types.Block, parentReceipts types.Receipts, heavy bool) ([]common.Hash, map[common.Hash]*types.Header, map[common.Hash]*types.Block, map[common.Hash]types.Receipts) {
-	// Generate the block chain
-	blocks, receipts := core.GenerateChain(params.TestChainConfig, parent, minerva.NewFaker(), dl.peerDb, n, func(i int, block *core.BlockGen) {
-		block.SetCoinbase(common.Address{seed})
-
-		// If a heavy chain is requested, delay blocks to raise difficulty
-		if heavy {
-			block.OffsetTime(-1)
-		}
-		// If the block number is multiple of 3, send a bonus transaction to the miner
-		if parent == dl.genesis && i%3 == 0 {
-			signer := types.MakeSigner(params.TestChainConfig, block.Number())
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
-			if err != nil {
-				panic(err)
-			}
-			block.AddTx(tx)
-		}
-		// If the block number is a multiple of 5, add a bonus uncle to the block
-		//if i > 0 && i%5 == 0 {
-		//	block.AddUncle(&types.Header{
-		//		ParentHash: block.PrevBlock(i - 1).Hash(),
-		//		Number:     big.NewInt(block.Number().Int64() - 1),
-		//	})
-		//}
-	})
-	// Convert the block-chain into a hash-chain and header/block maps
-	hashes := make([]common.Hash, n+1)
-	hashes[len(hashes)-1] = parent.Hash()
-
-	headerm := make(map[common.Hash]*types.Header, n+1)
-	headerm[parent.Hash()] = parent.Header()
-
-	blockm := make(map[common.Hash]*types.Block, n+1)
-	blockm[parent.Hash()] = parent
-
-	receiptm := make(map[common.Hash]types.Receipts, n+1)
-	receiptm[parent.Hash()] = parentReceipts
-
-	for i, b := range blocks {
-		hashes[len(hashes)-i-2] = b.Hash()
-		headerm[b.Hash()] = b.Header()
-		blockm[b.Hash()] = b
-		receiptm[b.Hash()] = receipts[i]
-	}
-	return hashes, headerm, blockm, receiptm
-}
-
-// makeChainFork creates two chains of length n, such that h1[:f] and
-// h2[:f] are different but have a common suffix of length n-f.
-func (dl *DownloadTester) makeChainFork(n, f int, parent *types.Block, parentReceipts types.Receipts, balanced bool) ([]common.Hash, []common.Hash, map[common.Hash]*types.Header, map[common.Hash]*types.Header, map[common.Hash]*types.Block, map[common.Hash]*types.Block, map[common.Hash]types.Receipts, map[common.Hash]types.Receipts) {
-	// Create the common suffix
-	hashes, headers, blocks, receipts := dl.makeChain(n-f, 0, parent, parentReceipts, false)
-
-	// Create the forks, making the second heavier if non balanced forks were requested
-	hashes1, headers1, blocks1, receipts1 := dl.makeChain(f, 1, blocks[hashes[0]], receipts[hashes[0]], false)
-	hashes1 = append(hashes1, hashes[1:]...)
-
-	heavy := false
-	if !balanced {
-		heavy = true
-	}
-	hashes2, headers2, blocks2, receipts2 := dl.makeChain(f, 2, blocks[hashes[0]], receipts[hashes[0]], heavy)
-	hashes2 = append(hashes2, hashes[1:]...)
-
-	for hash, header := range headers {
-		headers1[hash] = header
-		headers2[hash] = header
-	}
-	for hash, block := range blocks {
-		blocks1[hash] = block
-		blocks2[hash] = block
-	}
-	for hash, receipt := range receipts {
-		receipts1[hash] = receipt
-		receipts2[hash] = receipt
-	}
-	return hashes1, hashes2, headers1, headers2, blocks1, blocks2, receipts1, receipts2
-}
-
 // terminate aborts any operations on the embedded downloader and releases all
 // held resources.
 func (dl *DownloadTester) Terminate() {
@@ -184,31 +98,6 @@ func (dl *DownloadTester) Terminate() {
 
 func (dl *DownloadTester) GetDownloader() *Downloader {
 	return dl.downloader
-}
-
-// sync starts synchronizing with a remote peer, blocking until it completes.
-func (dl *DownloadTester) sync(id string, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
-	dl.lock.RLock()
-	hash := dl.peerHashes[id][0]
-	// If no particular TD was requested, load from the peer's blockchain
-	if td == nil {
-		td = big.NewInt(1)
-		if diff, ok := dl.peerChainNums[id][hash]; ok {
-			td = diff
-		}
-	}
-	dl.lock.RUnlock()
-
-	// Synchronise with the chosen peer and ensure proper cleanup afterwards
-	err := dl.downloader.synchronise(id, hash, mode, origin, height)
-	select {
-	case <-dl.downloader.cancelCh:
-		// Ok, downloader fully cancelled after sync cycle
-	default:
-		// Downloader is still accepting packets, can block a peer up
-		panic("downloader active post sync cycle") // panic will be caught by tester
-	}
-	return err
 }
 
 // HasFastBlock checks if a block is present in the testers canonical chain.
@@ -595,20 +484,20 @@ func (dlp *DownloadTesterPeer) RequestReceipts(hashes []common.Hash, isFastchain
 // peer in the download tester. The returned function can be used to retrieve
 // batches of node state data from the particularly requested peer.
 func (dlp *DownloadTesterPeer) RequestNodeData(hashes []common.Hash, isFastchain bool) error {
-	dlp.waitDelay()
-
-	dlp.dl.lock.RLock()
-	defer dlp.dl.lock.RUnlock()
-
-	results := make([][]byte, 0, len(hashes))
-	for _, hash := range hashes {
-		if data, err := dlp.dl.peerDb.Get(hash.Bytes()); err == nil {
-			if !dlp.dl.peerMissingStates[dlp.id][hash] {
-				results = append(results, data)
-			}
-		}
-	}
-	//go dlp.dl.downloader.DeliverNodeData(dlp.id, results)
+	//dlp.waitDelay()
+	//
+	//dlp.dl.lock.RLock()
+	//defer dlp.dl.lock.RUnlock()
+	//
+	//results := make([][]byte, 0, len(hashes))
+	//for _, hash := range hashes {
+	//	if data, err := dlp.dl.peerDb.Get(hash.Bytes()); err == nil {
+	//		if !dlp.dl.peerMissingStates[dlp.id][hash] {
+	//			results = append(results, data)
+	//		}
+	//	}
+	//}
+	//go dlp.dl.s.DeliverNodeData(dlp.id, results)
 
 	return nil
 }

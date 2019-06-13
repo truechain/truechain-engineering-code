@@ -177,6 +177,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchainpool *core.BlockChain, make
 			nil,
 			fSign,
 			nil,
+			nil,
 		)
 		return fruit, nil
 	}
@@ -204,6 +205,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchainpool *core.BlockChain, make
 			fruitsetCopy,
 			fSign,
 			nil,
+			chain.Config(),
 		)
 		return block, nil
 
@@ -286,7 +288,7 @@ func TestInvalidFruits(t *testing.T) {
 		Nonce:           [8]byte{},
 	}
 	var ft *types.SnailBlock
-	ft = types.NewSnailBlock(header, nil, nil, nil)
+	ft = types.NewSnailBlock(header, nil, nil, nil, nil)
 	pool := setupSnailPool()
 	defer pool.Stop()
 	if err, _ := pool.addFruit(ft); err != ErrNotExist {

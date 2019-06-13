@@ -369,9 +369,9 @@ func (g *Genesis) ToSnailBlock(db etruedb.Database) *types.SnailBlock {
 		FruitDifficulty: new(big.Int).Div(g.Difficulty, params.FruitBlockRatio),
 		Coinbase:        g.Coinbase,
 	}
-	fruit := types.NewSnailBlock(fruitHead, nil, nil, nil)
+	fruit := types.NewSnailBlock(fruitHead, nil, nil, nil, g.Config)
 
-	return types.NewSnailBlock(head, []*types.SnailBlock{fruit}, nil, nil)
+	return types.NewSnailBlock(head, []*types.SnailBlock{fruit}, nil, nil, g.Config)
 }
 
 // CommitSnail writes the block and state of a genesis specification to the database.
@@ -490,13 +490,13 @@ func decodePrealloc(data string) types.GenesisAlloc {
 
 // GenesisFastBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisFastBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.Block {
-	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}}
+	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}},Config:params.AllMinervaProtocolChanges}
 	return g.MustFastCommit(db)
 }
 
 // GenesisSnailBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisSnailBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.SnailBlock {
-	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}}
+	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}},Config:params.AllMinervaProtocolChanges}
 	return g.MustSnailCommit(db)
 }
 
@@ -552,7 +552,7 @@ func DefaultTestnetGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:     params.TestnetChainConfig,
 		Nonce:      928,
-		ExtraData:  hexutil.MustDecode("0x54727565436861696E20546573744E6574203034"),
+		ExtraData:  hexutil.MustDecode("0x54727565436861696E20546573744E6574203035"),
 		GasLimit:   20971520,
 		Difficulty: big.NewInt(100000),
 		Timestamp:  1537891200,

@@ -151,14 +151,18 @@ func (tab *Table) ReadRandomNodes(buf []*enode.Node) (n int) {
 
 	// Find all non-empty buckets and get a fresh slice of their entries.
 	var buckets [][]*node
+	count := 0
 	for _, b := range &tab.buckets {
 		if len(b.entries) > 0 {
 			buckets = append(buckets, b.entries)
+			count += len(b.entries)
+			log.Trace("ReadRandomNodes", "context", fmt.Sprintf("entries %d replacements %d ips %d ips %s", len(b.entries), len(b.replacements), b.ips.Len(), b.ips.String()))
 		}
 	}
 	if len(buckets) == 0 {
 		return 0
 	}
+	log.Trace("ReadRandomNodes", "buckets", count, "ips", tab.ips.String(), "buf", len(buf))
 	// Shuffle the buckets.
 	for i := len(buckets) - 1; i > 0; i-- {
 		j := tab.rand.Intn(len(buckets))
@@ -244,6 +248,11 @@ func (tab *Table) LookupRandom() []*enode.Node {
 	return unwrapNodes(tab.lookup(target, true))
 }
 
+// Delete remove genesis block mismatch peer.
+func (tab *Table) Delete(node *enode.Node) {
+	tab.delete(wrapNode(node))
+}
+
 // lookup performs a network search for nodes close to the given target. It approaches the
 // target by querying nodes that are closer to it on each iteration. The given target does
 // not need to be an actual node identifier.
@@ -314,7 +323,7 @@ func (tab *Table) findnode(n *node, targetKey encPubkey, reply chan<- []*node) {
 		// Avoid recording failures on shutdown.
 		reply <- nil
 		return
-	} else if err != nil || len(r) == 0 {
+	} else if len(r) == 0 {
 		fails++
 		tab.db.UpdateFindFails(n.ID(), n.IP(), fails)
 		log.Trace("Findnode failed", "id", n.ID(), "failcount", fails, "err", err)
@@ -634,7 +643,7 @@ func (tab *Table) addVerifiedNode(n *node) {
 func (tab *Table) delete(node *node) {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
-
+	log.Trace("Node delete", "ip", node.IP(), "node", node.String())
 	tab.deleteInBucket(tab.bucket(node.ID()), node)
 }
 

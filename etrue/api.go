@@ -142,9 +142,6 @@ func (api *PublicMinerAPI) GetWork() ([4]string, error) {
 }
 
 // GetDataset returns a work package for external miner. The work package consists of 3 strings
-// result[0], 32 bytes hex encoded current block header pow-hash
-// result[1], 32 bytes hex encoded seed hash used for DAG
-// result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
 func (api *PublicMinerAPI) GetDataset() ([10240]string, error) {
 	if !api.e.IsMining() {
 		if err := api.e.StartMining(false); err != nil {
@@ -153,7 +150,21 @@ func (api *PublicMinerAPI) GetDataset() ([10240]string, error) {
 	}
 	headers, err := api.agent.GetDataset()
 	if err != nil {
-		return headers, fmt.Errorf("mining not ready: %v", err)
+		return headers, fmt.Errorf("GetDateset error is %v", err)
+	}
+	return headers, nil
+}
+
+// GetDataset returns a work package for external miner. The work package consists of 3 strings
+func (api *PublicMinerAPI) GetDatasetBySeedhash(seedhash string) ([10240]string, error) {
+	if !api.e.IsMining() {
+		if err := api.e.StartMining(false); err != nil {
+			return [10240]string{}, err
+		}
+	}
+	headers, err := api.agent.GetDatasetBySeedHash(seedhash)
+	if err != nil {
+		return headers, fmt.Errorf("GetDateset error is %v", err)
 	}
 	return headers, nil
 }
@@ -161,8 +172,8 @@ func (api *PublicMinerAPI) GetDataset() ([10240]string, error) {
 // SubmitHashrate can be used for remote miners to submit their hash rate. This enables the node to report the combined
 // hash rate of all miners which submit work through this node. It accepts the miner hash rate and an identifier which
 // must be unique between nodes.
-func (api *PublicMinerAPI) SubmitHashrate(hashrate hexutil.Uint64, id common.Hash) bool {
-	api.agent.SubmitHashrate(id, uint64(hashrate))
+func (api *PublicMinerAPI) SubmitHashrate(hashrate rpc.HexNumber, id common.Hash) bool {
+	api.agent.SubmitHashrate(id, hashrate.Uint64())
 	return true
 }
 

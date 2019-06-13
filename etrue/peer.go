@@ -36,6 +36,7 @@ var (
 	errClosed            = errors.New("peer set is closed")
 	errAlreadyRegistered = errors.New("peer is already registered")
 	errNotRegistered     = errors.New("peer is not registered")
+	notHandle            = "not handled"
 )
 
 const (
@@ -124,11 +125,14 @@ type peer struct {
 
 	version int // Protocol version negotiated
 
-	head       common.Hash
-	fastHead   common.Hash
-	td         *big.Int
-	fastHeight *big.Int
-	lock       sync.RWMutex
+	head         common.Hash
+	fastHead     common.Hash
+	td           *big.Int
+	fastHeight   *big.Int
+	gcHeight     *big.Int
+	commitHeight *big.Int
+
+	lock sync.RWMutex
 
 	knownTxs           mapset.Set                     // Set of transaction hashes known to be known by this peer
 	knownSign          mapset.Set                     // Set of sign  known to be known by this peer
@@ -194,7 +198,7 @@ func (p *peer) broadcast() {
 				txs = append(txs, tx)
 			}
 
-			for len(p.queuedTxs) > 0 && len(txs) < txPackSize {
+			for len(p.queuedTxs) > 1 && len(txs) < txPackSize {
 				select {
 				case event := <-p.queuedTxs:
 					for _, tx := range event {
@@ -225,8 +229,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Broadcast node info ")
 		case nodeInfo := <-p.queuedNodeInfoHash:
 			if err := p.SendNodeInfoHash(nodeInfo); err != nil {
-				log.Warn("SendNodeInfoHash error", "err", err)
-				return
+				log.Info("SendNodeInfoHash error", "err", err)
 			}
 			p.Log().Trace("Broadcast node info hash")
 		//add for fruit
@@ -241,7 +244,7 @@ func (p *peer) broadcast() {
 
 		case snailBlock := <-p.queuedSnailProps:
 			if err := p.SendNewBlock(nil, snailBlock.sblock, snailBlock.td); err != nil {
-				p.Log().Debug("Propagated snailBlock success", "peer", p.RemoteAddr(), "number", snailBlock.sblock.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
+				p.Log().Debug("Propagated snailBlock success", "peer", p.RemoteAddr(), "number", snailBlock.sblock.Number(), "hash", snailBlock.sblock.Hash(), "td", snailBlock.td)
 				return
 			}
 			p.Log().Trace("Propagated snailBlock", "number", snailBlock.sblock.Number(), "hash", snailBlock.sblock.Hash(), "td", snailBlock.td)
@@ -259,7 +262,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Announced fast block", "number", block.number, "hash", block.hash)
 		case block := <-p.queuedSnailAnns:
 			if err := p.SendNewFastBlockHashes([]common.Hash{block.hash}, []uint64{block.number}, block.fast); err != nil {
-				return
+				p.Log().Info("Announced snail block", "number", block.number, "hash", block.hash, "err", err)
 			}
 			p.Log().Trace("Announced snail block", "number", block.number, "hash", block.hash)
 		case event := <-p.dropEvent:
@@ -663,7 +666,7 @@ func (p *peer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 func (p *peer) Send(msgcode uint64, data interface{}) error {
 	err := p2p.Send(p.rw, msgcode, data)
 
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), notHandle) {
 		select {
 		case p.dropEvent <- &dropPeerEvent{p.id, err.Error()}:
 		default:
@@ -711,6 +714,72 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 }
 
 func (p *peer) readStatus(network uint64, status *statusData, genesis common.Hash) (err error) {
+	msg, err := p.rw.ReadMsg()
+	if err != nil {
+		return err
+	}
+	if msg.Code != StatusMsg {
+		return errResp(ErrNoStatusMsg, "first msg has code %x (!= %x)", msg.Code, StatusMsg)
+	}
+	if msg.Size > ProtocolMaxMsgSize {
+		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
+	}
+	// Decode the handshake and make sure everything matches
+	if err := msg.Decode(&status); err != nil {
+		return errResp(ErrDecode, "msg %v: %v", msg, err)
+	}
+	if status.GenesisBlock != genesis {
+		return errResp(ErrGenesisBlockMismatch, "%x (!= %x)", status.GenesisBlock[:8], genesis[:8])
+	}
+	if status.NetworkId != network {
+		return errResp(ErrNetworkIdMismatch, "%d (!= %d)", status.NetworkId, network)
+	}
+	if int(status.ProtocolVersion) != p.version {
+		return errResp(ErrProtocolVersionMismatch, "%d (!= %d)", status.ProtocolVersion, p.version)
+	}
+	return nil
+}
+
+// Handshake executes the etrue protocol handshake, negotiating version number,
+// network IDs, difficulties, head and genesis blocks.
+func (p *peer) SnapHandshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash, fastHead common.Hash, fastHeight *big.Int, gcHeight *big.Int, commitHeight *big.Int) error {
+	// Send out own handshake in a new thread
+	errc := make(chan error, 2)
+	var status statusSnapData // safe to read after two values have been received from errc
+
+	go func() {
+		errc <- p.Send(StatusMsg, &statusSnapData{
+			ProtocolVersion:  uint32(p.version),
+			NetworkId:        network,
+			TD:               td,
+			FastHeight:       fastHeight,
+			CurrentBlock:     head,
+			GenesisBlock:     genesis,
+			CurrentFastBlock: fastHead,
+			GcHeight:         gcHeight,
+			CommitHeight:     commitHeight,
+		})
+	}()
+	go func() {
+		errc <- p.readSnapStatus(network, &status, genesis)
+	}()
+	timeout := time.NewTimer(handshakeTimeout)
+	defer timeout.Stop()
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-errc:
+			if err != nil {
+				return err
+			}
+		case <-timeout.C:
+			return p2p.DiscReadTimeout
+		}
+	}
+	p.td, p.head, p.fastHeight, p.gcHeight, p.commitHeight = status.TD, status.CurrentBlock, status.FastHeight, status.GcHeight, status.CommitHeight
+	return nil
+}
+
+func (p *peer) readSnapStatus(network uint64, status *statusSnapData, genesis common.Hash) (err error) {
 	msg, err := p.rw.ReadMsg()
 	if err != nil {
 		return err
