@@ -426,7 +426,6 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		index := int(header.Number.Int64() - int64(q.resultOffset))
 		if index >= len(q.resultCache) || index < 0 {
 			common.Report("Snail index allocation went beyond available resultCache space")
-			log.Warn("reserveHeaders errInvalidChain")
 			return nil, false, errInvalidChain
 		}
 		if q.resultCache[index] == nil {
@@ -663,8 +662,6 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-		log.Warn("DeliverBodies q.blockchain.GetFruitsHash(header,result.Fruits) != header.FruitsHash","1",q.blockchain.GetFruitsHash(header,result.Fruits) ,"2", header.FruitsHash ,"3",len(fruitsLists[index]))
-
 		if 	q.blockchain.GetFruitsHash(header,fruitsLists[index]) != header.FruitsHash {
 			return errInvalidChain
 		}

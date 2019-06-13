@@ -1449,9 +1449,6 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 	if err := d.SyncFast(p.GetID(), hash, fbLastNumber, d.mode); err != nil {
 		return err
 	}
-	log.Info("Insert snail blocks", "blocks", len(blocks), "fbLastNumber", fbLastNumber, "first", firstB.Number(), "last", result.Number())
-
-
 	if d.mode == FastSync || d.mode == SnapShotSync {
 		if index, err := d.blockchain.FastInsertChain(blocks); err != nil {
 			log.Error("Snail Fastdownloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
