@@ -42,57 +42,104 @@ func TestStatusMsgErrors63(t *testing.T) { testStatusMsgErrors(t, 63) }
 func testStatusMsgErrors(t *testing.T, protocol int) {
 	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, 0, nil, nil, nil, nil)
 	var (
-		genesis    = pm.snailchain.Genesis()
-		head       = pm.snailchain.CurrentHeader()
-		td         = pm.snailchain.GetTd(head.Hash(), head.Number.Uint64())
-		fastHead   = pm.blockchain.CurrentHeader()
-		fastHash   = fastHead.Hash()
-		fastHeight = pm.blockchain.CurrentBlock().Number()
+		genesis       = pm.snailchain.Genesis()
+		head          = pm.snailchain.CurrentHeader()
+		td            = pm.snailchain.GetTd(head.Hash(), head.Number.Uint64())
+		fastHead      = pm.blockchain.CurrentHeader()
+		fastHash      = fastHead.Hash()
+		fastHeight    = pm.blockchain.CurrentBlock().Number()
+		gcHeight      = pm.blockchain.CurrentGcHeight()
+		committHeight = pm.blockchain.CurrentCommitHeight()
 	)
 	defer pm.Stop()
-
-	tests := []struct {
-		code      uint64
-		data      interface{}
-		wantError error
-	}{
-		{
-			code: TxMsg, data: []interface{}{},
-			wantError: errResp(ErrNoStatusMsg, "first msg has code 2 (!= 0)"),
-		},
-		{
-			code: StatusMsg, data: statusData{10, DefaultConfig.NetworkId, td, fastHeight, head.Hash(), genesis.Hash(), fastHash},
-			wantError: errResp(ErrProtocolVersionMismatch, "10 (!= %d)", protocol),
-		},
-		{
-			code: StatusMsg, data: statusData{uint32(protocol), 999, td, fastHeight, head.Hash(), genesis.Hash(), fastHash},
-			wantError: errResp(ErrNetworkIdMismatch, "999 (!= 19330)"),
-		},
-		{
-			code: StatusMsg, data: statusData{uint32(protocol), DefaultConfig.NetworkId, td, fastHeight, head.Hash(), common.Hash{3}, fastHash},
-			wantError: errResp(ErrGenesisBlockMismatch, "0300000000000000 (!= %x)", genesis.Hash().Bytes()[:8]),
-		},
-	}
-
-	for i, test := range tests {
-		p, errc := newTestPeer("peer", protocol, pm, false)
-		// The send Call might hang until reset because
-		// the protocol might not read the payload.
-		go p2p.Send(p.app, test.code, test.data)
-
-		select {
-		case err := <-errc:
-			if err == nil {
-				t.Errorf("test %d: protocol returned nil error, want %q", i, test.wantError)
-			} else if err.Error() != test.wantError.Error() {
-				t.Errorf("test %d: wrong error: got %q, want %q", i, err, test.wantError)
-			}
-		case <-time.After(2 * time.Second):
-			t.Errorf("protocol did not shut down within 2 seconds")
+	if protocol == etrue63 {
+		tests := []struct {
+			code      uint64
+			data      interface{}
+			wantError error
+		}{
+			{
+				code: TxMsg, data: []interface{}{},
+				wantError: errResp(ErrNoStatusMsg, "first msg has code 2 (!= 0)"),
+			},
+			{
+				code: StatusMsg, data: statusData{10, DefaultConfig.NetworkId, td, fastHeight, head.Hash(), genesis.Hash(), fastHash},
+				wantError: errResp(ErrProtocolVersionMismatch, "10 (!= %d)", protocol),
+			},
+			{
+				code: StatusMsg, data: statusData{uint32(protocol), 999, td, fastHeight, head.Hash(), genesis.Hash(), fastHash},
+				wantError: errResp(ErrNetworkIdMismatch, "999 (!= 19330)"),
+			},
+			{
+				code: StatusMsg, data: statusData{uint32(protocol), DefaultConfig.NetworkId, td, fastHeight, head.Hash(), common.Hash{3}, fastHash},
+				wantError: errResp(ErrGenesisBlockMismatch, "0300000000000000 (!= %x)", genesis.Hash().Bytes()[:8]),
+			},
 		}
-		p.close()
+		for i, test := range tests {
+			p, errc := newTestPeer("peer", protocol, pm, false)
+			// The send Call might hang until reset because
+			// the protocol might not read the payload.
+			go p2p.Send(p.app, test.code, test.data)
+
+			select {
+			case err := <-errc:
+				if err == nil {
+					t.Errorf("test %d: protocol returned nil error, want %q", i, test.wantError)
+				} else if err.Error() != test.wantError.Error() {
+					t.Errorf("test %d: wrong error: got %q, want %q", i, err, test.wantError)
+				}
+			case <-time.After(2 * time.Second):
+				t.Errorf("protocol did not shut down within 2 seconds")
+			}
+			p.close()
+		}
+	} else {
+		tests := []struct {
+			code      uint64
+			data      interface{}
+			wantError error
+		}{
+			{
+				code: TxMsg, data: []interface{}{},
+				wantError: errResp(ErrNoStatusMsg, "first msg has code 2 (!= 0)"),
+			},
+			{
+				code: StatusMsg, data: statusSnapData{10, DefaultConfig.NetworkId, td, fastHeight, head.Hash(), genesis.Hash(), fastHash, gcHeight, committHeight},
+				wantError: errResp(ErrProtocolVersionMismatch, "10 (!= %d)", protocol),
+			},
+			{
+				code: StatusMsg, data: statusSnapData{uint32(protocol), 999, td, fastHeight, head.Hash(), genesis.Hash(), fastHash, gcHeight, committHeight},
+				wantError: errResp(ErrNetworkIdMismatch, "999 (!= 19330)"),
+			},
+			{
+				code: StatusMsg, data: statusSnapData{uint32(protocol), DefaultConfig.NetworkId, td, fastHeight, head.Hash(), common.Hash{3}, fastHash, gcHeight, committHeight},
+				wantError: errResp(ErrGenesisBlockMismatch, "0300000000000000 (!= %x)", genesis.Hash().Bytes()[:8]),
+			},
+		}
+		for i, test := range tests {
+			p, errc := newTestPeer("peer", protocol, pm, false)
+			// The send Call might hang until reset because
+			// the protocol might not read the payload.
+			go p2p.Send(p.app, test.code, test.data)
+
+			select {
+			case err := <-errc:
+				if err == nil {
+					t.Errorf("test %d: protocol returned nil error, want %q", i, test.wantError)
+				} else if err.Error() != test.wantError.Error() {
+					t.Errorf("test %d: wrong error: got %q, want %q", i, err, test.wantError)
+				}
+			case <-time.After(2 * time.Second):
+				t.Errorf("protocol did not shut down within 2 seconds")
+			}
+			p.close()
+		}
 	}
+
 }
+
+// Tests that handshake failures are detected and reported correctly.
+func TestStatusMsgErrors64(t *testing.T) { testStatusMsgErrors(t, 64) }
 
 // This test checks that received transactions are added to the local pool.
 func TestRecvTransactions63(t *testing.T) { testRecvTransactions(t, 63) }
