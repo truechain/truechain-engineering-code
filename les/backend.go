@@ -19,6 +19,7 @@ package les
 
 import (
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/light/fast"
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"sync"
@@ -59,6 +60,7 @@ type LightEtrue struct {
 	// Handlers
 	peers       *peerSet
 	txPool      *fast.TxPool
+	election    *election.Election
 	blockchain  *light.LightChain
 	fblockchain *fast.LightChain
 	serverPool  *serverPool
