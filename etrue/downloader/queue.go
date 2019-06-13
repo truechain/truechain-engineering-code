@@ -663,8 +663,9 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-		if 	q.blockchain.GetFruitsHash(header,result.Fruits) != header.FruitsHash {
-			log.Warn("DeliverBodies q.blockchain.GetFruitsHash(header,result.Fruits) != header.FruitsHash","1",q.blockchain.GetFruitsHash(header,result.Fruits) ,"2", header.FruitsHash ,"3",len(result.Fruits))
+		log.Warn("DeliverBodies q.blockchain.GetFruitsHash(header,result.Fruits) != header.FruitsHash","1",q.blockchain.GetFruitsHash(header,result.Fruits) ,"2", header.FruitsHash ,"3",len(fruitsLists[index]))
+
+		if 	q.blockchain.GetFruitsHash(header,fruitsLists[index]) != header.FruitsHash {
 			return errInvalidChain
 		}
 		result.Fruits = fruitsLists[index]
