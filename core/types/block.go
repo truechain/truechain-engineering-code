@@ -641,8 +641,8 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 	} else {
 		if config.IsTIP5(header.Number) {
 			var headers []*SnailHeader
-			for i := 0; i < len(b.fruits); i++ {
-				headers = append(headers, b.fruits[i].header)
+			for i := 0; i < len(fruits); i++ {
+				headers = append(headers, fruits[i].header)
 				log.Warn("NewSnailBlock fruitshash", "i", i, "fruits[i].Header()", fruits[i].Hash())
 			}
 			b.header.FruitsHash = DeriveSha(FruitsHeaders(headers))
