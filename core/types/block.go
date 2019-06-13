@@ -31,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/params"
 	"golang.org/x/crypto/sha3"
@@ -639,21 +638,16 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 	if len(fruits) == 0 {
 		b.header.FruitsHash = EmptyRootHash
 	} else {
-		if config.IsTIP5(header.Number) {
-			var headers []*SnailHeader
-			for i := 0; i < len(fruits); i++ {
-				headers = append(headers, fruits[i].header)
-				log.Warn("NewSnailBlock fruitshash", "i", i, "fruits[i].Header()", fruits[i].Hash())
-			}
-			b.header.FruitsHash = DeriveSha(FruitsHeaders(headers))
-			log.Warn("NewSnailBlock headers", "number", header.Number, "DeriveSha hash", DeriveSha(FruitsHeaders(headers)), "b.header.FruitsHash", b.header.FruitsHash, "header.FruitsHash", header.FruitsHash, "len", len(fruits))
-		} else {
-			b.header.FruitsHash = DeriveSha(Fruits(fruits))
-			log.Warn("NewSnailBlock Fruits", "number", header.Number, "DeriveSha hash", DeriveSha(Fruits(fruits)), "b.header.FruitsHash", b.header.FruitsHash, "header.FruitsHash", header.FruitsHash, "len", len(fruits))
-		}
 		b.fruits = make([]*SnailBlock, len(fruits))
+		var headers []*SnailHeader
 		for i := range fruits {
 			b.fruits[i] = CopyFruit(fruits[i])
+			headers = append(headers, fruits[i].header)
+		}
+		if config.IsTIP5(header.Number) {
+			b.header.FruitsHash = DeriveSha(FruitsHeaders(headers))
+		} else {
+			b.header.FruitsHash = DeriveSha(Fruits(fruits))
 		}
 	}
 
