@@ -684,6 +684,9 @@ func (bc *SnailBlockChain) WriteMinedCanonicalBlock(block *types.SnailBlock) (st
 	bc.chainmu.Lock()
 	bc.chainmu.Unlock()
 	log.Debug("WriteMinedCanonicalBlock", "number", block.Number(), "hash", block.Hash())
+	for i := 0; i < len(block.Fruits()); i++ {
+		log.Warn("WriteMinedCanonicalBlock fruitshash", "i", i, "block.Fruits()[i].Hash()", block.Fruits()[i].Hash())
+	}
 	return bc.writeCanonicalBlock(block)
 }
 
@@ -1414,6 +1417,7 @@ func (bc *SnailBlockChain) GetFruitsHash(header *types.SnailHeader, fruits []*ty
 		var headers []*types.SnailHeader
 		for i := 0; i < len(fruits); i++ {
 			headers = append(headers, fruits[i].Header())
+			log.Warn("GetFruitsHash fruitshash", "i", i, "fruits[i].Header()", fruits[i].Hash())
 		}
 		log.Warn("GetFruitsHash headers", "number", header.Number, "DeriveSha hash", types.DeriveSha(types.FruitsHeaders(headers)), "header.FruitsHash", header.FruitsHash, "len", len(fruits))
 		return types.DeriveSha(types.FruitsHeaders(headers))

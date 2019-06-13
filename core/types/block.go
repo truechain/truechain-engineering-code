@@ -643,6 +643,7 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 			var headers []*SnailHeader
 			for i := 0; i < len(b.fruits); i++ {
 				headers = append(headers, b.fruits[i].header)
+				log.Warn("NewSnailBlock fruitshash", "i", i, "fruits[i].Header()", fruits[i].Hash())
 			}
 			b.header.FruitsHash = DeriveSha(FruitsHeaders(headers))
 			log.Warn("NewSnailBlock headers", "number", header.Number, "DeriveSha hash", DeriveSha(FruitsHeaders(headers)), "b.header.FruitsHash", b.header.FruitsHash, "header.FruitsHash", header.FruitsHash, "len", len(fruits))
