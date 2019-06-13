@@ -43,7 +43,7 @@ var (
 			MinimumFruitDifficulty: big.NewInt(262144),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP3: &BlockConfig{},
+		TIP3: nil,
 		TIP5: nil,
 	}
 
@@ -55,7 +55,7 @@ var (
 			MinimumFruitDifficulty: big.NewInt(200),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP3: &BlockConfig{FastNumber: big.NewInt(306346)},
+		TIP3: nil,
 		TIP5: nil,
 	}
 
