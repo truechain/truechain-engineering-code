@@ -1415,7 +1415,9 @@ func (bc *SnailBlockChain) GetFruitsHash(header *types.SnailHeader, fruits []*ty
 		for i := 0; i < len(fruits); i++ {
 			headers = append(headers, fruits[i].Header())
 		}
+		log.Warn("GetFruitsHash", "number", header.Number, "DeriveSha hash", types.DeriveSha(types.FruitsHeaders(types.FruitsHeaders(headers))), "header.FruitsHash", header.FruitsHash, "len", len(fruits))
 		return types.DeriveSha(types.FruitsHeaders(types.FruitsHeaders(headers)))
 	}
+	log.Warn("GetFruitsHash", "number", header.Number, "DeriveSha hash", types.DeriveSha(types.Fruits(fruits)), "header.FruitsHash", header.FruitsHash, "len", len(fruits))
 	return types.DeriveSha(types.Fruits(fruits))
 }
