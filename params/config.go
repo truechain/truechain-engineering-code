@@ -33,15 +33,23 @@ var (
 	TestnetGenesisHash      = common.HexToHash("0x4b82a68ebbf32f2e816754f2b50eda0ae2c0a71dd5f4e0ecd93ccbfb7dba00b8")
 	TestnetSnailGenesisHash = common.HexToHash("0x4ab1748c057b744de202d6ebea64e8d3a0b2ec4c19abbc59e8639967b14b7c96")
 
-	DevnetGenesisHash      = common.HexToHash("0x8cacae8c18c79eb17dc423a6ed7d4a3efc2dee30bcc76fb325190998e8ff3771")
 	DevnetSnailGenesisHash = common.HexToHash("0xdf819f11beead767f91a6c05d74e5f902fc2988e9039a969a023bc75e467cdeb")
 )
 
 // TrustedCheckpoints associates each known checkpoint with the genesis hash of
 // the chain it belongs to.
 var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
-	MainnetGenesisHash: MainnetTrustedCheckpoint,
-	TestnetGenesisHash: TestnetTrustedCheckpoint,
+	MainnetSnailGenesisHash: MainnetTrustedCheckpoint,
+	TestnetSnailGenesisHash: TestnetTrustedCheckpoint,
+	DevnetSnailGenesisHash:  DevnetTrustedCheckpoint,
+}
+
+// TrustedCheckpoints associates each known checkpoint with the genesis hash of
+// the chain it belongs to.
+var TrustedBloomCheckpoints = map[common.Hash]*TrustedCheckpoint{
+	MainnetSnailGenesisHash: MainnetTrustedCheckpoint,
+	TestnetSnailGenesisHash: TestnetTrustedCheckpoint,
+	DevnetSnailGenesisHash:  DevnetTrustedBloomCheckpoint,
 }
 
 var (
@@ -101,10 +109,19 @@ var (
 
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
 	DevnetTrustedCheckpoint = &TrustedCheckpoint{
-		Name:         "testnet",
-		SectionIndex: 161,
-		SectionHead:  common.HexToHash("0x5378afa734e1feafb34bcca1534c4d96952b754579b96a4afb23d5301ecececc"),
-		CHTRoot:      common.HexToHash("0x1cf2b071e7443a62914362486b613ff30f60cea0d9c268ed8c545f876a3ee60c"),
+		Name:         "devnet",
+		SectionIndex: 2,
+		SectionHead:  common.HexToHash("9cd5e2ec8a8505dd5b8dc7bc248daceafbb135a84e68e23ba0d9b12e1be2651a"),
+		CHTRoot:      common.HexToHash("1a91e78eb6772ed586a1a31b5058876b664d96bddbf5d9f2942ea302da403d2d"),
+		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
+	}
+
+	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
+	DevnetTrustedBloomCheckpoint = &TrustedCheckpoint{
+		Name:         "devnet",
+		SectionIndex: 2,
+		SectionHead:  common.HexToHash("9cd5e2ec8a8505dd5b8dc7bc248daceafbb135a84e68e23ba0d9b12e1be2651a"),
+		CHTRoot:      common.HexToHash("1a91e78eb6772ed586a1a31b5058876b664d96bddbf5d9f2942ea302da403d2d"),
 		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
 	}
 
