@@ -379,3 +379,8 @@ func (miner *Miner) SetFruitOnly(FruitOnly bool) {
 	miner.fruitOnly = FruitOnly
 	miner.worker.SetFruitOnly(FruitOnly)
 }
+
+// GetCurrentBlock return the fruit or block it is mining
+func (miner *Miner) GetCurrentBlock() *types.SnailBlock {
+	return miner.worker.current.Block
+}
