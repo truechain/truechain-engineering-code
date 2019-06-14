@@ -170,6 +170,7 @@ func (db *Dashboard) Start(server *p2p.Server) error {
 	go db.collectTxpoolData()
 	go db.collectFruitpoolData()
 	go db.collectChainData()
+	go db.collectMinerData()
 
 	http.HandleFunc("/", db.webHandler)
 	http.Handle("/api", websocket.Handler(db.apiHandler))
