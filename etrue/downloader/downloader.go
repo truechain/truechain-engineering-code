@@ -1414,7 +1414,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	maxSize := maxSyncSnailHeight
 	txLen := len(sblocks)
 
-	log.Info("Snail insert download","txLen",txLen)
 	if txLen > maxSize {
 		for i := 0; i < txLen; {
 			i = i + maxSize
