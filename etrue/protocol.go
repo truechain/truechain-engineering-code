@@ -71,8 +71,8 @@ const (
 	ReceiptsMsg            = 0x12
 	NewSnailBlockHashesMsg = 0x13
 
-	TbftNodeInfoHashMsg = 0x14
-	GetTbftNodeInfoMsg  = 0x15
+	TbftNodeInfoHashMsg = 0x15
+	GetTbftNodeInfoMsg  = 0x16
 )
 
 type errCode int
