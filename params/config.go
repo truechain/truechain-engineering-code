@@ -32,6 +32,9 @@ var (
 
 	TestnetGenesisHash      = common.HexToHash("0x4b82a68ebbf32f2e816754f2b50eda0ae2c0a71dd5f4e0ecd93ccbfb7dba00b8")
 	TestnetSnailGenesisHash = common.HexToHash("0x4ab1748c057b744de202d6ebea64e8d3a0b2ec4c19abbc59e8639967b14b7c96")
+
+	DevnetGenesisHash      = common.HexToHash("0x8cacae8c18c79eb17dc423a6ed7d4a3efc2dee30bcc76fb325190998e8ff3771")
+	DevnetSnailGenesisHash = common.HexToHash("0xdf819f11beead767f91a6c05d74e5f902fc2988e9039a969a023bc75e467cdeb")
 )
 
 // TrustedCheckpoints associates each known checkpoint with the genesis hash of
@@ -94,6 +97,15 @@ var (
 		}),
 		TIP3: &BlockConfig{},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(4825)},
+	}
+
+	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
+	DevnetTrustedCheckpoint = &TrustedCheckpoint{
+		Name:         "testnet",
+		SectionIndex: 161,
+		SectionHead:  common.HexToHash("0x5378afa734e1feafb34bcca1534c4d96952b754579b96a4afb23d5301ecececc"),
+		CHTRoot:      common.HexToHash("0x1cf2b071e7443a62914362486b613ff30f60cea0d9c268ed8c545f876a3ee60c"),
+		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
 	}
 
 	chainId = big.NewInt(9223372036854775790)
@@ -357,7 +369,10 @@ func (c *ChainConfig) IsTIP3(num *big.Int) bool {
 	return isForked(c.TIP3.FastNumber, num)
 }
 
-// IsTIP12 returns whether num is either equal to the TIP12 fork block or greater.
-func (c *ChainConfig) IsTIP12(num *big.Int) bool {
-	return isForked(c.TIP12Block, num)
+// IsTIP5 returns whether num is either equal to the IsTIP5 fork block or greater.
+func (c *ChainConfig) IsTIP5(num *big.Int) bool {
+	if c.TIP5 == nil {
+		return false
+	}
+	return isForked(c.TIP5.SnailNumber, num)
 }

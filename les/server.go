@@ -394,7 +394,7 @@ func (pm *ProtocolManager) blockLoop() {
 						lastBroadcastNumber = header.Number
 						log.Debug("Announcing fast block to peers", "number", number, "hash", hash)
 
-						announce := announceData{Hash: hash, Number: number, Signs: ev.Block.Signs()}
+						announce := announceData{Hash: hash, Number: number}
 						var (
 							signed         bool
 							signedAnnounce announceData

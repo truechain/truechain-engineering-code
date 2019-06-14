@@ -691,7 +691,6 @@ func (bc *SnailBlockChain) writeCanonicalBlock(block *types.SnailBlock) (status 
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	log.Info("Write new snail canonical block...", "number", block.Number(), "hash", block.Hash())
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
@@ -1415,9 +1414,7 @@ func (bc *SnailBlockChain) GetFruitsHash(header *types.SnailHeader, fruits []*ty
 		for i := 0; i < len(fruits); i++ {
 			headers = append(headers, fruits[i].Header())
 		}
-		log.Warn("GetFruitsHash headers", "number", header.Number, "DeriveSha hash", types.DeriveSha(types.FruitsHeaders(types.FruitsHeaders(headers))), "header.FruitsHash", header.FruitsHash, "len", len(fruits))
 		return types.DeriveSha(types.FruitsHeaders(headers))
 	}
-	log.Warn("GetFruitsHash fruits", "number", header.Number, "DeriveSha hash", types.DeriveSha(types.Fruits(fruits)), "header.FruitsHash", header.FruitsHash, "len", len(fruits))
 	return types.DeriveSha(types.Fruits(fruits))
 }
