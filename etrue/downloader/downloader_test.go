@@ -515,6 +515,19 @@ func (dl *downloadTester) dropPeer(id string, call uint32) {
 	dl.downloader.UnregisterPeer(id)
 }
 
+func (dl *downloadTester)  GetFruitsHash(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash {
+
+	if params.AllMinervaProtocolChanges.IsTIP5(header.Number) {
+		var headers []*types.SnailHeader
+		for i := 0; i < len(fruits); i++ {
+			headers = append(headers, fruits[i].Header())
+		}
+		return types.DeriveSha(types.FruitsHeaders(headers))
+	}
+	return types.DeriveSha(types.Fruits(fruits))
+}
+
+
 type downloadTesterPeer struct {
 	dl    *downloadTester
 	id    string
