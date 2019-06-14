@@ -65,14 +65,14 @@ const (
 	SnailBlockBodiesMsg     = 0x0d
 	NewSnailBlockMsg        = 0x0e
 
-	GetNodeDataMsg = 0x0f
-	NodeDataMsg    = 0x10
-	GetReceiptsMsg = 0x11
-	ReceiptsMsg    = 0x12
+	GetNodeDataMsg         = 0x0f
+	NodeDataMsg            = 0x10
+	GetReceiptsMsg         = 0x11
+	ReceiptsMsg            = 0x12
+	NewSnailBlockHashesMsg = 0x13
 
-	TbftNodeInfoHashMsg    = 0x15
-	GetTbftNodeInfoMsg     = 0x16
-	NewSnailBlockHashesMsg = 0x17
+	TbftNodeInfoHashMsg = 0x14
+	GetTbftNodeInfoMsg  = 0x15
 )
 
 type errCode int
