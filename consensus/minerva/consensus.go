@@ -315,10 +315,10 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 	}
 	count := len(parents) - len(headers) + index
 	var parentHeaders []*types.SnailHeader
-	if len(parents)-len(headers) < int(params.DifficultyPeriod.Int64()) {
+	if count < int(params.DifficultyPeriod.Int64()) {
 		parentHeaders = parents[:count]
 	} else {
-		parentHeaders = parents[index:count]
+		parentHeaders = parents[count-int(params.DifficultyPeriod.Int64()) : count]
 	}
 	return m.verifySnailHeader(chain, nil, headers[index], nil, parentHeaders, false, seals[index], false)
 }
