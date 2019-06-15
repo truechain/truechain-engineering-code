@@ -438,7 +438,8 @@ func (bc *BlockChain) CurrentGcHeight() *big.Int {
 	if bc.currentBlock.Load() == nil {
 		return nil
 	}
-	return new(big.Int).SetUint64(bc.cacheConfig.HeightGcState.Load().(uint64))
+	//new(big.Int).SetUint64(bc.cacheConfig.HeightGcState.Load().(uint64))
+	return new(big.Int).SetUint64(uint64(0))
 }
 
 // CurrentBlock retrieves the current head block of the canonical chain. The
@@ -447,7 +448,8 @@ func (bc *BlockChain) CurrentCommitHeight() *big.Int {
 	if bc.currentBlock.Load() == nil {
 		return nil
 	}
-	commitHeight := bc.CurrentBlock().Number().Uint64() / uint64(blockDeleteHeight) * blockDeleteHeight
+	//commitHeight := bc.CurrentBlock().Number().Uint64() / uint64(blockDeleteHeight) * blockDeleteHeight
+	commitHeight := uint64(0)
 	return new(big.Int).SetUint64(commitHeight)
 }
 

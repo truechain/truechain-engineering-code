@@ -153,8 +153,8 @@ func NewTIP1Signer(chainId *big.Int) TIP1Signer {
 }
 
 func (s TIP1Signer) Equal(s2 Signer) bool {
-	tip155, ok := s2.(TIP1Signer)
-	return ok && tip155.chainId.Cmp(s.chainId) == 0
+	tip1, ok := s2.(TIP1Signer)
+	return ok && tip1.chainId.Cmp(s.chainId) == 0
 }
 
 var big8 = big.NewInt(8)

@@ -104,7 +104,12 @@ func newTester() *fetcherTester {
 		blocks: map[common.Hash]*types.SnailBlock{genesis.Hash(): genesis},
 		drops:  make(map[string]bool),
 	}
-	tester.fetcher = New(tester.getBlock, tester.verifyHeader, tester.broadcastBlock, tester.chainHeight, tester.insertChain, tester.dropPeer)
+
+	fruitHash := func(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash {
+		return types.DeriveSha(types.Fruits(fruits))
+	}
+
+	tester.fetcher = New(tester.getBlock, tester.verifyHeader, tester.broadcastBlock, tester.chainHeight, tester.insertChain, tester.dropPeer, fruitHash)
 	tester.fetcher.Start()
 
 	return tester

@@ -24,6 +24,7 @@ type Message struct {
 	General *GeneralMessage `json:"general,omitempty"`
 	Home    *HomeMessage    `json:"home,omitempty"`
 	Chain   *ChainMessage   `json:"chain,omitempty"`
+	Miner   *MinerMessage   `json:"miner,omitempty"`
 	TxPool  *TxPoolMessage  `json:"txpool,omitempty"`
 	FtPool  *FtPoolMessage  `json:"ftpool,omitempty"`
 	Network *NetworkMessage `json:"network,omitempty"`
@@ -49,6 +50,11 @@ type HomeMessage struct {
 type ChainMessage struct {
 	FastChain  *fastChainInfo  `json:"fastChain,omitempty"`  // fastChain info tree.
 	SnailChain *snailChainInfo `json:"snailChain,omitempty"` // snailChain info tree.
+}
+
+type MinerMessage struct {
+	FruitInfo      *fruitInfo      `json:"fruitInfo,omitempty"`      // mine fruit info tree.
+	SnailBlockInfo *snailBlockInfo `json:"snailBlockInfo,omitempty"` // mine snail block info tree.
 }
 
 // TxPoolMessage contains the collected txpool data samples.

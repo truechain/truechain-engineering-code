@@ -975,7 +975,7 @@ func (w *worker) commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumbe
 	//rand find one
 	mineFastBlock := rand.Intn(len(w.fastBlockPool))
 
-	log.Info("need mine fruit info", "random one", mineFastBlock, "len pool", len(w.fastBlockPool), "begin", w.fastBlockPool[0], "end", w.fastBlockPool[len(w.fastBlockPool)-1])
+	log.Debug("need mine fruit info", "random one", mineFastBlock, "len pool", len(w.fastBlockPool), "begin", w.fastBlockPool[0], "end", w.fastBlockPool[len(w.fastBlockPool)-1])
 
 	return w.fastBlockPool[mineFastBlock]
 }
