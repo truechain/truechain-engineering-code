@@ -1358,16 +1358,10 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 	for {
 
 		results := d.queue.Results(true)
-		if d.mode == FullSync && len(results) == 0 {
+		if len(results) == 0 {
 			return nil
 		}
-		if d.mode == FastSync && len(results) == 0 {
-			select {
-			case <-d.cancelCh:
-				return stateSync.Cancel()
-			default:
-			}
-		}
+
 		if d.chainInsertHook != nil {
 			d.chainInsertHook(results)
 		}
