@@ -528,8 +528,7 @@ func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit, block
 
 // GetDifficulty get difficulty by header
 func (m *Minerva) GetDifficulty(header *types.SnailHeader, isFruit bool) (*big.Int, *big.Int) {
-	dataset := m.getDataset(header.Number.Uint64())
-	_, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	result := header.MixDigest
 
 	if isFruit {
 		last := result[16:]
