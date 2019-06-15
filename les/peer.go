@@ -422,7 +422,7 @@ func (p *peer) sendReceiveHandshake(sendList keyValueList) (keyValueList, error)
 
 // Handshake executes the les protocol handshake, negotiating version number,
 // network IDs, difficulties, head and genesis blocks.
-func (p *peer) Handshake(td *big.Int, head common.Hash, headNum uint64, genesis common.Hash, server *LesServer) error {
+func (p *peer) Handshake(td *big.Int, head common.Hash, headNum uint64, genesis common.Hash, fastHead common.Hash, fastHeight *big.Int, server *LesServer) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -433,6 +433,9 @@ func (p *peer) Handshake(td *big.Int, head common.Hash, headNum uint64, genesis 
 	send = send.add("headHash", head)
 	send = send.add("headNum", headNum)
 	send = send.add("genesisHash", genesis)
+	send = send.add("fastHeadHash", fastHead)
+	send = send.add("fastHeadNum", fastHeight)
+
 	if server != nil {
 		send = send.add("serveHeaders", nil)
 		send = send.add("serveChainSince", uint64(0))
@@ -453,9 +456,9 @@ func (p *peer) Handshake(td *big.Int, head common.Hash, headNum uint64, genesis 
 	}
 	recv := recvList.decode()
 
-	var rGenesis, rHash common.Hash
+	var rGenesis, rHash, rFastHead common.Hash
 	var rVersion, rNetwork, rNum uint64
-	var rTd *big.Int
+	var rTd, rFastHeight *big.Int
 
 	if err := recv.get("protocolVersion", &rVersion); err != nil {
 		return err
@@ -475,6 +478,15 @@ func (p *peer) Handshake(td *big.Int, head common.Hash, headNum uint64, genesis 
 	if err := recv.get("genesisHash", &rGenesis); err != nil {
 		return err
 	}
+	if err := recv.get("fastHeadHash", &rFastHead); err != nil {
+		return err
+	}
+	if err := recv.get("fastHeadNum", &rFastHeight); err != nil {
+		return err
+	}
+
+	send = send.add("fastHeadHash", fastHead)
+	send = send.add("fastHeadNum", fastHeight)
 
 	if rGenesis != genesis {
 		return errResp(ErrGenesisBlockMismatch, "%x (!= %x)", rGenesis[:8], genesis[:8])
@@ -532,7 +544,7 @@ func (p *peer) Handshake(td *big.Int, head common.Hash, headNum uint64, genesis 
 		}
 	}
 
-	p.headInfo = &announceData{Td: rTd, Hash: rHash, Number: rNum}
+	p.headInfo = &announceData{Td: rTd, Hash: rHash, Number: rNum, FastHash: rFastHead, FastNumber: rFastHeight.Uint64()}
 	return nil
 }
 

@@ -21,7 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/light"
 )
@@ -73,7 +73,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	fastHeight := headBlockInfo.FastNumber
 	pHead := headBlockInfo.FastHash
 
-	if currentTd != nil {
+	if currentTd == nil {
 		return
 	}
 

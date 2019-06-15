@@ -277,13 +277,15 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// Execute the LES handshake
 	var (
-		genesis = pm.blockchain.Genesis()
-		head    = pm.blockchain.CurrentHeader()
-		hash    = head.Hash()
-		number  = head.Number.Uint64()
-		td      = pm.blockchain.GetTd(hash, number)
+		genesis    = pm.blockchain.Genesis()
+		head       = pm.blockchain.CurrentHeader()
+		hash       = head.Hash()
+		number     = head.Number.Uint64()
+		td         = pm.blockchain.GetTd(hash, number)
+		fastHash   = pm.fblockchain.CurrentHeader().Hash()
+		fastHeight = pm.fblockchain.CurrentHeader().Number
 	)
-	if err := p.Handshake(td, hash, number, genesis.Hash(), pm.server); err != nil {
+	if err := p.Handshake(td, hash, number, genesis.Hash(), fastHash, fastHeight, pm.server); err != nil {
 		p.Log().Debug("Light Truechain handshake failed", "err", err)
 		return err
 	}
