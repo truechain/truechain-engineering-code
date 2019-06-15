@@ -559,7 +559,6 @@ func (w *worker) commitNewWork() {
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&w.mining) == 1 {
 		header.Coinbase = w.coinbase
-		log.Info("-----------------set coin base", ",", header.Coinbase)
 	}
 
 	// Could potentially happen if starting to mine in an odd state.
@@ -771,7 +770,7 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 
 			unmineFruitLen := new(big.Int).Sub(fastHight, fruits[len(fruits)-1].FastNumber())
 			waitmine := rand.Intn(900)
-			tmp := big.NewInt(360)			// upgrade for temporary
+			tmp := big.NewInt(360) // upgrade for temporary
 			if timeinterval.Cmp(tmp) >= 0 && (waitmine > int(unmineFruitLen.Int64())) {
 				// must big then 5min
 				w.current.fruits = fruitset
@@ -803,7 +802,6 @@ func (w *worker) CopyPendingFruit(fruits map[common.Hash]*types.SnailBlock, bc *
 	for k, _ := range w.fruitPoolMap {
 		delete(w.fruitPoolMap, k)
 	}
-	log.Info("the map info 1", "len", len(w.fruitPoolMap))
 
 	var copyPendingFruits []*types.SnailBlock
 
@@ -828,12 +826,6 @@ func (w *worker) CopyPendingFruit(fruits map[common.Hash]*types.SnailBlock, bc *
 	blockby.Sort(copyPendingFruits)
 	if len(fruits) > 0 && len(copyPendingFruits) > 0 {
 		log.Debug("CopyPendingFruit pengding fruit info", "len of pengding", len(fruits), "sort copy fruits len", len(copyPendingFruits))
-	}
-
-	if len(copyPendingFruits) > 0 {
-
-		log.Info("the copypending info", "len", len(copyPendingFruits), "fruits 1", copyPendingFruits[0].FastNumber(), "end", copyPendingFruits[len(copyPendingFruits)-1].FastNumber())
-		log.Info("the map info", "len", len(w.fruitPoolMap))
 	}
 
 	return copyPendingFruits
@@ -983,7 +975,7 @@ func (w *worker) commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumbe
 	//rand find one
 	mineFastBlock := rand.Intn(len(w.fastBlockPool))
 
-	log.Info("need mine fruit info", "random one", mineFastBlock, "len pool", len(w.fastBlockPool), "begin", w.fastBlockPool[0], "end", w.fastBlockPool[len(w.fastBlockPool)-1])
+	log.Debug("need mine fruit info", "random one", mineFastBlock, "len pool", len(w.fastBlockPool), "begin", w.fastBlockPool[0], "end", w.fastBlockPool[len(w.fastBlockPool)-1])
 
 	return w.fastBlockPool[mineFastBlock]
 }
