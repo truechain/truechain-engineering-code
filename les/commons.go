@@ -113,7 +113,7 @@ func (c *lesCommons) nodeInfo() interface{} {
 		}
 	}
 
-	fchain := c.protocolManager.blockchain
+	fchain := c.protocolManager.fblockchain
 	chain := c.protocolManager.blockchain
 	head := chain.CurrentHeader()
 	hash := head.Hash()
