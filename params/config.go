@@ -61,8 +61,8 @@ var (
 			MinimumFruitDifficulty: big.NewInt(262144),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP3: &BlockConfig{},
-		TIP5: nil,
+		TIP3: &BlockConfig{FastNumber: big.NewInt(1500000)},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
@@ -82,8 +82,8 @@ var (
 			MinimumFruitDifficulty: big.NewInt(200),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP3: &BlockConfig{FastNumber: big.NewInt(306346)},
-		TIP5: nil,
+		TIP3: &BlockConfig{FastNumber: big.NewInt(450000)},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(4000)},
 	}
 
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
@@ -103,8 +103,8 @@ var (
 			MinimumFruitDifficulty: big.NewInt(100),
 			DurationLimit:          big.NewInt(150),
 		}),
-		TIP3: &BlockConfig{},
-		TIP5: &BlockConfig{SnailNumber: big.NewInt(4825)},
+		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
 	}
 
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
