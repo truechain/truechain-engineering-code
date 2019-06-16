@@ -231,9 +231,6 @@ func (bc *SnailBlockChain) loadLastState() error {
 	// Issue a status log for the user
 	currentFastBlock := bc.CurrentFastBlock()
 
-	headerTd := bc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64())
-	blockTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-	fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
 
 
 	for i:=11800;i<13000;i++{
@@ -252,6 +249,11 @@ func (bc *SnailBlockChain) loadLastState() error {
 		}
 
 	}
+
+
+	headerTd := bc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64())
+	blockTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+	fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
 
 
 	log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
