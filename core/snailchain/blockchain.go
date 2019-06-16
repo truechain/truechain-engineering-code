@@ -234,7 +234,7 @@ func (bc *SnailBlockChain) loadLastState() error {
 
 
 
-	for i:=11800;i<13000;i++{
+	for i:=10000;i<13000;i++{
 		block := bc.GetBlockByNumber(uint64(i))
 		if block == nil {
 			break
