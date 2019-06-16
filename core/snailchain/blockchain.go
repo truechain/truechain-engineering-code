@@ -235,6 +235,24 @@ func (bc *SnailBlockChain) loadLastState() error {
 	blockTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
 
+
+	for i:=11800;i<13000;i++{
+		block := bc.GetBlockByNumber(uint64(i))
+		if block == nil {
+			break
+		}
+
+		ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
+		externTd := new(big.Int).Add(block.Difficulty(), ptd)
+
+		// Irrelevant of the canonical status, write the block itself to the database
+		if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), externTd); err != nil {
+			panic("WriteTd err")
+		}
+
+	}
+
+
 	log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
 	log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
 	log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
