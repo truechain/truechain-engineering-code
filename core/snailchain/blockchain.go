@@ -245,6 +245,7 @@ func (bc *SnailBlockChain) loadLastState() error {
 		ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 		externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
+		log.Info("refresh","ptd",ptd,"block.Difficulty()",block.Difficulty(),"externTd",externTd,"number",block.NumberU64())
 		// Irrelevant of the canonical status, write the block itself to the database
 		if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), externTd); err != nil {
 			panic("WriteTd err")
