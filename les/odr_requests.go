@@ -500,32 +500,6 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 	log.Debug("Validating CHT", "cht", r.ChtNum, "block", r.BlockNum)
 
 	switch msg.MsgType {
-	case MsgHeaderProofs: // LES/1 backwards compatibility
-		proofs := msg.Obj.([]ChtResp)
-		if len(proofs) != 1 {
-			return errInvalidEntryCount
-		}
-		proof := proofs[0]
-
-		// Verify the CHT
-		var encNumber [8]byte
-		binary.BigEndian.PutUint64(encNumber[:], r.BlockNum)
-
-		value, _, err := trie.VerifyProof(r.ChtRoot, encNumber[:], public.NodeList(proof.Proof).NodeSet())
-		if err != nil {
-			return err
-		}
-		var node light.ChtNode
-		if err := rlp.DecodeBytes(value, &node); err != nil {
-			return err
-		}
-		if node.Hash != proof.Header.Hash() {
-			return errCHTHashMismatch
-		}
-		// Verifications passed, store and return
-		r.Header = proof.Header
-		r.Proof = public.NodeList(proof.Proof).NodeSet()
-		r.Td = node.Td
 	case MsgHelperTrieProofs:
 		resp := msg.Obj.(HelperTrieResps)
 		if len(resp.AuxData) != 1 {

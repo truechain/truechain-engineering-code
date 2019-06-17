@@ -98,7 +98,6 @@ const (
 	MsgReceipts
 	MsgProofsV1
 	MsgProofsV2
-	MsgHeaderProofs
 	MsgHelperTrieProofs
 )
 

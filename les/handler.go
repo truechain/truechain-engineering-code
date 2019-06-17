@@ -1251,7 +1251,7 @@ func (pm *ProtocolManager) getHelperTrie(id uint, idx uint64) (common.Hash, stri
 	switch id {
 	case htCanonical:
 		idxV1 := (idx+1)*(pm.iConfig.PairChtSize/pm.iConfig.ChtSize) - 1
-		sectionHead := rawdb.ReadCanonicalHash(pm.chainDb, (idxV1+1)*pm.iConfig.ChtSize-1)
+		sectionHead := snaildb.ReadCanonicalHash(pm.chainDb, (idxV1+1)*pm.iConfig.ChtSize-1)
 		return light.GetChtRoot(pm.chainDb, idxV1, sectionHead), light.ChtTablePrefix
 	case htBloomBits:
 		sectionHead := rawdb.ReadCanonicalHash(pm.chainDb, (idx+1)*pm.iConfig.BloomTrieSize-1)
@@ -1264,8 +1264,8 @@ func (pm *ProtocolManager) getHelperTrie(id uint, idx uint64) (common.Hash, stri
 func (pm *ProtocolManager) getHelperTrieAuxData(req HelperTrieReq) []byte {
 	if req.Type == htCanonical && req.AuxReq == auxHeader && len(req.Key) == 8 {
 		blockNum := binary.BigEndian.Uint64(req.Key)
-		hash := rawdb.ReadCanonicalHash(pm.chainDb, blockNum)
-		return rawdb.ReadHeaderRLP(pm.chainDb, hash, blockNum)
+		hash := snaildb.ReadCanonicalHash(pm.chainDb, blockNum)
+		return snaildb.ReadHeaderRLP(pm.chainDb, hash, blockNum)
 	}
 	return nil
 }
