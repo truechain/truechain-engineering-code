@@ -92,6 +92,7 @@ func NewChtIndexer(db etruedb.Database, odr OdrBackend, size, confirms uint64) *
 // ODR backend in order to be able to add new entries and calculate subsequent root hashes
 func (c *ChtIndexerBackend) fetchMissingNodes(ctx context.Context, section uint64, root common.Hash) error {
 	batch := c.trieTable.NewBatch()
+	log.Info("fetchMissingNodes", "section", section, "sectionSize", c.sectionSize, "root", root)
 	r := &ChtRequest{ChtRoot: root, ChtNum: section - 1, BlockNum: section*c.sectionSize - 1, Config: c.odr.IndexerConfig()}
 	for {
 		err := c.odr.Retrieve(ctx, r)
@@ -116,6 +117,7 @@ func (c *ChtIndexerBackend) fetchMissingNodes(ctx context.Context, section uint6
 // Reset implements core.ChainIndexerBackend
 func (c *ChtIndexerBackend) Reset(ctx context.Context, section uint64, lastSectionHead common.Hash) error {
 	var root common.Hash
+	log.Info("Reset", "section", lastSectionHead, "lastSectionHead", lastSectionHead)
 	if section > 0 {
 		root = GetChtRoot(c.diskdb, section-1, lastSectionHead)
 	}
@@ -137,6 +139,7 @@ func (c *ChtIndexerBackend) Reset(ctx context.Context, section uint64, lastSecti
 func (c *ChtIndexerBackend) Process(ctx context.Context, header *types.SnailHeader) error {
 	hash, num := header.Hash(), header.Number.Uint64()
 	c.lastHash = hash
+	log.Info("Process", "num", num, "hash", hash)
 
 	td := rawdb.ReadTd(c.diskdb, hash, num)
 	if td == nil {
@@ -156,6 +159,7 @@ func (c *ChtIndexerBackend) Commit() error {
 		return err
 	}
 	c.triedb.Commit(root, false)
+	log.Info("Process", "section", c.section, "sectionSize", c.sectionSize, "CHTFrequencyClient", params.CHTFrequencyClient, "lastHash", c.lastHash, "root", root)
 
 	if ((c.section+1)*c.sectionSize)%params.CHTFrequencyClient == 0 {
 		log.Info("Storing CHT", "section", c.section*c.sectionSize/params.CHTFrequencyClient, "head", fmt.Sprintf("%064x", c.lastHash), "root", fmt.Sprintf("%064x", root))

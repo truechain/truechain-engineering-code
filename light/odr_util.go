@@ -19,6 +19,7 @@ package light
 import (
 	"bytes"
 	"context"
+	"github.com/ethereum/go-ethereum/swarm/log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -48,6 +49,7 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 	if odr.ChtIndexer() != nil {
 		chtCount, sectionHeadNum, sectionHead = odr.ChtIndexer().Sections()
 		canonicalHash := rawdb.ReadCanonicalHash(db, sectionHeadNum)
+		log.Info("GetHeaderByNumber", "chtCount", chtCount, "sectionHeadNum", sectionHeadNum, "sectionHead", sectionHead, "canonicalHash", canonicalHash)
 		// if the CHT was injected as a trusted checkpoint, we have no canonical hash yet so we accept zero hash too
 		for chtCount > 0 && canonicalHash != sectionHead && canonicalHash != (common.Hash{}) {
 			chtCount--
@@ -61,6 +63,7 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 	if number >= chtCount*odr.IndexerConfig().ChtSize {
 		return nil, ErrNoTrustedCht
 	}
+	log.Info("GetHeaderByNumber", "number", number, "chtCount", chtCount, "ChtSize", odr.IndexerConfig().ChtSize)
 	r := &ChtRequest{ChtRoot: GetChtRoot(db, chtCount-1, sectionHead), ChtNum: chtCount - 1, BlockNum: number, Config: odr.IndexerConfig()}
 	if err := odr.Retrieve(ctx, r); err != nil {
 		return nil, err
