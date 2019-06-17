@@ -18,6 +18,12 @@ package snailchain
 
 import (
 	"fmt"
+	"math/big"
+	"math/rand"
+	"os"
+	"sync"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -28,11 +34,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"math/big"
-	"math/rand"
-	"os"
-	"sync"
-	"testing"
 )
 
 func init() {
@@ -220,7 +221,7 @@ func TestLastBlock(t *testing.T) {
 	}
 	defer blockchain.Stop()
 
-	chain, _ := MakeSnailChain(1, core.DefaultGenesisBlock(), engine)
+	chain, _ := MakeSnailChain(5, core.DefaultGenesisBlock(), engine)
 	blocks := chain.GetBlocksFromNumber(1)
 	defer chain.Stop()
 	for _, block := range blocks {
@@ -390,7 +391,7 @@ func testBrokenChain(t *testing.T, full bool) {
 func TestReorgLongBlocks(t *testing.T) { testReorgLong(t, true) }
 
 func testReorgLong(t *testing.T, full bool) {
-	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 4733411880, full)
+	testReorg(t, []int64{0, 0, -9}, []int64{0, 0, 0, -9}, 5131292940, full)
 }
 
 // Tests that reorganising a short difficult chain after a long easy one
@@ -410,7 +411,7 @@ func testReorgShort(t *testing.T, full bool) {
 	for i := 0; i < len(diff); i++ {
 		diff[i] = -9
 	}
-	testReorg(t, easy, diff, 23752762584, full)
+	testReorg(t, easy, diff, 25578783544, full)
 }
 
 func testReorg(t *testing.T, first, second []int64, td int64, full bool) {

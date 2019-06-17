@@ -17,15 +17,15 @@
 package rawdb
 
 import (
-	"bytes"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/params"
+	"golang.org/x/crypto/sha3"
 )
 
 // Tests block header storage and retrieval operations.
@@ -68,7 +68,7 @@ func TestBodyStorage(t *testing.T) {
 	// Create a test body to move around the database and make sure it's really new
 	//body := &types.SnailBody{Fruits: []*types.Header{{Extra: []byte("test header")}}}
 	snailHeader := types.SnailHeader{Extra: []byte("test header")}
-	snailBlock := types.NewSnailBlock(&snailHeader, []*types.SnailBlock{}, []*types.PbftSign{}, []*types.SnailHeader{})
+	snailBlock := types.NewSnailBlock(&snailHeader, []*types.SnailBlock{}, []*types.PbftSign{}, []*types.SnailHeader{}, params.TestChainConfig)
 	body := &types.SnailBody{Fruits: []*types.SnailBlock{snailBlock}, Signs: nil}
 
 	hasher := sha3.NewLegacyKeccak256()
@@ -148,8 +148,7 @@ func TestBlockStorage(t *testing.T) {
 func TestPartialBlockStorage(t *testing.T) {
 	db := etruedb.NewMemDatabase()
 	block := types.NewSnailBlockWithHeader(&types.SnailHeader{
-		Extra:     []byte("test block"),
-		UncleHash: types.EmptyUncleHash,
+		Extra: []byte("test block"),
 	})
 	// Store a header and check that it's not recognized as a block
 	WriteHeader(db, block.Header())
@@ -259,8 +258,20 @@ func TestHeadStorage(t *testing.T) {
 
 func TestCommitteeStates(t *testing.T) {
 	db := etruedb.NewMemDatabase()
-	states := []uint64{10, 12, 14}
-	updated := []uint64{10, 12, 14, 20, 30}
+
+	stateNums := []int64{10, 12, 14}
+	updateNums := []int64{10, 12, 14, 20, 30}
+
+	states := []*big.Int{}
+	updated := []*big.Int{}
+
+	for n := range stateNums {
+		states = append(states, big.NewInt(int64(n)))
+	}
+
+	for n := range updateNums {
+		updated = append(updated, big.NewInt(int64(n)))
+	}
 
 	WriteCommitteeStates(db, 0, states)
 	nums := ReadCommitteeStates(db, 0)
@@ -268,7 +279,7 @@ func TestCommitteeStates(t *testing.T) {
 		t.Fatalf("Read Committee states invalid: %v", nums)
 	}
 	for i := range nums {
-		if nums[i] != states[i] {
+		if nums[i].Cmp(states[i]) != 0 {
 			t.Fatalf("Read Committee states error at %v", i)
 		}
 	}
@@ -279,7 +290,7 @@ func TestCommitteeStates(t *testing.T) {
 		t.Fatalf("Read Committee states invalid: %v", nums)
 	}
 	for i := range nums {
-		if nums[i] != updated[i] {
+		if nums[i].Cmp(updated[i]) != 0 {
 			t.Fatalf("Read Committee states error at %v", i)
 		}
 	}

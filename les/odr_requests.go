@@ -342,7 +342,7 @@ type ChtReq struct {
 
 // legacy LES/1
 type ChtResp struct {
-	Header *types.Header
+	Header *types.SnailHeader
 	Proof  []rlp.RawValue
 }
 
@@ -427,7 +427,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 		if len(headerEnc) == 0 {
 			return errHeaderUnavailable
 		}
-		header := new(types.Header)
+		header := new(types.SnailHeader)
 		if err := rlp.DecodeBytes(headerEnc, header); err != nil {
 			return errHeaderUnavailable
 		}

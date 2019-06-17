@@ -43,6 +43,8 @@ var (
 			MinimumFruitDifficulty: big.NewInt(262144),
 			DurationLimit:          big.NewInt(600),
 		}),
+		TIP3: &BlockConfig{FastNumber: big.NewInt(1500000)},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -53,7 +55,8 @@ var (
 			MinimumFruitDifficulty: big.NewInt(200),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP12Block: big.NewInt(306346),
+		TIP3: &BlockConfig{FastNumber: big.NewInt(450000)},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(4000)},
 	}
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -64,17 +67,19 @@ var (
 			MinimumFruitDifficulty: big.NewInt(100),
 			DurationLimit:          big.NewInt(150),
 		}),
+		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
 	}
 
 	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{chainId, new(MinervaConfig), big.NewInt(0)}
+	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	TestChainConfig = &ChainConfig{chainId, &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, big.NewInt(0)}
+	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -89,7 +94,14 @@ type ChainConfig struct {
 	Minerva *MinervaConfig `json:"minerva"`
 	//Clique *CliqueConfig  `json:"clique,omitempty"`
 
-	TIP12Block *big.Int
+	TIP3 *BlockConfig `json:"tip3"`
+
+	TIP5 *BlockConfig `json:"tip5"`
+}
+
+type BlockConfig struct {
+	FastNumber  *big.Int
+	SnailNumber *big.Int
 }
 
 func (c *ChainConfig) UnmarshalJSON(input []byte) error {
@@ -182,8 +194,8 @@ func (c *ChainConfig) String() string {
 	switch {
 	case c.Minerva != nil:
 		engine = c.Minerva
-	// case c.Clique != nil:
-	// 	engine = c.Clique
+		// case c.Clique != nil:
+		// 	engine = c.Clique
 	default:
 		engine = "unknown"
 	}
@@ -285,7 +297,7 @@ func (err *ConfigCompatError) Error() string {
 // phases.
 type Rules struct {
 	ChainID *big.Int
-	IsTIP12 bool
+	IsTIP3  bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -296,11 +308,22 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	}
 	return Rules{
 		ChainID: new(big.Int).Set(chainID),
-		IsTIP12: c.IsTIP12(num),
+		IsTIP3:  c.IsTIP3(num),
 	}
 }
 
-// IsTIP12 returns whether num is either equal to the TIP12 fork block or greater.
-func (c *ChainConfig) IsTIP12(num *big.Int) bool {
-	return isForked(c.TIP12Block, num)
+// IsTIP3 returns whether num is either equal to the IsTIP3 fork block or greater.
+func (c *ChainConfig) IsTIP3(num *big.Int) bool {
+	if c.TIP3 == nil {
+		return false
+	}
+	return isForked(c.TIP3.FastNumber, num)
+}
+
+// IsTIP5 returns whether num is either equal to the IsTIP5 fork block or greater.
+func (c *ChainConfig) IsTIP5(num *big.Int) bool {
+	if c.TIP5 == nil {
+		return false
+	}
+	return isForked(c.TIP5.SnailNumber, num)
 }

@@ -63,6 +63,12 @@
 			"revisionTime": "2019-02-18T06:46:05Z"
 		},
 		{
+			"checksumSHA1": "g6mVqHIiBzMbMn6eruxw83qCs5w=",
+			"path": "github.com/apilayer/freegeoip",
+			"revision": "3f942d1392f6439bda0f67b3c650ce468ebdba8e",
+			"revisionTime": "2018-07-02T11:14:01Z"
+		},
+		{
 			"checksumSHA1": "USkefO0g1U9mr+8hagv3fpSkrxg=",
 			"path": "github.com/aristanetworks/goarista/monotime",
 			"revision": "ea17b1a17847fb6e4c0a91de0b674704693469b0",
@@ -223,6 +229,12 @@
 			"revisionTime": "2016-08-13T22:13:03Z"
 		},
 		{
+			"checksumSHA1": "fgO9qjMQTWdpSt8iCUOZ27yvLEc=",
+			"path": "github.com/howeyc/fsnotify",
+			"revision": "f0c08ee9c60704c1879025f2ae0ff3e000082c13",
+			"revisionTime": "2015-10-03T19:46:02Z"
+		},
+		{
 			"checksumSHA1": "f55gR+6YClh0i/FOhdy66SOUiwY=",
 			"path": "github.com/huin/goupnp",
 			"revision": "679507af18f3c7ba2bcc7905392ce23e148661c3",
@@ -338,6 +350,12 @@
 			"revisionTime": "2015-03-14T17:03:34Z"
 		},
 		{
+			"checksumSHA1": "AcCbXEcukCAflj7OImys364ImXY=",
+			"path": "github.com/mohae/deepcopy",
+			"revision": "c48cc78d482608239f6c4c92a4abd87eb8761c90",
+			"revisionTime": "2017-09-29T03:49:55Z"
+		},
+		{
 			"checksumSHA1": "FYM/8R2CqS6PSNAoKl6X5gNJ20A=",
 			"path": "github.com/naoina/toml",
 			"revision": "9fafd69674167c06933b1787ae235618431ce87f",
@@ -360,6 +378,12 @@
 			"path": "github.com/olekukonko/tablewriter",
 			"revision": "febf2d34b54a69ce7530036c7503b1c9fbfdf0bb",
 			"revisionTime": "2017-01-28T05:05:32Z"
+		},
+		{
+			"checksumSHA1": "8FR1L7seyQwocI+psDrHt8TRlmY=",
+			"path": "github.com/oschwald/maxminddb-golang",
+			"revision": "1960b16a5147df3a4c61ac83b2f31cd8f811d609",
+			"revisionTime": "2019-05-23T23:57:38Z"
 		},
 		{
 			"checksumSHA1": "Se195FlZ160eaEk/uVx4KdTPSxU=",

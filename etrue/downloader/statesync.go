@@ -18,17 +18,18 @@ package downloader
 
 import (
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"hash"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/trie"
+	"golang.org/x/crypto/sha3"
 
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 )
@@ -327,7 +328,7 @@ func (s *stateSync) loop() (err error) {
 				// 2 items are the minimum requested, if even that times out, we've no use of
 				// this peer at the moment.
 				log.Warn("Stalling state sync, dropping peer", "peer", req.peer.GetID())
-				s.d.dropPeer(req.peer.GetID())
+				s.d.dropPeer(req.peer.GetID(), types.SDownloaderLoopCall)
 			}
 			// Process all the received blobs and check for stale delivery
 			delivered, err := s.process(req)

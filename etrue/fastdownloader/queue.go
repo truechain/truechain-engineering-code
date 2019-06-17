@@ -495,7 +495,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		}
 		if q.resultCache[index] == nil {
 			components := 1
-			if q.mode == FastSync || q.mode == SnapShotSync {
+			if q.mode == FastSync {
 				components = 2
 			}
 			q.resultCache[index] = &etrue.FetchResult{
@@ -533,6 +533,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 	if len(send) == 0 {
 		return nil, progress, nil
 	}
+	log.Trace("reserve fast Headers", "pendPool", len(pendPool), "donePool", len(donePool), "space", space, "count", count, "send", len(send), "send", len(send), "progress", progress)
 	request := &etrue.FetchRequest{
 		Peer:     p,
 		Fheaders: send,

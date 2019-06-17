@@ -26,17 +26,17 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common/prque"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
 var (
-	blockCacheItems      = 16             // Maximum number of blocks to cache before throttling the download
-	blockCacheMemory     = 64 * 1024 * 1024 // Maximum amount of memory to use for block caching
-	blockCacheSizeWeight = 0.1              // Multiplier to approximate the average block size based on past ones
+	blockCacheItems      = 256               // Maximum number of blocks to cache before throttling the download
+	blockCacheMemory     = 128 * 1024 * 1024 // Maximum amount of memory to use for block caching
+	blockCacheSizeWeight = 0.1               // Multiplier to approximate the average block size based on past ones
 )
 
 var (
@@ -65,7 +65,6 @@ type queue struct {
 	blockPendPool  map[string]*etrue.FetchRequest     // [eth/62] Currently pending block (body) retrieval operations
 	blockDonePool  map[common.Hash]struct{}           // [eth/62] Set of the completed block (body) fetches
 
-
 	resultCache  []*etrue.FetchResult // Downloaded but not yet delivered fetch results
 	resultOffset uint64               // Offset of the first cached fetch result in the block chain
 	resultSize   common.StorageSize   // Approximate size of a block (exponential moving average)
@@ -73,21 +72,23 @@ type queue struct {
 	lock   *sync.Mutex
 	active *sync.Cond
 	closed bool
+	blockchain BlockChain
 }
 
 // newQueue creates a new download queue for scheduling block retrieval.
-func newQueue() *queue {
+func newQueue(chain BlockChain) *queue {
 	lock := new(sync.Mutex)
 	return &queue{
-		headerPendPool:   make(map[string]*etrue.FetchRequest),
-		headerContCh:     make(chan bool),
-		blockTaskPool:    make(map[common.Hash]*types.SnailHeader),
-		blockTaskQueue:   prque.New(nil),
-		blockPendPool:    make(map[string]*etrue.FetchRequest),
-		blockDonePool:    make(map[common.Hash]struct{}),
-		resultCache:      make([]*etrue.FetchResult, blockCacheItems),
-		active:           sync.NewCond(lock),
-		lock:             lock,
+		blockchain:chain,
+		headerPendPool: make(map[string]*etrue.FetchRequest),
+		headerContCh:   make(chan bool),
+		blockTaskPool:  make(map[common.Hash]*types.SnailHeader),
+		blockTaskQueue: prque.New(nil),
+		blockPendPool:  make(map[string]*etrue.FetchRequest),
+		blockDonePool:  make(map[common.Hash]struct{}),
+		resultCache:    make([]*etrue.FetchResult, blockCacheItems),
+		active:         sync.NewCond(lock),
+		lock:           lock,
 	}
 }
 
@@ -136,8 +137,6 @@ func (q *queue) PendingBlocks() int {
 	return q.blockTaskQueue.Size()
 }
 
-
-
 // InFlightHeaders retrieves whether there are header fetch requests currently
 // in flight.
 func (q *queue) InFlightHeaders() bool {
@@ -155,8 +154,6 @@ func (q *queue) InFlightBlocks() bool {
 
 	return len(q.blockPendPool) > 0
 }
-
-
 
 // Idle returns if the queue is fully idle or has some data still inside.
 func (q *queue) Idle() bool {
@@ -178,7 +175,6 @@ func (q *queue) ShouldThrottleBlocks() bool {
 
 	return q.resultSlots(q.blockPendPool, q.blockDonePool) <= 0
 }
-
 
 // resultSlots calculates the number of results slots available for requests
 // whilst adhering to both the item and the memory limit too of the results
@@ -389,14 +385,13 @@ func (q *queue) ReserveHeaders(p etrue.PeerConnection, count int) *etrue.FetchRe
 // returns a flag whether empty blocks were queued requiring processing.
 func (q *queue) ReserveBodies(p etrue.PeerConnection, count int) (*etrue.FetchRequest, bool, error) {
 	isNoop := func(header *types.SnailHeader) bool {
-		return header.FruitsHash == types.EmptyRootHash
+		return false
 	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
 	return q.reserveHeaders(p, count, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, isNoop)
 }
-
 
 // reserveHeaders reserves a set of data download operations for a given peer,
 // skipping any previously failed ones. This method is a generic version used
@@ -471,6 +466,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 	if len(send) == 0 {
 		return nil, progress, nil
 	}
+	log.Debug("reserve snail Headers", "space", space, "skip", len(skip), "pendPool", len(pendPool), "donePool", len(donePool), "count", count, "send", len(send), "progress", progress)
 	request := &etrue.FetchRequest{
 		Peer:     p,
 		Sheaders: send,
@@ -491,7 +487,6 @@ func (q *queue) CancelHeaders(request *etrue.FetchRequest) {
 func (q *queue) CancelBodies(request *etrue.FetchRequest) {
 	q.cancel(request, q.blockTaskQueue, q.blockPendPool)
 }
-
 
 // Cancel aborts a fetch request, returning all pending hashes to the task queue.
 func (q *queue) cancel(request *etrue.FetchRequest, taskQueue *prque.Prque, pendPool map[string]*etrue.FetchRequest) {
@@ -539,7 +534,6 @@ func (q *queue) ExpireBodies(timeout time.Duration) map[string]int {
 
 	return q.expire(timeout, q.blockPendPool, q.blockTaskQueue, bodyTimeoutMeter)
 }
-
 
 // expire is the generic check that move expired tasks from a pending pool back
 // into a task pool, returning all entities caught with expired tasks.
@@ -668,7 +662,7 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-		if types.DeriveSha(types.Fruits(fruitsLists[index])) != header.FruitsHash {
+		if 	q.blockchain.GetFruitsHash(header,fruitsLists[index]) != header.FruitsHash {
 			return errInvalidChain
 		}
 		result.Fruits = fruitsLists[index]
@@ -676,7 +670,6 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	}
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(fruitsLists), reconstruct)
 }
-
 
 // deliver injects a data retrieval response into the results queue.
 //

@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -151,7 +152,7 @@ type Dataset struct {
 	once        sync.Once // Ensures the cache is generated only once
 	dateInit    int
 	consistent  common.Hash // Consistency of generated data
-	datasetHash common.Hash // dataset hash
+	datasetHash string      // dataset hash
 }
 
 // newDataset creates a new truehash mining dataset
@@ -326,7 +327,7 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 			if epoch <= 0 {
 				log.Info("TableInit is start", "epoch", epoch)
 				d.truehashTableInit(d.dataset)
-				d.datasetHash = d.Hash()
+				d.datasetHash = d.GetDatasetSeedhash(d.dataset)
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
 				log.Info("updateLookupTBL is start", "epoch", epoch)
@@ -334,7 +335,7 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 				if flag {
 					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))
-					d.datasetHash = d.Hash()
+					d.datasetHash = d.GetDatasetSeedhash(d.dataset)
 
 					log.Info("updateLookupTBL change success", "epoch", epoch, "consistent", d.consistent.String())
 				} else {
@@ -473,24 +474,44 @@ func SeedHash(block uint64) []byte {
 	return seedHash(block)
 }
 
-func (m *Minerva) DataSetHash(block uint64) []byte {
+func (m *Minerva) DataSetHash(epoch uint64) string {
 
-	var datas []byte
-	tmp := make([]byte, 8)
-	output := make([]byte, DGSTSIZE)
-	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
+	//epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*Dataset)
 
+	return current.datasetHash
 	//getDataset
-	sha256 := makeHasher(sha3.New256())
+	/*sha256 := makeHasher(sha3.New256())
 
 	for _, v := range current.dataset {
 		binary.LittleEndian.PutUint64(tmp, v)
 		datas = append(datas, tmp...)
 	}
 	sha256(output, datas[:])
-	return output
+	return output*/
+
+}
+func (d *Dataset) GetDatasetSeedhash(dataset []uint64) string {
+	//getDataset
+
+	var datas []byte
+	tmp := make([]byte, 8)
+	output := make([]byte, DGSTSIZE)
+
+	if len(dataset) == 0 {
+		return ""
+	}
+
+	sha256 := makeHasher(sha3.New256())
+
+	for _, v := range dataset {
+		binary.LittleEndian.PutUint64(tmp, v)
+		datas = append(datas, tmp...)
+	}
+	sha256(output, datas[:])
+
+	return "0x" + hex.EncodeToString(output)
 
 }
 
@@ -502,27 +523,27 @@ type fakeElection struct {
 func newFakeElection() *fakeElection {
 	var members []*types.CommitteeMember
 
-	pk1 , err := crypto.HexToECDSA("68161a6bf59df3261038d99a132d9125c75bc2260e2f89c87b15b1b1b657baaa")
+	pk1, err := crypto.HexToECDSA("68161a6bf59df3261038d99a132d9125c75bc2260e2f89c87b15b1b1b657baaa")
 	if err != nil {
 		log.Error("initMembers", "error", err)
 	}
-	pk2 , err := crypto.HexToECDSA("17be747053f88bf4cd500785284a5c79ecca235081bda0d335c14e32e9d772db")
-	pk3 , err := crypto.HexToECDSA("5e2108e3186b6dc0e723fd767978d59dc9fefb0290d85e5ed567d715776a7142")
-	pk4 , err := crypto.HexToECDSA("9427c2357d2d87d4a8f88977af14277035889e09d43a5d58c0867fa68e4ae7dc")
-	pk5 , err := crypto.HexToECDSA("61aca120387023b33ad46c7804fcb9deaa22d5185208548ef3f041eed4131efb")
-	pk6 , err := crypto.HexToECDSA("df47c4b6f0d5b72fc0bf98551dac344fe5f79a1993e8340c9f90e195939ccd30")
-	pk7 , err := crypto.HexToECDSA("5b58e95edbf4db558d49ed15849a7cc5b7dc2e3530ff599cf1440285f7d4586e")
+	pk2, err := crypto.HexToECDSA("17be747053f88bf4cd500785284a5c79ecca235081bda0d335c14e32e9d772db")
+	pk3, err := crypto.HexToECDSA("5e2108e3186b6dc0e723fd767978d59dc9fefb0290d85e5ed567d715776a7142")
+	pk4, err := crypto.HexToECDSA("9427c2357d2d87d4a8f88977af14277035889e09d43a5d58c0867fa68e4ae7dc")
+	pk5, err := crypto.HexToECDSA("61aca120387023b33ad46c7804fcb9deaa22d5185208548ef3f041eed4131efb")
+	pk6, err := crypto.HexToECDSA("df47c4b6f0d5b72fc0bf98551dac344fe5f79a1993e8340c9f90e195939ccd30")
+	pk7, err := crypto.HexToECDSA("5b58e95edbf4db558d49ed15849a7cc5b7dc2e3530ff599cf1440285f7d4586e")
 
 	if err != nil {
 		log.Error("initMembers", "error", err)
 	}
 
-	priKeys := []*ecdsa.PrivateKey{ pk1, pk2, pk3, pk4, pk5, pk6, pk7 }
+	priKeys := []*ecdsa.PrivateKey{pk1, pk2, pk3, pk4, pk5, pk6, pk7}
 
-	for _ , priKey := range priKeys {
+	for _, priKey := range priKeys {
 
 		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
-		m := &types.CommitteeMember{coinbase, crypto.PubkeyToAddress(priKey.PublicKey), crypto.FromECDSAPub(&priKey.PublicKey), types.StateUsedFlag, types.TypeFixed}
+		m := &types.CommitteeMember{Coinbase: coinbase, CommitteeBase: crypto.PubkeyToAddress(priKey.PublicKey), Publickey: crypto.FromECDSAPub(&priKey.PublicKey), Flag: types.StateUsedFlag, MType: types.TypeFixed}
 		members = append(members, m)
 
 	}

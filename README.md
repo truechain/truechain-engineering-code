@@ -105,8 +105,8 @@ and agree upon. We provide a single node JSON file at cmd/getrue/genesis_single.
       }
   },
   "alloc":{
-    "0x7c357530174275dd30e46319b89f71186256e4f7" : { "balance" : 90000000000000000000000},
-    "0x4cf807958b9f6d9fd9331397d7a89a079ef43288" : { "balance" : 90000000000000000000000}
+    "0x7c357530174275dd30e46319b89f71186256e4f7" : { "balance" : "90000000000000000000000"},
+    "0x4cf807958b9f6d9fd9331397d7a89a079ef43288" : { "balance" : "90000000000000000000000"}
   },
   "committee":[
     {

@@ -1252,9 +1252,17 @@ func RegisterEtrueService(stack *node.Node, cfg *etrue.Config) {
 
 // RegisterDashboardService adds a dashboard to the stack.
 func RegisterDashboardService(stack *node.Node, cfg *dashboard.Config, commit string) {
-	stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		return dashboard.New(cfg, commit)
-	})
+	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+		// Retrieve both etrue and les services
+		var etrueServ *etrue.Truechain
+		ctx.Service(&etrueServ)
+		return dashboard.New(cfg, commit, ctx.ResolvePath("logs"), etrueServ), nil
+	}); err != nil {
+		Fatalf("Failed to register the Truechain Stats service: %v", err)
+	}
+	/*stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+		return dashboard.New(cfg, commit, ctx.ResolvePath("logs")), nil
+	})*/
 }
 
 // RegisterEtrueStatsService configures the Truechain Stats daemon and adds it to
@@ -1363,7 +1371,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
 
 	fchain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
-	schain, err = snailchain.NewSnailBlockChain(chainDb, config, engine, vmcfg, fchain)
+	schain, err = snailchain.NewSnailBlockChain(chainDb, config, engine, fchain)
 
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)

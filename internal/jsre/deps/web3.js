@@ -5529,6 +5529,12 @@ var methods = function () {
         params: 0
     });
 
+    var getDatasetBySeedhash = new Method({
+        name: 'getDatasetBySeedhash',
+        call: 'etrue_getDatasetBySeedhash',
+        params: 1
+    });
+
     var getCommittee = new Method({
         name: 'getCommittee',
         call: 'etrue_getCommittee',
@@ -5588,6 +5594,7 @@ var methods = function () {
         getCommittee,
         getCurrentState,
         getDataset,
+        getDatasetBySeedhash,
         submitHashrate
     ];
 };

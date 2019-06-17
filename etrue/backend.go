@@ -137,6 +137,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
+
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
 	/*if config.Genesis != nil {
@@ -177,8 +178,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if err != nil {
 		return nil, err
 	}
+	bl := etrue.blockchain.GetBlockByNumber(0)
+	fmt.Print(bl)
 
-	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, etrue.chainConfig, etrue.engine, vmConfig, etrue.blockchain)
+
+	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, etrue.chainConfig, etrue.engine, etrue.blockchain)
 	if err != nil {
 		return nil, err
 	}

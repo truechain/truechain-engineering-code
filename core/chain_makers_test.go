@@ -17,16 +17,20 @@
 package core
 
 import (
+	"crypto/ecdsa"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"os"
+	"testing"
 )
 
 func init() {
@@ -95,6 +99,154 @@ func ExampleGenerateChain() {
 	// balance of addr1: 2969000
 	// balance of addr2: 30000
 	// balance of addr3: 1000
+}
+
+func TestTransactionCost(t *testing.T) {
+	var (
+		addresses   []common.Address
+		privateKeys []*ecdsa.PrivateKey
+		//geneSnailBlockNumber = 3
+	)
+	for i := 1; i <= 3; i++ {
+		key, _ := crypto.GenerateKey()
+		privateKeys = append(privateKeys, key)
+		address := crypto.PubkeyToAddress(key.PublicKey)
+		addresses = append(addresses, address)
+	}
+
+	params.MinimumFruits = 1
+	var (
+		db    = etruedb.NewMemDatabase()
+		pow   = minerva.NewFaker()
+		gspec = &Genesis{
+			Config: params.TestChainConfig,
+			Alloc: types.GenesisAlloc{
+				addresses[0]: {Balance: big.NewInt(params.Ether)},
+				addresses[1]: {Balance: big.NewInt(params.Ether)},
+				addresses[2]: {Balance: big.NewInt(params.Ether)},
+			},
+			Difficulty: big.NewInt(20000),
+		}
+		genesis    = gspec.MustFastCommit(db)
+		fastParent = genesis
+		signer     = types.NewTIP1Signer(params.TestChainConfig.ChainID)
+
+		/*balance_given = new(big.Int)
+		balance_get   = new(big.Int)*/
+
+		tx_amount = big.NewInt(100000000000000000)
+		tx_price  = big.NewInt(1000000)
+		tx_fee    = big.NewInt(100000000000000000)
+	)
+
+	//generate blockchain
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, pow, vm.Config{})
+	defer blockchain.Stop()
+
+	fastBlocks, _ := GenerateChain(gspec.Config, fastParent, pow, db, params.MinimumFruits, func(i int, gen *BlockGen) () {
+		tx1, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addresses[0]), addresses[1], tx_amount, params.TxGas, tx_price, nil), signer, privateKeys[0])
+		gen.AddTx(tx1)
+	})
+	if i, err := blockchain.InsertChain(fastBlocks); err != nil {
+		fmt.Printf("insert error (block %d): %v\n", fastBlocks[i-1].NumberU64(), err)
+		return
+	}
+	fastParent = blockchain.CurrentBlock()
+	statedb, _ := state.New(blockchain.CurrentBlock().Root(), state.NewDatabase(db))
+	balance_get1, isAverage1 := getCommitteeMemberReward(pow, statedb)
+	if isAverage1 == false {
+		log.Error("[TestTransactionCost error]:committee member reward is not average.")
+	}
+	//balance_given = getAddressBalance(addresses, statedb)
+	tx1_addr0_balance := statedb.GetBalance(addresses[0])
+	tx1_addr1_balance := statedb.GetBalance(addresses[1])
+	tx1_gas := new(big.Int).Mul(tx_price, big.NewInt(int64(params.TxGas)))
+	tx1_value := new(big.Int).Add(tx_amount, tx1_gas)
+	if new(big.Int).Add(tx1_addr0_balance, tx1_value).Cmp(big.NewInt(params.Ether)) != 0 || new(big.Int).Sub(tx1_addr1_balance, tx_amount).Cmp(big.NewInt(params.Ether)) != 0 {
+		log.Info("[TestTransactionCost info]:", " balance", tx1_value, "addr0_balance", tx1_addr0_balance, "addr1_balance", tx1_addr1_balance)
+		log.Error("[TestTransactionCost error]:tx1 execution error")
+	}
+	if balance_get1.Cmp(tx1_gas) != 0 {
+		log.Info("[TestTransactionCost info]:", "balance_get1", balance_get1, "tx1_gas", tx1_gas)
+		log.Error("[TestTransactionCost error]:tx1 gas is not equal")
+	}
+	//test transaction2  payment
+	fastBlocks, _ = GenerateChain(gspec.Config, fastParent, pow, db, params.MinimumFruits, func(i int, gen *BlockGen) () {
+		signTx_sender, _ := types.SignTx(types.NewTransaction_Payment(gen.TxNonce(addresses[0]), addresses[1], tx_amount, tx_fee, params.TxGas, tx_price, nil, addresses[2]), signer, privateKeys[0])
+		tx2, _ := types.SignTx_Payment(signTx_sender, signer, privateKeys[2])
+		gen.AddTx(tx2)
+	})
+
+	if i, err := blockchain.InsertChain(fastBlocks); err != nil {
+		fmt.Printf("insert error (block %d): %v\n", fastBlocks[i].NumberU64(), err)
+		return
+	}
+	fastParent = blockchain.CurrentBlock()
+	statedb, _ = state.New(blockchain.CurrentBlock().Root(), state.NewDatabase(db))
+
+	balance_get2, isAverage2 := getCommitteeMemberReward(pow, statedb)
+	if isAverage2 == false {
+		log.Error("[TestTransactionCost error]:committee member reward is not average.")
+	}
+	tx2_addr0_balance := statedb.GetBalance(addresses[0])
+	tx2_addr1_balance := statedb.GetBalance(addresses[1])
+	tx2_addr2_balance := statedb.GetBalance(addresses[2])
+	tx2_value := new(big.Int).Add(tx_amount, tx_fee)
+	tx2_gas := new(big.Int).Mul(tx_price, big.NewInt(int64(params.TxGas)))
+	if new(big.Int).Add(tx2_addr0_balance, tx2_value).Cmp(tx1_addr0_balance) != 0 {
+		log.Info("[TestTransactionCost info]:", " tx2_value", tx2_value, "addr0_balance", tx2_addr0_balance, )
+		log.Error("[TestTransactionCost error]:tx2 tx2_addr0_balance execution error")
+	}
+	if new(big.Int).Sub(tx2_addr1_balance, tx_amount).Cmp(tx1_addr1_balance) != 0 {
+		log.Info("[TestTransactionCost info]:", " tx2_value", tx2_value, "tx2_addr1_balance", tx2_addr1_balance, "tx1_addr1_balance", tx1_addr1_balance)
+		log.Error("[TestTransactionCost error]:tx2 addr1 execution error")
+	}
+	if new(big.Int).Add(tx2_addr2_balance, tx2_gas).Cmp(big.NewInt(params.Ether)) != 0 {
+		log.Info("[TestTransactionCost info]:", " tx2_value", tx2_value, "addr2_balance", tx2_addr2_balance)
+		log.Error("[TestTransactionCost error]:tx2 addr2 execution error")
+	}
+	gasAndfee := new(big.Int).Add(tx2_gas, tx_fee)
+	distance := new(big.Int).Sub(balance_get2, balance_get1)
+	members := pow.GetElection().GetCommittee(big.NewInt(1))
+	if new(big.Int).Sub(distance, gasAndfee).Uint64() >= uint64(len(members)) {
+		log.Info("[TestTransactionCost info]:", "balance_get2", balance_get2, "balance_get1", balance_get1, "tx2_gas", tx2_gas)
+		log.Error("[TestTransactionCost error]:tx2 gas is not equal")
+	}
+
+	//test all balance
+	address_get := getAddressBalance(addresses, statedb)
+	all_balance := new(big.Int).Add(address_get, balance_get2)
+	diff := new(big.Int).Sub(big.NewInt(3*params.Ether), all_balance).Uint64()
+	if diff >= uint64(2*len(members)) {
+		log.Info("[TestTransactionCost info]:", "diff", diff)
+		log.Error("[TestTransactionCost error]:tx2 addr2 execution error")
+	}
+}
+
+func getCommitteeMemberReward(pow *minerva.Minerva, statedb *state.StateDB) (balance_get *big.Int, isAverage bool) {
+	members := pow.GetElection().GetCommittee(big.NewInt(1))
+	if len(members) == 0 {
+		return nil, false
+	}
+	reward := statedb.GetBalance(members[0].Coinbase)
+	balance_get = new(big.Int)
+	for _, member := range members {
+		balance := statedb.GetBalance(member.Coinbase)
+	if reward.Cmp(balance) != 0 {
+		return nil, false
+	}
+	balance_get = new(big.Int).Add(balance_get, balance)
+	log.Info("getBalance[committe member]", "addr", member.Coinbase, "balance", statedb.GetBalance(member.Coinbase))
+}
+	return balance_get, true
+}
+
+func getAddressBalance(addresses [] common.Address, statedb *state.StateDB) (balance_given *big.Int) {
+	balance_given = new(big.Int)
+	for _, addr := range addresses {
+		balance_given = new(big.Int).Add(balance_given, statedb.GetBalance(addr))
+	}
+	return balance_given
 }
 
 //func TestMakeBlock1(t *testing.T) {

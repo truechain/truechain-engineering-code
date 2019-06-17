@@ -539,7 +539,7 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.Debug("CONSENSUS FAILURE!!!", "err", r, "stack", string(debug.Stack()))
+			log.Error("CONSENSUS FAILURE!!!", "err", r, "stack", string(debug.Stack()))
 			// stop gracefully
 			//
 			// NOTE: We most probably shouldn't be running any further when there is

@@ -27,7 +27,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/truechain/truechain-engineering-code"
+	truechain "github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -333,7 +333,7 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([
 	}
 	fNumber := crit.FromBlock.Int64()
 	tNumber := crit.ToBlock.Int64()
-	if tNumber > fNumber && tNumber-fNumber > 10 {
+	if tNumber > fNumber && tNumber-fNumber > 100 {
 		return nil, errors.New("Start and end blocks are separated by more than 10 blocks")
 	}
 	// Create and run the filter to get all the logs

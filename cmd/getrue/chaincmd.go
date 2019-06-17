@@ -428,8 +428,9 @@ func copyDb(ctx *cli.Context) error {
 	//if err = fdl.Synchronise("local", currentHeader.Hash(), hc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64()), fsyncmode); err != nil {
 	//	return err
 	//}
-	if err = sdl.Synchronise("local", currentHeader.Hash(), hc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64()), syncmode); err != nil {
+	if err = sdl.Synchronise("local", currentHeader.Hash(), shc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64()), syncmode); err != nil {
 		return err
+
 	}
 
 	for sdl.Synchronising() {

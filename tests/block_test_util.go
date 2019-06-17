@@ -22,11 +22,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
+
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -163,7 +164,7 @@ func (t *BlockTest) Run() error {
 
 	genesis.MustSnailCommit(db)
 	// Initialize a fresh chain with only a genesis block
-	blockchain, err := snailchain.NewSnailBlockChain(db, params.TestChainConfig, engine, vm.Config{},fastChain)
+	blockchain, err := snailchain.NewSnailBlockChain(db, params.TestChainConfig, engine, fastChain)
 
 	if err != nil {
 		return err

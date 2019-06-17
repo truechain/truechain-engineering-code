@@ -284,8 +284,8 @@ type rpcProgress struct {
 	StartingSnailBlock hexutil.Uint64
 	CurrentSnailBlock  hexutil.Uint64
 	HighestSnailBlock  hexutil.Uint64
-	PulledStates  hexutil.Uint64
-	KnownStates   hexutil.Uint64
+	PulledStates       hexutil.Uint64
+	KnownStates        hexutil.Uint64
 }
 
 // SyncProgress retrieves the current progress of the sync algorithm. If there's
@@ -312,8 +312,8 @@ func (ec *Client) SyncProgress(ctx context.Context) (*truechain.SyncProgress, er
 		StartingSnailBlock: uint64(progress.StartingSnailBlock),
 		CurrentSnailBlock:  uint64(progress.CurrentSnailBlock),
 		HighestSnailBlock:  uint64(progress.HighestSnailBlock),
-		PulledStates:  uint64(progress.PulledStates),
-		KnownStates:   uint64(progress.KnownStates),
+		PulledStates:       uint64(progress.PulledStates),
+		KnownStates:        uint64(progress.KnownStates),
 	}, nil
 }
 
@@ -521,4 +521,34 @@ func toCallArg(msg truechain.CallMsg) interface{} {
 		arg["fee"] = (*hexutil.Big)(msg.Fee)
 	}
 	return arg
+}
+
+//etrue_protocolVersion
+func (ec *Client) GetProtocolVersion(ctx context.Context) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "etrue_protocolVersion", nil)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//etrue_coinbase
+func (ec *Client) Coinbase(ctx context.Context) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "etrue_coinbase", nil)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//etrue_mining
+func (ec *Client) IsMining(ctx context.Context) (bool, error) {
+	var result bool
+	err := ec.c.CallContext(ctx, &result, "etrue_mining", nil)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
 }

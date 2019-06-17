@@ -84,6 +84,7 @@ func (t fakeTable) Self() *enode.Node                     { return new(enode.Nod
 func (t fakeTable) Close()                                {}
 func (t fakeTable) LookupRandom() []*enode.Node           { return nil }
 func (t fakeTable) Resolve(*enode.Node) *enode.Node       { return nil }
+func (t fakeTable) Delete(*enode.Node)                    {}
 func (t fakeTable) ReadRandomNodes(buf []*enode.Node) int { return copy(buf, t) }
 
 // This test checks that dynamic dials are launched from discovery results.
@@ -703,3 +704,4 @@ func (t *resolveMock) Self() *enode.Node                     { return new(enode.
 func (t *resolveMock) Close()                                {}
 func (t *resolveMock) LookupRandom() []*enode.Node           { return nil }
 func (t *resolveMock) ReadRandomNodes(buf []*enode.Node) int { return 0 }
+func (t *resolveMock) Delete(*enode.Node)                    {}

@@ -265,7 +265,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
 
 	if !atomic.CompareAndSwapInt32(&pm.synchronising, 0, 1) {
-		log.Debug("synchronise busy")
+		log.Debug("synchronise snail busy")
 		return
 	}
 	defer atomic.StoreInt32(&pm.synchronising, 0)
@@ -281,7 +281,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	sendEvent := func() {
 		// reset on error
 		if err != nil {
-			pm.eventMux.Post(downloader.FailedEvent{err})
+			pm.eventMux.Post(downloader.FailedEvent{Err: err})
 		} else {
 			pm.eventMux.Post(downloader.DoneEvent{})
 		}
@@ -295,7 +295,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	pm.fdownloader.SetSyncStatsChainHeightLast(fastHeight)
 	currentNumber := pm.blockchain.CurrentBlock().NumberU64()
-	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHeight", fastHeight, "currentNumber",currentNumber)
+	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHeight", fastHeight, "currentNumber", currentNumber, "snailHeight", currentBlock.Number())
 	if pTd.Cmp(td) <= 0 {
 
 		if fastHeight > currentNumber {
@@ -305,6 +305,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
 			}
+			atomic.StoreUint32(&pm.fastSync, 0)
+			atomic.StoreUint32(&pm.snapSync, 0)
 			atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
 			atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		}
@@ -313,23 +315,23 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	// Otherwise try to sync with the downloader
 	mode := downloader.FullSync
-	//if atomic.LoadUint32(&pm.fastSync) == 1 {
-	//	// Fast sync was explicitly requested, and explicitly granted
-	//	mode = downloader.FastSync
-	//} else if atomic.LoadUint32(&pm.snapSync) == 1 {
-	//	mode = downloader.SnapShotSync
-	//}
-	// TODO :
-	//else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
-	//	// The database  seems empty as the current block is the genesis. Yet the fast
-	//	// block is ahead, so fast sync was enabled for this node at a certain point.
-	//	// The only scenario where this can happen is if the user manually (or via a
-	//	// bad block) rolled back a fast sync node below the sync point. In this case
-	//	// however it's safe to reenable fast sync.
-	//	atomic.StoreUint32(&pm.fastSync, 1)
-	//	mode = downloader.FastSync
-	//
-	//}
+	if atomic.LoadUint32(&pm.fastSync) == 1 {
+		// Fast sync was explicitly requested, and explicitly granted
+		mode = downloader.FastSync
+
+		//else if atomic.LoadUint32(&pm.snapSync) == 1 {
+		//	mode = downloader.SnapShotSync
+		//}
+	}else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+		// The database  seems empty as the current block is the genesis. Yet the fast
+		// block is ahead, so fast sync was enabled for this node at a certain point.
+		// The only scenario where this can happen is if the user manually (or via a
+		// bad block) rolled back a fast sync node below the sync point. In this case
+		// however it's safe to reenable fast sync.
+		atomic.StoreUint32(&pm.fastSync, 1)
+		mode = downloader.FastSync
+
+	}
 
 	if mode == downloader.FastSync || mode == downloader.SnapShotSync {
 		var pivotHeader *types.Header
@@ -358,14 +360,13 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 
-	if atomic.LoadUint32(&pm.fastSync) == 1 {
+	if atomic.LoadUint32(&pm.fastSync) == 1 ||  atomic.LoadUint32(&pm.snapSync) == 1 {
 		if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
 			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.FastSync); err != nil {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
 			}
 		}
-
 	}
 
 	atomic.StoreUint32(&pm.fastSync, 0)

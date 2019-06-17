@@ -124,8 +124,10 @@ type PbftAgent struct {
 	knownRecievedNodes *utils.OrderedMap
 	committeeNodeTag   *utils.OrderedMap
 
-	gasFloor uint64
-	gasCeil  uint64
+	markNodeMu       *sync.Mutex //mark node mutex
+	broadcastNodeTag *utils.OrderedMap
+	gasFloor         uint64
+	gasCeil          uint64
 }
 
 // AgentWork is the leader current environment and holds
@@ -170,6 +172,8 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		gasCeil:              gasCeil,
 		knownRecievedNodes:   utils.NewOrderedMap(),
 		committeeNodeTag:     utils.NewOrderedMap(),
+		markNodeMu:           new(sync.Mutex),
+		broadcastNodeTag:     utils.NewOrderedMap(),
 	}
 	agent.initNodeInfo(etrue)
 	if !agent.singleNode {
@@ -442,10 +446,10 @@ func (agent *PbftAgent) loop() {
 					oldReceivedMetrics.Mark(1)
 				case 0:
 					repeatReceivedMetrics.Mark(1)
-					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+					agent.sendAndMarkNode(cryNodeInfo)
 				case -1:
 					newReceivedMetrics.Mark(1)
-					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+					agent.sendAndMarkNode(cryNodeInfo)
 					agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
 				}
 				log.Debug("received repeat nodeInfo", "repeat", repeatReceivedMetrics.Count(), "old", oldReceivedMetrics.Count(), "new", newReceivedMetrics.Count())
@@ -462,7 +466,8 @@ func (agent *PbftAgent) loop() {
 					agent.MarkNodeTag(nodeTagHash, cryNodeInfo.CreatedAt)
 					newReceivedMetrics.Mark(1)
 
-					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+					agent.sendAndMarkNode(cryNodeInfo)
+
 					if nodeWork.isCommitteeMember {
 						nodeHandleMetrics.Mark(1)
 						agent.handlePbftNode(cryNodeInfo, nodeWork, pubKey)
@@ -609,7 +614,7 @@ func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMes
 		return false, nil, common.Hash{}, nil
 	}
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
-	nodeTag := &types.CommitteeNodeTag{encryptNode.CommitteeID, pubKeyByte}
+	nodeTag := &types.CommitteeNodeTag{CommitteeID: encryptNode.CommitteeID, PubKey: pubKeyByte}
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
 		return true, agent.nodeInfoWorks[0], nodeTag.Hash(), pubKey
@@ -624,7 +629,13 @@ func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMes
 //send committeeNode to p2p,make other committeeNode receive and decrypt
 func (agent *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 	cryNodeInfo := encryptNodeInfo(nodeWork.committeeInfo, agent.committeeNode, agent.privateKey)
-	agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+	agent.sendAndMarkNode(cryNodeInfo)
+}
+
+func (agent *PbftAgent) sendAndMarkNode(cryptoNodeInfo *types.EncryptNodeMessage) {
+	new_cryptoNodeInfo := &cryptoNodeInfo
+	agent.MarkBroadcastNodeTag(*new_cryptoNodeInfo)
+	go agent.nodeInfoFeed.Send(types.NodeInfoEvent{NodeInfo: *new_cryptoNodeInfo})
 }
 
 func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.CommitteeNode, privateKey *ecdsa.PrivateKey) *types.EncryptNodeMessage {
@@ -660,6 +671,18 @@ func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, no
 	if committeeNode != nil {
 		help.CheckAndPrintError(agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode}))
 	}
+}
+
+//GetNodeInfoByHash get cryptoNodeInfo by hash
+func (agent *PbftAgent) GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.EncryptNodeMessage, bool) {
+	agent.markNodeMu.Lock()
+	defer agent.markNodeMu.Unlock()
+	nodeInfo, isExist := agent.broadcastNodeTag.Get(nodeInfoHash)
+	if isExist {
+		return nodeInfo.(*types.EncryptNodeMessage), isExist
+	}
+	//log.Warn("GetNodeInfoByHash is not exist")
+	return nil, isExist
 }
 
 //AddRemoteNodeInfo send cryNodeInfo of committeeNode to network,and recieved by other committeenode
@@ -1252,6 +1275,16 @@ func (agent *PbftAgent) MarkNodeTag(nodeTag common.Hash, timestamp *big.Int) {
 		agent.committeeNodeTag.Pop()
 	}
 	agent.committeeNodeTag.Set(nodeTag, timestamp)
+}
+
+//MarkNodeTag Mark received nodeTag,avoid old node information
+func (agent *PbftAgent) MarkBroadcastNodeTag(cryptoNodeInfo *types.EncryptNodeMessage) {
+	agent.markNodeMu.Lock()
+	defer agent.markNodeMu.Unlock()
+	for agent.broadcastNodeTag.Size() >= maxKnownNodes {
+		agent.broadcastNodeTag.Pop()
+	}
+	agent.broadcastNodeTag.Set(cryptoNodeInfo.Hash(), cryptoNodeInfo)
 }
 
 //single node start

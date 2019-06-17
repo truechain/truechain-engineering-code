@@ -243,13 +243,28 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) (error,
 	return nil, false
 }
 
+func (pool *SnailPool) addFruits(fruits []*types.SnailBlock) {
+	var promoted []*types.SnailBlock
+	for _, fruit := range fruits {
+		_, send := pool.addFruit(fruit)
+		if send {
+			promoted = append(promoted, fruit)
+		}
+	}
+	if len(promoted) > 0 {
+		allSendCounter.Inc(int64(len(promoted)))
+		allSendTimesCounter.Inc(1)
+		go pool.fruitFeed.Send(types.NewFruitsEvent{Fruits: promoted})
+	}
+}
+
 // addFruit
 func (pool *SnailPool) addFruit(fruit *types.SnailBlock) (error, bool) {
 	//if the new fruit's fbnumber less than,don't add
 	headSnailBlock := pool.chain.CurrentBlock()
 	if headSnailBlock.NumberU64() > 0 {
 		fruits := headSnailBlock.Fruits()
-		if fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
+		if fruits != nil && fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
 			log.Debug("addFruit failed", "fruit's fastnumber", fruit.FastNumber(), "current snailblock's max fastnumber", fruits[len(fruits)-1].FastNumber())
 			return consensus.ErrTooOldBlock, false
 		}
@@ -308,7 +323,6 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) (error, bool) {
 		return pool.appendFruit(fruit, true)
 	}
 
-	return nil, false
 }
 
 // journalFruit adds the specified fruit to the local disk journal
@@ -365,25 +379,14 @@ func (pool *SnailPool) loop() {
 					if send {
 						allSendCounter.Inc(1)
 						allSendTimesCounter.Inc(1)
-						go pool.fruitFeed.Send(types.NewFruitsEvent{types.SnailBlocks{fruit}})
+						go pool.fruitFeed.Send(types.NewFruitsEvent{Fruits: types.SnailBlocks{fruit}})
 					}
 				}
 			}
 
 		case fruits := <-pool.newFruitCh:
 			if fruits != nil {
-				var promoted []*types.SnailBlock
-				for _, fruit := range fruits {
-					_, send := pool.addFruit(fruit)
-					if send {
-						promoted = append(promoted, fruit)
-					}
-				}
-				if len(promoted) > 0 {
-					allSendCounter.Inc(int64(len(promoted)))
-					allSendTimesCounter.Inc(1)
-					go pool.fruitFeed.Send(types.NewFruitsEvent{promoted})
-				}
+				pool.addFruits(fruits)
 			}
 
 			// Be unsubscribed due to system stopped
@@ -693,7 +696,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	headSnailBlock := pool.chain.CurrentBlock()
 	if headSnailBlock.NumberU64() > 0 {
 		fruits := headSnailBlock.Fruits()
-		if fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
+		if fruits != nil && fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber()) >= 0 {
 			log.Debug("validateFruit", "fruit's fastnumber", fruit.FastNumber(), "current snailblock's max fastnumber", fruits[len(fruits)-1].FastNumber())
 			return consensus.ErrTooOldBlock
 		}

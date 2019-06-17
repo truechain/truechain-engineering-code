@@ -18,17 +18,19 @@ package minerva
 
 import (
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"fmt"
+	osMath "math"
+
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
-	osMath "math"
 )
 
 var (
@@ -125,7 +127,7 @@ func TestCalcSnailDifficulty(t *testing.T) {
 	//for i:0;i<n;i++{
 	targeDiff = append(targeDiff, tdiff)
 
-	config := &params.ChainConfig{ChainID: big.NewInt(1), Minerva: &params.MinervaConfig{MinimumDifficulty: params.MinimumDifficulty, MinimumFruitDifficulty: params.MinimumFruitDifficulty, DurationLimit: params.DurationLimit}, TIP12Block: common.Big0}
+	config := &params.ChainConfig{ChainID: big.NewInt(1), Minerva: &params.MinervaConfig{MinimumDifficulty: params.MinimumDifficulty, MinimumFruitDifficulty: params.MinimumFruitDifficulty, DurationLimit: params.DurationLimit}, TIP3: &params.BlockConfig{FastNumber: common.Big0}, TIP5: &params.BlockConfig{FastNumber: common.Big0}}
 
 	for k, v := range SnailHeadersMap {
 		//i:= timeCurrent[k.Uint64()]
@@ -217,7 +219,7 @@ func TestSnailAwardForHeight(t *testing.T) {
 	for i := 1; i < 1000; i++ {
 		snailBlockNumber := new(big.Int).SetInt64(int64(1 + 4500*(i-1)))
 		fmt.Println("snailBlockNumber:", snailBlockNumber, "Award:", getCurrentCoin(snailBlockNumber))
-		committeeAward, minerAward, minerFruitAward, _ := getBlockReward(snailBlockNumber)
+		committeeAward, minerAward, minerFruitAward, _ := GetBlockReward(snailBlockNumber)
 		fmt.Println("committeeAward:", committeeAward, "minerAward:", minerAward, "minerFruitAward:", minerFruitAward)
 	}
 }

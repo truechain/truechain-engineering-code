@@ -17,6 +17,8 @@
 package params
 
 import (
+	"fmt"
+	"math/big"
 	"reflect"
 	"testing"
 )
@@ -38,4 +40,11 @@ func TestCheckCompatible(t *testing.T) {
 			t.Errorf("error mismatch:\nstored: %v\nnew: %v\nhead: %v\nerr: %v\nwant: %v", test.stored, test.new, test.head, err, test.wantErr)
 		}
 	}
+}
+func TestFork(t *testing.T) {
+	Tip := new(big.Int).SetUint64(30001)
+	cur := new(big.Int).SetUint64(30000)
+
+	forked := isForked(Tip, cur)
+	fmt.Println("fork:", forked)
 }

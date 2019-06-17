@@ -72,7 +72,7 @@ type chainHeightFn func() uint64
 type chainInsertFn func(types.Blocks) (int, error)
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
-type peerDropFn func(id string)
+type peerDropFn func(id string, call uint32)
 
 // announce is the hash notification of the availability of a new block in the
 // network.
@@ -265,15 +265,6 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
-	if len(headers) != 0 {
-		log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers), "number", headers[0].Number)
-		watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, len(headers), "number", headers[0].Number))
-		defer func() {
-			watch.EndWatch()
-			watch.Finish("end")
-		}()
-	}
-
 	// Send the filter channel to the fetcher
 	filter := make(chan *headerFilterTask)
 
@@ -291,9 +282,6 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 	// Retrieve the headers remaining after filtering
 	select {
 	case task := <-filter:
-		if len(task.headers) > 0 {
-			log.Debug("Filtering task headers", "peer", peer, "headers", len(task.headers), "number", task.headers[0].Number)
-		}
 		return task.headers
 	case <-f.quit:
 		return nil
@@ -303,7 +291,7 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
 func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos [][]*types.CommitteeMember, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, [][]*types.CommitteeMember) {
-	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs), "number", signs[0][0].FastHeight)
+	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs))
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)
@@ -322,9 +310,6 @@ func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction,
 	// Retrieve the bodies remaining after filtering
 	select {
 	case task := <-filter:
-		if len(task.transactions) > 0 {
-			log.Debug("Filtering task bodies", "peer", peer, "txs", len(task.transactions), "signs", len(task.signs), "number", task.signs[0][0].FastHeight)
-		}
 		return task.transactions, task.signs, task.infos
 	case <-f.quit:
 		return nil, nil, nil
@@ -553,7 +538,7 @@ func (f *Fetcher) loop() {
 					// If the delivered header does not match the promised number, drop the announcer
 					if header.Number.Uint64() != announce.number {
 						log.Info("Invalid fast block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
-						f.dropPeer(announce.origin)
+						f.dropPeer(announce.origin, types.FetcherHeadCall)
 						f.forgetHash(hash)
 						continue
 					}
@@ -601,9 +586,8 @@ func (f *Fetcher) loop() {
 				return
 			}
 			bodyFilterInMeter.Mark(int64(len(task.transactions)))
-			watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", task.peer, len(task.transactions[0]), task.signs[0][0].FastHeight))
+			watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d", task.peer, len(task.transactions[0])))
 
-			log.Debug("Loop bodyFilter", "transactions", len(task.transactions), "f.completing", len(f.completing))
 			blocks := []*types.Block{}
 			for i := 0; i < len(task.transactions) && i < len(task.signs); i++ {
 				// Match up a body to any possible completion request
@@ -789,6 +773,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) bool {
 		// Something went very wrong, drop the peer
 		log.Debug("Propagated fast block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
 		f.agentFetcher.ChangeCommitteeLeader(block.Number())
+		f.dropPeer(peer, types.FetcherCall)
 		return false
 	}
 	return true

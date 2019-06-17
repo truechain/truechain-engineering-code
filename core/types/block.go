@@ -28,10 +28,12 @@ import (
 	"unsafe"
 
 	"bytes"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/params"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -76,6 +78,21 @@ func (fs Fruits) Len() int { return len(fs) }
 
 // GetRlp returns the RLP encoding of one fruit from the list.
 func (fs Fruits) GetRlp(i int) []byte {
+	bytes, err := rlp.EncodeToBytes(fs[i])
+	if err != nil {
+		panic(err)
+	}
+	return bytes
+}
+
+// Headers is a wrapper around a fruit header array to implement DerivableList.
+type FruitsHeaders []*SnailHeader
+
+// Len returns the number of headers in this list.
+func (fs FruitsHeaders) Len() int { return len(fs) }
+
+// GetRlp returns the RLP encoding of one fruit header from the list.
+func (fs FruitsHeaders) GetRlp(i int) []byte {
 	bytes, err := rlp.EncodeToBytes(fs[i])
 	if err != nil {
 		panic(err)
@@ -491,9 +508,9 @@ type SnailHeader struct {
 	FruitsHash      common.Hash    `json:"fruitsHash"       gencodec:"required"`
 	FastHash        common.Hash    `json:"fastHash"         gencodec:"required"`
 	FastNumber      *big.Int       `json:"fastNumber"       gencodec:"required"`
-	SignHash        common.Hash    `json:"signHash"  		gencodec:"required"`
+	SignHash        common.Hash    `json:"signHash"         gencodec:"required"`
 	Difficulty      *big.Int       `json:"difficulty"       gencodec:"required"`
-	FruitDifficulty *big.Int       `json:"fruitDifficulty"	gencodec:"required"`
+	FruitDifficulty *big.Int       `json:"fruitDifficulty"  gencodec:"required"`
 	Number          *big.Int       `json:"number"           gencodec:"required"`
 	Publickey       []byte         `json:"publicKey"        gencodec:"required"`
 	Time            *big.Int       `json:"timestamp"        gencodec:"required"`
@@ -612,7 +629,7 @@ func (b *SnailBlock) DeprecatedTd() *big.Int {
 // NewSnailBlock creates a new block. The input data is copied,
 // changes to header and to the field values will not affect the
 // block.
-func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign, uncles []*SnailHeader) *SnailBlock {
+func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign, uncles []*SnailHeader, config *params.ChainConfig) *SnailBlock {
 	b := &SnailBlock{
 		header: CopySnailHeader(header),
 		//body:   body,
@@ -622,10 +639,16 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 	if len(fruits) == 0 {
 		b.header.FruitsHash = EmptyRootHash
 	} else {
-		b.header.FruitsHash = DeriveSha(Fruits(fruits))
 		b.fruits = make([]*SnailBlock, len(fruits))
+		var headers []*SnailHeader
 		for i := range fruits {
 			b.fruits[i] = CopyFruit(fruits[i])
+			headers = append(headers, fruits[i].header)
+		}
+		if config.IsTIP5(header.Number) {
+			b.header.FruitsHash = DeriveSha(FruitsHeaders(headers))
+		} else {
+			b.header.FruitsHash = DeriveSha(Fruits(fruits))
 		}
 	}
 
@@ -770,7 +793,14 @@ func (b *SnailBlock) IsFruit() bool {
 	}
 }
 func (b *SnailBlock) Fruits() []*SnailBlock { return b.fruits }
-func (b *SnailBlock) Signs() PbftSigns      { return b.signs }
+func (b *SnailBody) FruitsHeaders() []*SnailHeader {
+	var headers []*SnailHeader
+	for i := 0; i < len(b.Fruits); i++ {
+		headers = append(headers, b.Fruits[i].header)
+	}
+	return headers
+}
+func (b *SnailBlock) Signs() PbftSigns { return b.signs }
 
 func (b *SnailBlock) ToElect() bool {
 	if len(b.header.Publickey) > 0 {
@@ -838,15 +868,12 @@ func (b *SnailBlock) SetSnailBlockSigns(signs []*PbftSign) {
 }
 
 // WithBody returns a new snailblock with the given transaction and uncle contents.
-func (b *SnailBlock) WithBody(fruits []*SnailBlock, signs []*PbftSign, uncles []*SnailHeader) *SnailBlock {
+func (b *SnailBlock) WithBody(fruits []*SnailBlock, uncles []*SnailHeader) *SnailBlock {
 	block := &SnailBlock{
 		header: b.Header(),
-		//body : 		body,
 		fruits: make([]*SnailBlock, len(fruits)),
-		signs:  make([]*PbftSign, len(signs)),
 	}
 	copy(block.fruits, fruits)
-	copy(block.signs, signs)
 
 	return block
 }

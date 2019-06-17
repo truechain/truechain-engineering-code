@@ -41,6 +41,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
@@ -48,6 +49,10 @@ import (
 
 const (
 	defaultGasPrice = 50 * params.Shannon
+)
+
+var (
+	LocalTxMetrics = metrics.NewRegisteredMeter("etrue/prop/local_tx/in", nil)
 )
 
 // PublicTrueAPI provides an API to access True related information.
@@ -644,12 +649,12 @@ func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr
 	block, err := s.b.SnailBlockByNumber(ctx, blockNr)
 	if block != nil {
 		response, err := s.rpcOutputSnailBlock(block, inclFruit)
-		if err == nil && blockNr == rpc.PendingBlockNumber {
+		/*if err == nil && blockNr == rpc.PendingBlockNumber {
 			// Pending blocks need to nil out a few fields
 			for _, field := range []string{"hash", "nonce", "miner"} {
 				response[field] = nil
 			}
-		}
+		}*/
 		return response, err
 	}
 	return nil, err
@@ -1031,21 +1036,20 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]interface{}, error) {
 	head := b.Header() // copies the header once
 	fields := map[string]interface{}{
-		"number":          (*hexutil.Big)(head.Number),
-		"hash":            b.Hash(),
-		"parentHash":      head.ParentHash,
-		"fruitHash":       head.FruitsHash,
-		"nonce":           head.Nonce,
-		"mixHash":         head.MixDigest,
-		"miner":           head.Coinbase,
-		"difficulty":      (*hexutil.Big)(head.Difficulty),
-		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
-		"extraData":       hexutil.Bytes(head.Extra),
-		"publicKey":       hexutil.Bytes(head.Publickey),
-		"pointerNumber":   head.PointerNumber,
-		"fastNumber":      head.FastNumber,
-		"size":            hexutil.Uint64(b.Size()),
-		"timestamp":       (*hexutil.Big)(head.Time),
+		"number":        (*hexutil.Big)(head.Number),
+		"hash":          b.Hash(),
+		"parentHash":    head.ParentHash,
+		"fruitsHash":    head.FruitsHash,
+		"nonce":         head.Nonce,
+		"mixHash":       head.MixDigest,
+		"miner":         head.Coinbase,
+		"difficulty":    (*hexutil.Big)(head.Difficulty),
+		"extraData":     hexutil.Bytes(head.Extra),
+		"publicKey":     hexutil.Bytes(head.Publickey),
+		"pointerNumber": head.PointerNumber,
+		"fastNumber":    head.FastNumber,
+		"size":          hexutil.Uint64(b.Size()),
+		"timestamp":     (*hexutil.Big)(head.Time),
 	}
 
 	fs := b.Fruits()
@@ -1083,7 +1087,6 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		"mixHash":         head.MixDigest,
 		"miner":           head.Coinbase,
 		"publicKey":       hexutil.Bytes(head.Publickey),
-		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
 		"size":            fruit.Size(),
@@ -1530,6 +1533,7 @@ func (args *SendTxArgs) toRawTransaction() *types.RawTransaction {
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+	LocalTxMetrics.Mark(1)
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}

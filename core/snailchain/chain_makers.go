@@ -17,8 +17,9 @@
 package snailchain
 
 import (
-	"github.com/ethereum/go-ethereum/log"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/log"
 
 	"fmt"
 
@@ -174,7 +175,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 			return nil
 		}
 
-		return types.NewSnailBlock(b.header, fruitSet, nil, nil)
+		return types.NewSnailBlock(b.header, fruitSet, nil, nil, config)
 	}
 	for i := 0; i < n; i++ {
 		if int(fastChain.CurrentBlock().NumberU64())/params.MinimumFruits < i+len(parents) {
@@ -218,13 +219,12 @@ func makeFruit(chain consensus.SnailChainReader, fast *types.Block, parent *type
 	pointer := chain.GetHeader(head.PointerHash, head.PointerNumber.Uint64())
 	head.FruitDifficulty = minerva.CalcFruitDifficulty(chain.Config(), head.Time.Uint64(), fast.Header().Time.Uint64(), pointer)
 
-	log.Info("makeFruit", "parent", parent.Number(), "pointer", pointer.Number, "fastNumber", fast.NumberU64())
-
 	fruit := types.NewSnailBlock(
 		head,
 		nil,
 		fast.Signs(),
 		nil,
+		chain.Config(),
 	)
 	return fruit, nil
 }
@@ -318,28 +318,51 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int, genesis *core.Genesi
 	log.Info("Make SnailBlockChain", "number", fastchain.CurrentBlock().Number(), "fast number", len(fastblocks))
 
 	snailGenesis := genesis.MustSnailCommit(testdb)
-	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, fastchain)
 
 	log.Info("MakeChain MakeSnailBlockBlockChain", "number", snailChain.CurrentBlock().Number(), "fast number", snailChain.CurrentFastBlock().Number())
 
-	_, err := MakeSnailBlockBlockChain(snailChain, fastchain, snailGenesis, snailBlockNumbers, big.NewInt(20000))
+	_, err := MakeSnailBlockBlockChain(snailChain, fastchain, snailGenesis, snailBlockNumbers, 1)
 	if err != nil {
 		panic(err)
-		return nil, nil
 	}
 
 	return snailChain, fastchain
 }
 
 //MakeSnailBlockFruits return fruits or blocks by given params and insert these in the chain
-func MakeSnailBlockBlockChain(chain *SnailBlockChain, fastchain *core.BlockChain, parent *types.SnailBlock, n int, diff *big.Int) ([]*types.SnailBlock, error) {
+func MakeSnailBlockBlockChain(chain *SnailBlockChain, fastchain *core.BlockChain, parent *types.SnailBlock, n int, DifficultyLevel int) ([]*types.SnailBlock, error) {
+
 	var blocks types.SnailBlocks
 
-	blocks = append(blocks, parent)
+	if _, error := chain.InsertChain(types.SnailBlocks{parent}); error != nil {
+		panic(error)
+	}
 
+	//h := chain.blockchain.GetBlockByNumber(0).Hash()
+	//log.Info("1", ",", h)
+	//blocks := snailchain.GenerateChain(params.TestChainConfig, fastChain, parents, n, 7, nil)
+	mconfig := MakechianConfig{
+		FruitNumber:     uint64(params.MinimumFruits),
+		FruitFresh:      int64(7),
+		DifficultyLevel: DifficultyLevel,
+	}
+
+	var pperents []*types.SnailBlock
+	for i := 0; i <= int(chain.CurrentBlock().Number().Uint64()); i++ {
+		pperents = append(pperents, chain.GetBlockByNumber(uint64(i)))
+	}
+	blocks2, _ := MakeSnailBlocks(fastchain, chain, pperents, int64(n), mconfig)
+
+	for _, block := range blocks2 {
+		if _, error := chain.InsertChain(types.SnailBlocks{block}); error != nil {
+			panic(error)
+		}
+	}
 	//parent := chain.genesisBlock
 	log.Info("MakeSnailBlockBlockChain", "makeblockSize", n)
-	for i := 0; i < n; i++ {
+	/*for i := 0; i < n; i++ {
+
 		block, err := MakeSnailBlock(chain, fastchain, parent, params.MinimumFruits, diff, blocks)
 		if err != nil {
 			return nil, err
@@ -352,9 +375,8 @@ func MakeSnailBlockBlockChain(chain *SnailBlockChain, fastchain *core.BlockChain
 		if _, error := chain.InsertChain(types.SnailBlocks{block}); error != nil {
 			panic(error)
 		}
-	}
-
-	return blocks[1:], nil
+	}*/
+	return blocks, nil
 }
 
 //MakeSnailBlockFruit retrieves a snailblock or fruit by given parameter
@@ -395,6 +417,7 @@ func MakeSnailBlock(chain *SnailBlockChain, fastchain *core.BlockChain, parent *
 		fruitSet,
 		nil,
 		nil,
+		chain.Config(),
 	)
 	return block, nil
 }
@@ -568,6 +591,7 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 			nil,
 			fSign,
 			nil,
+			chain.Config(),
 		)
 		return fruit, nil
 	}
@@ -595,6 +619,7 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 			fruitsetCopy,
 			nil,
 			nil,
+			chain.Config(),
 		)
 		return block, nil
 
@@ -620,6 +645,7 @@ func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, ma
 
 		blocks2 = append(blocks2, block)
 		blocks = append(blocks, block)
+		chain.SetValidator(NewBlockValidator(chain.Config(), fastchain, chain, chain.Engine()))
 		if _, error := chain.InsertChain(blocks2); error != nil {
 			panic(error)
 		}
@@ -630,7 +656,7 @@ func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, ma
 
 //MakeSnailBlockFruitsWithoutInsert return fruits or blocks by given params
 func MakeSnailBlockFruitsWithoutInsert(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
-	makeStartFastNum int, makeFruitSize int, pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
+	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
 	var blocks types.SnailBlocks
 
 	//parent := chain.genesisBlock
@@ -651,4 +677,170 @@ func MakeSnailBlockFruitsWithoutInsert(chain *SnailBlockChain, fastchain *core.B
 //MakeSnailChain return snailChain and fastchain by given snailBlockNumbers and a default fastBlockNumbers(60)
 func MakeSnailChain(snailBlockNumbers int, genesis *core.Genesis, engine consensus.Engine) (*SnailBlockChain, *core.BlockChain) {
 	return MakeChain(snailBlockNumbers*params.MinimumFruits, snailBlockNumbers, genesis, engine)
+}
+
+type MakechianConfig struct {
+	FruitNumber     uint64 //each block fruits number
+	FruitFresh      int64  //fruit fresh
+	DifficultyLevel int    // 1: low  2 :hight
+}
+
+func MakeSnailBlocks(fastchain *core.BlockChain, snailchain *SnailBlockChain, snailparents []*types.SnailBlock, blockCount int64, config MakechianConfig) ([]*types.SnailBlock, error) {
+
+	if blockCount <= 0 {
+		return nil, nil
+	}
+
+	if fastchain == nil {
+		return nil, fmt.Errorf(" fastchain is nill")
+	}
+	if snailchain == nil {
+		return nil, fmt.Errorf(" snailchain is nill")
+	}
+
+	var snailblocks types.SnailBlocks
+	var snailblockParent *types.SnailBlock
+	var parantsnail []*types.SnailBlock
+	for _, block := range snailparents {
+		parantsnail = append(parantsnail, block)
+	}
+
+	snailblockParent = snailparents[len(snailparents)-1]
+	startBlockNumber := snailblockParent.Number().Uint64()
+	for {
+		blockCount--
+		if blockCount < 0 {
+			break
+		}
+		startBlockNumber++
+		block, err := makeSnailBlock(fastchain, snailchain, startBlockNumber, snailblockParent, parantsnail, config)
+		if err != nil {
+			return nil, err
+		}
+		snailblockParent = block
+		parantsnail = append(parantsnail, block)
+		snailblocks = append(snailblocks, block)
+		snailchain.SetValidator(NewBlockValidator(snailchain.Config(), fastchain, snailchain, snailchain.Engine()))
+		if _, err := snailchain.InsertChain(types.SnailBlocks{block}); err != nil {
+			panic(err)
+		}
+	}
+
+	return snailblocks, nil
+}
+
+func makeSnailBlock(fastchain *core.BlockChain, snailchain *SnailBlockChain, blockNumber uint64, parent *types.SnailBlock, snailparents []*types.SnailBlock, config MakechianConfig) (*types.SnailBlock, error) {
+
+	var fruitsetCopy []*types.SnailBlock
+	var pointerHashFresh = config.FruitFresh
+	var headers []*types.SnailHeader
+
+	for _, b := range snailparents {
+		headers = append(headers, b.Header())
+	}
+
+	snailchain.SetValidator(NewBlockValidator(nil, fastchain, snailchain, snailchain.Engine()))
+	makeHead := func(chain *SnailBlockChain, fastNumber *big.Int, isFruit bool, lastFruit *types.SnailBlock) *types.SnailHeader {
+
+		var tstamp *big.Int
+
+		if config.DifficultyLevel == 1 {
+			//low diff
+			if lastFruit.Time().Uint64() == 0 {
+				tstamp = new(big.Int).Add(fastchain.GetBlockByNumber(fastNumber.Uint64()).Time(), big.NewInt(20))
+			} else {
+				tstamp = new(big.Int).Add(lastFruit.Time(), big.NewInt(20)) // block time is fixed at 10 seconds
+			}
+		} else {
+			if lastFruit.Time().Uint64() == 0 {
+				tstamp = new(big.Int).Add(fastchain.GetBlockByNumber(fastNumber.Uint64()).Time(), big.NewInt(100))
+			} else {
+				tstamp = new(big.Int).Add(lastFruit.Time(), big.NewInt(100)) // block time is fixed at 10 seconds
+			}
+		}
+
+		header := &types.SnailHeader{
+			ParentHash: parent.Hash(),
+			Number:     new(big.Int).SetUint64(uint64(blockNumber)),
+			Time:       tstamp,
+			FastNumber: fastNumber,
+			FastHash:   fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
+		}
+		pointerNum := parent.Number().Int64() - pointerHashFresh
+		if pointerNum < 0 {
+			pointerNum = 0
+		}
+		pointer := chain.GetBlockByNumber(uint64(pointerNum))
+		header.PointerHash = pointer.Hash()
+		header.PointerNumber = pointer.Number()
+
+		if err := snailchain.engine.PrepareSnailWithParent(fastchain, snailchain, header, headers); err != nil {
+			log.Error("Failed to prepare header for mining", "err", err)
+			return nil
+		}
+
+		return header
+	}
+
+	copySignsByFastNum := func(fc *core.BlockChain, fNumber *big.Int) ([]*types.PbftSign, error) {
+
+		if fc.CurrentBlock().Number().Cmp(fNumber) < 0 {
+			return nil, fmt.Errorf("fastblocknumber highter then fast chain hight")
+		}
+
+		fastSigns := fc.GetBlockByNumber(fNumber.Uint64()).Signs()
+		return fastSigns, nil
+
+	}
+
+	makeFruit := func(chain *SnailBlockChain, fChain *core.BlockChain, fastNumber *big.Int, lastFruit *types.SnailBlock) (*types.SnailBlock, error) {
+
+		head := makeHead(chain, fastNumber, true, lastFruit)
+		pointer := chain.GetHeader(head.PointerHash, head.PointerNumber.Uint64())
+		fastBlock := fChain.GetBlockByNumber(fastNumber.Uint64())
+		head.FastHash = fastBlock.Hash()
+		head.FruitDifficulty = minerva.CalcFruitDifficulty(chain.chainConfig, head.Time.Uint64(), fastBlock.Header().Time.Uint64(), pointer)
+
+		fSign, err := copySignsByFastNum(fChain, fastNumber)
+		if err != nil {
+			return nil, err
+		}
+
+		fruit := types.NewSnailBlock(
+			head,
+			nil,
+			fSign,
+			nil,
+			chain.Config(),
+		)
+		return fruit, nil
+	}
+
+	// creat fruits
+	makeStartFastNum := (blockNumber-1)*config.FruitNumber + 1
+	makeFruitSize := config.FruitNumber
+	var lastFruit *types.SnailBlock
+	lastFruit = parent
+
+	for i := makeStartFastNum; i < makeStartFastNum+makeFruitSize; i++ {
+		fruit, err := makeFruit(snailchain, fastchain, new(big.Int).SetUint64(i), lastFruit)
+		if err != nil {
+			return nil, err
+		}
+		lastFruit = fruit
+		fruitsetCopy = append(fruitsetCopy, fruit)
+	}
+	if len(fruitsetCopy) != int(makeFruitSize) {
+		return nil, fmt.Errorf("fruits make fail the length less then makeFruitSize")
+	}
+
+	block := types.NewSnailBlock(
+		makeHead(snailchain, new(big.Int).SetInt64(int64(blockNumber)), false, lastFruit),
+		fruitsetCopy,
+		nil,
+		nil,
+		snailchain.Config(),
+	)
+
+	return block, nil
 }

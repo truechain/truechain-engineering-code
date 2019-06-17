@@ -127,7 +127,7 @@ func missingSnailBlocks(chain *snailchain.SnailBlockChain, blocks []*types.Snail
 			continue
 		}
 		// If we're above the chain head, state availability is a must
-		if !chain.HasBlockAndState(block.Hash(), block.NumberU64()) {
+		if !chain.IsCanonicalBlock(block.Hash(), block.NumberU64()) {
 			return blocks[i:]
 		}
 	}

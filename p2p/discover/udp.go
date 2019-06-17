@@ -57,7 +57,7 @@ const (
 	ntpWarningCooldown  = 10 * time.Minute // Minimum amount of time to pass before repeating NTP warning
 	driftThreshold      = 10 * time.Second // Allowed clock drift before warning user
 	trueVersion         = 520
-	checkIPTime         = 10 * time.Second
+	checkIPTime         = 30 * time.Second
 
 	// Discovery packets are defined to be no larger than 1280 bytes.
 	// Packets larger than this size will be cut at the end and treated
@@ -307,7 +307,10 @@ func (t *udp) checkHostIP(ip string) {
 		select {
 		case <-t.ticker.C:
 			if strings.Compare(ip, t.host) != 0 {
-				log.Warn("Check host ip", "committee ip must be", t.host, "config ip", ip)
+				log.Info("Check host ip", "committee ip must be", t.host, "config ip", ip)
+				if addr := t.localNode.PredictAddr(); addr != "" {
+					t.host = addr
+				}
 			}
 		}
 	}
@@ -630,6 +633,10 @@ func (t *udp) handlePacket(from *net.UDPAddr, buf []byte) error {
 	log.Trace("<< "+packet.name(), "id", fromID, "addr", from, "err", err)
 	if err == nil {
 		packet.handle(t, from, fromID, hash)
+
+		if v, ok := packet.(*pong); ok {
+			t.host = v.To.IP.String()
+		}
 	}
 	return err
 }

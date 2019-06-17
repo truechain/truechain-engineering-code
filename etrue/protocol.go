@@ -30,16 +30,17 @@ import (
 // Constants to match up protocol versions and messages
 const (
 	etrue63 = 63
+	etrue64 = 64
 )
 
 // ProtocolName is the official short name of the protocol used during capability negotiation.
 var ProtocolName = "etrue"
 
 // ProtocolVersions are the upported versions of the etrue protocol (first is primary).
-var ProtocolVersions = []uint{etrue63}
+var ProtocolVersions = []uint{etrue64, etrue63}
 
 // ProtocolLengths are the number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = []uint64{20}
+var ProtocolLengths = []uint64{32, 20}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
@@ -64,12 +65,14 @@ const (
 	SnailBlockBodiesMsg     = 0x0d
 	NewSnailBlockMsg        = 0x0e
 
-	GetNodeDataMsg = 0x0f
-	NodeDataMsg    = 0x10
-	GetReceiptsMsg = 0x11
-	ReceiptsMsg    = 0x12
-
+	GetNodeDataMsg         = 0x0f
+	NodeDataMsg            = 0x10
+	GetReceiptsMsg         = 0x11
+	ReceiptsMsg            = 0x12
 	NewSnailBlockHashesMsg = 0x13
+
+	TbftNodeInfoHashMsg = 0x15
+	GetTbftNodeInfoMsg  = 0x16
 )
 
 type errCode int
@@ -139,6 +142,8 @@ type AgentNetworkProxy interface {
 	SubscribeNodeInfoEvent(chan<- types.NodeInfoEvent) event.Subscription
 	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
 	AddRemoteNodeInfo(*types.EncryptNodeMessage) error
+	//GetNodeInfoByHash get crypto nodeInfo  by hash
+	GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.EncryptNodeMessage, bool)
 }
 
 // statusData is the network packet for the status message.
@@ -150,6 +155,19 @@ type statusData struct {
 	CurrentBlock     common.Hash
 	GenesisBlock     common.Hash
 	CurrentFastBlock common.Hash
+}
+
+// statusSnapData is the network packet for the status message.
+type statusSnapData struct {
+	ProtocolVersion  uint32
+	NetworkId        uint64
+	TD               *big.Int
+	FastHeight       *big.Int
+	CurrentBlock     common.Hash
+	GenesisBlock     common.Hash
+	CurrentFastBlock common.Hash
+	GcHeight         *big.Int
+	CommitHeight     *big.Int
 }
 
 // newBlockHashesData is the network packet for the block announcements.
@@ -179,6 +197,11 @@ type BlockHeadersData struct {
 type hashOrNumber struct {
 	Hash   common.Hash // Block hash from which to retrieve headers (excludes Number)
 	Number uint64      // Block hash from which to retrieve headers (excludes Hash)
+}
+
+// getBlockHeadersData represents a block header query.
+type nodeInfoHashData struct {
+	Hash common.Hash
 }
 
 // EncodeRLP is a specialized encoder for hashOrNumber to encode only one of the
