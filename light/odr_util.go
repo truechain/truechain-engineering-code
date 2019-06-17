@@ -19,7 +19,7 @@ package light
 import (
 	"bytes"
 	"context"
-	"github.com/ethereum/go-ethereum/swarm/log"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
