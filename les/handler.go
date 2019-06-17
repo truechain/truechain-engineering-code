@@ -402,7 +402,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	// Block header query, collect the requested headers and reply
 	case AnnounceMsg:
-		p.Log().Trace("Received announce message")
 		if p.requestAnnounceType == announceTypeNone {
 			return errResp(ErrUnexpectedResponse, "")
 		}

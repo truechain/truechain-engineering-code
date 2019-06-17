@@ -738,7 +738,14 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 				h := headers[i].Hash()
 				n := headers[i].Number.Uint64()
 
-				if d.blockchain.HasConfirmedBlock(h, n) {
+				var known bool
+				switch d.mode {
+				case LightSync:
+					known = d.lightchain.HasHeader(h, n)
+				default:
+					known = d.blockchain.HasConfirmedBlock(h, n)
+				}
+				if known {
 					number, hash = n, h
 					break
 				}
@@ -801,7 +808,14 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 				h := headers[0].Hash()
 				n := headers[0].Number.Uint64()
 
-				if !d.blockchain.HasConfirmedBlock(h, n) {
+				var known bool
+				switch d.mode {
+				case LightSync:
+					known = d.lightchain.HasHeader(h, n)
+				default:
+					known = d.blockchain.HasConfirmedBlock(h, n)
+				}
+				if !known {
 					end = check
 					break
 				}

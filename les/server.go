@@ -322,8 +322,8 @@ func (s *requestCostStats) update(msgCode, reqCnt, cost uint64) {
 
 func (pm *ProtocolManager) blockLoop() {
 	pm.wg.Add(1)
-	headCh := make(chan types.FastChainHeadEvent, 10)
-	headSub := pm.fblockchain.SubscribeChainHeadEvent(headCh)
+	//headCh := make(chan types.FastChainHeadEvent, 10)
+	//headSub := pm.fblockchain.SubscribeChainHeadEvent(headCh)
 
 	sheadCh := make(chan types.SnailChainHeadEvent, 10)
 	sheadSub := pm.blockchain.SubscribeChainHeadEvent(sheadCh)
@@ -331,7 +331,7 @@ func (pm *ProtocolManager) blockLoop() {
 	go func() {
 		var lastHead *types.SnailHeader
 		lastBroadcastTd := common.Big0
-		lastBroadcastNumber := common.Big0
+		//lastBroadcastNumber := common.Big0
 		for {
 			select {
 			case ev := <-sheadCh:
@@ -383,53 +383,53 @@ func (pm *ProtocolManager) blockLoop() {
 						}
 					}
 				}
-			case ev := <-headCh:
-				peers := pm.peers.AllPeers()
-				if len(peers) > 0 {
-					header := ev.Block.Header()
-					hash := header.Hash()
-					number := header.Number.Uint64()
-					if header.Number.Cmp(lastBroadcastNumber) > 0 {
-
-						lastBroadcastNumber = header.Number
-						log.Debug("Announcing fast block to peers", "number", number, "hash", hash)
-
-						announce := announceData{Hash: hash, Number: number}
-						var (
-							signed         bool
-							signedAnnounce announceData
-						)
-
-						for _, p := range peers {
-							switch p.announceType {
-
-							case announceTypeSimple:
-								select {
-								case p.announceChn <- announce:
-								default:
-									pm.removePeer(p.id, public.ServerSimpleCall)
-								}
-
-							case announceTypeSigned:
-								if !signed {
-									signedAnnounce = announce
-									signedAnnounce.sign(pm.server.privateKey)
-									signed = true
-								}
-
-								select {
-								case p.announceChn <- signedAnnounce:
-								default:
-									pm.removePeer(p.id, public.ServerSignedCall)
-								}
-							}
-						}
-					}
-				}
-			case <-pm.quitSync:
-				headSub.Unsubscribe()
-				pm.wg.Done()
-				return
+			//case ev := <-headCh:
+			//	peers := pm.peers.AllPeers()
+			//	if len(peers) > 0 {
+			//		header := ev.Block.Header()
+			//		hash := header.Hash()
+			//		number := header.Number.Uint64()
+			//		if header.Number.Cmp(lastBroadcastNumber) > 0 {
+			//
+			//			lastBroadcastNumber = header.Number
+			//			log.Debug("Announcing fast block to peers", "number", number, "hash", hash)
+			//
+			//			announce := announceData{Hash: hash, Number: number}
+			//			var (
+			//				signed         bool
+			//				signedAnnounce announceData
+			//			)
+			//
+			//			for _, p := range peers {
+			//				switch p.announceType {
+			//
+			//				case announceTypeSimple:
+			//					select {
+			//					case p.announceChn <- announce:
+			//					default:
+			//						pm.removePeer(p.id, public.ServerSimpleCall)
+			//					}
+			//
+			//				case announceTypeSigned:
+			//					if !signed {
+			//						signedAnnounce = announce
+			//						signedAnnounce.sign(pm.server.privateKey)
+			//						signed = true
+			//					}
+			//
+			//					select {
+			//					case p.announceChn <- signedAnnounce:
+			//					default:
+			//						pm.removePeer(p.id, public.ServerSignedCall)
+			//					}
+			//				}
+			//			}
+			//		}
+			//	}
+			//case <-pm.quitSync:
+			//	headSub.Unsubscribe()
+			//	pm.wg.Done()
+			//	return
 			case <-pm.quitSync:
 				sheadSub.Unsubscribe()
 				pm.wg.Done()
