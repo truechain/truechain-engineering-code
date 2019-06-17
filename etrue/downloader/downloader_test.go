@@ -231,6 +231,9 @@ func (dl *downloadTester) makeChainFork(n, f int, parent *types.SnailBlock, bala
 	if !balanced {
 		heavy = true
 	}
+	hashes2, headers2, blocks2, _ := dl.makeChain(f, 1, parents, heavy, fastChain, 2)
+	hashes2 = append(hashes2, hashes[1:]...)
+
 	for hash, header := range headers {
 		headers2[hash] = header
 	}
