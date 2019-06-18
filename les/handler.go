@@ -1056,7 +1056,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case GetHelperTrieProofsMsg:
-		p.Log().Trace("Received helper trie proof request")
 		// Decode the retrieval message
 		var req struct {
 			ReqID uint64
@@ -1084,6 +1083,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		)
 		nodes := public.NewNodeSet()
 		for _, req := range req.Reqs {
+			p.Log().Info("Received helper trie proof request", "req", req.Start)
 			if auxTrie == nil || req.Type != lastType || req.TrieIdx != lastIdx {
 				auxTrie, lastType, lastIdx = nil, req.Type, req.TrieIdx
 
@@ -1107,11 +1107,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					data := pm.getHelperTrieAuxData(req)
 					auxData = append(auxData, data)
 					auxBytes += len(data)
-				}
-				if req.Start {
-					blockNum := binary.BigEndian.Uint64(req.Key)
-					for i := params.DifficultyPeriod.Int64() - 1; i < 0; i-- {
-						Heads = append(Heads, pm.blockchain.GetHeaderByNumber(blockNum-uint64(i)))
+					if req.Start {
+						blockNum := binary.BigEndian.Uint64(req.Key)
+						p.Log().Info("Received helper trie proof request", "req", req.Start, "blockNum", blockNum)
+						for i := params.DifficultyPeriod.Int64() - 1; i < 0; i-- {
+							Heads = append(Heads, pm.blockchain.GetHeaderByNumber(blockNum-uint64(i)))
+						}
 					}
 				}
 			}
@@ -1128,7 +1129,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrUnexpectedResponse, "")
 		}
 
-		p.Log().Trace("Received helper trie proof response")
 		var resp struct {
 			ReqID, BV uint64
 			Data      HelperTrieResps
@@ -1136,7 +1136,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-
+		p.Log().Trace("Received helper trie proof response", "heads", len(resp.Data.Heads))
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		deliverMsg = &Msg{
 			MsgType: MsgHelperTrieProofs,

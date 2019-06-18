@@ -45,6 +45,7 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 	var (
 		chtCount, sectionHeadNum uint64
 		sectionHead              common.Hash
+		start                    bool
 	)
 	if odr.ChtIndexer() != nil {
 		chtCount, sectionHeadNum, sectionHead = odr.ChtIndexer().Sections()
@@ -63,8 +64,11 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 	if number >= chtCount*odr.IndexerConfig().ChtSize {
 		return nil, ErrNoTrustedCht
 	}
+	if hash == (common.Hash{}) {
+		start = true
+	}
 	log.Info("GetHeaderByNumber", "number", number, "chtCount", chtCount, "ChtSize", odr.IndexerConfig().ChtSize)
-	r := &ChtRequest{ChtRoot: GetChtRoot(db, chtCount-1, sectionHead), ChtNum: chtCount - 1, BlockNum: number, Config: odr.IndexerConfig()}
+	r := &ChtRequest{ChtRoot: GetChtRoot(db, chtCount-1, sectionHead), ChtNum: chtCount - 1, BlockNum: number, Config: odr.IndexerConfig(), Start: start}
 	if err := odr.Retrieve(ctx, r); err != nil {
 		return nil, err
 	}
