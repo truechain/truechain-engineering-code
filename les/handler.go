@@ -1110,7 +1110,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					if req.Start {
 						blockNum := binary.BigEndian.Uint64(req.Key)
 						p.Log().Info("Received helper trie proof request", "req", req.Start, "blockNum", blockNum)
-						for i := params.DifficultyPeriod.Int64() - 1; i < 0; i-- {
+						for i := params.DifficultyPeriod.Int64() - 1; i > 0; i-- {
 							Heads = append(Heads, pm.blockchain.GetHeaderByNumber(blockNum-uint64(i)))
 						}
 					}
