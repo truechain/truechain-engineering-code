@@ -359,6 +359,9 @@ func (w *worker) update() {
 
 		case ev := <-w.fruitCh:
 			// if only fruit only not need care about fruit event
+			if w.current.Block.FastNumber() == nil || ev.Fruits[0].FastNumber() == nil {
+				return
+			}
 			if (w.fruitOnly || len(w.current.Block.Fruits()) == 0) && (w.current.Block.FastNumber().Cmp(ev.Fruits[0].FastNumber()) == 0) {
 				// after get the fruit event should star mining if have not mining
 				log.Debug("star commit new work  fruitCh")
