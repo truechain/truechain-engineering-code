@@ -580,7 +580,11 @@ func (w *worker) commitNewWork() {
 
 	// only miner fruit if not fruit set only miner the fruit
 	if !w.fruitOnly {
-		w.CommitFruits(pendingFruits, w.chain, w.fastchain, w.engine)
+		err := w.CommitFruits(pendingFruits, w.chain, w.fastchain, w.engine)
+		if err != nil {
+			log.Error("Failed to commit fruits", "err", err)
+			return
+		}
 	}
 
 	if work.fruits != nil {
@@ -705,7 +709,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 }
 
 // CommitFruits find all fruits and start to the last parent fruits number and end continue fruit list
-func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) {
+func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) error {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
 
@@ -723,7 +727,7 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	}
 
 	if fruits == nil {
-		return
+		return nil
 	}
 
 	log.Debug("commitFruits fruit pool list", "f min fb", fruits[0].FastNumber(), "f max fb", fruits[len(fruits)-1].FastNumber())
@@ -764,8 +768,13 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		}
 		if len(fruitset) >= params.MinimumFruits {
 			// need add the time interval
-			startTime := fc.GetHeaderByNumber(fruitset[0].FastNumber().Uint64()).Time
-			endTime := fc.GetHeaderByNumber(fruitset[len(fruitset)-1].FastNumber().Uint64()).Time
+			startFb := fc.GetHeaderByNumber(fruitset[0].FastNumber().Uint64())
+			endFb := fc.GetHeaderByNumber(fruitset[len(fruitset)-1].FastNumber().Uint64())
+			if startFb == nil || endFb == nil {
+				return fmt.Errorf("the fast chain have not exist")
+			}
+			startTime := startFb.Time
+			endTime := endFb.Time
 			timeinterval := new(big.Int).Sub(endTime, startTime)
 
 			unmineFruitLen := new(big.Int).Sub(fastHight, fruits[len(fruits)-1].FastNumber())
@@ -785,6 +794,7 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		// make the fruits to nil if not find the fruitset
 		w.current.fruits = nil
 	}
+	return nil
 }
 
 //create a new list that maye add one fruit who just mined but not add in to pending list
