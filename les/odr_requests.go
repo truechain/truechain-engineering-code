@@ -83,7 +83,7 @@ type BlockRequest light.BlockRequest
 // GetCost returns the cost of the given ODR request according to the serving
 // peer's cost table (implementation of LesOdrRequest)
 func (r *BlockRequest) GetCost(peer *peer) uint64 {
-	return peer.GetRequestCost(GetFastBlockBodiesMsg, 1)
+	return peer.GetRequestCost(GetSnailBlockBodiesMsg, 1)
 }
 
 // CanSend tells if a certain peer is suitable for serving the given request
@@ -94,7 +94,7 @@ func (r *BlockRequest) CanSend(peer *peer) bool {
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
 func (r *BlockRequest) Request(reqID uint64, peer *peer) error {
 	peer.Log().Debug("Requesting block body", "hash", r.Hash)
-	return peer.RequestBodies(reqID, r.GetCost(peer), []common.Hash{r.Hash})
+	return peer.RequestSnailBodies(reqID, r.GetCost(peer), []common.Hash{r.Hash})
 }
 
 // Valid processes an ODR request reply message from the LES network
@@ -137,7 +137,7 @@ type FruitRequest light.BlockRequest
 // GetCost returns the cost of the given ODR request according to the serving
 // peer's cost table (implementation of LesOdrRequest)
 func (r *FruitRequest) GetCost(peer *peer) uint64 {
-	return peer.GetRequestCost(GetFastBlockBodiesMsg, 1)
+	return peer.GetRequestCost(GetFruitBodiesMsg, 1)
 }
 
 // CanSend tells if a certain peer is suitable for serving the given request
@@ -148,7 +148,7 @@ func (r *FruitRequest) CanSend(peer *peer) bool {
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
 func (r *FruitRequest) Request(reqID uint64, peer *peer) error {
 	peer.Log().Debug("Requesting block body", "hash", r.Hash)
-	return peer.RequestBodies(reqID, r.GetCost(peer), []common.Hash{r.Hash})
+	return peer.RequestFruitBodies(reqID, r.GetCost(peer), []common.Hash{r.Hash})
 }
 
 // Valid processes an ODR request reply message from the LES network
@@ -433,11 +433,13 @@ type HelperTrieReq struct {
 	TrieIdx           uint64
 	Key               []byte
 	FromLevel, AuxReq uint
+	Start             bool
 }
 
 type HelperTrieResps struct { // describes all responses, not just a single one
 	Proofs  public.NodeList
 	AuxData [][]byte
+	Heads   []*types.SnailHeader
 }
 
 // legacy LES/1
@@ -484,6 +486,7 @@ func (r *ChtRequest) Request(reqID uint64, peer *peer) error {
 		TrieIdx: r.ChtNum,
 		Key:     encNum[:],
 		AuxReq:  auxHeader,
+		Start:   r.Start,
 	}
 	switch peer.version {
 	case lpv2:
@@ -542,6 +545,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 		r.Header = header
 		r.Proof = nodeSet
 		r.Td = node.Td
+		r.Headers = resp.Heads
 	default:
 		return errInvalidMessageType
 	}

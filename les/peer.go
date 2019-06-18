@@ -305,6 +305,20 @@ func (p *peer) RequestBodies(reqID, cost uint64, hashes []common.Hash) error {
 	return sendRequest(p.rw, GetFastBlockBodiesMsg, reqID, cost, hashes)
 }
 
+// RequestSnailBodies fetches a batch of blocks' bodies corresponding to the hashes
+// specified.
+func (p *peer) RequestSnailBodies(reqID, cost uint64, hashes []common.Hash) error {
+	p.Log().Debug("Fetching batch of snail block bodies", "count", len(hashes))
+	return sendRequest(p.rw, GetSnailBlockBodiesMsg, reqID, cost, hashes)
+}
+
+// RequestFruitBodies fetches a batch of blocks' bodies corresponding to the hashes
+// specified.
+func (p *peer) RequestFruitBodies(reqID, cost uint64, hashes []common.Hash) error {
+	p.Log().Debug("Fetching batch of fruit bodies", "count", len(hashes))
+	return sendRequest(p.rw, GetFruitBodiesMsg, reqID, cost, hashes)
+}
+
 // RequestCode fetches a batch of arbitrary data from a node's known state
 // data, corresponding to the specified hashes.
 func (p *peer) RequestCode(reqID, cost uint64, reqs []CodeReq) error {

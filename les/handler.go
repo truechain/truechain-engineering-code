@@ -1069,6 +1069,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		var (
 			auxBytes int
 			auxData  [][]byte
+			Heads    []*types.SnailHeader
 		)
 		reqCnt := len(req.Reqs)
 		if reject(uint64(reqCnt), MaxHelperTrieProofsFetch) {
@@ -1107,6 +1108,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					auxData = append(auxData, data)
 					auxBytes += len(data)
 				}
+				if req.Start {
+					blockNum := binary.BigEndian.Uint64(req.Key)
+					for i := params.DifficultyPeriod.Int64() - 1; i < 0; i-- {
+						Heads = append(Heads, pm.blockchain.GetHeaderByNumber(blockNum-uint64(i)))
+					}
+				}
 			}
 			if nodes.DataSize()+auxBytes >= softResponseLimit {
 				break
@@ -1114,7 +1121,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendHelperTrieProofs(req.ReqID, bv, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData})
+		return p.SendHelperTrieProofs(req.ReqID, bv, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData, Heads: Heads})
 
 	case HelperTrieProofsMsg:
 		if pm.odr == nil {
