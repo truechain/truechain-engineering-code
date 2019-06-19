@@ -249,8 +249,8 @@ type BlockBodiesRawData struct {
 
 // blockBodiesData is the network packet for block content distribution.
 type snailBlockBodiesData struct {
-	Fruits     []*fruitsData
-	FruitHeads []*fruitHeadsData
+	Fruit      [][]*types.SnailBlock
+	FruitHeads [][]*types.SnailHeader
 	Type       uint32 // Distinguish fetcher and downloader
 }
 

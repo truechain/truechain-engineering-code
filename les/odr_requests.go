@@ -111,7 +111,7 @@ func (r *BlockRequest) Validate(db etruedb.Database, msg *Msg) error {
 		return errInvalidMessageType
 	}
 	bodies := msg.Obj.(snailBlockBodiesData)
-	body := bodies.Fruits[0].Fruit[0]
+	body := bodies.Fruit[0][0]
 
 	// FastRetrieve our stored header and validate block content against it
 	header := snailDB.ReadHeader(db, r.Hash, r.Number)

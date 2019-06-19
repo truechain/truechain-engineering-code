@@ -239,7 +239,7 @@ func (p *peer) SendBlockBodiesRLP(reqID, bv uint64, bodies []rlp.RawValue) error
 
 // SendSnailBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
-func (p *peer) SendSnailBlockBodiesRLP(reqID, bv uint64, bodiesData *BlockBodiesRawData) error {
+func (p *peer) SendSnailBlockBodiesRLP(reqID, bv uint64, bodiesData *snailBlockBodiesData) error {
 	return sendResponse(p.rw, SnailBlockBodiesMsg, reqID, bv, bodiesData)
 }
 
