@@ -46,16 +46,12 @@ var (
 	headerHashSuffix   = []byte("sn") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
 	headerNumberPrefix = []byte("sH") // headerNumberPrefix + hash -> num (uint64 big endian)
 
-	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
-	headerFruitPrefix       = []byte("sfh") // headerPrefix + num (uint64 big endian) + hash -> header
-	headerFruitHashSuffix   = []byte("sfn") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
-	headerFruitNumberPrefix = []byte("sfH") // headerNumberPrefix + hash -> num (uint64 big endian)
-
 	committeePrefix      = []byte("c") // committeePrefix + num (uint64 big endian) -> committee
 	committeeStateSuffix = []byte("s") // committeePrefix + num (uint64 big endian) + committeeStateSuffix -> committeeStates
 
-	blockBodyPrefix     = []byte("sb") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
-	blockReceiptsPrefix = []byte("sr") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
+	blockBodyPrefix     = []byte("sb")  // blockBodyPrefix + num (uint64 big endian) + hash -> block body
+	fruitHeadsPrefix    = []byte("sbf") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
+	blockReceiptsPrefix = []byte("sr")  // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
 
 	ftLookupPrefix  = []byte("sl") // ftLookupPrefix + hash -> fruit lookup metadata
 	bloomBitsPrefix = []byte("sB") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
@@ -101,24 +97,14 @@ func headerNumberKey(hash common.Hash) []byte {
 	return append(headerNumberPrefix, hash.Bytes()...)
 }
 
-// headerKey = headerPrefix + num (uint64 big endian) + hash
-func headerFruitKey(number uint64, hash common.Hash) []byte {
-	return append(append(headerFruitPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
-}
-
-// headerHashKey = headerPrefix + num (uint64 big endian) + headerHashSuffix
-func headerFruitHashKey(number uint64) []byte {
-	return append(append(headerFruitPrefix, encodeBlockNumber(number)...), headerFruitHashSuffix...)
-}
-
-// headerNumberKey = headerNumberPrefix + hash
-func headerFruitNumberKey(hash common.Hash) []byte {
-	return append(headerFruitNumberPrefix, hash.Bytes()...)
-}
-
 // blockBodyKey = blockBodyPrefix + num (uint64 big endian) + hash
 func blockBodyKey(number uint64, hash common.Hash) []byte {
 	return append(append(blockBodyPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+}
+
+// fruitHeadsKey = blockBodyPrefix + num (uint64 big endian) + hash
+func fruitHeadsKey(number uint64, hash common.Hash) []byte {
+	return append(append(fruitHeadsPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
 }
 
 // blockReceiptsKey = blockReceiptsPrefix + num (uint64 big endian) + hash

@@ -153,8 +153,9 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader, fruitHeads []*type
 		log.Crit("Failed to write header total difficulty", "err", err)
 	}
 	rawdb.WriteHeader(hc.chainDb, header)
-	for _, fruitHead := range fruitHeads {
-		rawdb.WriteFruitHeader(hc.chainDb, fruitHead)
+	if len(fruitHeads) > 0 {
+		rawdb.WriteFruitsHead(hc.chainDb, header.Hash(), header.Number.Uint64(), fruitHeads)
+		rawdb.WriteFtHeadLookupEntries(hc.chainDb, header, fruitHeads)
 	}
 
 	// If the total difficulty is higher than our known, add it to the canonical chain

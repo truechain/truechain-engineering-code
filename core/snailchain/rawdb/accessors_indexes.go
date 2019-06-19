@@ -79,3 +79,40 @@ func ReadFruit(db DatabaseReader, fastHash common.Hash) (*types.SnailBlock, comm
 	}
 	return body.Fruits[ftIndex], blockHash, blockNumber, ftIndex
 }
+
+// WriteFtHeadLookupEntries stores a positional metadata for every fruit from
+// a block, enabling hash based fruit lookups.
+func WriteFtHeadLookupEntries(db DatabaseWriter, head *types.SnailHeader, fruitHeads []*types.SnailHeader) {
+	for i, ft := range fruitHeads {
+		entry := FtLookupEntry{
+			BlockHash:  head.Hash(),
+			BlockIndex: head.Number.Uint64(),
+			Index:      uint64(i),
+		}
+		data, err := rlp.EncodeToBytes(entry)
+		if err != nil {
+			log.Crit("Failed to encode fruit lookup entry", "err", err)
+		}
+		if err := db.Put(ftLookupKey(ft.FastHash), data); err != nil {
+			log.Crit("Failed to store fruit lookup entry", "err", err)
+		}
+	}
+}
+
+// ReadFruitHead retrieves a specific fruit from the database, along with
+// its added positional metadata.
+func ReadFruitHead(db DatabaseReader, fastHash common.Hash) (*types.SnailHeader, common.Hash, uint64, uint64) {
+	blockHash, blockNumber, ftIndex := ReadFtLookupEntry(db, fastHash)
+
+	if blockHash == (common.Hash{}) {
+		return nil, common.Hash{}, 0, 0
+	}
+
+	heads := ReadFruitsHead(db, blockHash, blockNumber)
+
+	if heads == nil || len(heads) <= int(ftIndex) {
+		log.Error("Fruit referenced missing", "number", blockNumber, "hash", blockHash, "index", ftIndex)
+		return nil, common.Hash{}, 0, 0
+	}
+	return heads[ftIndex], blockHash, blockNumber, ftIndex
+}

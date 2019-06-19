@@ -364,64 +364,53 @@ func WriteCommitteeStates(db DatabaseWriter, committee uint64, changes []*big.In
 	}
 }
 
-// ReadFruitHeaderRLP retrieves a block header in its raw RLP database encoding.
-func ReadFruitHeaderRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
-	data, _ := db.Get(headerFruitKey(number, hash))
+// ReadFHsRLP retrieves the fruits head in RLP encoding.
+func ReadFHsRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
+	data, _ := db.Get(fruitHeadsKey(number, hash))
 	return data
 }
 
-// HasFruitHeader verifies the existence of a block header corresponding to the hash.
-func HasFruitHeader(db DatabaseReader, hash common.Hash, number uint64) bool {
-	if has, err := db.Has(headerFruitKey(number, hash)); !has || err != nil {
+// WriteBodyRLP stores an RLP encoded block body into the database.
+func WriteFHsRLP(db DatabaseWriter, hash common.Hash, number uint64, rlp rlp.RawValue) {
+	if err := db.Put(fruitHeadsKey(number, hash), rlp); err != nil {
+		log.Crit("Failed to store snail block body", "err", err)
+	}
+}
+
+// HasBody verifies the existence of a block body corresponding to the hash.
+func HasFruitsHead(db DatabaseReader, hash common.Hash, number uint64) bool {
+	if has, err := db.Has(fruitHeadsKey(number, hash)); !has || err != nil {
 		return false
 	}
 	return true
 }
 
-// ReadFruitHeader retrieves the block header corresponding to the hash.
-func ReadFruitHeader(db DatabaseReader, hash common.Hash, number uint64) *types.SnailHeader {
-	data := ReadFruitHeaderRLP(db, hash, number)
+// ReadBody retrieves the block body corresponding to the hash.
+func ReadFruitsHead(db DatabaseReader, hash common.Hash, number uint64) []*types.SnailHeader {
+	data := ReadFHsRLP(db, hash, number)
 	if len(data) == 0 {
 		return nil
 	}
-	header := new(types.SnailHeader)
-	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
-		log.Error("Invalid snail block header RLP", "hash", hash, "err", err)
+	var heads []*types.SnailHeader
+	if err := rlp.Decode(bytes.NewReader(data), heads); err != nil {
+		log.Error("Invalid snail block body RLP", "hash", hash, "err", err)
 		return nil
 	}
-	return header
+	return heads
 }
 
-// WriteFruitHeader stores a block header into the database and also stores the hash-
-// to-number mapping.
-func WriteFruitHeader(db DatabaseWriter, header *types.SnailHeader) {
-	// Write the hash -> number mapping
-	var (
-		hash    = header.Hash()
-		number  = header.Number.Uint64()
-		encoded = encodeBlockNumber(number)
-	)
-	key := headerFruitNumberKey(hash)
-	if err := db.Put(key, encoded); err != nil {
-		log.Crit("Failed to store snail hash to number mapping", "err", err)
-	}
-	// Write the encoded header
-	data, err := rlp.EncodeToBytes(header)
+// WriteBody storea a block body into the database.
+func WriteFruitsHead(db DatabaseWriter, hash common.Hash, number uint64, heads []*types.SnailHeader) {
+	data, err := rlp.EncodeToBytes(heads)
 	if err != nil {
-		log.Crit("Failed to RLP encode snail header", "err", err)
+		log.Crit("Failed to RLP encode snail body", "err", err)
 	}
-	key = headerFruitKey(number, hash)
-	if err := db.Put(key, data); err != nil {
-		log.Crit("Failed to store snail header", "err", err)
-	}
+	WriteFHsRLP(db, hash, number, data)
 }
 
-// DeleteFruitHeader removes all block header data associated with a hash.
-func DeleteFruitHeader(db DatabaseDeleter, hash common.Hash, number uint64) {
-	if err := db.Delete(headerFruitKey(number, hash)); err != nil {
-		log.Crit("Failed to delete snail header", "err", err)
-	}
-	if err := db.Delete(headerFruitNumberKey(hash)); err != nil {
-		log.Crit("Failed to delete snail hash to number mapping", "err", err)
+// DeleteBody removes all block body data associated with a hash.
+func DeleteFruitsHead(db DatabaseDeleter, hash common.Hash, number uint64) {
+	if err := db.Delete(fruitHeadsKey(number, hash)); err != nil {
+		log.Crit("Failed to delete snail block body", "err", err)
 	}
 }

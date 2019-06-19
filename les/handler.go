@@ -748,7 +748,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			bytesCount int
 			bodies     []rlp.RawValue
 			level      uint32
-			blocks     [][]*types.SnailBlock
+			heads      [][]*types.SnailHeader
 		)
 		reqCnt := len(req.Datas)
 		if reject(uint64(reqCnt), MaxSnailBodyFetch) {
@@ -771,7 +771,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				// Retrieve the requested block body, stopping if enough was found
 				if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
 					if body := snaildb.ReadBody(pm.chainDb, hash, *number); body != nil {
-						blocks = append(blocks, types.NewSnailBlockWithHeaders(body.FruitsHeaders()))
+						heads = append(heads, body.FruitsHeaders())
 					}
 				}
 			}
@@ -779,7 +779,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, &BlockBodiesRawData{Bodies: bodies, Fruits: blocks, Type: level})
+		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, &BlockBodiesRawData{Bodies: bodies, FruitHeads: heads, Type: level})
 
 	case SnailBlockBodiesMsg:
 		if pm.odr == nil {
@@ -798,7 +798,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 
 		if resp.request.Type == public.FruitHead {
-			err := pm.downloader.DeliverBodies(p.id, resp.request.Fruits)
+			// Deliver them all to the downloader for queuing
+			fruits := make([][]*types.SnailBlock, len(resp.request.FruitHeads))
+			for i, body := range resp.request.FruitHeads {
+				fruits[i] = types.NewSnailBlockWithHeaders(body)
+			}
+			err := pm.downloader.DeliverBodies(p.id, fruits)
 			if err != nil {
 				log.Debug(fmt.Sprint(err))
 			}

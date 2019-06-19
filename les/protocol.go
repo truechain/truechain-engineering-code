@@ -242,13 +242,14 @@ type getBlockBodiesData struct {
 
 // BlockBodiesRawData represents a block header send.
 type BlockBodiesRawData struct {
-	Bodies []rlp.RawValue
-	Fruits [][]*types.SnailBlock
-	Type   uint32 // Distinguish fetcher and downloader
+	Bodies     []rlp.RawValue
+	FruitHeads [][]*types.SnailHeader
+	Type       uint32 // Distinguish fetcher and downloader
 }
 
 // blockBodiesData is the network packet for block content distribution.
 type snailBlockBodiesData struct {
-	Fruits [][]*types.SnailBlock
-	Type   uint32 // Distinguish fetcher and downloader
+	Fruits     [][]*types.SnailBlock
+	FruitHeads [][]*types.SnailHeader
+	Type       uint32 // Distinguish fetcher and downloader
 }
