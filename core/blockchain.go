@@ -292,6 +292,10 @@ func (bc *BlockChain) loadLastState() error {
 		fmt.Println("rewardHead","SnailNumber",rewardHead.SnailNumber,"FastNumber",rewardHead.FastNumber)
 		bc.currentReward.Store(rewardHead)
 		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
+	}else {
+		fmt.Println("rewardHead del","SnailNumber",rewardHead.SnailNumber,"FastNumber",rewardHead.FastNumber)
+		bc.currentReward.Store(nil)
+		rawdb.WriteHeadRewardNumber(bc.db, 1)
 	}
 
 	// Restore the last known currentReward
@@ -330,6 +334,7 @@ func (bc *BlockChain) GetLastRowByFastCurrentBlock() *types.BlockReward {
 		}
 		block = bc.GetBlockByNumber(i)
 	}
+
 	return nil
 }
 
