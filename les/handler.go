@@ -775,7 +775,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, &snailBlockBodiesData{Fruits: fruits, FruitHeads: fruitHeads, Type: level})
+		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, snailBlockBodiesData{Fruits: fruits, FruitHeads: fruitHeads, Type: level})
 
 	case SnailBlockBodiesMsg:
 		if pm.odr == nil {
