@@ -1809,7 +1809,7 @@ func (cs *ConsensusState) pickSwitchValidator(sv *ttypes.SwitchValidator, id boo
 			cs.svs = append(cs.svs[:0], cs.svs[1:]...)
 			return tmp
 		}
-		log.Debug("pickSV not match", "sv", sv, "item0", tmp)
+		log.Warn("pickSV not match", "sv", sv, "item0", tmp, "id", id)
 	}
 	return sv
 }
