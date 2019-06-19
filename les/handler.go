@@ -786,17 +786,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of block bodies arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			request   snailBlockBodiesData
+			Data      snailBlockBodiesData
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 
-		if resp.request.Type == public.FruitHead {
+		if resp.Data.Type == public.FruitHead {
 			// Deliver them all to the downloader for queuing
-			fruits := make([][]*types.SnailBlock, len(resp.request.FruitHeads))
-			for i, body := range resp.request.FruitHeads {
+			fruits := make([][]*types.SnailBlock, len(resp.Data.FruitHeads))
+			for i, body := range resp.Data.FruitHeads {
 				fruits[i] = types.NewSnailBlockWithHeaders(body.FruitHead)
 			}
 			err := pm.downloader.DeliverBodies(p.id, fruits)
@@ -807,7 +807,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			deliverMsg = &Msg{
 				MsgType: MsgSnailBlockBodies,
 				ReqID:   resp.ReqID,
-				Obj:     resp.request,
+				Obj:     resp.Data,
 			}
 		}
 
