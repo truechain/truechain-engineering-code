@@ -111,14 +111,18 @@ func (r *BlockRequest) Validate(db etruedb.Database, msg *Msg) error {
 		return errInvalidMessageType
 	}
 	bodies := msg.Obj.(snailBlockBodiesData)
-	body := bodies.Fruit[0][0]
+	body := bodies.Fruits[0]
 
 	// FastRetrieve our stored header and validate block content against it
 	header := snailDB.ReadHeader(db, r.Hash, r.Number)
 	if header == nil {
 		return errHeaderUnavailable
 	}
-	if header.FruitsHash != types.DeriveSha(types.FruitsHeaders(body.Body().FruitsHeaders())) {
+	var headers []*types.SnailHeader
+	for _, fruit := range body.Fruit {
+		headers = append(headers, fruit.Header())
+	}
+	if header.FruitsHash != types.DeriveSha(types.FruitsHeaders(headers)) {
 		return errTxHashMismatch
 	}
 	// todo header.UncleHash != types.CalcUncleHash(body.Uncles)
