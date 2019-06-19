@@ -134,7 +134,7 @@ func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
 // without the real blocks. Hence, writing headers directly should only be done
 // in two scenarios: pure-header mode of operation (light clients), or properly
 // separated header/block phases (non-archive clients).
-func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatus, err error) {
+func (hc *HeaderChain) WriteHeader(header *types.SnailHeader, fruitHeads []*types.SnailHeader) (status WriteStatus, err error) {
 	// Cache some values to prevent constant recalculation
 	var (
 		hash   = header.Hash()
@@ -153,6 +153,9 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatu
 		log.Crit("Failed to write header total difficulty", "err", err)
 	}
 	rawdb.WriteHeader(hc.chainDb, header)
+	for _, fruitHead := range fruitHeads {
+		rawdb.WriteFruitHeader(hc.chainDb, fruitHead)
+	}
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -205,7 +208,7 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatu
 // processed and light chain events sent, while in a BlockChain this is not
 // necessary since chain events are sent after inserting blocks. Second, the
 // header writes should be protected by the parent chain mutex individually.
-type WhCallback func(*types.SnailHeader) error
+type WhCallback func(*types.SnailHeader, []*types.SnailHeader) error
 
 //ValidateHeaderChain validate the header of the snailchain
 func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
@@ -263,7 +266,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, checkFreq
 // should be done or not. The reason behind the optional check is because some
 // of the header retrieval mechanisms already need to verfy nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
-func (hc *HeaderChain) InsertHeaderChain(chain []*types.SnailHeader, writeHeader WhCallback, start time.Time) (int, error) {
+func (hc *HeaderChain) InsertHeaderChain(chain []*types.SnailHeader, fruitHeads [][]*types.SnailHeader, writeHeader WhCallback, start time.Time) (int, error) {
 	// Collect some import statistics to report on
 	stats := struct{ processed, ignored int }{}
 	// All headers passed verification, import them into the database
@@ -278,9 +281,16 @@ func (hc *HeaderChain) InsertHeaderChain(chain []*types.SnailHeader, writeHeader
 			stats.ignored++
 			continue
 		}
-		if err := writeHeader(header); err != nil {
-			return i, err
+		if len(fruitHeads) > 0 {
+			if err := writeHeader(header, fruitHeads[i]); err != nil {
+				return i, err
+			}
+		} else {
+			if err := writeHeader(header, nil); err != nil {
+				return i, err
+			}
 		}
+
 		stats.processed++
 	}
 	// Report some public statistics so the user has a clue what's going on

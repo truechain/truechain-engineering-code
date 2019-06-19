@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -35,7 +36,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
-	"github.com/truechain/truechain-engineering-code/params"
 )
 
 var (
@@ -172,7 +172,7 @@ type LightChain interface {
 	GetTd(common.Hash, uint64) *big.Int
 
 	// InsertHeaderChain inserts a batch of headers into the local chain.
-	InsertHeaderChain([]*types.SnailHeader, int) (int, error)
+	InsertHeaderChain([]*types.SnailHeader, [][]*types.SnailHeader, int) (int, error)
 
 	// Rollback removes a few recently added elements from the local chain.
 	Rollback([]common.Hash)
@@ -667,7 +667,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 	}
 
 	p.GetLog().Debug("Looking for common ancestor", "local", localHeight, "remote", remoteHeight)
-	if localHeight >= MaxForkAncestry {
+	if localHeight >= MaxForkAncestry || d.mode == LightSync {
 		// We're above the max reorg threshold, find the earliest fork point
 		floor = int64(localHeight - MaxForkAncestry)
 
@@ -1362,50 +1362,19 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				}
 				chunk := headers[:limit]
 
-				// In case of header only syncing, validate the chunk immediately
-				if d.mode == LightSync {
-					// Collect the yet unknown headers to mark them as uncertain
-					unknown := make([]*types.SnailHeader, 0, len(headers))
-					for _, header := range chunk {
-						if !d.lightchain.HasHeader(header.Hash(), header.Number.Uint64()) {
-							unknown = append(unknown, header)
-						}
-					}
-					// If we're importing pure headers, verify based on their recentness
-					frequency := 100
-					if chunk[len(chunk)-1].Number.Uint64()+uint64(100) > pivot {
-						frequency = 1
-					}
-					if n, err := d.lightchain.InsertHeaderChain(chunk, frequency); err != nil {
-						// If some headers were inserted, add them too to the rollback list
-						if n > 0 {
-							rollback = append(rollback, chunk[:n]...)
-						}
-						log.Debug("Invalid header encountered", "number", chunk[n].Number, "hash", chunk[n].Hash(), "err", err)
-						return errInvalidChain
-					}
-					// All verifications passed, store newly found uncertain headers
-					rollback = append(rollback, unknown...)
-					if len(rollback) > fsHeaderSafetyNet {
-						rollback = append(rollback[:0], rollback[len(rollback)-fsHeaderSafetyNet:]...)
+				// If we've reached the allowed number of pending headers, stall a bit
+				for d.queue.PendingBlocks() >= maxQueuedHeaders {
+					select {
+					case <-d.cancelCh:
+						return errCancelHeaderProcessing
+					case <-time.After(time.Second):
 					}
 				}
-				// Unless we're doing light chains, schedule the headers for associated content retrieval
-				if d.mode != LightSync {
-					// If we've reached the allowed number of pending headers, stall a bit
-					for d.queue.PendingBlocks() >= maxQueuedHeaders {
-						select {
-						case <-d.cancelCh:
-							return errCancelHeaderProcessing
-						case <-time.After(time.Second):
-						}
-					}
-					// Otherwise insert the headers for content retrieval
-					inserts := d.queue.Schedule(chunk, origin)
-					if len(inserts) != len(chunk) {
-						log.Debug("Stale headers")
-						return errBadPeer
-					}
+				// Otherwise insert the headers for content retrieval
+				inserts := d.queue.Schedule(chunk, origin)
+				if len(inserts) != len(chunk) {
+					log.Debug("Stale headers")
+					return errBadPeer
 				}
 				headers = headers[limit:]
 				origin += uint64(limit)
@@ -1448,9 +1417,12 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 	}
 
 	for {
-
-		results := d.queue.Results(d.mode == FullSync)
-		if d.mode == FullSync && len(results) == 0 {
+		block := false
+		if d.mode == FullSync || d.mode == LightSync {
+			block = true
+		}
+		results := d.queue.Results(block)
+		if block && len(results) == 0 {
 			return nil
 		}
 		if d.mode == FastSync && len(results) == 0 {
@@ -1538,7 +1510,10 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 	if err := d.SyncFast(p.GetID(), hash, fbLastNumber, d.mode); err != nil {
 		return err
 	}
-	if d.mode == FastSync || d.mode == SnapShotSync {
+
+	switch d.mode {
+	case FastSync:
+	case SnapShotSync:
 		if index, err := d.blockchain.FastInsertChain(blocks); err != nil {
 			log.Error("Snail Fastdownloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
 			if err == types.ErrSnailHeightNotYet {
@@ -1547,15 +1522,32 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 			return errInvalidChain
 		}
 		return nil
+	case FullSync:
+		if index, err := d.blockchain.InsertChain(blocks); err != nil {
+			log.Error("Snail downloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
+			if err == types.ErrSnailHeightNotYet {
+				return err
+			}
+			return errInvalidChain
+		}
+	case LightSync:
+		// Deliver them all to the downloader for queuing
+		heads := make([]*types.SnailHeader, len(blocks))
+		fruitHeads := make([][]*types.SnailHeader, len(blocks))
+
+		for i, block := range blocks {
+			heads[i] = block.Header()
+			fruitHeads[i] = block.Body().FruitsHeaders()
+		}
+		if index, err := d.lightchain.InsertHeaderChain(heads, fruitHeads, 100); err != nil {
+			log.Error("Snail downloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
+			if err == types.ErrSnailHeightNotYet {
+				return err
+			}
+			return errInvalidChain
+		}
 	}
 
-	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		log.Error("Snail downloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
-		if err == types.ErrSnailHeightNotYet {
-			return err
-		}
-		return errInvalidChain
-	}
 	return nil
 }
 

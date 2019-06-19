@@ -240,3 +240,21 @@ type txStatus struct {
 	Lookup *rawdb.TxLookupEntry `rlp:"nil"`
 	Error  string
 }
+
+// getBlockBodiesData represents a block body query.
+type getBlockBodiesData struct {
+	Hash common.Hash // Block hash from which to retrieve Bodies (excludes Number)
+	Type uint32      // Distinguish fetcher and downloader
+}
+
+// BlockBodiesRawData represents a block header send.
+type BlockBodiesRawData struct {
+	Bodies []rlp.RawValue
+	Type   uint32 // Distinguish fetcher and downloader
+}
+
+// blockBodiesData is the network packet for block content distribution.
+type snailBlockBodiesData struct {
+	Fruits [][]*types.SnailBlock
+	Type   uint32 // Distinguish fetcher and downloader
+}

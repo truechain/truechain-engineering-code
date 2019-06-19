@@ -1276,7 +1276,7 @@ Error: %v
 // should be done or not. The reason behind the optional check is because some
 // of the header retrieval mechanisms already need to verify nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
-func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
+func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int) (int, error) {
 	start := time.Now()
 	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
 		return i, err
@@ -1289,12 +1289,12 @@ func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, checkFr
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	whFunc := func(header *types.SnailHeader) error {
-		_, err := bc.hc.WriteHeader(header)
+	whFunc := func(header *types.SnailHeader, fruitHeads []*types.SnailHeader) error {
+		_, err := bc.hc.WriteHeader(header, nil)
 		return err
 	}
 
-	return bc.hc.InsertHeaderChain(chain, whFunc, start)
+	return bc.hc.InsertHeaderChain(chain, nil, whFunc, start)
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

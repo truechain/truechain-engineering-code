@@ -239,8 +239,8 @@ func (p *peer) SendBlockBodiesRLP(reqID, bv uint64, bodies []rlp.RawValue) error
 
 // SendSnailBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
-func (p *peer) SendSnailBlockBodiesRLP(reqID, bv uint64, bodies []rlp.RawValue) error {
-	return sendResponse(p.rw, SnailBlockBodiesMsg, reqID, bv, bodies)
+func (p *peer) SendSnailBlockBodiesRLP(reqID, bv uint64, bodiesData *BlockBodiesRawData) error {
+	return sendResponse(p.rw, SnailBlockBodiesMsg, reqID, bv, bodiesData)
 }
 
 // SendFruitBodiesRLP sends a batch of block contents to the remote peer from
@@ -307,7 +307,7 @@ func (p *peer) RequestBodies(reqID, cost uint64, hashes []common.Hash) error {
 
 // RequestSnailBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
-func (p *peer) RequestSnailBodies(reqID, cost uint64, hashes []common.Hash) error {
+func (p *peer) RequestSnailBodies(reqID, cost uint64, hashes []getBlockBodiesData) error {
 	p.Log().Debug("Fetching batch of snail block bodies", "count", len(hashes))
 	return sendRequest(p.rw, GetSnailBlockBodiesMsg, reqID, cost, hashes)
 }

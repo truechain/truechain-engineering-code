@@ -916,3 +916,15 @@ type SnailRewardContenet struct {
 	FruitMinerReward []map[common.Address]*big.Int
 	CommitteeReward  map[common.Address]*big.Int
 }
+
+// NewSnailBlockWithHeaders creates a blocks with the given headers data. The
+// header data is copied, changes to header and to the field values
+// will not affect the block.
+func NewSnailBlockWithHeaders(headers []*SnailHeader) []*SnailBlock {
+	blocks := make([]*SnailBlock, len(headers))
+
+	for _, head := range headers {
+		blocks = append(blocks, &SnailBlock{header: CopySnailHeader(head)})
+	}
+	return blocks
+}

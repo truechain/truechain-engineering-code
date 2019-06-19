@@ -363,3 +363,65 @@ func WriteCommitteeStates(db DatabaseWriter, committee uint64, changes []*big.In
 		log.Crit("Failed to store committee change numbers", "err", err)
 	}
 }
+
+// ReadFruitHeaderRLP retrieves a block header in its raw RLP database encoding.
+func ReadFruitHeaderRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
+	data, _ := db.Get(headerFruitKey(number, hash))
+	return data
+}
+
+// HasFruitHeader verifies the existence of a block header corresponding to the hash.
+func HasFruitHeader(db DatabaseReader, hash common.Hash, number uint64) bool {
+	if has, err := db.Has(headerFruitKey(number, hash)); !has || err != nil {
+		return false
+	}
+	return true
+}
+
+// ReadFruitHeader retrieves the block header corresponding to the hash.
+func ReadFruitHeader(db DatabaseReader, hash common.Hash, number uint64) *types.SnailHeader {
+	data := ReadFruitHeaderRLP(db, hash, number)
+	if len(data) == 0 {
+		return nil
+	}
+	header := new(types.SnailHeader)
+	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
+		log.Error("Invalid snail block header RLP", "hash", hash, "err", err)
+		return nil
+	}
+	return header
+}
+
+// WriteFruitHeader stores a block header into the database and also stores the hash-
+// to-number mapping.
+func WriteFruitHeader(db DatabaseWriter, header *types.SnailHeader) {
+	// Write the hash -> number mapping
+	var (
+		hash    = header.Hash()
+		number  = header.Number.Uint64()
+		encoded = encodeBlockNumber(number)
+	)
+	key := headerFruitNumberKey(hash)
+	if err := db.Put(key, encoded); err != nil {
+		log.Crit("Failed to store snail hash to number mapping", "err", err)
+	}
+	// Write the encoded header
+	data, err := rlp.EncodeToBytes(header)
+	if err != nil {
+		log.Crit("Failed to RLP encode snail header", "err", err)
+	}
+	key = headerFruitKey(number, hash)
+	if err := db.Put(key, data); err != nil {
+		log.Crit("Failed to store snail header", "err", err)
+	}
+}
+
+// DeleteFruitHeader removes all block header data associated with a hash.
+func DeleteFruitHeader(db DatabaseDeleter, hash common.Hash, number uint64) {
+	if err := db.Delete(headerFruitKey(number, hash)); err != nil {
+		log.Crit("Failed to delete snail header", "err", err)
+	}
+	if err := db.Delete(headerFruitNumberKey(hash)); err != nil {
+		log.Crit("Failed to delete snail hash to number mapping", "err", err)
+	}
+}

@@ -21,7 +21,6 @@ package light
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
@@ -81,7 +80,7 @@ type ChtRequest struct {
 // StoreResult stores the retrieved data in local database
 func (req *ChtRequest) StoreResult(db etruedb.Database) {
 	hash, num := req.Header.Hash(), req.Header.Number.Uint64()
-	log.Info("StoreResult", "td", req.Td, "num", num, "req.Headers", len(req.Headers))
+
 	rawdb.WriteHeader(db, req.Header)
 	rawdb.WriteTd(db, hash, num, req.Td)
 	rawdb.WriteCanonicalHash(db, hash, num)

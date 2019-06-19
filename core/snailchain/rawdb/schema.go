@@ -41,12 +41,17 @@ var (
 	fastTrieProgressKey = []byte("TrieSnailSync")
 
 	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
-	headerPrefix          = []byte("sh") // headerPrefix + num (uint64 big endian) + hash -> header
-	headerTDSuffix        = []byte("st") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
-	headerHashSuffix      = []byte("sn") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
-	headerNumberPrefix    = []byte("sH") // headerNumberPrefix + hash -> num (uint64 big endian)
+	headerPrefix       = []byte("sh") // headerPrefix + num (uint64 big endian) + hash -> header
+	headerTDSuffix     = []byte("st") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
+	headerHashSuffix   = []byte("sn") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
+	headerNumberPrefix = []byte("sH") // headerNumberPrefix + hash -> num (uint64 big endian)
 
-	committeePrefix = []byte("c") // committeePrefix + num (uint64 big endian) -> committee
+	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
+	headerFruitPrefix       = []byte("sfh") // headerPrefix + num (uint64 big endian) + hash -> header
+	headerFruitHashSuffix   = []byte("sfn") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
+	headerFruitNumberPrefix = []byte("sfH") // headerNumberPrefix + hash -> num (uint64 big endian)
+
+	committeePrefix      = []byte("c") // committeePrefix + num (uint64 big endian) -> committee
 	committeeStateSuffix = []byte("s") // committeePrefix + num (uint64 big endian) + committeeStateSuffix -> committeeStates
 
 	blockBodyPrefix     = []byte("sb") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
@@ -55,7 +60,7 @@ var (
 	ftLookupPrefix  = []byte("sl") // ftLookupPrefix + hash -> fruit lookup metadata
 	bloomBitsPrefix = []byte("sB") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
-	configPrefix   = []byte("snailchain-truechain-config-") // config prefix for the db
+	configPrefix = []byte("snailchain-truechain-config-") // config prefix for the db
 
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
 	BloomBitsIndexPrefix = []byte("siB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
@@ -94,6 +99,21 @@ func headerHashKey(number uint64) []byte {
 // headerNumberKey = headerNumberPrefix + hash
 func headerNumberKey(hash common.Hash) []byte {
 	return append(headerNumberPrefix, hash.Bytes()...)
+}
+
+// headerKey = headerPrefix + num (uint64 big endian) + hash
+func headerFruitKey(number uint64, hash common.Hash) []byte {
+	return append(append(headerFruitPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+}
+
+// headerHashKey = headerPrefix + num (uint64 big endian) + headerHashSuffix
+func headerFruitHashKey(number uint64) []byte {
+	return append(append(headerFruitPrefix, encodeBlockNumber(number)...), headerFruitHashSuffix...)
+}
+
+// headerNumberKey = headerNumberPrefix + hash
+func headerFruitNumberKey(hash common.Hash) []byte {
+	return append(headerFruitNumberPrefix, hash.Bytes()...)
 }
 
 // blockBodyKey = blockBodyPrefix + num (uint64 big endian) + hash

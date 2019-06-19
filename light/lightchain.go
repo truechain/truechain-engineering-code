@@ -362,7 +362,7 @@ func (self *LightChain) postChainEvents(events []interface{}) {
 //
 // In the case of a light chain, InsertHeaderChain also creates and posts light
 // chain events when necessary.
-func (self *LightChain) InsertHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
+func (self *LightChain) InsertHeaderChain(chain []*types.SnailHeader, fruitHeads [][]*types.SnailHeader, checkFreq int) (int, error) {
 	start := time.Now()
 	if i, err := self.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
 		return i, err
@@ -379,11 +379,11 @@ func (self *LightChain) InsertHeaderChain(chain []*types.SnailHeader, checkFreq 
 	defer self.wg.Done()
 
 	var events []interface{}
-	whFunc := func(header *types.SnailHeader) error {
+	whFunc := func(header *types.SnailHeader, fruitHeads []*types.SnailHeader) error {
 		self.mu.Lock()
 		defer self.mu.Unlock()
 
-		status, err := self.hc.WriteHeader(header)
+		status, err := self.hc.WriteHeader(header, fruitHeads)
 
 		switch status {
 		case snailchain.CanonStatTy:
@@ -396,7 +396,7 @@ func (self *LightChain) InsertHeaderChain(chain []*types.SnailHeader, checkFreq 
 		}
 		return err
 	}
-	i, err := self.hc.InsertHeaderChain(chain, whFunc, start)
+	i, err := self.hc.InsertHeaderChain(chain, fruitHeads, whFunc, start)
 	self.postChainEvents(events)
 	return i, err
 }

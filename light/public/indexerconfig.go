@@ -14,6 +14,9 @@ const (
 	FetcherTimerCall
 	FetcherDeliverCall
 	FetcherAnnounceCall
+
+	FruitHead = iota + 1
+	Fruit
 )
 
 // IndexerConfig includes a set of configs for chain indexers.

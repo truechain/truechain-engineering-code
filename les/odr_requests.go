@@ -30,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	snailDB "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/light"
@@ -94,7 +95,9 @@ func (r *BlockRequest) CanSend(peer *peer) bool {
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
 func (r *BlockRequest) Request(reqID uint64, peer *peer) error {
 	peer.Log().Debug("Requesting block body", "hash", r.Hash)
-	return peer.RequestSnailBodies(reqID, r.GetCost(peer), []common.Hash{r.Hash})
+	datas := make([]getBlockBodiesData, len(r.Hash))
+	datas = append(datas, getBlockBodiesData{r.Hash, public.Fruit})
+	return peer.RequestSnailBodies(reqID, r.GetCost(peer), datas)
 }
 
 // Valid processes an ODR request reply message from the LES network
@@ -107,18 +110,15 @@ func (r *BlockRequest) Validate(db etruedb.Database, msg *Msg) error {
 	if msg.MsgType != MsgSnailBlockBodies {
 		return errInvalidMessageType
 	}
-	bodies := msg.Obj.([]*types.Body)
-	if len(bodies) != 1 {
-		return errInvalidEntryCount
-	}
-	body := bodies[0]
+	bodies := msg.Obj.(snailBlockBodiesData)
+	body := bodies.Fruits[0][0]
 
 	// FastRetrieve our stored header and validate block content against it
-	header := rawdb.ReadHeader(db, r.Hash, r.Number)
+	header := snailDB.ReadHeader(db, r.Hash, r.Number)
 	if header == nil {
 		return errHeaderUnavailable
 	}
-	if header.TxHash != types.DeriveSha(types.Transactions(body.Transactions)) {
+	if header.FruitsHash != types.DeriveSha(types.FruitsHeaders(body.Body().FruitsHeaders())) {
 		return errTxHashMismatch
 	}
 	// todo header.UncleHash != types.CalcUncleHash(body.Uncles)
