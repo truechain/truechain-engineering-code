@@ -1088,6 +1088,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, block := range request.SnailBlock {
 			block.ReceivedAt = msg.ReceivedAt
 			block.ReceivedFrom = p
+			block.SetSnailBlockSigns(nil)
 
 			log.Debug("Enqueue snail block", "number", block.Number())
 			p.MarkSnailBlock(block.Hash())
@@ -1311,7 +1312,7 @@ func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
 		select {
 		case nodeInfoEvent := <-pm.pbNodeInfoCh:
 			pm.BroadcastPbNodeInfo(nodeInfoEvent.NodeInfo)
-		// Err() channel will be closed when unsubscribing.
+			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbNodeInfoSub.Err():
 			return
 		}
