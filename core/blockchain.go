@@ -293,7 +293,7 @@ func (bc *BlockChain) loadLastState() error {
 		bc.currentReward.Store(rewardHead)
 		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
 	}else {
-		fmt.Println("rewardHead del","SnailNumber",rewardHead.SnailNumber,"FastNumber",rewardHead.FastNumber)
+		fmt.Println("rewardHead del")
 		bc.currentReward.Store(nil)
 		rawdb.WriteHeadRewardNumber(bc.db, 1)
 	}
