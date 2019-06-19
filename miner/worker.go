@@ -359,7 +359,7 @@ func (w *worker) update() {
 
 		case ev := <-w.fruitCh:
 			// if only fruit only not need care about fruit event
-			if w.current.Block.FastNumber() == nil || ev.Fruits[0].FastNumber() == nil {
+			if w.current.Block == nil || ev.Fruits[0].FastNumber() == nil {
 				return
 			}
 			if (w.fruitOnly || len(w.current.Block.Fruits()) == 0) && (w.current.Block.FastNumber().Cmp(ev.Fruits[0].FastNumber()) == 0) {
