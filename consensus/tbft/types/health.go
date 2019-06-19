@@ -402,8 +402,12 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	}
 
 	if res.From == 0 {
-		if len(res.Infos) > 2 {
-			enter1, enter2 := res.Infos[0], res.Infos[1]
+		if len(res.Infos) > 0 && len(res.Infos) < 3 {
+			var enter1, enter2 *ctypes.CommitteeMember
+			enter1 = res.Infos[0]
+			if len(res.Infos) == 2 {
+				enter2 = res.Infos[1]
+			}
 			var add, remove *Health
 			if enter1.Flag == ctypes.StateAppendFlag {
 				add = h.GetHealth(enter1.CommitteeBase.Bytes())
@@ -411,7 +415,6 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 					remove = h.GetHealth(enter2.CommitteeBase.Bytes())
 				}
 			} else if enter1.Flag == ctypes.StateRemovedFlag {
-
 				remove = h.GetHealth(enter1.CommitteeBase.Bytes())
 			}
 			if !remove.Equal(res.Remove) || !add.Equal(res.Add) {

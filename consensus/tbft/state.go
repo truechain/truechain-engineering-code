@@ -1759,7 +1759,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 				}
 			}
 			if !have {
-				log.Debug("switchVerify", v.CommitteeBase, "false")
+				log.Warn("switchVerify", v.CommitteeBase, "false")
 				return false
 			}
 		}
@@ -1784,7 +1784,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		}
 
 		if remove == nil {
-			log.Debug("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
+			log.Warn("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
 			return false
 		}
 		sv := &ttypes.SwitchValidator{
@@ -1797,7 +1797,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		if err == nil {
 			return true
 		}
-		log.Debug("switchVerify", "result", err, "info", sv)
+		log.Warn("switchVerify", "result", err, "info", sv)
 	}
 	return false
 }
