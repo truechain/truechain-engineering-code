@@ -18,7 +18,6 @@
 package les
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -749,6 +748,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			bytesCount int
 			bodies     []rlp.RawValue
 			level      uint32
+			blocks     [][]*types.SnailBlock
 		)
 		reqCnt := len(req.Datas)
 		if reject(uint64(reqCnt), MaxSnailBodyFetch) {
@@ -770,18 +770,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			} else if data.Type == public.FruitHead {
 				// Retrieve the requested block body, stopping if enough was found
 				if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
-					if data := snaildb.ReadBodyRLP(pm.chainDb, hash, *number); len(data) != 0 {
-						body := new(types.SnailBody)
-						if err := rlp.Decode(bytes.NewReader(data), body); err != nil {
-							log.Error("Invalid snail block body RLP", "hash", hash, "err", err)
-							return nil
-						}
-						data, err := rlp.EncodeToBytes(types.NewSnailBlockWithHeaders(body.FruitsHeaders()))
-						if err != nil {
-							log.Error("Failed to RLP encode snail body", "err", err)
-						}
-						bodies = append(bodies, data)
-						bytesCount += len(data)
+					if body := snaildb.ReadBody(pm.chainDb, hash, *number); body != nil {
+						blocks = append(blocks, types.NewSnailBlockWithHeaders(body.FruitsHeaders()))
 					}
 				}
 			}
@@ -789,7 +779,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, &BlockBodiesRawData{Bodies: bodies, Type: level})
+		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, &BlockBodiesRawData{Bodies: bodies, Fruits: blocks, Type: level})
 
 	case SnailBlockBodiesMsg:
 		if pm.odr == nil {

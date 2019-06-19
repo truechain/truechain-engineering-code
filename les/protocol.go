@@ -226,13 +226,6 @@ type CodeData []struct {
 	Value []byte
 }
 
-// BlockHeadersData represents a block header send.
-type BlockHeadersData struct {
-	Headers      []*types.Header
-	SnailHeaders []*types.SnailHeader
-	Call         uint32 // Distinguish fetcher and downloader
-}
-
 type proofsData [][]rlp.RawValue
 
 type txStatus struct {
@@ -250,6 +243,7 @@ type getBlockBodiesData struct {
 // BlockBodiesRawData represents a block header send.
 type BlockBodiesRawData struct {
 	Bodies []rlp.RawValue
+	Fruits [][]*types.SnailBlock
 	Type   uint32 // Distinguish fetcher and downloader
 }
 
