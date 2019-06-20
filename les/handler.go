@@ -405,26 +405,27 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	// Block header query, collect the requested headers and reply
 	case AnnounceMsg:
-		if p.requestAnnounceType == announceTypeNone {
-			return errResp(ErrUnexpectedResponse, "AnnounceMsg")
-		}
 
 		var req announceData
 		if err := msg.Decode(&req); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-
-		if p.requestAnnounceType == announceTypeSigned {
-			if err := req.checkSignature(p.ID()); err != nil {
-				p.Log().Trace("Invalid announcement signature", "err", err)
-				return err
+		if req.Hash != (common.Hash{}) || req.FastHash != (common.Hash{}) {
+			if p.announceType == announceTypeNone {
+				return errResp(ErrUnexpectedResponse, "AnnounceMsg")
 			}
-			p.Log().Trace("Valid announcement signature")
-		}
+			if p.announceType == announceTypeSigned {
+				if err := req.checkSignature(p.ID()); err != nil {
+					p.Log().Trace("Invalid announcement signature", "err", err)
+					return err
+				}
+				p.Log().Trace("Valid announcement signature")
+			}
 
-		p.Log().Trace("Announce message content", "number", req.Number, "hash", req.Hash, "td", req.Td, "reorg", req.ReorgDepth)
-		if pm.fetcher != nil {
-			pm.fetcher.announce(p, &req)
+			p.Log().Trace("Announce message content", "number", req.Number, "hash", req.Hash, "td", req.Td, "reorg", req.ReorgDepth)
+			if pm.fetcher != nil {
+				pm.fetcher.announce(p, &req)
+			}
 		}
 
 	case GetFastBlockHeadersMsg:
