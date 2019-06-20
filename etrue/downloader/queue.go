@@ -320,7 +320,11 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 		for _, result := range results {
 			size := result.Sheader.Size()
 			for _, fruit := range result.Fruits {
-				size += fruit.Size()
+				if q.mode == LightSync {
+					size += fruit.Header().Size()
+				} else {
+					size += fruit.Size()
+				}
 			}
 
 			q.resultSize = common.StorageSize(blockCacheSizeWeight)*size + (1-common.StorageSize(blockCacheSizeWeight))*q.resultSize

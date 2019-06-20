@@ -782,7 +782,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrUnexpectedResponse, "")
 		}
 
-		p.Log().Trace("Received snail block bodies response")
 		// A batch of block bodies arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
@@ -793,13 +792,18 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 
+		p.Log().Trace("Received snail block bodies response", "type", resp.Data.Type)
 		if resp.Data.Type == public.FruitHead {
 			// Deliver them all to the downloader for queuing
-			fruits := make([][]*types.SnailBlock, len(resp.Data.FruitHeads))
+			blocks := make([][]*types.SnailBlock, len(resp.Data.FruitHeads))
 			for i, body := range resp.Data.FruitHeads {
-				fruits[i] = types.NewSnailBlockWithHeaders(body.FruitHead)
+				fruits := make([]*types.SnailBlock, len(body.FruitHead))
+				for j, fruitHead := range body.FruitHead {
+					fruits[j] = types.NewSnailBlockWithHeader(fruitHead)
+				}
+				blocks[i] = fruits
 			}
-			err := pm.downloader.DeliverBodies(p.id, fruits)
+			err := pm.downloader.DeliverBodies(p.id, blocks)
 			if err != nil {
 				log.Debug(fmt.Sprint(err))
 			}
@@ -1414,8 +1418,8 @@ func (pc *peerConnection) RequestBodies(hashes []common.Hash, fast bool, call ui
 			cost = peer.GetRequestCost(GetSnailBlockHeadersMsg, len(hashes))
 
 			datas := make([]getBlockBodiesData, len(hashes))
-			for _, hash := range hashes {
-				datas = append(datas, getBlockBodiesData{hash, public.FruitHead})
+			for i, hash := range hashes {
+				datas[i] = getBlockBodiesData{hash, public.FruitHead}
 			}
 			peer.fcServer.QueueRequest(reqID, cost)
 			return func() { peer.RequestSnailBodies(reqID, cost, datas) }

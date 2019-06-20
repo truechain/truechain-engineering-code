@@ -1553,11 +1553,16 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 
 func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64, mode SyncMode) (err error) {
 
-	currentNumber := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
-	if mode == FastSync {
-		currentNumber = d.fastDown.GetBlockChain().CurrentFastBlock().NumberU64()
-	} else if mode == SnapShotSync {
-		currentNumber = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
+	currentNumber := uint64(0)
+	if d.mode == LightSync {
+		currentNumber = d.fastDown.GetLightChain().CurrentHeader().Number.Uint64()
+	} else {
+		currentNumber = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+		if mode == FastSync {
+			currentNumber = d.fastDown.GetBlockChain().CurrentFastBlock().NumberU64()
+		} else if mode == SnapShotSync {
+			currentNumber = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
+		}
 	}
 
 	defer func(start time.Time) {
