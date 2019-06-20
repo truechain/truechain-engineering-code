@@ -94,7 +94,7 @@ func (r *BlockRequest) CanSend(peer *peer) bool {
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
 func (r *BlockRequest) Request(reqID uint64, peer *peer) error {
-	peer.Log().Debug("Requesting block body", "hash", r.Hash)
+	peer.Log().Debug("Requesting snail block body", "hash", r.Hash)
 	datas := make([]getBlockBodiesData, len(r.Hash))
 	datas = append(datas, getBlockBodiesData{r.Hash, public.Fruit})
 	return peer.RequestSnailBodies(reqID, r.GetCost(peer), datas)
@@ -104,7 +104,7 @@ func (r *BlockRequest) Request(reqID uint64, peer *peer) error {
 // returns true and stores results in memory if the message was a valid reply
 // to the request (implementation of LesOdrRequest)
 func (r *BlockRequest) Validate(db etruedb.Database, msg *Msg) error {
-	log.Debug("Validating block body", "hash", r.Hash)
+	log.Debug("Validating snail block body", "hash", r.Hash)
 
 	// Ensure we have a correct message with a single block body
 	if msg.MsgType != MsgSnailBlockBodies {
@@ -151,7 +151,7 @@ func (r *FruitRequest) CanSend(peer *peer) bool {
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
 func (r *FruitRequest) Request(reqID uint64, peer *peer) error {
-	peer.Log().Debug("Requesting block body", "hash", r.Hash)
+	peer.Log().Debug("Requesting fruit body", "hash", r.Hash)
 	return peer.RequestFruitBodies(reqID, r.GetCost(peer), []common.Hash{r.Hash})
 }
 
@@ -159,7 +159,7 @@ func (r *FruitRequest) Request(reqID uint64, peer *peer) error {
 // returns true and stores results in memory if the message was a valid reply
 // to the request (implementation of LesOdrRequest)
 func (r *FruitRequest) Validate(db etruedb.Database, msg *Msg) error {
-	log.Debug("Validating block body", "hash", r.Hash)
+	log.Debug("Validating fruit body", "hash", r.Hash)
 
 	// Ensure we have a correct message with a single block body
 	if msg.MsgType != MsgFruitBodies {
@@ -205,7 +205,7 @@ func (r *FastBlockRequest) CanSend(peer *peer) bool {
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
 func (r *FastBlockRequest) Request(reqID uint64, peer *peer) error {
-	peer.Log().Debug("Requesting block body", "hash", r.Hash)
+	peer.Log().Debug("Requesting fast block body", "hash", r.Hash)
 	return peer.RequestBodies(reqID, r.GetCost(peer), []common.Hash{r.Hash})
 }
 
@@ -213,7 +213,7 @@ func (r *FastBlockRequest) Request(reqID uint64, peer *peer) error {
 // returns true and stores results in memory if the message was a valid reply
 // to the request (implementation of LesOdrRequest)
 func (r *FastBlockRequest) Validate(db etruedb.Database, msg *Msg) error {
-	log.Debug("Validating block body", "hash", r.Hash)
+	log.Debug("Validating fast block body", "hash", r.Hash)
 
 	// Ensure we have a correct message with a single block body
 	if msg.MsgType != MsgBlockBodies {

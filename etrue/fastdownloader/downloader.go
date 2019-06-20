@@ -279,7 +279,7 @@ func (d *Downloader) Synchronising() bool {
 // used for fetching hashes and blocks from.
 func (d *Downloader) RegisterPeer(id string, version int, peer etrue.Peer) error {
 	logger := log.New("peer Fast", id)
-	logger.Trace("Registering sync peer")
+	logger.Trace("Registering fast sync peer")
 
 	if err := d.peers.Register(newPeerConnection(id, version, peer, logger)); err != nil {
 		logger.Error("Failed to register sync peer", "err", err)

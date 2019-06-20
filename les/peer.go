@@ -301,7 +301,7 @@ func (p *peer) RequestHeadersByNumber(reqID, cost, origin uint64, amount int, sk
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
 func (p *peer) RequestBodies(reqID, cost uint64, hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
+	p.Log().Debug("Fetching batch of fast block bodies", "count", len(hashes))
 	return sendRequest(p.rw, GetFastBlockBodiesMsg, reqID, cost, hashes)
 }
 

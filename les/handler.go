@@ -194,6 +194,7 @@ func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *public.I
 
 // removePeer initiates disconnection from a peer by removing it from the peer set
 func (pm *ProtocolManager) removePeer(id string, call uint32) {
+	log.Debug("removePeer", "call", call, "id", id)
 	pm.peers.Unregister(id)
 }
 
@@ -345,7 +346,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			}
 		}
 	}()
-
+	p.Log().Debug("Light Truechain peer connected enter loop", "name", p.Name())
 	// main loop. handle incoming messages.
 	for {
 		if err := pm.handleMsg(p); err != nil {
@@ -405,7 +406,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Block header query, collect the requested headers and reply
 	case AnnounceMsg:
 		if p.requestAnnounceType == announceTypeNone {
-			return errResp(ErrUnexpectedResponse, "")
+			return errResp(ErrUnexpectedResponse, "AnnounceMsg")
 		}
 
 		var req announceData
@@ -528,7 +529,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case FastBlockHeadersMsg:
 		if pm.fdownloader == nil {
-			return errResp(ErrUnexpectedResponse, "")
+			return errResp(ErrUnexpectedResponse, "fdownloader")
 		}
 
 		p.Log().Trace("Received block header response message")
@@ -1214,7 +1215,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case GetTxStatusMsg:
 		if pm.txpool == nil {
-			return errResp(ErrUnexpectedResponse, "")
+			return errResp(ErrUnexpectedResponse, "txpool")
 		}
 		// Transactions arrived, parse all of them and deliver to the pool
 		var req struct {
