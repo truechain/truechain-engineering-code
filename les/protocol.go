@@ -183,6 +183,7 @@ type getBlockHeadersData struct {
 	Skip    uint64       // Blocks to skip between consecutive headers
 	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
 	Fast    bool
+	Fruit   bool
 }
 
 // hashOrNumber is a combined field for specifying an origin block.
@@ -262,4 +263,10 @@ type fruitHeadsData struct {
 // blockBody represents the data content of a single block.
 type fruitsData struct {
 	Fruit []*types.SnailBlock
+}
+
+// snailHeadsData is the network packet for block content distribution.
+type snailHeadsData struct {
+	Heads      []*types.SnailHeader
+	FruitHeads []*fruitHeadsData
 }

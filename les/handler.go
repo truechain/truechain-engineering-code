@@ -630,9 +630,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// Gather headers until the fetch or network limits is reached
 		var (
-			bytes   common.StorageSize
-			headers []*types.SnailHeader
-			unknown bool
+			bytes      common.StorageSize
+			headers    []*types.SnailHeader
+			fruitHeads []*fruitHeadsData
+			unknown    bool
 		)
 		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
 			// FastRetrieve the next header satisfying the query
@@ -652,6 +653,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			if origin == nil {
 				break
+			}
+			if hashMode && !query.Fruit {
+				if number := snaildb.ReadHeaderNumber(pm.chainDb, query.Origin.Hash); number != nil {
+					if body := snaildb.ReadBody(pm.chainDb, query.Origin.Hash, *number); body != nil {
+						fruitHeads = append(fruitHeads, &fruitHeadsData{body.FruitsHeaders()})
+					}
+				}
 			}
 			headers = append(headers, origin)
 			bytes += estHeaderRlpSize
@@ -706,7 +714,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + query.Amount*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, query.Amount, rcost)
-		return p.SendSnailBlockHeaders(req.ReqID, bv, headers)
+		return p.SendSnailBlockHeaders(req.ReqID, bv, snailHeadsData{Heads: headers, FruitHeads: fruitHeads})
 
 	case SnailBlockHeadersMsg:
 		if pm.downloader == nil {
@@ -716,21 +724,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of headers arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			Headers   []*types.SnailHeader
+			Headers   snailHeadsData
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		if len(resp.Headers) != 0 {
-			p.Log().Trace("Received snail block header response message", "headers", len(resp.Headers), "number", resp.Headers[0].Number)
+		if len(resp.Headers.Heads) != 0 {
+			p.Log().Trace("Received snail block header response message", "headers", len(resp.Headers.Heads), "number", resp.Headers.Heads[0].Number)
 		} else {
 			break
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		if pm.fetcher != nil && pm.fetcher.requestedID(resp.ReqID) {
-			pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
+			fruitHeads := make([][]*types.SnailHeader, len(resp.Headers.FruitHeads))
+			for i, head := range resp.Headers.FruitHeads {
+				fruitHeads[i] = head.FruitHead
+			}
+			pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers.Heads, fruitHeads)
 		} else {
-			err := pm.downloader.DeliverHeaders(p.id, resp.Headers)
+			err := pm.downloader.DeliverHeaders(p.id, resp.Headers.Heads)
 			if err != nil {
 				log.Debug(fmt.Sprint(err))
 			}
@@ -1362,7 +1374,7 @@ func (pc *peerConnection) RequestHeadersByHash(origin common.Hash, amount int, s
 				cost = peer.GetRequestCost(GetSnailBlockHeadersMsg, amount)
 			}
 			peer.fcServer.QueueRequest(reqID, cost)
-			return func() { peer.RequestHeadersByHash(reqID, cost, origin, amount, skip, reverse, fast) }
+			return func() { peer.RequestHeadersByHash(reqID, cost, origin, amount, skip, reverse, fast, true) }
 		},
 	}
 	_, ok := <-pc.manager.reqDist.queue(rq)

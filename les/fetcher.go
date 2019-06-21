@@ -500,7 +500,7 @@ func (f *lightFetcher) nextRequest() (*distReq, uint64, bool) {
 					time.Sleep(hardRequestTimeout)
 					f.timeoutChn <- reqID
 				}()
-				return func() { p.RequestHeadersByHash(reqID, cost, bestHash, int(bestAmount), 0, true, false) }
+				return func() { p.RequestHeadersByHash(reqID, cost, bestHash, int(bestAmount), 0, true, false, false) }
 			},
 		}
 	}
@@ -508,8 +508,8 @@ func (f *lightFetcher) nextRequest() (*distReq, uint64, bool) {
 }
 
 // deliverHeaders delivers header download request responses for processing
-func (f *lightFetcher) deliverHeaders(peer *peer, reqID uint64, headers []*types.SnailHeader) {
-	f.deliverChn <- fetchResponse{reqID: reqID, headers: headers, peer: peer}
+func (f *lightFetcher) deliverHeaders(peer *peer, reqID uint64, headers []*types.SnailHeader, fheaders [][]*types.SnailHeader) {
+	f.deliverChn <- fetchResponse{reqID: reqID, headers: headers, fheaders: fheaders, peer: peer}
 }
 
 // processResponse processes header download request responses, returns true if successful
