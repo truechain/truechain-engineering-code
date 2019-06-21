@@ -1371,6 +1371,16 @@ func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.Snai
 	return block, index
 }
 
+// GetFruitsHead retrieves fruits included in the snail block
+func (bc *SnailBlockChain) GetFruitsHead(number uint64) []*types.SnailHeader {
+	hash := rawdb.ReadCanonicalHash(bc.db, number)
+	if hash == (common.Hash{}) {
+		return nil
+	}
+	heads := rawdb.ReadFruitsHead(bc.db, hash, number)
+	return heads
+}
+
 // GetFruit retrieves a fruit from the database by FastHash
 func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) *types.SnailBlock {
 	fruit, _, _, _ := rawdb.ReadFruit(bc.db, fastHash)

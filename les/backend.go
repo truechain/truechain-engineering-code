@@ -19,7 +19,6 @@ package les
 
 import (
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/light/fast"
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"sync"
@@ -60,7 +59,7 @@ type LightEtrue struct {
 	// Handlers
 	peers       *peerSet
 	txPool      *fast.TxPool
-	election    *election.Election
+	election    *Election
 	blockchain  *light.LightChain
 	fblockchain *fast.LightChain
 	serverPool  *serverPool
@@ -131,6 +130,9 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	if leth.blockchain, err = light.NewLightChain(leth.fblockchain, leth.odr, leth.chainConfig, leth.engine); err != nil {
 		return nil, err
 	}
+	leth.election = NewLightElection(leth.fblockchain, leth.blockchain)
+	leth.engine.SetElection(leth.election)
+
 	// Note: AddChildIndexer starts the update process for the child
 	leth.bloomIndexer.AddChildIndexer(leth.bloomTrieIndexer)
 	leth.chtIndexer.Start(leth.blockchain)

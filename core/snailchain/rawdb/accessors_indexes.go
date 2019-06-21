@@ -111,7 +111,7 @@ func ReadFruitHead(db DatabaseReader, fastHash common.Hash) (*types.SnailHeader,
 	heads := ReadFruitsHead(db, blockHash, blockNumber)
 
 	if heads == nil || len(heads) <= int(ftIndex) {
-		log.Error("Fruit referenced missing", "number", blockNumber, "hash", blockHash, "index", ftIndex)
+		log.Error("Fruit head referenced missing", "number", blockNumber, "hash", blockHash, "index", ftIndex)
 		return nil, common.Hash{}, 0, 0
 	}
 	return heads[ftIndex], blockHash, blockNumber, ftIndex

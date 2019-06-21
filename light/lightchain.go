@@ -438,6 +438,15 @@ func (self *LightChain) GetFruitHeaderByHash(hash common.Hash) *types.SnailHeade
 	return fruitHead
 }
 
+func (self *LightChain) GetFruitsHead(number uint64) []*types.SnailHeader {
+	hash := rawdb.ReadCanonicalHash(self.chainDb, number)
+	if hash == (common.Hash{}) {
+		return nil
+	}
+	heads := rawdb.ReadFruitsHead(self.chainDb, hash, number)
+	return heads
+}
+
 // HasHeader checks if a block header is present in the database or not, caching
 // it if present.
 func (bc *LightChain) HasHeader(hash common.Hash, number uint64) bool {

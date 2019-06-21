@@ -40,6 +40,8 @@ var (
 	EmptyRootHash  = DeriveSha(Transactions{})
 	EmptyUncleHash = CalcUncleHash(nil)
 	EmptySignHash  = CalcSignHash(nil)
+
+	maxUint128 = new(big.Int).Exp(big.NewInt(2), big.NewInt(128), big.NewInt(0))
 )
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
@@ -608,6 +610,20 @@ func (h *SnailHeader) HashNoNonce() common.Hash {
 		h.Time,
 		h.Extra,
 	})
+}
+
+// GetDifficulty get difficulty by header
+func (h *SnailHeader) GetDifficulty(isFruit bool) (*big.Int, *big.Int) {
+	result := h.MixDigest
+
+	if isFruit {
+		last := result[16:]
+		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
+
+		return actDiff, h.FruitDifficulty
+	}
+	actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(result[:16]))
+	return actDiff, h.Difficulty
 }
 
 // Size returns the approximate memory used by all internal contents. It is used
