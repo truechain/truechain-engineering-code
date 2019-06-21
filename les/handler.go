@@ -731,8 +731,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		if len(resp.Headers.Heads) != 0 {
 			p.Log().Trace("Received snail block header response message", "headers", len(resp.Headers.Heads), "number", resp.Headers.Heads[0].Number)
-		} else {
-			break
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		if pm.fetcher != nil && pm.fetcher.requestedID(resp.ReqID) {
