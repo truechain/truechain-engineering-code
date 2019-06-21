@@ -129,6 +129,7 @@ type ProtocolManager struct {
 	downloader  *downloader.Downloader
 	fdownloader *fastdownloader.Downloader
 	fetcher     *lightFetcher
+	fastFetcher *fastLightFetcher
 	peers       *peerSet
 	maxPeers    int
 
@@ -543,8 +544,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
-		if pm.fetcher != nil && pm.fetcher.requestedID(resp.ReqID) {
-			pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
+		if pm.fastFetcher != nil && pm.fastFetcher.requestedID(resp.ReqID) {
+			pm.fastFetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
 		} else {
 			err := pm.fdownloader.DeliverHeaders(p.id, resp.Headers, types.DownloaderCall)
 			if err != nil {
@@ -727,7 +728,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		if pm.fetcher != nil && pm.fetcher.requestedID(resp.ReqID) {
-			pm.fetcher.deliverSnailHeaders(p, resp.ReqID, resp.Headers)
+			pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
 		} else {
 			err := pm.downloader.DeliverHeaders(p.id, resp.Headers)
 			if err != nil {
