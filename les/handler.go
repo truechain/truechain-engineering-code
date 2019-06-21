@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"github.com/truechain/truechain-engineering-code/light/fast"
 	"github.com/truechain/truechain-engineering-code/light/public"
@@ -314,6 +315,8 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.Log().Error("Light Truechain peer registration failed", "err", err)
 		return err
 	}
+	p.Log().Debug("Light Truechain peer connected Register", "name", p.Name())
+
 	defer func() {
 		if pm.server != nil && pm.server.fcManager != nil && p.fcClient != nil {
 			p.fcClient.Remove(pm.server.fcManager)
@@ -367,6 +370,11 @@ var (
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg code:%d, err: %v", p.id, msg.Code, err))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	if err != nil {
 		return err
 	}

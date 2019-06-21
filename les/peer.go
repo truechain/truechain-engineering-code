@@ -20,6 +20,7 @@ package les
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
 	"sync"
@@ -564,7 +565,7 @@ func (p *peer) Handshake(td *big.Int, head common.Hash, headNum uint64, genesis 
 			}
 		}
 	}
-
+	log.Info("Handshake", "Number", rNum, "td", rTd)
 	p.headInfo = &announceData{Td: rTd, Hash: rHash, Number: rNum, FastHash: rFastHead, FastNumber: rFastHeight.Uint64()}
 	return nil
 }
