@@ -349,6 +349,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		for {
 			select {
 			case announce := <-p.announceChn:
+				log.Info("SendAnnounce", "announce", announce.Number, "Td", announce.Td)
 				p.SendAnnounce(announce)
 			case <-stop:
 				return
