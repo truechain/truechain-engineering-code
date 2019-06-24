@@ -237,8 +237,8 @@ type txStatus struct {
 
 // getBlockBodiesData represents a block body query.
 type getBlockBodiesData struct {
-	Hash common.Hash // Block hash from which to retrieve Bodies (excludes Number)
-	Type uint32      // Distinguish fetcher and downloader
+	Hash []common.Hash // Block hash from which to retrieve Bodies (excludes Number)
+	Type uint32        // Distinguish fetcher and downloader
 }
 
 // BlockBodiesRawData represents a block header send.

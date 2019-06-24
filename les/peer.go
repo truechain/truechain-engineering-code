@@ -308,8 +308,8 @@ func (p *peer) RequestBodies(reqID, cost uint64, hashes []common.Hash) error {
 
 // RequestSnailBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
-func (p *peer) RequestSnailBodies(reqID, cost uint64, hashes []getBlockBodiesData) error {
-	p.Log().Debug("Fetching batch of snail block bodies", "count", len(hashes))
+func (p *peer) RequestSnailBodies(reqID, cost uint64, hashes getBlockBodiesData) error {
+	p.Log().Debug("Fetching batch of snail block bodies", "count", len(hashes.Hash))
 	return sendRequest(p.rw, GetSnailBlockBodiesMsg, reqID, cost, hashes)
 }
 

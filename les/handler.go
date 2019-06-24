@@ -397,7 +397,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		if cost > bufValue {
 			recharge := time.Duration((cost - bufValue) * 1000000 / pm.server.defParams.MinRecharge)
-			p.Log().Error("Request came too early", "recharge", common.PrettyDuration(recharge))
+			p.Log().Error("Request came too early", "recharge", common.PrettyDuration(recharge), "code", msg.Code)
 			return true
 		}
 		return false
@@ -764,31 +764,29 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Decode the retrieval message
 		var req struct {
 			ReqID uint64
-			Datas []getBlockBodiesData
+			Data  getBlockBodiesData
 		}
 		if err := msg.Decode(&req); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Gather blocks until the fetch or network limits is reached
 		var (
-			level      uint32
 			fruits     []*fruitsData
 			fruitHeads []*fruitHeadsData
 		)
-		reqCnt := len(req.Datas)
+		reqCnt := len(req.Data.Hash)
 		if reject(uint64(reqCnt), MaxSnailBodyFetch) {
 			return errResp(ErrRequestRejected, "")
 		}
-		for _, data := range req.Datas {
-			hash := data.Hash
-			if data.Type == public.Fruit {
+		for _, hash := range req.Data.Hash {
+			if req.Data.Type == public.Fruit {
 				// Retrieve the requested block body, stopping if enough was found
 				if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
 					if body := snaildb.ReadBody(pm.chainDb, hash, *number); body != nil {
 						fruits = append(fruits, &fruitsData{body.Fruits})
 					}
 				}
-			} else if data.Type == public.FruitHead {
+			} else if req.Data.Type == public.FruitHead {
 				// Retrieve the requested block body, stopping if enough was found
 				if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
 					if body := snaildb.ReadBody(pm.chainDb, hash, *number); body != nil {
@@ -797,11 +795,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					}
 				}
 			}
-			level = data.Type
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, snailBlockBodiesData{Fruits: fruits, FruitHeads: fruitHeads, Type: level})
+		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, snailBlockBodiesData{Fruits: fruits, FruitHeads: fruitHeads, Type: req.Data.Type})
 
 	case SnailBlockBodiesMsg:
 		if pm.odr == nil {
@@ -1442,13 +1439,8 @@ func (pc *peerConnection) RequestBodies(hashes []common.Hash, fast bool, call ui
 			peer := dp.(*peer)
 			cost := uint64(0)
 			cost = peer.GetRequestCost(GetSnailBlockHeadersMsg, len(hashes))
-
-			datas := make([]getBlockBodiesData, len(hashes))
-			for i, hash := range hashes {
-				datas[i] = getBlockBodiesData{hash, public.FruitHead}
-			}
 			peer.fcServer.QueueRequest(reqID, cost)
-			return func() { peer.RequestSnailBodies(reqID, cost, datas) }
+			return func() { peer.RequestSnailBodies(reqID, cost, getBlockBodiesData{hashes, public.FruitHead}) }
 		},
 	}
 	_, ok := <-pc.manager.reqDist.queue(rq)

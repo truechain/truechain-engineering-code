@@ -95,9 +95,7 @@ func (r *BlockRequest) CanSend(peer *peer) bool {
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
 func (r *BlockRequest) Request(reqID uint64, peer *peer) error {
 	peer.Log().Debug("Requesting snail block body", "hash", r.Hash)
-	datas := make([]getBlockBodiesData, len(r.Hash))
-	datas = append(datas, getBlockBodiesData{r.Hash, public.Fruit})
-	return peer.RequestSnailBodies(reqID, r.GetCost(peer), datas)
+	return peer.RequestSnailBodies(reqID, r.GetCost(peer), getBlockBodiesData{[]common.Hash{r.Hash}, public.Fruit})
 }
 
 // Valid processes an ODR request reply message from the LES network
