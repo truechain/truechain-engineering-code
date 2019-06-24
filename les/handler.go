@@ -28,6 +28,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -300,6 +301,10 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		// test peer address is not a tcp address, don't use client pool if can not typecast
 		if ok {
 			id := addr.IP.String()
+			if strings.Contains(p.id, "a0002cb58d") {
+				return p2p.DiscTooManyPeers
+			}
+
 			if !pm.clientPool.connect(id, func() { go pm.removePeer(p.id, public.DiscTooManyPeers) }) {
 				return p2p.DiscTooManyPeers
 			}
