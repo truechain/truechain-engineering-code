@@ -1337,7 +1337,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				// peer gave us something useful, we're already happy/progressed (above check).
 				if d.mode == LightSync {
 					head := d.lightchain.CurrentHeader()
-					if td.Cmp(d.lightchain.GetTd(head.Hash(), head.Number.Uint64())) > 0 {
+					if !gotHeaders && td.Cmp(d.lightchain.GetTd(head.Hash(), head.Number.Uint64())) > 0 {
 						return errStallingPeer
 					}
 				}
