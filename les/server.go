@@ -327,6 +327,7 @@ func (pm *ProtocolManager) blockLoop() {
 
 	sheadCh := make(chan types.SnailChainHeadEvent, 10)
 	sheadSub := pm.blockchain.SubscribeChainHeadEvent(sheadCh)
+	lock := new(sync.Mutex)
 
 	go func() {
 		var lastHead *types.SnailHeader
@@ -336,13 +337,13 @@ func (pm *ProtocolManager) blockLoop() {
 			select {
 			case ev := <-sheadCh:
 				peers := pm.peers.AllPeers()
-				log.Debug("Announcing block to peers", "number", ev.Block.Header().Number.Uint64())
 
 				if len(peers) > 0 {
 					header := ev.Block.Header()
 					hash := header.Hash()
 					number := header.Number.Uint64()
 					td := rawdb.ReadTd(pm.chainDb, hash, number)
+					lock.Lock()
 					if td != nil && td.Cmp(lastBroadcastTd) > 0 {
 						lastBroadcastTd = td
 						var reorg uint64
@@ -383,6 +384,7 @@ func (pm *ProtocolManager) blockLoop() {
 							}
 						}
 					}
+					lock.Unlock()
 				}
 			//case ev := <-headCh:
 			//	peers := pm.peers.AllPeers()
