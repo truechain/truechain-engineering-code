@@ -252,7 +252,6 @@ func (f *lightFetcher) unregisterPeer(p *peer) {
 func (f *lightFetcher) announce(p *peer, head *announceData) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	p.Log().Debug("Received new announcement", "number", head.Number, "hash", head.Hash, "reorg", head.ReorgDepth)
 
 	fp := f.peers[p]
 	if fp == nil {
@@ -261,6 +260,9 @@ func (f *lightFetcher) announce(p *peer, head *announceData) {
 	}
 
 	if fp.lastAnnounced != nil && head.Td.Cmp(fp.lastAnnounced.td) <= 0 {
+		if head.Td.Cmp(fp.lastAnnounced.td) == 0 && head.Hash == fp.lastAnnounced.hash {
+			log.Info("Announce duplicated", "number", head.Number, "hash", head.Hash)
+		}
 		// announced tds should be strictly monotonic
 		p.Log().Debug("Received non-monotonic td", "current", head.Td, "previous", fp.lastAnnounced.td)
 		go f.pm.removePeer(p.id, public.FetcherAnnounceCall)
@@ -339,6 +341,7 @@ func (f *lightFetcher) announce(p *peer, head *announceData) {
 		fp.bestConfirmed = nil
 		fp.confirmedTd = nil
 	}
+	p.Log().Debug("Received new announcement", "number", head.Number, "hash", head.Hash, "reorg", head.ReorgDepth, "td", head.Td, "current", f.chain.CurrentHeader().Number)
 
 	f.checkKnownNode(p, n)
 	p.lock.Lock()
@@ -600,6 +603,7 @@ func (f *lightFetcher) checkAnnouncedHeaders(fp *fetcherPeerInfo, headers []*typ
 		if n == nil {
 			n = fp.nodeByHash[hash]
 		}
+		log.Debug("Inconsistent announcement", "td", td, "headers", len(headers), "number", number, "n.td", n.td)
 		if n != nil {
 			if n.td == nil {
 				// node was unannounced
