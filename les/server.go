@@ -336,19 +336,20 @@ func (pm *ProtocolManager) blockLoop() {
 			select {
 			case ev := <-sheadCh:
 				peers := pm.peers.AllPeers()
+				log.Debug("Announcing block to peers", "number", ev.Block.Header().Number.Uint64())
+
 				if len(peers) > 0 {
 					header := ev.Block.Header()
 					hash := header.Hash()
 					number := header.Number.Uint64()
 					td := rawdb.ReadTd(pm.chainDb, hash, number)
 					if td != nil && td.Cmp(lastBroadcastTd) > 0 {
+						lastBroadcastTd = td
 						var reorg uint64
 						if lastHead != nil {
 							reorg = lastHead.Number.Uint64() - rawdb.FindCommonAncestor(pm.chainDb, header, lastHead).Number.Uint64()
 						}
 						lastHead = header
-						lastBroadcastTd = td
-
 						log.Debug("Announcing block to peers", "number", number, "hash", hash, "td", td, "reorg", reorg)
 
 						announce := announceData{Hash: hash, Number: number, Td: td, ReorgDepth: reorg}
@@ -428,8 +429,6 @@ func (pm *ProtocolManager) blockLoop() {
 			//	}
 			//case <-pm.quitSync:
 			//	headSub.Unsubscribe()
-			//	pm.wg.Done()
-			//	return
 			case <-pm.quitSync:
 				sheadSub.Unsubscribe()
 				pm.wg.Done()
