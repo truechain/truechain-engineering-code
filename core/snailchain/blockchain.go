@@ -1204,9 +1204,12 @@ func (bc *SnailBlockChain) PostChainEvents(events []interface{}) {
 	for _, event := range events {
 		switch ev := event.(type) {
 		case types.SnailChainEvent:
+			log.Info("SubscribeChainHeadEvent chainFeed", "", ev.Block.Number())
+
 			bc.chainFeed.Send(ev)
 
 		case types.SnailChainHeadEvent:
+			log.Info("SubscribeChainHeadEvent", "", ev.Block.Number())
 			bc.chainHeadFeed.Send(ev)
 
 		case types.SnailChainSideEvent:
