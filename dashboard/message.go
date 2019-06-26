@@ -21,15 +21,16 @@ import (
 )
 
 type Message struct {
-	General *GeneralMessage `json:"general,omitempty"`
-	Home    *HomeMessage    `json:"home,omitempty"`
-	Chain   *ChainMessage   `json:"chain,omitempty"`
-	Miner   *MinerMessage   `json:"miner,omitempty"`
-	TxPool  *TxPoolMessage  `json:"txpool,omitempty"`
-	FtPool  *FtPoolMessage  `json:"ftpool,omitempty"`
-	Network *NetworkMessage `json:"network,omitempty"`
-	System  *SystemMessage  `json:"system,omitempty"`
-	Logs    *LogsMessage    `json:"logs,omitempty"`
+	General   *GeneralMessage   `json:"general,omitempty"`
+	Home      *HomeMessage      `json:"home,omitempty"`
+	Chain     *ChainMessage     `json:"chain,omitempty"`
+	Miner     *MinerMessage     `json:"miner,omitempty"`
+	Committee *CommitteeMessage `json:"committee,omitempty"`
+	TxPool    *TxPoolMessage    `json:"txpool,omitempty"`
+	FtPool    *FtPoolMessage    `json:"ftpool,omitempty"`
+	Network   *NetworkMessage   `json:"network,omitempty"`
+	System    *SystemMessage    `json:"system,omitempty"`
+	Logs      *LogsMessage      `json:"logs,omitempty"`
 }
 
 type ChartEntries []*ChartEntry
@@ -55,6 +56,15 @@ type ChainMessage struct {
 type MinerMessage struct {
 	FruitInfo      *fruitInfo      `json:"fruitInfo,omitempty"`      // mine fruit info tree.
 	SnailBlockInfo *snailBlockInfo `json:"snailBlockInfo,omitempty"` // mine snail block info tree.
+}
+
+// CommitteeMessage contains the info of committee.
+type CommitteeMessage struct {
+	Number            uint64   `json:"number,omitempty"`
+	IsCommitteeMember bool     `json:"isCommitteeMember,omitempty"`
+	IsLeader          bool     `json:"isLeader,omitempty"`
+	Committee         []string `json:"committee,omitempty"`
+	BackCommittee     []string `json:"backCommittee,omitempty"`
 }
 
 // TxPoolMessage contains the collected txpool data samples.
