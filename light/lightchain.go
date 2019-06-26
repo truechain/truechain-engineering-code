@@ -340,12 +340,12 @@ func (self *LightChain) Rollback(chain []common.Hash) {
 func (self *LightChain) postChainEvents(events []interface{}) {
 	for _, event := range events {
 		switch ev := event.(type) {
-		case types.FastChainEvent:
+		case types.SnailChainEvent:
 			if self.CurrentHeader().Hash() == ev.Hash {
-				self.chainHeadFeed.Send(types.FastChainHeadEvent{Block: ev.Block})
+				self.chainHeadFeed.Send(types.SnailChainHeadEvent{Block: ev.Block})
 			}
 			self.chainFeed.Send(ev)
-		case types.FastChainSideEvent:
+		case types.SnailChainSideEvent:
 			self.chainSideFeed.Send(ev)
 		}
 	}
@@ -429,6 +429,13 @@ func (self *LightChain) GetHeader(hash common.Hash, number uint64) *types.SnailH
 // found.
 func (self *LightChain) GetHeaderByHash(hash common.Hash) *types.SnailHeader {
 	return self.hc.GetHeaderByHash(hash)
+}
+
+// GetHeaderByHash retrieves a block header from the database by hash, caching it if
+// found.
+func (self *LightChain) GetFruitHeaderByHash(hash common.Hash) *types.SnailHeader {
+	fruitHead, _, _, _ := rawdb.ReadFruitHead(self.chainDb, hash)
+	return fruitHead
 }
 
 // HasHeader checks if a block header is present in the database or not, caching
