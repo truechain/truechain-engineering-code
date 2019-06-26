@@ -565,7 +565,7 @@ func (p *peer) Handshake(td *big.Int, head common.Hash, headNum uint64, genesis 
 			}
 		}
 	}
-	log.Info("Handshake", "Number", rNum, "td", rTd)
+	log.Info("Handshake", "Number", rNum, "td", rTd, "fastNumber", rFastHeight)
 	p.headInfo = &announceData{Td: rTd, Hash: rHash, Number: rNum, FastHash: rFastHead, FastNumber: rFastHeight.Uint64()}
 	return nil
 }

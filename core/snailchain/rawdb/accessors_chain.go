@@ -392,8 +392,8 @@ func ReadFruitsHead(db DatabaseReader, hash common.Hash, number uint64) []*types
 		return nil
 	}
 	var heads []*types.SnailHeader
-	if err := rlp.Decode(bytes.NewReader(data), heads); err != nil {
-		log.Error("Invalid snail block body RLP", "hash", hash, "err", err)
+	if err := rlp.Decode(bytes.NewReader(data), &heads); err != nil {
+		log.Error("Invalid snail fruits RLP", "hash", hash, "err", err)
 		return nil
 	}
 	return heads
