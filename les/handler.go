@@ -190,6 +190,7 @@ func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *public.I
 		manager.downloader = downloader.New(mode, checkpoint, chainDb, manager.eventMux, nil, snailchain, removePeer, manager.fdownloader)
 		manager.peers.notify((*downloaderPeerNotify)(manager))
 		manager.fetcher = newLightFetcher(manager)
+		manager.fastFetcher = newFastLightFetcher(manager)
 	}
 
 	return manager, nil
@@ -335,6 +336,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.lock.Unlock()
 		if pm.fetcher != nil {
 			pm.fetcher.announce(p, head)
+			pm.fastFetcher.announce(p, head)
 		}
 
 		if p.poolEntry != nil {
@@ -439,7 +441,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 			p.Log().Trace("Announce message content", "number", req.Number, "hash", req.Hash, "td", req.Td, "reorg", req.ReorgDepth)
 			if pm.fetcher != nil {
-				pm.fetcher.announce(p, &req)
+				if req.FastHash != (common.Hash{}) {
+					pm.fastFetcher.announce(p, &req)
+				} else {
+					pm.fetcher.announce(p, &req)
+				}
 			}
 		}
 

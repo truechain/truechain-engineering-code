@@ -20,7 +20,6 @@ package les
 import (
 	"github.com/truechain/truechain-engineering-code/light/fast"
 	"github.com/truechain/truechain-engineering-code/light/public"
-	"math/big"
 	"sync"
 	"time"
 
@@ -28,8 +27,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
+)
+
+const (
+	hashLimit = 128 // Maximum number of unique blocks a peer may have announced
 )
 
 // fastLightFetcher implements retrieval of newly announced headers. It also provides a peerHasBlock function for the
@@ -37,14 +39,12 @@ import (
 // and announced that block.
 type fastLightFetcher struct {
 	pm    *ProtocolManager
-	odr   *LesOdr
 	chain *fast.LightChain
 
-	lock               sync.Mutex // lock protects access to the fetcher's internal state variables except sent requests
-	maxConfirmedHeight *big.Int
-	peers              map[*peer]*fetcherFastPeerInfo
-	syncing            bool
-	syncDone           chan *peer
+	lock     sync.Mutex // lock protects access to the fetcher's internal state variables except sent requests
+	peers    map[*peer]*fastPeerInfo
+	syncing  bool
+	syncDone chan *peer
 
 	reqMu      sync.RWMutex // reqMu protects access to sent header fetch requests
 	requested  map[uint64]fetchFastRequest
@@ -53,33 +53,19 @@ type fastLightFetcher struct {
 	requestChn chan bool // true if initiated from outside
 }
 
-// fetcherFastPeerInfo holds fetcher-specific information about each active peer
-type fetcherFastPeerInfo struct {
-	root, lastAnnounced *fetcherFastTreeNode
-	nodeCnt             int
-	confirmedHeight     *big.Int
-	bestConfirmed       *fetcherFastTreeNode
-	nodeByHash          map[common.Hash]*fetcherFastTreeNode
+// fastPeerInfo holds fetcher-specific information about each active peer
+type fastPeerInfo struct {
+	firstAnnounced, lastAnnounced *announce
+	nodeByHash                    map[common.Hash]*announce
 }
 
-// fetcherFastTreeNode is a node of a tree that holds information about blocks recently
-// announced and confirmed by a certain peer. Each new announce message from a peer
-// adds nodes to the tree, based on the previous announced head and the reorg depth.
-// There are three possible states for a tree node:
-// - announced: not downloaded (known) yet, but we know its head, number and td
-// - intermediate: not known, hash and td are empty, they are filled out when it becomes known
-// - known: both announced by this peer and downloaded (from any peer).
-// This structure makes it possible to always know which peer has a certain block,
-// which is necessary for selecting a suitable peer for ODR requests and also for
-// canonizing new heads. It also helps to always download the minimum necessary
-// amount of headers with a single request.
-type fetcherFastTreeNode struct {
-	hash             common.Hash
-	number           uint64
-	height           *big.Int
-	known, requested bool
-	parent           *fetcherFastTreeNode
-	children         []*fetcherFastTreeNode
+// announce is the hash notification of the availability of a new block in the
+// network.
+type announce struct {
+	hash      common.Hash // Hash of the block being announced
+	number    uint64      // Number of the block being announced (0 = unknown | old protocol)
+	requested bool
+	origin    string // Identifier of the peer originating the notification
 }
 
 // fetchFastRequest represents a header download request
@@ -101,16 +87,14 @@ type fetchFastResponse struct {
 // newLightFetcher creates a new light fetcher
 func newFastLightFetcher(pm *ProtocolManager) *fastLightFetcher {
 	f := &fastLightFetcher{
-		pm:                 pm,
-		chain:              pm.fblockchain.(*fast.LightChain),
-		odr:                pm.odr,
-		peers:              make(map[*peer]*fetcherFastPeerInfo),
-		deliverChn:         make(chan fetchFastResponse, 100),
-		requested:          make(map[uint64]fetchFastRequest),
-		timeoutChn:         make(chan uint64),
-		requestChn:         make(chan bool, 100),
-		syncDone:           make(chan *peer),
-		maxConfirmedHeight: big.NewInt(0),
+		pm:         pm,
+		chain:      pm.fblockchain.(*fast.LightChain),
+		peers:      make(map[*peer]*fastPeerInfo),
+		deliverChn: make(chan fetchFastResponse, 100),
+		requested:  make(map[uint64]fetchFastRequest),
+		timeoutChn: make(chan uint64),
+		requestChn: make(chan bool, 100),
+		syncDone:   make(chan *peer),
 	}
 	pm.peers.notify(f)
 
@@ -220,7 +204,7 @@ func (f *fastLightFetcher) registerPeer(p *peer) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	f.peers[p] = &fetcherFastPeerInfo{nodeByHash: make(map[common.Hash]*fetcherFastTreeNode)}
+	f.peers[p] = &fastPeerInfo{nodeByHash: make(map[common.Hash]*announce)}
 }
 
 // unregisterPeer removes a new peer from the fetcher's peer set
@@ -248,85 +232,48 @@ func (f *fastLightFetcher) announce(p *peer, head *announceData) {
 		return
 	}
 
-	if fp.lastAnnounced != nil && head.FastNumber < fp.lastAnnounced.height.Uint64() {
+	if fp.lastAnnounced != nil && head.FastNumber > fp.lastAnnounced.number {
+		if head.FastNumber == fp.lastAnnounced.number && head.FastHash == fp.lastAnnounced.hash {
+			log.Info("Announce duplicated", "number", head.FastNumber, "hash", head.FastHash)
+			return
+		}
 		// announced tds should be strictly monotonic
-		p.Log().Debug("Received non-monotonic td", "current", head.FastNumber, "previous", fp.lastAnnounced.height)
+		p.Log().Debug("Received non-monotonic td", "current", head.FastNumber, "previous", fp.lastAnnounced.number)
 		go f.pm.removePeer(p.id, public.FetcherAnnounceCall)
 		return
 	}
 
-	n := fp.lastAnnounced
-	// n is now the reorg common ancestor, add a new branch of nodes
-	if n != nil && (head.FastNumber >= n.number+maxNodeCount || head.FastNumber <= n.number) {
-		// if announced head block height is lower or same as n or too far from it to add
-		// intermediate nodes then discard previous announcement info and trigger a resync
-		n = nil
-		fp.nodeCnt = 0
-		fp.nodeByHash = make(map[common.Hash]*fetcherFastTreeNode)
+	n := &announce{hash: head.FastHash, number: head.FastNumber, origin: p.id}
+	if fp.firstAnnounced == nil {
+		fp.firstAnnounced = n
 	}
-	if n != nil {
-		// check if the node count is too high to add new nodes, discard oldest ones if necessary
-		locked := false
-		for uint64(fp.nodeCnt)+head.FastNumber-n.number > maxNodeCount && fp.root != nil {
-			if !locked {
-				f.chain.LockChain()
-				defer f.chain.UnlockChain()
-				locked = true
-			}
-			// if one of root's children is canonical, keep it, delete other branches and root itself
-			var newRoot *fetcherFastTreeNode
-			for i, nn := range fp.root.children {
-				if rawdb.ReadCanonicalHash(f.pm.chainDb, nn.number) == nn.hash {
-					fp.root.children = append(fp.root.children[:i], fp.root.children[i+1:]...)
-					nn.parent = nil
-					newRoot = nn
-					break
-				}
-			}
-			if n == fp.root {
-				n = newRoot
-			}
-			fp.root = newRoot
-			if newRoot == nil {
-				fp.bestConfirmed = nil
-				fp.confirmedHeight = nil
-			}
+	fp.nodeByHash[n.hash] = n
 
-			if n == nil {
-				break
-			}
-		}
-		if n != nil {
-			for n.number < head.Number {
-				nn := &fetcherFastTreeNode{number: n.number + 1, parent: n}
-				n.children = append(n.children, nn)
-				n = nn
-				fp.nodeCnt++
-			}
-			n.hash = head.Hash
+	p.Log().Debug("Received fast new announcement", "number", head.FastNumber, "hash", head.FastHash, "current", f.chain.CurrentHeader().Number)
 
-			n.height = new(big.Int).SetUint64(head.FastNumber)
-			fp.nodeByHash[n.hash] = n
-		}
-	}
-	if n == nil {
-		// could not find reorg common ancestor or had to delete entire tree, a new root and a resync is needed
-		if fp.root != nil {
-			fp.deleteNode(fp.root)
-		}
-		n = &fetcherFastTreeNode{hash: head.Hash, number: head.Number, height: new(big.Int).SetUint64(head.FastNumber)}
-		fp.root = n
-		fp.nodeCnt++
-		fp.nodeByHash[n.hash] = n
-		fp.bestConfirmed = nil
-		fp.confirmedHeight = nil
-	}
-
+	f.checkKnownNode(fp, n)
 	p.lock.Lock()
-	p.headInfo = head
+	p.headInfo.FastNumber, p.headInfo.FastHash = head.FastNumber, head.FastHash
 	fp.lastAnnounced = n
 	p.lock.Unlock()
+
 	f.requestChn <- true
+}
+
+// checkKnownNode checks if a block tree node is known (downloaded and validated)
+// If it was not known previously but found in the database, sets its known flag
+func (f *fastLightFetcher) checkKnownNode(fp *fastPeerInfo, n *announce) {
+	currentHeight := f.chain.CurrentHeader().Number.Uint64()
+	if fp.firstAnnounced.number < currentHeight {
+		for _, announce := range fp.nodeByHash {
+			if announce.number < currentHeight {
+				delete(fp.nodeByHash, announce.hash)
+			}
+			if announce.number == currentHeight {
+				fp.firstAnnounced = announce
+			}
+		}
+	}
 }
 
 // peerHasBlock returns true if we can assume the peer knows the given block
@@ -336,7 +283,7 @@ func (f *fastLightFetcher) peerHasBlock(p *peer, hash common.Hash, number uint64
 	defer f.lock.Unlock()
 
 	fp := f.peers[p]
-	if fp == nil || fp.root == nil {
+	if fp == nil || fp.firstAnnounced == nil {
 		return false
 	}
 
@@ -352,31 +299,19 @@ func (f *fastLightFetcher) peerHasBlock(p *peer, hash common.Hash, number uint64
 		return true
 	}
 
-	if number >= fp.root.number {
+	if number >= fp.firstAnnounced.number {
 		// it is recent enough that if it is known, is should be in the peer's block tree
 		return fp.nodeByHash[hash] != nil
 	}
-	f.chain.LockChain()
-	defer f.chain.UnlockChain()
-	// if it's older than the peer's block tree root but it's in the same canonical chain
-	// as the root, we can still be sure the peer knows it
-	//
-	// when syncing, just check if it is part of the known chain, there is nothing better we
-	// can do since we do not know the most recent block hash yet
-	return rawdb.ReadCanonicalHash(f.pm.chainDb, fp.root.number) == fp.root.hash && rawdb.ReadCanonicalHash(f.pm.chainDb, number) == hash
+	return false
 }
 
 // requestAmount calculates the amount of headers to be downloaded starting
 // from a certain head backwards
-func (f *fastLightFetcher) requestAmount(p *peer, n *fetcherFastTreeNode) uint64 {
+func (f *fastLightFetcher) requestAmount(n *announce, height uint64) uint64 {
 	amount := uint64(0)
-	nn := n
-	for nn != nil {
-		nn = nn.parent
-		amount++
-	}
-	if nn == nil {
-		amount = n.number
+	if n.number > height {
+		return n.number - height
 	}
 	return amount
 }
@@ -396,25 +331,27 @@ func (f *fastLightFetcher) nextRequest() (*distReq, uint64, bool) {
 		bestHash   common.Hash
 		bestAmount uint64
 	)
-	bestTd := f.maxConfirmedHeight
 	bestSyncing := false
+	currentHeight := f.chain.CurrentHeader().Number.Uint64()
+	bestHeight := currentHeight
 
-	for p, fp := range f.peers {
+	for _, fp := range f.peers {
 		for hash, n := range fp.nodeByHash {
-			if !n.requested && (bestTd == nil || n.height.Cmp(bestTd) >= 0) {
-				amount := f.requestAmount(p, n)
-				if bestTd == nil || n.height.Cmp(bestTd) > 0 || amount < bestAmount {
+			if !n.requested && n.number > currentHeight {
+				amount := f.requestAmount(n, currentHeight)
+				if n.number > bestHeight || amount < bestAmount {
 					bestHash = hash
+					bestHeight = n.number
 					bestAmount = amount
-					bestTd = n.height
-					bestSyncing = fp.bestConfirmed == nil || fp.root == nil
 				}
 			}
 		}
 	}
-	if bestTd == f.maxConfirmedHeight {
+
+	if bestHeight == currentHeight {
 		return nil, 0, false
 	}
+	bestSyncing = bestHeight-currentHeight > hashLimit
 
 	var rq *distReq
 	reqID := genReqID()
@@ -434,7 +371,7 @@ func (f *fastLightFetcher) nextRequest() (*distReq, uint64, bool) {
 			request: func(dp distPeer) func() {
 				go func() {
 					p := dp.(*peer)
-					p.Log().Debug("Synchronisation started")
+					p.Log().Debug("Synchronisation fast started")
 					f.pm.synchronise(p)
 					f.syncDone <- p
 				}()
@@ -498,50 +435,21 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 		req.peer.Log().Debug("Response content mismatch", "requested", len(resp.headers), "reqfrom", resp.headers[0], "delivered", req.amount, "delfrom", req.hash)
 		return false
 	}
-	headers := make([]*types.Header, req.amount)
-	for i, header := range resp.headers {
-		headers[int(req.amount)-1-i] = header
-	}
-	if _, err := f.chain.InsertHeaderChain(headers, 1); err != nil {
+	if _, err := f.chain.InsertHeaderChain(resp.headers, 1); err != nil {
 		if err == consensus.ErrFutureBlock {
 			return true
 		}
 		log.Debug("Failed to insert header chain", "err", err)
 		return false
 	}
-	for i, header := range headers {
+	for i, header := range resp.headers {
 		if f.chain.HasHeader(header.Hash(), header.Number.Uint64()) {
 			log.Debug("Total difficulty not found for header", "index", i+1, "number", header.Number, "hash", header.Hash())
 			return false
 		}
 	}
+	for _, fp := range f.peers {
+		f.checkKnownNode(fp, nil)
+	}
 	return true
-}
-
-// deleteNode deletes a node and its child subtrees from a peer's block tree
-func (fp *fetcherFastPeerInfo) deleteNode(n *fetcherFastTreeNode) {
-	if n.parent != nil {
-		for i, nn := range n.parent.children {
-			if nn == n {
-				n.parent.children = append(n.parent.children[:i], n.parent.children[i+1:]...)
-				break
-			}
-		}
-	}
-	for {
-		if n.height != nil {
-			delete(fp.nodeByHash, n.hash)
-		}
-		fp.nodeCnt--
-		if len(n.children) == 0 {
-			return
-		}
-		for i, nn := range n.children {
-			if i == 0 {
-				n = nn
-			} else {
-				fp.deleteNode(nn)
-			}
-		}
-	}
 }

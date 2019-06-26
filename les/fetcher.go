@@ -33,9 +33,9 @@ import (
 )
 
 const (
-	blockDelayTimeout    = time.Second * 10 // timeout for a peer to announce a head that has already been confirmed by others
-	maxNodeCount         = 20               // maximum number of fetcherTreeNode entries remembered for each peer
-	serverStateAvailable = 100              // number of recent blocks where state availability is assumed
+	blockDelayTimeout    = time.Minute * 2 // timeout for a peer to announce a head that has already been confirmed by others
+	maxNodeCount         = 20              // maximum number of fetcherTreeNode entries remembered for each peer
+	serverStateAvailable = 100             // number of recent blocks where state availability is assumed
 )
 
 // lightFetcher implements retrieval of newly announced headers. It also provides a peerHasBlock function for the
@@ -262,6 +262,7 @@ func (f *lightFetcher) announce(p *peer, head *announceData) {
 	if fp.lastAnnounced != nil && head.Td.Cmp(fp.lastAnnounced.td) <= 0 {
 		if head.Td.Cmp(fp.lastAnnounced.td) == 0 && head.Hash == fp.lastAnnounced.hash {
 			log.Info("Announce duplicated", "number", head.Number, "hash", head.Hash)
+			return
 		}
 		// announced tds should be strictly monotonic
 		p.Log().Debug("Received non-monotonic td", "current", head.Td, "previous", fp.lastAnnounced.td)
