@@ -17,12 +17,14 @@
 package les
 
 import (
+	"bytes"
 	"errors"
 	"math/big"
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/light"
@@ -86,9 +88,94 @@ func (e *Election) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error)
 	return nil, nil
 }
 
+// GetMemberByPubkey returns committeeMember specified by public key bytes
+func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
+	if len(members) == 0 {
+		log.Error("GetMemberByPubkey method len(members)= 0")
+		return nil
+	}
+	for _, member := range members {
+		if bytes.Equal(publickey, member.Publickey) {
+			return member
+		}
+	}
+	return nil
+}
+
+func (e *Election) GetMemberFlag(members []*types.CommitteeMember, publickey []byte) uint32 {
+	if len(members) == 0 {
+		log.Error("IsCommitteeMember method len(members)= 0")
+		return 0
+	}
+	for _, member := range members {
+		if bytes.Equal(publickey, member.Publickey) {
+			return member.Flag
+		}
+	}
+	return 0
+}
+
+// IsCommitteeMember reports whether the provided public key is in committee
+func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
+	flag := e.GetMemberFlag(members, publickey)
+	return flag == types.StateUsedFlag
+}
+
+// VerifyPublicKey get the committee member by public key
+func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
+	members := e.GetCommittee(fastHeight)
+	if members == nil {
+		log.Info("GetCommittee members is nil", "fastHeight", fastHeight)
+		return nil, ErrCommittee
+	}
+	member := e.GetMemberByPubkey(members, pubKeyByte)
+	/*if member == nil {
+		return nil, ErrInvalidMember
+	}*/
+	return member, nil
+}
+
+// VerifySign lookup the pbft sign and return the committee member who signs it
+func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, error) {
+	pubkey, err := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
+	if err != nil {
+		return nil, err
+	}
+	pubkeyByte := crypto.FromECDSAPub(pubkey)
+	member, err := e.VerifyPublicKey(sign.FastHeight, pubkeyByte)
+	return member, err
+}
+
 // VerifySigns verify signatures of bft committee in batches
 func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMember, []error) {
-	return nil, nil
+	members := make([]*types.CommitteeMember, len(signs))
+	errs := make([]error, len(signs))
+
+	if len(signs) == 0 {
+		log.Warn("Veriry signs get nil pbftsigns")
+		return nil, nil
+	}
+	// All signs should have the same fastblock height
+	committeeMembers := e.GetCommittee(signs[0].FastHeight)
+	if len(committeeMembers) == 0 {
+		log.Error("Election get none committee for verify pbft signs")
+		for i := range errs {
+			errs[i] = ErrCommittee
+		}
+		return members, errs
+	}
+
+	for i, sign := range signs {
+		// member, err := e.VerifySign(sign)
+		pubkey, _ := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
+		member := e.GetMemberByPubkey(committeeMembers, crypto.FromECDSAPub(pubkey))
+		if member == nil {
+			errs[i] = ErrInvalidMember
+		} else {
+			members[i] = member
+		}
+	}
+	return members, errs
 }
 
 // VerifySwitchInfo verify committee members and it's state
