@@ -622,6 +622,7 @@ func (bc *SnailBlockChain) procFutureBlocks() {
 
 		// Insert one by one as chain insertion needs contiguous ancestry between blocks
 		for i := range blocks {
+			log.Info("procFutureBlocks", "number", blocks[i].Number(), "hash", blocks[i].Hash())
 			bc.InsertChain(blocks[i : i+1])
 		}
 	}
@@ -906,6 +907,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 
 		// Some other error occurred, abort
 	case err != nil:
+		bc.futureBlocks.Remove(block.Hash())
 		stats.ignored += len(it.chain)
 		bc.reportBlock(block, err)
 		return it.index, events, err
