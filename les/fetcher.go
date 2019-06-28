@@ -53,11 +53,12 @@ type lightFetcher struct {
 	syncing         bool
 	syncDone        chan *peer
 
-	reqMu      sync.RWMutex // reqMu protects access to sent header fetch requests
-	requested  map[uint64]fetchRequest
-	deliverChn chan fetchResponse
-	timeoutChn chan uint64
-	requestChn chan bool // true if initiated from outside
+	reqMu       sync.RWMutex // reqMu protects access to sent header fetch requests
+	requested   map[uint64]fetchRequest
+	deliverChn  chan fetchResponse
+	timeoutChn  chan uint64
+	requestChn  chan bool // true if initiated from outside
+	fastFetcher *fastLightFetcher
 }
 
 // fetcherPeerInfo holds fetcher-specific information about each active peer
@@ -214,6 +215,7 @@ func (f *lightFetcher) syncLoop() {
 			f.checkSyncedHeaders(p)
 			f.syncing = false
 			f.lock.Unlock()
+			f.fastFetcher.notifySyncDone(p)
 			f.requestChn <- false
 		}
 	}
@@ -685,7 +687,7 @@ func (f *lightFetcher) checkKnownNode(p *peer, n *fetcherTreeNode) bool {
 
 	currentHead := f.chain.CurrentHeader()
 
-	if n.number < currentHead.Number.Uint64()-128 {
+	if n.number < currentHead.Number.Uint64()-32 {
 		return false
 	}
 
@@ -807,4 +809,9 @@ func (f *lightFetcher) checkUpdateStats(p *peer, newEntry *updateStatsEntry) {
 			fp.firstUpdateStats = fp.firstUpdateStats.next
 		}
 	}
+}
+
+// newLightFetcher creates a new light fetcher
+func (f *lightFetcher) setFastFetcher(flf *fastLightFetcher) {
+	f.fastFetcher = flf
 }

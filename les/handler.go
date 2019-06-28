@@ -189,8 +189,9 @@ func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *public.I
 		manager.fdownloader = fastdownloader.New(fmode, chainDb, manager.eventMux, nil, blockchain, removePeer)
 		manager.downloader = downloader.New(mode, checkpoint, chainDb, manager.eventMux, nil, snailchain, removePeer, manager.fdownloader)
 		manager.peers.notify((*downloaderPeerNotify)(manager))
-		manager.fetcher = newLightFetcher(manager)
 		manager.fastFetcher = newFastLightFetcher(manager)
+		manager.fetcher = newLightFetcher(manager)
+		manager.fetcher.setFastFetcher(manager.fastFetcher)
 	}
 
 	return manager, nil

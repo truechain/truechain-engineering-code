@@ -18,6 +18,7 @@
 package les
 
 import (
+	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/truechain/truechain-engineering-code/light/fast"
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"sync"
@@ -51,6 +52,9 @@ type fastLightFetcher struct {
 	deliverChn chan fetchFastResponse
 	timeoutChn chan uint64
 	requestChn chan bool // true if initiated from outside
+	// head cache
+	queue  *prque.Prque            // Queue containing the import operations (head number sorted)
+	queued map[common.Hash]*inject // Set of already queued heads (to dedupe imports)
 }
 
 // fastPeerInfo holds fetcher-specific information about each active peer
@@ -66,6 +70,12 @@ type announce struct {
 	number    uint64      // Number of the block being announced (0 = unknown | old protocol)
 	requested bool
 	origin    string // Identifier of the peer originating the notification
+}
+
+// inject represents a schedules import operation.
+type inject struct {
+	origin string
+	header *types.Header
 }
 
 // fetchFastRequest represents a header download request
@@ -95,6 +105,8 @@ func newFastLightFetcher(pm *ProtocolManager) *fastLightFetcher {
 		timeoutChn: make(chan uint64),
 		requestChn: make(chan bool, 100),
 		syncDone:   make(chan *peer),
+		queue:      prque.New(nil),
+		queued:     make(map[common.Hash]*inject),
 	}
 	pm.peers.notify(f)
 
@@ -124,8 +136,6 @@ func (f *fastLightFetcher) syncLoop() {
 			)
 			if !f.syncing && !(newAnnounce && s) {
 				rq, reqID, syncing = f.nextRequest()
-				log.Info("newAnnounce", "sync", !f.syncing, "newAnnounce", newAnnounce, "s", s, "syncing", syncing, "rq", rq)
-
 			}
 			f.lock.Unlock()
 
@@ -191,6 +201,7 @@ func (f *fastLightFetcher) syncLoop() {
 			p.Log().Debug("Done fast synchronising with peer")
 			f.syncing = false
 			f.lock.Unlock()
+			f.checkQueueHeight()
 			f.requestChn <- false
 		}
 	}
@@ -245,13 +256,15 @@ func (f *fastLightFetcher) announce(p *peer, head *announceData) {
 		return
 	}
 
+	current := f.chain.CurrentHeader().Number.Uint64()
+
 	n := &announce{hash: head.FastHash, number: head.FastNumber, origin: p.id}
 	if fp.firstAnnounced == nil {
 		fp.firstAnnounced = n
 	}
 	fp.nodeByHash[n.hash] = n
 
-	p.Log().Debug("Received fast new announcement", "number", head.FastNumber, "hash", head.FastHash, "current", f.chain.CurrentHeader().Number)
+	p.Log().Debug("Received fast new announcement", "number", head.FastNumber, "hash", head.FastHash, "current", current)
 
 	f.checkKnownNode(fp, n)
 	p.lock.Lock()
@@ -259,7 +272,9 @@ func (f *fastLightFetcher) announce(p *peer, head *announceData) {
 	fp.lastAnnounced = n
 	p.lock.Unlock()
 
-	f.requestChn <- true
+	if head.FastNumber-current < hashLimit {
+		f.requestChn <- true
+	}
 }
 
 // checkKnownNode checks if a block tree node is known (downloaded and validated)
@@ -270,6 +285,9 @@ func (f *fastLightFetcher) checkKnownNode(fp *fastPeerInfo, n *announce) {
 		for _, announce := range fp.nodeByHash {
 			if announce.number < currentHeight {
 				delete(fp.nodeByHash, announce.hash)
+				if insert := f.queued[announce.hash]; insert != nil {
+					delete(f.queued, announce.hash)
+				}
 			}
 			if announce.number == currentHeight {
 				fp.firstAnnounced = announce
@@ -355,6 +373,20 @@ func (f *fastLightFetcher) nextRequest() (*distReq, uint64, bool) {
 	}
 	bestSyncing = bestHeight-currentHeight > hashLimit
 
+	if !f.queue.Empty() {
+		op := f.queue.PopItem().(*inject)
+		header := op.header
+		hash := header.Hash()
+		number := header.Number.Uint64()
+		if bestHeight > number {
+			bestHash = hash
+			bestHeight = number
+			bestAmount = number - currentHeight
+		}
+		// If too high up the chain or phase, continue later
+		f.queue.Push(op, -int64(number))
+	}
+
 	if bestAmount > MaxHeaderFetch {
 		bestAmount = MaxHeaderFetch
 	}
@@ -418,22 +450,78 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 		req.peer.Log().Debug("Response content mismatch", "requested", len(resp.headers), "reqfrom", resp.headers[0], "delivered", req.amount, "delfrom", req.hash)
 		return false
 	}
+	headers := make([]*types.Header, req.amount)
+	for i, header := range resp.headers {
+		headers[int(req.amount)-1-i] = header
+		log.Info("processResponse", "i", i, "head", header.Number, "hash", header.Hash())
+	}
 	log.Info("processResponse", "headers", len(resp.headers), "number", resp.headers[0].Number, "lastnumber", resp.headers[len(resp.headers)-1].Number, "current", f.chain.CurrentHeader().Number)
-	if _, err := f.chain.InsertHeaderChain(resp.headers, 1); err != nil {
+	if headers[0].Number.Uint64() > f.chain.CurrentHeader().Number.Uint64()+1 {
+		for _, head := range headers {
+			hash := head.Hash()
+			num := head.Number.Uint64()
+			// Schedule the head for future importing
+			if _, ok := f.queued[hash]; !ok {
+				op := &inject{
+					origin: req.peer.id,
+					header: head,
+				}
+				f.queued[hash] = op
+				f.queue.Push(op, -int64(num))
+				log.Debug("Queued propagated snail block", "peer", req.peer.id, "number", num, "hash", hash, "queued", f.queue.Size())
+			}
+		}
+		return true
+	}
+	return f.insertHeaderChain(headers)
+}
+
+// insertHeaderChain processes header download request responses, returns true if successful
+func (f *fastLightFetcher) insertHeaderChain(headers []*types.Header) bool {
+	if _, err := f.chain.InsertHeaderChain(headers, 1); err != nil {
 		if err == consensus.ErrFutureBlock {
 			return true
 		}
 		log.Debug("Failed to insert fast header chain", "err", err)
 		return false
 	}
-	for i, header := range resp.headers {
-		if f.chain.HasHeader(header.Hash(), header.Number.Uint64()) {
-			log.Debug("Total difficulty not found for header", "index", i+1, "number", header.Number, "hash", header.Hash())
-			return false
-		}
-	}
 	for _, fp := range f.peers {
 		f.checkKnownNode(fp, nil)
 	}
 	return true
+}
+
+func (f *fastLightFetcher) notifySyncDone(p *peer) {
+	f.syncDone <- p
+}
+
+// checkQueueHeight checks if a block tree node is known (downloaded and validated)
+// If it was not known previously but found in the database, sets its known flag
+func (f *fastLightFetcher) checkQueueHeight() {
+	// Import any queued headers that could potentially fit
+	headers := []*types.Header{}
+	for !f.queue.Empty() {
+		height := f.chain.CurrentHeader().Number.Uint64()
+		op := f.queue.PopItem().(*inject)
+		header := op.header
+		hash := header.Hash()
+
+		// If too high up the chain or phase, continue later
+		number := header.Number.Uint64()
+		if number > height+1 {
+			f.queue.Push(op, -int64(number))
+			break
+		}
+		// Otherwise if fresh and still unknown, try and import
+		if f.chain.GetHeaderByHash(hash) != nil {
+			for _, fp := range f.peers {
+				f.checkKnownNode(fp, nil)
+			}
+			continue
+		}
+		headers = append(headers, header)
+	}
+	if len(headers) > 0 {
+		f.insertHeaderChain(headers)
+	}
 }
