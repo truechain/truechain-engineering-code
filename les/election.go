@@ -72,6 +72,14 @@ func NewLightElection(fastBlockChain *fast.LightChain, snailBlockChain *light.Li
 		snailchain:        snailBlockChain,
 	}
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
+
+	// Genesis committee is stroed on block 0
+	election.genesisCommittee = election.getGenesisCommittee()
+	for _, m := range election.genesisCommittee {
+		var member = *m
+		member.Flag = types.StateUnusedFlag
+		election.defaultMembers = append(election.defaultMembers, &member)
+	}
 	return election
 }
 
@@ -81,7 +89,16 @@ func (e *Election) Start() {
 
 	log.Info("Latest block", "number", num)
 	log.Info("Latest snail", "number", snail)
-	e.GetCommittee(num)
+	members := e.GetCommittee(num)
+	log.Info("Current committee", "count", len(members))
+}
+
+func (e *Election) getGenesisCommittee() []*types.CommitteeMember {
+	block := e.fastchain.Genesis()
+	if block != nil {
+		return block.SwitchInfos()
+	}
+	return nil
 }
 
 func (e *Election) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error) {
@@ -227,7 +244,7 @@ func (e *Election) getCommittee(id *big.Int) *types.ElectionCommittee {
 	} else {
 		// elect committee based on snail fruits
 		begin, end := ElectionEpoch(id)
-		c = election.ElectCommittee(e.snailchain, nil, begin, end)
+		c = election.ElectCommittee(e.snailchain, e.defaultMembers, begin, end)
 	}
 	e.commiteeCache.Add(id.Uint64(), c)
 	return c
