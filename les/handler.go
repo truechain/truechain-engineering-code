@@ -450,7 +450,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case GetFastBlockHeadersMsg:
-		p.Log().Trace("Received block header request")
+		p.Log().Trace("Received fast block header request")
 		// Decode the complex header query
 		var req struct {
 			ReqID uint64
@@ -1131,6 +1131,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			auxBytes int
 			auxData  [][]byte
 			Heads    []*types.SnailHeader
+			fHeads   []*types.Header
 		)
 		reqCnt := len(req.Reqs)
 		if reject(uint64(reqCnt), MaxHelperTrieProofsFetch) {
@@ -1166,7 +1167,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					auxTrie.Prove(req.Key, req.FromLevel, nodes)
 				}
 				if req.AuxReq != 0 {
-					data := pm.getHelperTrieAuxData(req)
+					data, head := pm.getHelperTrieAuxData(req)
+					fHeads = append(fHeads, head)
 					auxData = append(auxData, data)
 					auxBytes += len(data)
 					if req.Start {
@@ -1183,7 +1185,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendHelperTrieProofs(req.ReqID, bv, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData, Heads: Heads})
+		return p.SendHelperTrieProofs(req.ReqID, bv, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData, Heads: Heads, Fhead: fHeads})
 
 	case HelperTrieProofsMsg:
 		if pm.odr == nil {
@@ -1328,13 +1330,16 @@ func (pm *ProtocolManager) getHelperTrie(id uint, idx uint64) (common.Hash, stri
 }
 
 // getHelperTrieAuxData returns requested auxiliary data for the given HelperTrie request
-func (pm *ProtocolManager) getHelperTrieAuxData(req HelperTrieReq) []byte {
+func (pm *ProtocolManager) getHelperTrieAuxData(req HelperTrieReq) ([]byte, *types.Header) {
 	if req.Type == htCanonical && req.AuxReq == auxHeader && len(req.Key) == 8 {
 		blockNum := binary.BigEndian.Uint64(req.Key)
 		hash := snaildb.ReadCanonicalHash(pm.chainDb, blockNum)
-		return snaildb.ReadHeaderRLP(pm.chainDb, hash, blockNum)
+		body := snaildb.ReadBody(pm.chainDb, hash, blockNum)
+		fruit := body.Fruits[len(body.Fruits)-1]
+		head := rawdb.ReadHeader(pm.chainDb, fruit.FastHash(), fruit.FastNumber().Uint64())
+		return snaildb.ReadHeaderRLP(pm.chainDb, hash, blockNum), head
 	}
-	return nil
+	return nil, nil
 }
 
 func (pm *ProtocolManager) txStatus(hashes []common.Hash) []txStatus {

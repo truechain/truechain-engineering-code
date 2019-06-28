@@ -26,6 +26,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	fastDB "github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -75,6 +76,7 @@ type ChtRequest struct {
 	Proof            *public.NodeSet
 	Headers          []*types.SnailHeader
 	Start            bool
+	FHeader          *types.Header
 }
 
 // StoreResult stores the retrieved data in local database
@@ -89,6 +91,11 @@ func (req *ChtRequest) StoreResult(db etruedb.Database) {
 			rawdb.WriteHeader(db, head)
 		}
 	}
+
+	fhash, fnum := req.FHeader.Hash(), req.FHeader.Number.Uint64()
+	fastDB.WriteHeader(db, req.FHeader)
+	fastDB.WriteCanonicalHash(db, fhash, fnum)
+	fastDB.WriteHeadHeaderHash(db, fhash)
 }
 
 // BlockRequest is the ODR request type for retrieving block bodies

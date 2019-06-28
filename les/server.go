@@ -86,7 +86,7 @@ func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, err
 		chtLastSectionV1 := (chtLastSection+1)*(params.CHTFrequencyClient/params.CHTFrequencyServer) - 1
 		chtSectionHead := srv.chtIndexer.SectionHead(chtLastSectionV1)
 		chtRoot := light.GetChtRoot(pm.chainDb, chtLastSectionV1, chtSectionHead)
-		logger.Info("Loaded CHT", "section", chtLastSection, "head", chtSectionHead, "root", chtRoot)
+		logger.Info("Loaded CHT", "section", chtLastSection, "head", chtSectionHead.String(), "root", chtRoot.String())
 	}
 	bloomTrieSectionCount, _, _ := srv.bloomTrieIndexer.Sections()
 	if bloomTrieSectionCount != 0 {

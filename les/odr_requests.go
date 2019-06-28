@@ -442,18 +442,13 @@ type HelperTrieResps struct { // describes all responses, not just a single one
 	Proofs  public.NodeList
 	AuxData [][]byte
 	Heads   []*types.SnailHeader
+	Fhead   []*types.Header
 }
 
 // legacy LES/1
 type ChtReq struct {
 	ChtNum, BlockNum uint64
 	FromLevel        uint
-}
-
-// legacy LES/1
-type ChtResp struct {
-	Header *types.SnailHeader
-	Proof  []rlp.RawValue
 }
 
 // ODR request type for requesting headers by Canonical Hash Trie, see LesOdrRequest interface
@@ -507,7 +502,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 	switch msg.MsgType {
 	case MsgHelperTrieProofs:
 		resp := msg.Obj.(HelperTrieResps)
-		if len(resp.AuxData) != 1 {
+		if len(resp.AuxData) != 1 && len(resp.Fhead) != 1 {
 			return errInvalidEntryCount
 		}
 		nodeSet := resp.Proofs.NodeSet()
@@ -548,6 +543,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 		r.Proof = nodeSet
 		r.Td = node.Td
 		r.Headers = resp.Heads
+		r.FHeader = resp.Fhead[0]
 	default:
 		return errInvalidMessageType
 	}
