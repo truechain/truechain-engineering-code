@@ -59,6 +59,57 @@ func (ec *Client) Close() {
 	ec.c.Close()
 }
 
+// SnailBlockchain Access
+
+// SnailBlockByHash returns the given full block.
+//
+// Note that loading full blocks requires two requests.
+func (ec *Client) SnailBlockByHash(ctx context.Context, hash common.Hash) (*rpcSnailBlock, error) {
+	return ec.getSnailBlock(ctx, "etrue_getSnailBlockByHash", hash, true)
+}
+
+// SnailBlockByNumber returns a block from the current canonical chain. If number is nil, the
+// latest known block is returned.
+//
+// Note that loading full blocks requires two requests.
+func (ec *Client) SnailBlockByNumber(ctx context.Context, number *big.Int) (*rpcSnailBlock, error) {
+	return ec.getSnailBlock(ctx, "etrue_getSnailBlockByNumber", toBlockNumArg(number), true)
+}
+
+type rpcSnailBlock struct {
+	Hash             common.Hash      `json:"hash"`
+	Number           *hexutil.Big     `json:"number"`
+	ParentHash       common.Hash      `json:"parentHash"`
+	FruitsHash       common.Hash      `json:"fruitsHash"`
+	Nonce            types.BlockNonce `json:"nonce"`
+	MixHash          common.Hash      `json:"mixHash"`
+	Miner            common.Address   `json:"miner"`
+	Difficulty       *hexutil.Big     `json:"difficulty"`
+	ExtraData        hexutil.Bytes    `json:"extraData"`
+	Size             hexutil.Uint64   `json:"size"`
+	Timestamp        *hexutil.Big     `json:"timestamp"`
+	Fruits           []interface{}    `json:"fruits"`
+	BeginFruitNumber *hexutil.Big     `json:"beginFruitNumber"`
+	EndFruitNumber   *hexutil.Big     `json:"endFruitNumber"`
+}
+
+func (ec *Client) getSnailBlock(ctx context.Context, method string, args ...interface{}) (*rpcSnailBlock, error) {
+	var raw json.RawMessage
+	err := ec.c.CallContext(ctx, &raw, method, args...)
+	if err != nil {
+		return nil, err
+	} else if len(raw) == 0 {
+		return nil, truechain.NotFound
+	}
+	// Decode snail block
+	var block rpcSnailBlock
+	if err := json.Unmarshal(raw, &block); err != nil {
+		return nil, err
+	}
+
+	return &block, nil
+}
+
 // Blockchain Access
 
 // BlockByHash returns the given full block.
