@@ -1037,20 +1037,17 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]interface{}, error) {
 	head := b.Header() // copies the header once
 	fields := map[string]interface{}{
-		"number":        (*hexutil.Big)(head.Number),
-		"hash":          b.Hash(),
-		"parentHash":    head.ParentHash,
-		"fruitsHash":    head.FruitsHash,
-		"nonce":         head.Nonce,
-		"mixHash":       head.MixDigest,
-		"miner":         head.Coinbase,
-		"difficulty":    (*hexutil.Big)(head.Difficulty),
-		"extraData":     hexutil.Bytes(head.Extra),
-		"publicKey":     hexutil.Bytes(head.Publickey),
-		"pointerNumber": head.PointerNumber,
-		"fastNumber":    head.FastNumber,
-		"size":          hexutil.Uint64(b.Size()),
-		"timestamp":     (*hexutil.Big)(head.Time),
+		"number":     (*hexutil.Big)(head.Number),
+		"hash":       b.Hash(),
+		"parentHash": head.ParentHash,
+		"fruitsHash": head.FruitsHash,
+		"nonce":      head.Nonce,
+		"mixHash":    head.MixDigest,
+		"miner":      head.Coinbase,
+		"difficulty": (*hexutil.Big)(head.Difficulty),
+		"extraData":  hexutil.Bytes(head.Extra),
+		"size":       hexutil.Uint64(b.Size()),
+		"timestamp":  (*hexutil.Big)(head.Time),
 	}
 
 	fs := b.Fruits()
