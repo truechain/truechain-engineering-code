@@ -53,7 +53,7 @@ type LesServer struct {
 
 func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, error) {
 	quitSync := make(chan struct{})
-	pm, err := NewProtocolManager(etrue.BlockChain().Config(), public.DefaultServerIndexerConfig, false, config.NetworkId, etrue.EventMux(), etrue.Engine(), newPeerSet(), etrue.BlockChain(), etrue.SnailBlockChain(), etrue.TxPool(), etrue.ChainDb(), nil, nil, nil, quitSync, new(sync.WaitGroup))
+	pm, err := NewProtocolManager(etrue.BlockChain().Config(), public.DefaultServerIndexerConfig, false, config.NetworkId, etrue.EventMux(), etrue.Engine(), newPeerSet(), etrue.BlockChain(), etrue.SnailBlockChain(), etrue.TxPool(), etrue.ChainDb(), nil, nil, nil, quitSync, new(sync.WaitGroup), nil)
 	if err != nil {
 		return nil, err
 	}
