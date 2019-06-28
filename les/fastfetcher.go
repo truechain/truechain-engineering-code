@@ -76,6 +76,7 @@ type announce struct {
 type inject struct {
 	origin string
 	header *types.Header
+	signs  []*types.PbftSign
 }
 
 // fetchFastRequest represents a header download request
@@ -89,9 +90,9 @@ type fetchFastRequest struct {
 
 // fetchFastResponse represents a header download response
 type fetchFastResponse struct {
-	reqID   uint64
-	headers []*types.Header
-	peer    *peer
+	reqID uint64
+	peer  *peer
+	hss   *headsWithSigns
 }
 
 // newLightFetcher creates a new light fetcher
@@ -432,7 +433,7 @@ func (f *fastLightFetcher) nextRequest() (*distReq, uint64, bool) {
 					time.Sleep(hardRequestTimeout)
 					f.timeoutChn <- reqID
 				}()
-				return func() { p.RequestHeadersByHash(reqID, cost, bestHash, int(bestAmount), 0, true, true, true) }
+				return func() { p.RequestHeadersByHash(reqID, cost, bestHash, int(bestAmount), 0, true, true, false) }
 			},
 		}
 	}
@@ -440,24 +441,30 @@ func (f *fastLightFetcher) nextRequest() (*distReq, uint64, bool) {
 }
 
 // deliverHeaders delivers header download request responses for processing
-func (f *fastLightFetcher) deliverHeaders(peer *peer, reqID uint64, headers []*types.Header) {
-	f.deliverChn <- fetchFastResponse{reqID: reqID, headers: headers, peer: peer}
+func (f *fastLightFetcher) deliverHeaders(peer *peer, reqID uint64, hss *headsWithSigns) {
+	f.deliverChn <- fetchFastResponse{reqID: reqID, hss: hss, peer: peer}
 }
 
 // processResponse processes header download request responses, returns true if successful
 func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastResponse) bool {
-	if uint64(len(resp.headers)) != req.amount || resp.headers[0].Hash() != req.hash {
-		req.peer.Log().Debug("Response content mismatch", "requested", len(resp.headers), "reqfrom", resp.headers[0], "delivered", req.amount, "delfrom", req.hash)
+	fheads := resp.hss.Heads
+	if uint64(len(fheads)) != req.amount || fheads[0].Hash() != req.hash {
+		req.peer.Log().Debug("Response content mismatch", "requested", len(fheads), "reqfrom", fheads[0], "delivered", req.amount, "delfrom", req.hash)
 		return false
 	}
 	headers := make([]*types.Header, req.amount)
-	for i, header := range resp.headers {
+	for i, header := range fheads {
 		headers[int(req.amount)-1-i] = header
 		log.Info("processResponse", "i", i, "head", header.Number, "hash", header.Hash())
 	}
-	log.Info("processResponse", "headers", len(resp.headers), "number", resp.headers[0].Number, "lastnumber", resp.headers[len(resp.headers)-1].Number, "current", f.chain.CurrentHeader().Number)
+	signs := make([][]*types.PbftSign, req.amount)
+	for i, sign := range resp.hss.Signs {
+		signs[int(req.amount)-1-i] = sign
+	}
+
+	log.Info("processResponse", "headers", len(fheads), "number", fheads[0].Number, "lastnumber", fheads[len(fheads)-1].Number, "current", f.chain.CurrentHeader().Number)
 	if headers[0].Number.Uint64() > f.chain.CurrentHeader().Number.Uint64()+1 {
-		for _, head := range headers {
+		for i, head := range headers {
 			hash := head.Hash()
 			num := head.Number.Uint64()
 			// Schedule the head for future importing
@@ -465,6 +472,7 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 				op := &inject{
 					origin: req.peer.id,
 					header: head,
+					signs:  signs[i],
 				}
 				f.queued[hash] = op
 				f.queue.Push(op, -int64(num))
@@ -473,11 +481,15 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 		}
 		return true
 	}
-	return f.insertHeaderChain(headers)
+	return f.insertHeaderChain(headers, signs)
 }
 
 // insertHeaderChain processes header download request responses, returns true if successful
-func (f *fastLightFetcher) insertHeaderChain(headers []*types.Header) bool {
+func (f *fastLightFetcher) insertHeaderChain(headers []*types.Header, signs [][]*types.PbftSign) bool {
+	for i, sign := range signs {
+		log.Info("VerifySigns", "num", headers[i].Number, "hash", headers[i].Hash())
+		f.pm.election.VerifySigns(sign)
+	}
 	if _, err := f.chain.InsertHeaderChain(headers, 1); err != nil {
 		if err == consensus.ErrFutureBlock {
 			return true
@@ -500,6 +512,7 @@ func (f *fastLightFetcher) notifySyncDone(p *peer) {
 func (f *fastLightFetcher) checkQueueHeight() {
 	// Import any queued headers that could potentially fit
 	headers := []*types.Header{}
+	signs := [][]*types.PbftSign{}
 	for !f.queue.Empty() {
 		height := f.chain.CurrentHeader().Number.Uint64()
 		op := f.queue.PopItem().(*inject)
@@ -520,8 +533,9 @@ func (f *fastLightFetcher) checkQueueHeight() {
 			continue
 		}
 		headers = append(headers, header)
+		signs = append(signs, op.signs)
 	}
 	if len(headers) > 0 {
-		f.insertHeaderChain(headers)
+		f.insertHeaderChain(headers, signs)
 	}
 }

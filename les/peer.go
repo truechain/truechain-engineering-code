@@ -28,7 +28,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/les/flowcontrol"
 	"github.com/truechain/truechain-engineering-code/p2p"
@@ -223,7 +222,7 @@ func (p *peer) SendAnnounce(request announceData) error {
 }
 
 // SendBlockHeaders sends a batch of block headers to the remote peer.
-func (p *peer) SendBlockHeaders(reqID, bv uint64, headers []*types.Header) error {
+func (p *peer) SendBlockHeaders(reqID, bv uint64, headers headsWithSigns) error {
 	return sendResponse(p.rw, FastBlockHeadersMsg, reqID, bv, headers)
 }
 

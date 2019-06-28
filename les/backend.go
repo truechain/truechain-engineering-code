@@ -146,7 +146,7 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	}
 
 	leth.txPool = fast.NewTxPool(leth.chainConfig, leth.fblockchain, leth.relay)
-	if leth.protocolManager, err = NewProtocolManager(leth.chainConfig, public.DefaultClientIndexerConfig, true, config.NetworkId, leth.eventMux, leth.engine, leth.peers, leth.fblockchain, leth.blockchain, nil, chainDb, leth.odr, leth.relay, leth.serverPool, quitSync, &leth.wg); err != nil {
+	if leth.protocolManager, err = NewProtocolManager(leth.chainConfig, public.DefaultClientIndexerConfig, true, config.NetworkId, leth.eventMux, leth.engine, leth.peers, leth.fblockchain, leth.blockchain, nil, chainDb, leth.odr, leth.relay, leth.serverPool, quitSync, &leth.wg, leth.election); err != nil {
 		return nil, err
 	}
 	leth.ApiBackend = &LesApiBackend{leth, nil}

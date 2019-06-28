@@ -227,8 +227,6 @@ type CodeData []struct {
 	Value []byte
 }
 
-type proofsData [][]rlp.RawValue
-
 type txStatus struct {
 	Status core.TxStatus
 	Lookup *rawdb.TxLookupEntry `rlp:"nil"`
@@ -269,4 +267,9 @@ type fruitsData struct {
 type snailHeadsData struct {
 	Heads      []*types.SnailHeader
 	FruitHeads []*fruitHeadsData
+}
+
+type headsWithSigns struct {
+	Heads []*types.Header
+	Signs [][]*types.PbftSign
 }

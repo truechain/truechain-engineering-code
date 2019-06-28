@@ -144,12 +144,13 @@ type ProtocolManager struct {
 
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
-	wg *sync.WaitGroup
+	wg       *sync.WaitGroup
+	election *Election
 }
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the ethereum network.
-func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *public.IndexerConfig, lightSync bool, networkId uint64, mux *event.TypeMux, engine consensus.Engine, peers *peerSet, blockchain FastBlockChain, snailchain BlockChain, txpool txPool, chainDb etruedb.Database, odr *LesOdr, txrelay *LesTxRelay, serverPool *serverPool, quitSync chan struct{}, wg *sync.WaitGroup) (*ProtocolManager, error) {
+func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *public.IndexerConfig, lightSync bool, networkId uint64, mux *event.TypeMux, engine consensus.Engine, peers *peerSet, blockchain FastBlockChain, snailchain BlockChain, txpool txPool, chainDb etruedb.Database, odr *LesOdr, txrelay *LesTxRelay, serverPool *serverPool, quitSync chan struct{}, wg *sync.WaitGroup, election *Election) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		lightSync:   lightSync,
@@ -169,6 +170,7 @@ func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *public.I
 		quitSync:    quitSync,
 		wg:          wg,
 		noMorePeers: make(chan struct{}),
+		election:    election,
 	}
 	if odr != nil {
 		manager.retriever = odr.retriever
@@ -473,6 +475,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		var (
 			bytes   common.StorageSize
 			headers []*types.Header
+			signs   [][]*types.PbftSign
 			unknown bool
 		)
 		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
@@ -493,6 +496,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			if origin == nil {
 				break
+			}
+			if !query.Fruit {
+				body := rawdb.ReadBody(pm.chainDb, origin.Hash(), origin.Number.Uint64())
+				if body != nil {
+					signs = append(signs, body.Signs)
+				}
 			}
 			headers = append(headers, origin)
 			bytes += estHeaderRlpSize
@@ -547,7 +556,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + query.Amount*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, query.Amount, rcost)
-		return p.SendBlockHeaders(req.ReqID, bv, headers)
+		return p.SendBlockHeaders(req.ReqID, bv, headsWithSigns{Heads: headers, Signs: signs})
 
 	case FastBlockHeadersMsg:
 		if pm.fdownloader == nil {
@@ -558,16 +567,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of headers arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			Headers   []*types.Header
+			Headers   headsWithSigns
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		if pm.fastFetcher != nil && pm.fastFetcher.requestedID(resp.ReqID) {
-			pm.fastFetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
+			pm.fastFetcher.deliverHeaders(p, resp.ReqID, &resp.Headers)
 		} else {
-			err := pm.fdownloader.DeliverHeaders(p.id, resp.Headers, types.DownloaderCall)
+			err := pm.fdownloader.DeliverHeaders(p.id, resp.Headers.Heads, types.DownloaderCall)
 			if err != nil {
 				log.Debug(fmt.Sprint(err))
 			}
