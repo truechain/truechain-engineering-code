@@ -494,7 +494,8 @@ func (bc *SnailBlockChain) HasConfirmedBlock(hash common.Hash, number uint64) bo
 	if bc.blockCache.Contains(hash) {
 		return true
 	}
-	return rawdb.HasBody(bc.db, hash, number)
+	getHash := rawdb.ReadCanonicalHash(bc.db, number)
+	return getHash == hash
 }
 
 // IsCanonicalBlock checks if a block on the Canonical block chain
