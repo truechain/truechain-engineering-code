@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	hashLimit = 128 // Maximum number of unique blocks a peer may have announced
+	hashLimit = 512 // Maximum number of unique blocks a peer may have announced
 )
 
 // fastLightFetcher implements retrieval of newly announced headers. It also provides a peerHasBlock function for the
@@ -124,17 +124,20 @@ func (f *fastLightFetcher) syncLoop() {
 			)
 			if !f.syncing && !(newAnnounce && s) {
 				rq, reqID, syncing = f.nextRequest()
+				log.Info("newAnnounce", "sync", !f.syncing, "newAnnounce", newAnnounce, "s", s, "syncing", syncing, "rq", rq)
+
 			}
 			f.lock.Unlock()
 
+			if syncing {
+				f.lock.Lock()
+				f.syncing = true
+				f.lock.Unlock()
+			}
 			if rq != nil {
 				requesting = true
 				if _, ok := <-f.pm.reqDist.queue(rq); ok {
-					if syncing {
-						f.lock.Lock()
-						f.syncing = true
-						f.lock.Unlock()
-					} else {
+					if !syncing {
 						go func() {
 							time.Sleep(softRequestTimeout)
 							f.reqMu.Lock()
@@ -185,7 +188,7 @@ func (f *fastLightFetcher) syncLoop() {
 			f.lock.Unlock()
 		case p := <-f.syncDone:
 			f.lock.Lock()
-			p.Log().Debug("Done synchronising with peer")
+			p.Log().Debug("Done fast synchronising with peer")
 			f.syncing = false
 			f.lock.Unlock()
 			f.requestChn <- false
@@ -224,7 +227,6 @@ func (f *fastLightFetcher) unregisterPeer(p *peer) {
 func (f *fastLightFetcher) announce(p *peer, head *announceData) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	p.Log().Debug("Received new announcement", "number", head.FastNumber, "hash", head.FastHash)
 
 	fp := f.peers[p]
 	if fp == nil {
@@ -232,7 +234,7 @@ func (f *fastLightFetcher) announce(p *peer, head *announceData) {
 		return
 	}
 
-	if fp.lastAnnounced != nil && head.FastNumber > fp.lastAnnounced.number {
+	if fp.lastAnnounced != nil && head.FastNumber <= fp.lastAnnounced.number {
 		if head.FastNumber == fp.lastAnnounced.number && head.FastHash == fp.lastAnnounced.hash {
 			log.Info("Announce duplicated", "number", head.FastNumber, "hash", head.FastHash)
 			return
@@ -353,32 +355,13 @@ func (f *fastLightFetcher) nextRequest() (*distReq, uint64, bool) {
 	}
 	bestSyncing = bestHeight-currentHeight > hashLimit
 
+	if bestAmount > MaxHeaderFetch {
+		bestAmount = MaxHeaderFetch
+	}
+
 	var rq *distReq
 	reqID := genReqID()
-	if bestSyncing {
-		rq = &distReq{
-			getCost: func(dp distPeer) uint64 {
-				return 0
-			},
-			canSend: func(dp distPeer) bool {
-				p := dp.(*peer)
-				f.lock.Lock()
-				defer f.lock.Unlock()
-
-				fp := f.peers[p]
-				return fp != nil && fp.nodeByHash[bestHash] != nil
-			},
-			request: func(dp distPeer) func() {
-				go func() {
-					p := dp.(*peer)
-					p.Log().Debug("Synchronisation fast started")
-					f.pm.synchronise(p)
-					f.syncDone <- p
-				}()
-				return nil
-			},
-		}
-	} else {
+	if !bestSyncing {
 		rq = &distReq{
 			getCost: func(dp distPeer) uint64 {
 				p := dp.(*peer)
@@ -435,11 +418,12 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 		req.peer.Log().Debug("Response content mismatch", "requested", len(resp.headers), "reqfrom", resp.headers[0], "delivered", req.amount, "delfrom", req.hash)
 		return false
 	}
+	log.Info("processResponse", "headers", len(resp.headers), "number", resp.headers[0].Number, "lastnumber", resp.headers[len(resp.headers)-1].Number, "current", f.chain.CurrentHeader().Number)
 	if _, err := f.chain.InsertHeaderChain(resp.headers, 1); err != nil {
 		if err == consensus.ErrFutureBlock {
 			return true
 		}
-		log.Debug("Failed to insert header chain", "err", err)
+		log.Debug("Failed to insert fast header chain", "err", err)
 		return false
 	}
 	for i, header := range resp.headers {

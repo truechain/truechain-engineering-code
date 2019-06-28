@@ -158,6 +158,16 @@ func (self *LightChain) loadLastState() error {
 	// Issue a status log and return
 	header := self.hc.CurrentHeader()
 	headerTd := self.GetTd(header.Hash(), header.Number.Uint64())
+
+	for i := header.Number.Uint64(); i > header.Number.Uint64()-uint64(32); i-- {
+		head := self.GetHeaderByNumber(i)
+		if head == nil {
+			break
+		}
+		td := rawdb.ReadTd(self.chainDb, head.Hash(), head.Number.Uint64())
+		log.Info("TD", "td", td, "number", head.Number, "hash", head.Hash())
+	}
+
 	log.Info("Loaded most recent snail header", "number", header.Number, "hash", header.Hash(), "td", headerTd, "age", common.PrettyAge(time.Unix(header.Time.Int64(), 0)))
 
 	return nil
@@ -511,6 +521,7 @@ func (self *LightChain) SyncCht(ctx context.Context) bool {
 		if self.hc.CurrentHeader().Number.Uint64() < header.Number.Uint64() {
 			log.Info("Updated latest header based on CHT", "number", header.Number, "hash", header.Hash(), "age", common.PrettyAge(time.Unix(header.Time.Int64(), 0)))
 			self.hc.SetCurrentHeader(header)
+			self.fastchain.LoadLastState()
 		}
 		return true
 	}

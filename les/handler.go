@@ -351,7 +351,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		for {
 			select {
 			case announce := <-p.announceChn:
-				log.Info("SendAnnounce", "announce", announce.Number, "Td", announce.Td)
 				p.SendAnnounce(announce)
 			case <-stop:
 				return
@@ -439,7 +438,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				p.Log().Trace("Valid announcement signature")
 			}
 
-			p.Log().Trace("Announce message content", "number", req.Number, "hash", req.Hash, "td", req.Td, "reorg", req.ReorgDepth)
+			p.Log().Trace("Announce message content", "number", req.Number, "fast", req.FastNumber, "hash", req.Hash, "td", req.Td, "reorg", req.ReorgDepth)
 			if pm.fetcher != nil {
 				if req.FastHash != (common.Hash{}) {
 					pm.fastFetcher.announce(p, &req)

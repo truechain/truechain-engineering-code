@@ -318,7 +318,7 @@ func (c *ChainIndexer) updateLoop() {
 				if time.Since(updated) > 8*time.Second {
 					if c.knownSections > c.storedSections+1 {
 						updating = true
-						c.log.Info("Upgrading chain index", "percentage", c.storedSections*100/c.knownSections)
+						c.log.Info("Upgrading fast chain index", "percentage", c.storedSections*100/c.knownSections)
 					}
 					updated = time.Now()
 				}
@@ -338,7 +338,7 @@ func (c *ChainIndexer) updateLoop() {
 						return
 					default:
 					}
-					c.log.Error("Section processing failed", "error", err)
+					c.log.Error("Section processing fast failed", "error", err)
 				}
 				c.lock.Lock()
 
@@ -357,7 +357,7 @@ func (c *ChainIndexer) updateLoop() {
 					}
 				} else {
 					// If processing failed, don't retry until further notification
-					c.log.Debug("Chain index processing failed", "section", section, "err", err)
+					c.log.Debug("Chain index processing fast failed", "section", section, "err", err)
 					c.knownSections = c.storedSections
 				}
 			}
@@ -380,7 +380,7 @@ func (c *ChainIndexer) updateLoop() {
 // held while processing, the continuity can be broken by a long reorg, in which
 // case the function returns with an error.
 func (c *ChainIndexer) processSection(section uint64, lastHead common.Hash) (common.Hash, error) {
-	c.log.Trace("Processing new chain section", "section", section)
+	c.log.Trace("Processing new fast chain section", "section", section)
 
 	// Reset and partial processing
 

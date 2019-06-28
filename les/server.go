@@ -351,7 +351,7 @@ func (pm *ProtocolManager) blockLoop() {
 							reorg = lastHead.Number.Uint64() - rawdb.FindCommonAncestor(pm.chainDb, header, lastHead).Number.Uint64()
 						}
 						lastHead = header
-						log.Debug("Announcing block to peers", "number", number, "hash", hash, "td", td, "reorg", reorg)
+						log.Debug("Announcing snail block to peers", "number", number, "hash", hash, "td", td, "reorg", reorg)
 
 						announce := announceData{Hash: hash, Number: number, Td: td, ReorgDepth: reorg}
 						var (
@@ -395,7 +395,9 @@ func (pm *ProtocolManager) blockLoop() {
 					if header.Number.Cmp(lastBroadcastNumber) > 0 {
 
 						lastBroadcastNumber = header.Number
-						log.Debug("Announcing fast block to peers", "number", number, "hash", hash)
+						if number%10 == 0 {
+							log.Debug("Announcing fast block to peers", "number", number, "hash", hash)
+						}
 
 						announce := announceData{FastHash: hash, FastNumber: number}
 						var (

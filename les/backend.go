@@ -110,7 +110,7 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 		shutdownChan:   make(chan bool),
 		networkId:      config.NetworkId,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
-		bloomIndexer:   etrue.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
+		//bloomIndexer:   etrue.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
 	}
 
 	leth.relay = NewLesTxRelay(peers, leth.reqDist)
@@ -134,9 +134,9 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	leth.engine.SetElection(leth.election)
 
 	// Note: AddChildIndexer starts the update process for the child
-	leth.bloomIndexer.AddChildIndexer(leth.bloomTrieIndexer)
 	leth.chtIndexer.Start(leth.blockchain)
-	leth.bloomIndexer.Start(leth.fblockchain)
+	//leth.bloomIndexer.AddChildIndexer(leth.bloomTrieIndexer)
+	//leth.bloomIndexer.Start(leth.fblockchain)
 
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
@@ -262,7 +262,7 @@ func (s *LightEtrue) Start(srvr *p2p.Server) error {
 // Truechain protocol.
 func (s *LightEtrue) Stop() error {
 	s.odr.Stop()
-	s.bloomIndexer.Close()
+	//s.bloomIndexer.Close()
 	s.chtIndexer.Close()
 	s.blockchain.Stop()
 	s.fblockchain.Stop()

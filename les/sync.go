@@ -78,6 +78,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	}
 
 	if pTd.Cmp(currentTd) <= 0 {
+		log.Info("synchronise fast", "fastHeight", fastHeight, "currentNumber", currentNumber)
 		if fastHeight > currentNumber {
 			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.LightSync); err != nil {
 				log.Error("ProtocolManager fast sync: ", "err", err)

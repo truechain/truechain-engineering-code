@@ -422,6 +422,7 @@ func (f *lightFetcher) nextRequest() (*distReq, uint64, bool) {
 	)
 	bestTd := f.maxConfirmedTd
 	bestSyncing := false
+	currentFastheight := f.pm.fblockchain.CurrentHeader().Number.Uint64()
 
 	for p, fp := range f.peers {
 		for hash, n := range fp.nodeByHash {
@@ -431,7 +432,7 @@ func (f *lightFetcher) nextRequest() (*distReq, uint64, bool) {
 					bestHash = hash
 					bestAmount = amount
 					bestTd = n.td
-					bestSyncing = fp.bestConfirmed == nil || fp.root == nil || !f.checkKnownNode(p, fp.root)
+					bestSyncing = fp.bestConfirmed == nil || fp.root == nil || !f.checkKnownNode(p, fp.root) || p.headInfo.FastNumber-currentFastheight > hashLimit
 				}
 			}
 		}
@@ -525,10 +526,12 @@ func (f *lightFetcher) processResponse(req fetchRequest, resp fetchResponse) boo
 	headers := make([]*types.SnailHeader, req.amount)
 	for i, header := range resp.headers {
 		headers[int(req.amount)-1-i] = header
+		log.Info("processResponse", "i", i, "head", header.Number, "hash", header.Hash())
 	}
 	fheaders := make([][]*types.SnailHeader, req.amount)
 	for i, header := range resp.fheaders {
 		fheaders[int(req.amount)-1-i] = header
+		log.Info("processResponse", "i", i, "head", len(header))
 	}
 	if _, err := f.chain.InsertHeaderChain(headers, fheaders, 1); err != nil {
 		if err == consensus.ErrFutureBlock {
@@ -554,6 +557,7 @@ func (f *lightFetcher) processResponse(req fetchRequest, resp fetchResponse) boo
 // downloaded and validated batch or headers
 func (f *lightFetcher) newHeaders(headers []*types.SnailHeader, tds []*big.Int) {
 	var maxTd *big.Int
+	log.Info("newHeaders", "headers", len(headers), "tds", len(tds))
 	for p, fp := range f.peers {
 		if !f.checkAnnouncedHeaders(fp, headers, tds) {
 			p.Log().Debug("Inconsistent announcement")
@@ -587,9 +591,12 @@ func (f *lightFetcher) checkAnnouncedHeaders(fp *fetcherPeerInfo, headers []*typ
 				// no more headers and nothing to match
 				return true
 			}
+			ptd := f.chain.GetTd(header.Hash(), header.Number.Uint64())
+
 			// we ran out of recently delivered headers but have not reached a node known by this peer yet, continue matching
 			hash, number := header.ParentHash, header.Number.Uint64()-1
 			td = f.chain.GetTd(hash, number)
+			log.Info("checkAnnouncedHeaders", "ptd", ptd, "td", td, "number", number, "i", i, "n", n, "Number", header.Number, "hash", hash, "hash", header.Hash())
 			header = f.chain.GetHeader(hash, number)
 			if header == nil || td == nil {
 				log.Error("Missing parent of validated header", "hash", hash, "number", number)
@@ -604,7 +611,7 @@ func (f *lightFetcher) checkAnnouncedHeaders(fp *fetcherPeerInfo, headers []*typ
 		if n == nil {
 			n = fp.nodeByHash[hash]
 		}
-		log.Debug("Inconsistent announcement", "td", td, "headers", len(headers), "number", number, "n.td", n.td)
+		log.Debug("Inconsistent announcement", "td", td, "headers", len(headers), "number", number, "n.td", n.td, "nodeByHash", len(fp.nodeByHash), "i", i)
 		if n != nil {
 			if n.td == nil {
 				// node was unannounced
@@ -675,6 +682,13 @@ func (f *lightFetcher) checkKnownNode(p *peer, n *fetcherTreeNode) bool {
 	if n.known {
 		return true
 	}
+
+	currentHead := f.chain.CurrentHeader()
+
+	if n.number < currentHead.Number.Uint64()-128 {
+		return false
+	}
+
 	td := f.chain.GetTd(n.hash, n.number)
 	if td == nil {
 		return false
