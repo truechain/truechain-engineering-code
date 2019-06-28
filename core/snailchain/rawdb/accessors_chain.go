@@ -250,11 +250,13 @@ func ReadTd(db DatabaseReader, hash common.Hash, number uint64) *big.Int {
 		log.Error("Invalid block total difficulty RLP", "hash", hash, "err", err)
 		return nil
 	}
+	log.Info("ReadTd", "number", number, "td", td, "hash", hash)
 	return td
 }
 
 // WriteTd stores the total difficulty of a block into the database.
 func WriteTd(db DatabaseWriter, hash common.Hash, number uint64, td *big.Int) {
+	log.Info("WriteTd", "number", number, "td", td, "hash", hash)
 	data, err := rlp.EncodeToBytes(td)
 	if err != nil {
 		log.Crit("Failed to RLP encode block total difficulty", "err", err)
