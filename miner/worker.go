@@ -600,11 +600,13 @@ func (w *worker) commitNewWork() {
 		}
 
 		// make sure the time
-		if work.fruits[len(fruits)-1].Time() == nil || work.header.Time == nil || work.header.Time.Cmp(work.fruits[len(work.fruits)-1].Time()) < 0 {
-			log.Error("validate time", "block.Time()", work.header.Time, "fruits[len(fruits)-1].Time()", work.fruits[len(work.fruits)-1].Time(), "block number", work.header.Number, "fruit fast number", work.fruits[len(work.fruits)-1].FastNumber())
-
+		if work.fruits != nil {
+			if work.fruits[len(fruits)-1].Time() == nil || work.header.Time == nil || work.header.Time.Cmp(work.fruits[len(work.fruits)-1].Time()) < 0 {
+				log.Error("validate time", "block.Time()", work.header.Time, "fruits[len(fruits)-1].Time()", work.fruits[len(work.fruits)-1].Time(), "block number", work.header.Number, "fruit fast number", work.fruits[len(work.fruits)-1].FastNumber())
+				return
+			}
 		}
-		return
+
 	}
 
 	// Set the pointerHash
