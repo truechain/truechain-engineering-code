@@ -1077,17 +1077,17 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interface{}, error) {
 	head := fruit.Header() // copies the header once
 	fields := map[string]interface{}{
-		"number":          head.Number,
+		"number":          (*hexutil.Big)(head.Number),
 		"hash":            fruit.Hash(),
 		"fastHash":        head.FastHash,
-		"fastNumber":      head.FastNumber,
+		"fastNumber":      (*hexutil.Big)(head.FastNumber),
 		"nonce":           head.Nonce,
 		"mixHash":         head.MixDigest,
 		"miner":           head.Coinbase,
 		"publicKey":       hexutil.Bytes(head.Publickey),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
-		"size":            fruit.Size(),
+		"size":            hexutil.Uint64(fruit.Size()),
 		"timestamp":       (*hexutil.Big)(head.Time),
 	}
 	signs := fruit.Signs()
@@ -1096,7 +1096,7 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		for i, sign := range signs {
 			signInfo := map[string]interface{}{
 				"fastHash":   sign.FastHash,
-				"fastHeight": sign.FastHeight,
+				"fastHeight": (*hexutil.Big)(sign.FastHeight),
 				"result":     sign.Result,
 				"sign":       hexutil.Bytes(sign.Sign),
 			}
