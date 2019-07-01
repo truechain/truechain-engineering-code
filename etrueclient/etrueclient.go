@@ -110,6 +110,53 @@ func (ec *Client) getSnailBlock(ctx context.Context, method string, args ...inte
 	return &block, nil
 }
 
+// FruitByHash returns the given fruit.
+//
+// Note that loading full blocks requires three requests.
+func (ec *Client) FruitByHash(ctx context.Context, hash common.Hash, fullSigns bool) (*rpcFruit, error) {
+	return ec.getFruit(ctx, "etrue_getFruitByHash", hash, fullSigns)
+}
+
+// FruitByNumber returns a block from the current canonical chain. If number is nil, the
+// latest known fruit is returned.
+//
+// Note that loading full blocks requires three requests.
+func (ec *Client) FruitByNumber(ctx context.Context, number *big.Int, fullSigns bool) (*rpcFruit, error) {
+	return ec.getFruit(ctx, "etrue_getFruitByNumber", toBlockNumArg(number), fullSigns)
+}
+
+type rpcFruit struct {
+	Hash            common.Hash      `json:"hash"`
+	Number          *hexutil.Big     `json:"number"`
+	FastHash        common.Hash      `json:"fastHash"`
+	FastNumber      *hexutil.Big     `json:"fastNumber"`
+	Nonce           types.BlockNonce `json:"nonce"`
+	MixHash         common.Hash      `json:"mixHash"`
+	Miner           common.Address   `json:"miner"`
+	FruitDifficulty *hexutil.Big     `json:"fruitDifficulty"`
+	ExtraData       hexutil.Bytes    `json:"extraData"`
+	Size            hexutil.Uint64   `json:"size"`
+	Timestamp       *hexutil.Big     `json:"timestamp"`
+	Signs           interface{}      `json:"signs"`
+}
+
+func (ec *Client) getFruit(ctx context.Context, method string, args ...interface{}) (*rpcFruit, error) {
+	var raw json.RawMessage
+	err := ec.c.CallContext(ctx, &raw, method, args...)
+	if err != nil {
+		return nil, err
+	} else if len(raw) == 0 {
+		return nil, truechain.NotFound
+	}
+	// Decode fruit
+	var block rpcFruit
+	if err := json.Unmarshal(raw, &block); err != nil {
+		return nil, err
+	}
+
+	return &block, nil
+}
+
 // Blockchain Access
 
 // BlockByHash returns the given full block.
