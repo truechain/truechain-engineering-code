@@ -441,7 +441,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				p.Log().Trace("Valid announcement signature")
 			}
 
-			p.Log().Trace("Announce message content", "number", req.Number, "fast", req.FastNumber, "hash", req.Hash, "td", req.Td, "reorg", req.ReorgDepth)
 			if pm.fetcher != nil {
 				if req.FastHash != (common.Hash{}) {
 					pm.fastFetcher.announce(p, &req)
@@ -452,7 +451,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case GetFastBlockHeadersMsg:
-		p.Log().Trace("Received fast block header request")
 		// Decode the complex header query
 		var req struct {
 			ReqID uint64
@@ -466,7 +464,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if reject(query.Amount, MaxHeaderFetch) {
 			return errResp(ErrRequestRejected, "")
 		}
-
+		p.Log().Trace("Received fast block header request", "number", query.Origin.Number, "hash", query.Origin.Hash)
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)

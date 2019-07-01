@@ -392,6 +392,7 @@ func (pm *ProtocolManager) blockLoop() {
 					header := ev.Block.Header()
 					hash := header.Hash()
 					number := header.Number.Uint64()
+					lock.Lock()
 					if header.Number.Cmp(lastBroadcastNumber) > 0 {
 
 						lastBroadcastNumber = header.Number
@@ -430,6 +431,7 @@ func (pm *ProtocolManager) blockLoop() {
 							}
 						}
 					}
+					lock.Unlock()
 				}
 			case <-pm.quitSync:
 				sheadSub.Unsubscribe()

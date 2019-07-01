@@ -486,10 +486,12 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 // insertHeaderChain processes header download request responses, returns true if successful
 func (f *fastLightFetcher) insertHeaderChain(headers []*types.Header, signs [][]*types.PbftSign) bool {
 	for i, sign := range signs {
-		_, err := f.pm.election.VerifySigns(sign)
-		if len(err) > 0 {
-			log.Info("VerifySigns error", "num", headers[i].Number, "hash", headers[i].Hash())
-			return false
+		_, errs := f.pm.election.VerifySigns(sign)
+		for _, err := range errs {
+			if err != nil {
+				log.Info("VerifySigns error", "num", headers[i].Number, "hash", headers[i].Hash(), "err", err)
+				return false
+			}
 		}
 	}
 	if _, err := f.chain.InsertHeaderChain(headers, 1); err != nil {
