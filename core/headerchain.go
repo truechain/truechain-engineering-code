@@ -140,7 +140,6 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	rawdb.WriteHeader(hc.chainDb, header)
 
-
 	// Extend the canonical chain with the new header
 	rawdb.WriteCanonicalHash(hc.chainDb, hash, number)
 	rawdb.WriteHeadHeaderHash(hc.chainDb, hash)
@@ -150,7 +149,6 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	status = CanonStatTy
 
-	log.Debug("headerCache", "hash", hash.String(), "number", number)
 	hc.headerCache.Add(hash, header)
 	hc.numberCache.Add(hash, number)
 
@@ -316,7 +314,6 @@ func (fhc *HeaderChain) GetAncestor(hash common.Hash, number, ancestor uint64, m
 	}
 	return hash, number
 }
-
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.

@@ -613,7 +613,7 @@ func (f *lightFetcher) checkAnnouncedHeaders(fp *fetcherPeerInfo, headers []*typ
 		if n == nil {
 			n = fp.nodeByHash[hash]
 		}
-		log.Debug("Inconsistent announcement", "td", td, "headers", len(headers), "number", number, "n.td", n.td, "nodeByHash", len(fp.nodeByHash), "i", i)
+		log.Debug("checkAnnouncedHeaders", "td", td, "headers", len(headers), "number", number, "n.td", n.td, "nodeByHash", len(fp.nodeByHash), "i", i)
 		if n != nil {
 			if n.td == nil {
 				// node was unannounced

@@ -455,14 +455,13 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 	headers := make([]*types.Header, req.amount)
 	for i, header := range fheads {
 		headers[int(req.amount)-1-i] = header
-		log.Info("processResponse", "i", i, "head", header.Number, "hash", header.Hash())
 	}
 	signs := make([][]*types.PbftSign, req.amount)
 	for i, sign := range resp.hss.Signs {
 		signs[int(req.amount)-1-i] = sign
 	}
 
-	log.Info("processResponse", "headers", len(fheads), "number", fheads[0].Number, "lastnumber", fheads[len(fheads)-1].Number, "current", f.chain.CurrentHeader().Number)
+	log.Debug("processResponse", "headers", len(headers), "number", headers[0].Number, "lastnumber", headers[len(fheads)-1].Number, "current", f.chain.CurrentHeader().Number)
 	if headers[0].Number.Uint64() > f.chain.CurrentHeader().Number.Uint64()+1 {
 		for i, head := range headers {
 			hash := head.Hash()
@@ -487,8 +486,11 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 // insertHeaderChain processes header download request responses, returns true if successful
 func (f *fastLightFetcher) insertHeaderChain(headers []*types.Header, signs [][]*types.PbftSign) bool {
 	for i, sign := range signs {
-		log.Info("VerifySigns", "num", headers[i].Number, "hash", headers[i].Hash())
-		f.pm.election.VerifySigns(sign)
+		_, err := f.pm.election.VerifySigns(sign)
+		if len(err) > 0 {
+			log.Info("VerifySigns error", "num", headers[i].Number, "hash", headers[i].Hash())
+			return false
+		}
 	}
 	if _, err := f.chain.InsertHeaderChain(headers, 1); err != nil {
 		if err == consensus.ErrFutureBlock {

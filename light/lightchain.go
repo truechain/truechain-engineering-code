@@ -159,13 +159,13 @@ func (self *LightChain) loadLastState() error {
 	header := self.hc.CurrentHeader()
 	headerTd := self.GetTd(header.Hash(), header.Number.Uint64())
 
-	for i := header.Number.Uint64(); i > header.Number.Uint64()-uint64(32); i-- {
+	for i := header.Number.Uint64(); i > header.Number.Uint64()-uint64(12); i-- {
 		head := self.GetHeaderByNumber(i)
 		if head == nil {
 			break
 		}
 		td := rawdb.ReadTd(self.chainDb, head.Hash(), head.Number.Uint64())
-		log.Info("TD", "td", td, "number", head.Number, "hash", head.Hash())
+		log.Info("Read td", "td", td, "number", head.Number, "hash", head.Hash())
 	}
 
 	log.Info("Loaded most recent snail header", "number", header.Number, "hash", header.Hash(), "td", headerTd, "age", common.PrettyAge(time.Unix(header.Time.Int64(), 0)))
@@ -397,7 +397,7 @@ func (self *LightChain) InsertHeaderChain(chain []*types.SnailHeader, fruitHeads
 
 		switch status {
 		case snailchain.CanonStatTy:
-			log.Debug("Inserted new header", "number", header.Number, "hash", header.Hash())
+			log.Debug("Inserted new snail header", "number", header.Number, "fruits", len(fruitHeads), "hash", header.Hash().String())
 			events = append(events, types.SnailChainEvent{Block: types.NewSnailBlockWithHeader(header), Hash: header.Hash()})
 
 		case snailchain.SideStatTy:
