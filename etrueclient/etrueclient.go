@@ -88,7 +88,7 @@ type rpcSnailBlock struct {
 	ExtraData        hexutil.Bytes    `json:"extraData"`
 	Size             hexutil.Uint64   `json:"size"`
 	Timestamp        *hexutil.Big     `json:"timestamp"`
-	Fruits           []interface{}    `json:"fruits"`
+	Fruits           interface{}      `json:"fruits"`
 	BeginFruitNumber *hexutil.Big     `json:"beginFruitNumber"`
 	EndFruitNumber   *hexutil.Big     `json:"endFruitNumber"`
 }
