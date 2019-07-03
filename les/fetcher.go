@@ -598,11 +598,16 @@ func (f *lightFetcher) checkAnnouncedHeaders(fp *fetcherPeerInfo, headers []*typ
 			// we ran out of recently delivered headers but have not reached a node known by this peer yet, continue matching
 			hash, number := header.ParentHash, header.Number.Uint64()-1
 			td = f.chain.GetTd(hash, number)
-			log.Info("checkAnnouncedHeaders", "ptd", ptd, "td", td, "number", number, "i", i, "n", n, "Number", header.Number, "hash", hash, "hash", header.Hash())
 			header = f.chain.GetHeader(hash, number)
+
 			if header == nil || td == nil {
 				log.Error("Missing parent of validated header", "hash", hash, "number", number)
 				return false
+			}
+			if header.FruitsHash != (common.Hash{}) && td.Cmp(new(big.Int).Sub(ptd, header.Difficulty)) == 0 {
+				old := td
+				td = rawdb.ReadTd(f.pm.chainDb, hash, number)
+				log.Info("checkAnnouncedHeaders", "td", td, "old", old, "number", number, "i", i, "n", n, "Number", header.Number, "hash", hash, "hash", header.Hash())
 			}
 		} else {
 			header = headers[i]
