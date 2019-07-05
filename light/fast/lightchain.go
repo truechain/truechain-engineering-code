@@ -386,7 +386,7 @@ func (self *LightChain) InsertHeaderChain(chain []*types.Header, checkFreq int) 
 	}
 	i, err := self.hc.InsertHeaderChain(chain, whFunc, start)
 	for _, head := range chain {
-		if head.CommitteeHash != (common.Hash{}) {
+		if head.CommitteeHash != (types.EmptySignHash) {
 			if inject, ok := self.infoQueue[head.Hash()]; ok {
 				if err == nil {
 					rawdb.WriteCommitteeInfo(self.chainDb, head.Hash(), head.Number.Uint64(), inject.infos)

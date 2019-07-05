@@ -498,7 +498,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				break
 			}
 			var body *types.Body
-			if origin.CommitteeHash != (common.Hash{}) {
+			if origin.CommitteeHash != (types.EmptySignHash) {
 				body = rawdb.ReadBody(pm.chainDb, origin.Hash(), origin.Number.Uint64())
 				block.Infos = make([]*types.CommitteeMember, len(body.Infos))
 				copy(block.Infos, body.Infos)
@@ -588,7 +588,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for i, block := range resp.Headers.Blocks {
 			heads[i] = block.Head
 			signs[i] = block.Signs
-			if block.Head.CommitteeHash != (common.Hash{}) {
+			if block.Head.CommitteeHash != (types.EmptySignHash) {
 				pm.fblockchain.SetCommitteeInfo(block.Head.Hash(), block.Head.Number.Uint64(), block.Infos)
 			}
 		}
