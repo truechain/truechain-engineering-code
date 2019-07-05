@@ -222,7 +222,7 @@ func (p *peer) SendAnnounce(request announceData) error {
 }
 
 // SendBlockHeaders sends a batch of block headers to the remote peer.
-func (p *peer) SendBlockHeaders(reqID, bv uint64, headers headsWithSigns) error {
+func (p *peer) SendBlockHeaders(reqID, bv uint64, headers incompleteBlocks) error {
 	return sendResponse(p.rw, FastBlockHeadersMsg, reqID, bv, headers)
 }
 

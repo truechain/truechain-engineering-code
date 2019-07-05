@@ -269,6 +269,16 @@ type snailHeadsData struct {
 	FruitHeads []*fruitHeadsData
 }
 
+type incompleteBlocks struct {
+	Blocks []*incompleteBlock
+}
+
+type incompleteBlock struct {
+	Head  *types.Header
+	Signs []*types.PbftSign
+	Infos []*types.CommitteeMember
+}
+
 type headsWithSigns struct {
 	Heads []*types.Header
 	Signs [][]*types.PbftSign

@@ -123,8 +123,6 @@ func WriteLastBlockHash(db DatabaseWriter, hash common.Hash) {
 	}
 }
 
-
-
 // ReadHeadFastBlockHash retrieves the hash of the current fast-sync head block.
 func ReadHeadFastBlockHash(db DatabaseReader) common.Hash {
 	data, _ := db.Get(headFastBlockKey)
@@ -316,7 +314,6 @@ func WriteTd(db DatabaseWriter, hash common.Hash, number uint64, td *big.Int) {
 	}
 }
 
-
 // HasReceipts verifies the existence of all the transaction receipts belonging
 // to a block.
 func HasReceipts(db DatabaseReader, hash common.Hash, number uint64) bool {
@@ -494,4 +491,29 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
 		}
 	}
 	return a
+}
+
+// ReadTd retrieves a block's total difficulty corresponding to the hash.
+func ReadCommitteeInfo(db DatabaseReader, hash common.Hash, number uint64) []*types.CommitteeMember {
+	data, _ := db.Get(headerCIKey(number, hash))
+	if len(data) == 0 {
+		return nil
+	}
+	var infos []*types.CommitteeMember
+	if err := rlp.Decode(bytes.NewReader(data), &infos); err != nil {
+		log.Error("Invalid block total difficulty RLP", "hash", hash, "err", err)
+		return nil
+	}
+	return infos
+}
+
+// WriteTd stores the total difficulty of a block into the database.
+func WriteCommitteeInfo(db DatabaseWriter, hash common.Hash, number uint64, info []*types.CommitteeMember) {
+	data, err := rlp.EncodeToBytes(info)
+	if err != nil {
+		log.Crit("Failed to RLP encode block total difficulty", "err", err)
+	}
+	if err := db.Put(headerCIKey(number, hash), data); err != nil {
+		log.Crit("Failed to store block total difficulty", "err", err)
+	}
 }

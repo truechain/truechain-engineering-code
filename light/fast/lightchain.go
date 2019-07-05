@@ -70,7 +70,8 @@ type LightChain struct {
 	procInterrupt int32 // interrupt signaler for block processing
 	wg            sync.WaitGroup
 
-	engine consensus.Engine
+	engine    consensus.Engine
+	infoQueue map[common.Hash]*injectInfo // Blocks with committeeInfo fetched
 }
 
 // NewLightChain returns a fully initialised light chain using information
@@ -90,6 +91,7 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 		bodyRLPCache:  bodyRLPCache,
 		blockCache:    blockCache,
 		engine:        engine,
+		infoQueue:     make(map[common.Hash]*injectInfo),
 	}
 	var err error
 	bc.hc, err = core.NewHeaderChain(odr.Database(), config, bc.engine, bc.getProcInterrupt)
@@ -383,6 +385,16 @@ func (self *LightChain) InsertHeaderChain(chain []*types.Header, checkFreq int) 
 		return err
 	}
 	i, err := self.hc.InsertHeaderChain(chain, whFunc, start)
+	for _, head := range chain {
+		if head.CommitteeHash != (common.Hash{}) {
+			if inject, ok := self.infoQueue[head.Hash()]; ok {
+				if err == nil {
+					rawdb.WriteCommitteeInfo(self.chainDb, head.Hash(), head.Number.Uint64(), inject.infos)
+				}
+				delete(self.infoQueue, head.Hash())
+			}
+		}
+	}
 	self.postChainEvents(events)
 	return i, err
 }
@@ -490,4 +502,18 @@ func (self *LightChain) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEve
 func (self *LightChain) LoadLastState() {
 	log.Info("Update fast block based on CHT")
 	self.loadLastState()
+}
+
+// SetHead rewinds the local chain to a new head. Everything above the new
+// head will be deleted and the new one set.
+func (bc *LightChain) SetCommitteeInfo(hash common.Hash, number uint64, infos []*types.CommitteeMember) {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	inject := &injectInfo{infos: infos}
+	bc.infoQueue[hash] = inject
+}
+
+// inject represents a schedules import operation.
+type injectInfo struct {
+	infos []*types.CommitteeMember
 }

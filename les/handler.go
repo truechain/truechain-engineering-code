@@ -88,6 +88,7 @@ type FastBlockChain interface {
 	GetAncestor(hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64)
 	Genesis() *types.Block
 	SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription
+	SetCommitteeInfo(hash common.Hash, number uint64, infos []*types.CommitteeMember)
 }
 
 type BlockChain interface {
@@ -472,13 +473,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
-			headers []*types.Header
-			signs   [][]*types.PbftSign
+			blocks  []*incompleteBlock
 			unknown bool
 		)
-		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
+		for !unknown && len(blocks) < int(query.Amount) && bytes < softResponseLimit {
 			// FastRetrieve the next header satisfying the query
 			var origin *types.Header
+			block := &incompleteBlock{}
+
 			if hashMode {
 				if first {
 					first = false
@@ -495,13 +497,23 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if origin == nil {
 				break
 			}
+			var body *types.Body
+			if origin.CommitteeHash != (common.Hash{}) {
+				body = rawdb.ReadBody(pm.chainDb, origin.Hash(), origin.Number.Uint64())
+				block.Infos = make([]*types.CommitteeMember, len(body.Infos))
+				copy(block.Infos, body.Infos)
+			}
 			if !query.Fruit {
-				body := rawdb.ReadBody(pm.chainDb, origin.Hash(), origin.Number.Uint64())
+				if body == nil {
+					body = rawdb.ReadBody(pm.chainDb, origin.Hash(), origin.Number.Uint64())
+				}
 				if body != nil {
-					signs = append(signs, body.Signs)
+					block.Signs = make([]*types.PbftSign, len(body.Signs))
+					copy(block.Signs, body.Signs)
 				}
 			}
-			headers = append(headers, origin)
+			block.Head = origin
+			blocks = append(blocks, block)
 			bytes += estHeaderRlpSize
 
 			// Advance to the next header of the query
@@ -554,7 +566,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + query.Amount*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, query.Amount, rcost)
-		return p.SendBlockHeaders(req.ReqID, bv, headsWithSigns{Heads: headers, Signs: signs})
+		return p.SendBlockHeaders(req.ReqID, bv, incompleteBlocks{blocks})
 
 	case FastBlockHeadersMsg:
 		if pm.fdownloader == nil {
@@ -565,16 +577,26 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of headers arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			Headers   headsWithSigns
+			Headers   incompleteBlocks
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		heads := make([]*types.Header, len(resp.Headers.Blocks))
+		signs := make([][]*types.PbftSign, len(resp.Headers.Blocks))
+
+		for i, block := range resp.Headers.Blocks {
+			heads[i] = block.Head
+			signs[i] = block.Signs
+			if block.Head.CommitteeHash != (common.Hash{}) {
+				pm.fblockchain.SetCommitteeInfo(block.Head.Hash(), block.Head.Number.Uint64(), block.Infos)
+			}
+		}
 		if pm.fastFetcher != nil && pm.fastFetcher.requestedID(resp.ReqID) {
-			pm.fastFetcher.deliverHeaders(p, resp.ReqID, &resp.Headers)
+			pm.fastFetcher.deliverHeaders(p, resp.ReqID, &headsWithSigns{Heads: heads, Signs: signs})
 		} else {
-			err := pm.fdownloader.DeliverHeaders(p.id, resp.Headers.Heads, types.DownloaderCall)
+			err := pm.fdownloader.DeliverHeaders(p.id, heads, types.DownloaderCall)
 			if err != nil {
 				log.Debug(fmt.Sprint(err))
 			}
