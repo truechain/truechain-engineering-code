@@ -285,7 +285,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, fruits []
 			return i, consensus.ErrPrunedAncestor
 		}
 		for j, fruit := range fruitHeaders {
-			if err := hc.engine.ValidateFruitHeader(fruit, header, hc, fastchain); err != nil {
+			if err := hc.engine.ValidateFruitHeader(header, fruit, hc, fastchain); err != nil {
 				log.Error("ValidateHeaderChain", "snailBlock number", header.Number, "fruit number", fruit.FastNumber, "err", err)
 				return j, err
 			}
