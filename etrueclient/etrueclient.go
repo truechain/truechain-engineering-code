@@ -64,7 +64,7 @@ func (ec *Client) Close() {
 // SnailBlockByHash returns the given full block.
 //
 // Note that loading full blocks requires two requests.
-func (ec *Client) SnailBlockByHash(ctx context.Context, hash common.Hash) (*rpcSnailBlock, error) {
+func (ec *Client) SnailBlockByHash(ctx context.Context, hash Hash) (*rpcSnailBlock, error) {
 	return ec.getSnailBlock(ctx, "etrue_getSnailBlockByHash", hash, true)
 }
 
@@ -113,7 +113,7 @@ func (ec *Client) getSnailBlock(ctx context.Context, method string, args ...inte
 // FruitByHash returns the given fruit.
 //
 // Note that loading full blocks requires three requests.
-func (ec *Client) FruitByHash(ctx context.Context, hash common.Hash, fullSigns bool) (*rpcFruit, error) {
+func (ec *Client) FruitByHash(ctx context.Context, hash Hash, fullSigns bool) (*rpcFruit, error) {
 	return ec.getFruit(ctx, "etrue_getFruitByHash", hash, fullSigns)
 }
 
@@ -163,7 +163,7 @@ func (ec *Client) getFruit(ctx context.Context, method string, args ...interface
 //
 // Note that loading full blocks requires two requests. Use HeaderByHash
 // if you don't need all transactions or uncle headers.
-func (ec *Client) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (ec *Client) BlockByHash(ctx context.Context, hash Hash) (*types.Block, error) {
 	return ec.getBlock(ctx, "etrue_getBlockByHash", hash, true)
 }
 
@@ -227,7 +227,7 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 }
 
 // HeaderByHash returns the block header with the given hash.
-func (ec *Client) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (ec *Client) HeaderByHash(ctx context.Context, hash Hash) (*types.Header, error) {
 	var head *types.Header
 	err := ec.c.CallContext(ctx, &head, "etrue_getBlockByHash", hash, false)
 	if err == nil && head == nil {
@@ -266,7 +266,7 @@ func (tx *rpcTransaction) UnmarshalJSON(msg []byte) error {
 }
 
 // TransactionByHash returns the transaction with the given hash.
-func (ec *Client) TransactionByHash(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error) {
+func (ec *Client) TransactionByHash(ctx context.Context, hash Hash) (tx *types.Transaction, isPending bool, err error) {
 	var json *rpcTransaction
 	err = ec.c.CallContext(ctx, &json, "etrue_getTransactionByHash", hash)
 	if err != nil {
@@ -288,9 +288,11 @@ func (ec *Client) TransactionByHash(ctx context.Context, hash common.Hash) (tx *
 //
 // There is a fast-path for transactions retrieved by TransactionByHash and
 // TransactionInBlock. Getting their sender address can be done without an RPC interaction.
-func (ec *Client) TransactionSender(ctx context.Context, tx *types.Transaction, block common.Hash, index uint) (common.Address, error) {
+func (ec *Client) TransactionSender(ctx context.Context, tx *types.Transaction, block Hash, index uint) (common.Address, error) {
+	byteHash := block.Bytes()
+	hash := common.BytesToHash(byteHash)
 	// Try to load the address from the cache.
-	sender, err := types.Sender(&senderFromServer{blockhash: block}, tx)
+	sender, err := types.Sender(&senderFromServer{blockhash: hash}, tx)
 	if err == nil {
 		return sender, nil
 	}
@@ -308,14 +310,14 @@ func (ec *Client) TransactionSender(ctx context.Context, tx *types.Transaction, 
 }
 
 // TransactionCount returns the total number of transactions in the given block.
-func (ec *Client) TransactionCount(ctx context.Context, blockHash common.Hash) (uint, error) {
+func (ec *Client) TransactionCount(ctx context.Context, blockHash Hash) (uint, error) {
 	var num hexutil.Uint
 	err := ec.c.CallContext(ctx, &num, "etrue_getBlockTransactionCountByHash", blockHash)
 	return uint(num), err
 }
 
 // TransactionInBlock returns a single transaction at index in the given block.
-func (ec *Client) TransactionInBlock(ctx context.Context, blockHash common.Hash, index uint) (*types.Transaction, error) {
+func (ec *Client) TransactionInBlock(ctx context.Context, blockHash Hash, index uint) (*types.Transaction, error) {
 	var json *rpcTransaction
 	err := ec.c.CallContext(ctx, &json, "etrue_getTransactionByBlockHashAndIndex", blockHash, hexutil.Uint64(index))
 	if err == nil {
@@ -333,7 +335,7 @@ func (ec *Client) TransactionInBlock(ctx context.Context, blockHash common.Hash,
 
 // TransactionReceipt returns the receipt of a transaction by transaction hash.
 // Note that the receipt is not available for pending transactions.
-func (ec *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+func (ec *Client) TransactionReceipt(ctx context.Context, txHash Hash) (*types.Receipt, error) {
 	var r *types.Receipt
 	err := ec.c.CallContext(ctx, &r, "etrue_getTransactionReceipt", txHash)
 	if err == nil {
@@ -482,7 +484,7 @@ func (ec *Client) PendingBalanceAt(ctx context.Context, account common.Address) 
 }
 
 // PendingStorageAt returns the value of key in the contract storage of the given account in the pending state.
-func (ec *Client) PendingStorageAt(ctx context.Context, account common.Address, key common.Hash) ([]byte, error) {
+func (ec *Client) PendingStorageAt(ctx context.Context, account common.Address, key Hash) ([]byte, error) {
 	var result hexutil.Bytes
 	err := ec.c.CallContext(ctx, &result, "etrue_getStorageAt", account, key, "pending")
 	return result, err
