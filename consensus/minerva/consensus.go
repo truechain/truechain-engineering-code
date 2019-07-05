@@ -298,6 +298,7 @@ func (v *Minerva) ValidateFruitHeader(block *types.SnailHeader, fruit *types.Sna
 
 	fb := fastchain.GetHeader(fruit.FastHash, fruit.FastNumber.Uint64())
 	if fb == nil {
+		log.Warn("ValidateFruitHeader", "fasthash", fruit.FastHash, "number", fruit.FastNumber, "currentHeader", fastchain.CurrentHeader().Number)
 		return consensus.ErrInvalidFast
 	}
 
