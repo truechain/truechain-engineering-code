@@ -1277,8 +1277,12 @@ Error: %v
 // of the header retrieval mechanisms already need to verify nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
 func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int) (int, error) {
+	if len(chain) != len(fruits) {
+		log.Error("invalid len", "len(snailHeader)", len(chain), "len(fruits)", len(fruits))
+		return 0, fmt.Errorf("invalid len: len(snailHeader) (%d) not equal len([]fruitHeaders) (%d)", len(chain), len(fruits))
+	}
 	start := time.Now()
-	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
+	if i, err := bc.hc.ValidateHeaderChain(chain, fruits, checkFreq, nil); err != nil {
 		return i, err
 	}
 

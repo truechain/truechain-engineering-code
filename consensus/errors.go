@@ -61,4 +61,10 @@ var (
 	ErrInvalidSwitchInfo = errors.New("invalid switch info")
 
 	ErrUnknownFast = errors.New("unknown fast block")
+
+	//ErrInvalidFast is returned if the fastchain not have the hash
+	ErrInvalidFast = errors.New("invalid fast hash")
+
+	//ErrFruitTime is returned if the fruit's time less than fastblock's time
+	ErrFruitTime = errors.New("invalid fruit time")
 )

@@ -286,6 +286,40 @@ func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers [
 	return abort, errorsOut
 }
 
+//ValidateFruitHeader is to verify if the fruit is legal
+func (v *Minerva) ValidateFruitHeader(block *types.SnailHeader, fruit *types.SnailHeader, chain consensus.SnailChainReader, fastchain consensus.ChainReader) error {
+	//check number(fb)
+	//
+	currentNumber := fastchain.CurrentHeader().Number
+	if fruit.FastNumber.Cmp(currentNumber) > 0 {
+		log.Warn("ValidateFruitHeader", "currentHeaderNumber", fastchain.CurrentHeader().Number, "currentBlockNumber", fastchain.CurrentHeader().Number)
+		return consensus.ErrFutureBlock
+	}
+
+	fb := fastchain.GetHeader(fruit.FastHash, fruit.FastNumber.Uint64())
+	if fb == nil {
+		return consensus.ErrInvalidFast
+	}
+
+	//check fruit's time
+	if fruit.Time == nil || fb.Time == nil || fruit.Time.Cmp(fb.Time) < 0 {
+		return consensus.ErrFruitTime
+	}
+
+	err := v.VerifyFreshness(chain, fruit, block, false)
+	if err != nil {
+		log.Debug("ValidateFruitHeader verify freshness error.", "err", err, "fruit", fruit.FastNumber)
+		return err
+	}
+
+	if err := v.VerifySnailHeader(chain, fastchain, fruit, true, true); err != nil {
+		log.Info("VerifySnailHeader verify failed.", "err", err)
+		return err
+	}
+
+	return nil
+}
+
 func (m *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header,
 	seals []bool, index int) error {
 	var parent *types.Header

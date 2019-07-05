@@ -30,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -217,7 +218,7 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader, fruitHeads []*type
 type WhCallback func(*types.SnailHeader, []*types.SnailHeader) error
 
 //ValidateHeaderChain validate the header of the snailchain
-func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
+func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int, fastchain *core.HeaderChain) (int, error) {
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].Number.Uint64() != chain[i-1].Number.Uint64()+1 || chain[i].ParentHash != chain[i-1].Hash() {
@@ -259,8 +260,37 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, checkFreq
 		if err := <-results; err != nil {
 			return i, err
 		}
+		fruitHeaders := fruits[i]
+		maxfb := fastchain.GetHeader(fruitHeaders[len(fruitHeaders)-1].FastHash, fruitHeaders[len(fruitHeaders)-1].FastNumber.Uint64())
+		minfb := fastchain.GetHeader(fruitHeaders[0].FastHash, fruitHeaders[0].FastNumber.Uint64())
+		if minfb == nil || maxfb == nil {
+			return i, consensus.ErrFutureBlock
+		}
+		if fruitHeaders[len(fruitHeaders)-1].Time == nil || header.Time == nil || header.Time.Cmp(fruitHeaders[len(fruitHeaders)-1].Time) < 0 {
+			log.Info("ValidateHeaderChain validate header time", "block.Time()", header.Time, "fruitHeaders[len(fruitHeaders)-1].Time", fruitHeaders[len(fruitHeaders)-1].Time)
+			return i, ErrBlockTime
+		}
+		gap := new(big.Int).Sub(maxfb.Time, minfb.Time)
+		if gap.Cmp(params.MinTimeGap) < 0 {
+			log.Info("ValidateHeaderChain snail validate time gap error", "block", header.Number, "first fb number", minfb.Number, "first fb time", minfb.Time, "last fb number", maxfb.Number, "last fb time", maxfb.Time, "tim gap", gap)
+			return i, ErrGapFruits
+		}
+		if hash := hc.GetFruitsHash(header, fruitHeaders); hash != header.FruitsHash {
+			return i, fmt.Errorf("ValidateHeaderChain fruits hash mismatch: have %x, want %x", types.DeriveSha(types.FruitsHeaders(fruitHeaders)), header.FruitsHash)
+		}
+		if !hc.IsCanonicalBlock(header.ParentHash, header.Number.Uint64()-1) {
+			if !hc.HasHeader(header.ParentHash, header.Number.Uint64()-1) {
+				return i, consensus.ErrUnknownAncestor
+			}
+			return i, consensus.ErrPrunedAncestor
+		}
+		for j, fruit := range fruitHeaders {
+			if err := hc.engine.ValidateFruitHeader(fruit, header, hc, fastchain); err != nil {
+				log.Error("ValidateHeaderChain", "snailBlock number", header.Number, "fruit number", fruit.FastNumber, "err", err)
+				return j, err
+			}
+		}
 	}
-
 	return 0, nil
 }
 
@@ -518,4 +548,21 @@ func (hc *HeaderChain) Engine() consensus.Engine { return hc.engine }
 // a header chain does not have blocks available for retrieval.
 func (hc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.SnailBlock {
 	return nil
+}
+
+func (hc *HeaderChain) GetFruitsHash(header *types.SnailHeader, headers []*types.SnailHeader) common.Hash {
+	if hc.config.IsTIP5(header.Number) {
+		return types.DeriveSha(types.FruitsHeaders(headers))
+	}
+	return header.FruitsHash
+}
+
+// IsCanonicalBlock checks if a block on the Canonical block chain
+// or not, caching it if present.
+func (hc *HeaderChain) IsCanonicalBlock(hash common.Hash, number uint64) bool {
+	//if get number bigger than currentNumber return nil
+	if number > hc.currentHeader.Load().(*types.SnailHeader).Number.Uint64() {
+		return false
+	}
+	return rawdb.ReadCanonicalHash(hc.chainDb, number) == hash
 }
