@@ -175,8 +175,8 @@ func (f *fastLightFetcher) syncLoop() {
 			f.reqMu.Unlock()
 			if ok {
 				f.pm.serverPool.adjustResponseTime(req.peer.poolEntry, time.Duration(mclock.Now()-req.sent), true)
-				req.peer.Log().Debug("Fetching data timed out hard")
-				go f.pm.removePeer(req.peer.id, public.FetcherTimerCall)
+				req.peer.Log().Debug("Fetching fast data timed out hard")
+				go f.pm.removePeer(req.peer.id, public.FetcherFastTimerCall)
 			}
 		case resp := <-f.deliverChn:
 			f.reqMu.Lock()

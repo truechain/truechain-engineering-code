@@ -14,6 +14,7 @@ const (
 	FetcherTimerCall
 	FetcherDeliverCall
 	FetcherAnnounceCall
+	FetcherFastTimerCall
 
 	FruitHead = iota + 1
 	Fruit

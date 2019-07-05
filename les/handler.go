@@ -573,7 +573,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrUnexpectedResponse, "fdownloader")
 		}
 
-		p.Log().Trace("Received block header response message")
 		// A batch of headers arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
@@ -585,7 +584,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		heads := make([]*types.Header, len(resp.Headers.Blocks))
 		signs := make([][]*types.PbftSign, len(resp.Headers.Blocks))
-
+		p.Log().Trace("Received block header response message", "count", len(resp.Headers.Blocks))
 		for i, block := range resp.Headers.Blocks {
 			heads[i] = block.Head
 			signs[i] = block.Signs
