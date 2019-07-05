@@ -754,11 +754,6 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		return nil, err
 	}
 
-	if infos != nil {
-		header.CommitteeHash = types.RlpHash(infos)
-	} else {
-		header.CommitteeHash = params.EmptyHash
-	}
 	//assign Proposer
 	pubKey, _ := crypto.UnmarshalPubkey(agent.committeeNode.Publickey)
 	header.Proposer = crypto.PubkeyToAddress(*pubKey)
