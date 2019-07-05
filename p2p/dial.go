@@ -204,7 +204,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 			newtasks = append(newtasks, t)
 		}
 	}
-	log.Debug("New tasks", "maxDynDials", s.maxDynDials, "needDynDials", needDynDials, "static", len(s.static), "task", len(newtasks), "bootnodes", len(s.bootnodes))
+	log.Trace("New tasks", "maxDynDials", s.maxDynDials, "needDynDials", needDynDials, "static", len(s.static), "task", len(newtasks), "bootnodes", len(s.bootnodes))
 	// If we don't have any peers whatsoever, try to dial a random bootnode. This
 	// scenario is useful for the testnet (and private networks) where the discovery
 	// table might be full of mostly bad peers, making it hard to find good ones.
@@ -222,7 +222,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 	randomCandidates := needDynDials / 2
 	if randomCandidates > 0 {
 		n := s.ntab.ReadRandomNodes(s.randomNodes)
-		log.Debug("New tasks random candidates", "context", fmt.Sprintf("n %d randomNodes %d  randomCandidates %d lookupRunning %t randomNodes %v", n, len(s.randomNodes), randomCandidates, s.lookupRunning, s.randomNodes))
+		//log.Trace("New tasks random candidates", "context", fmt.Sprintf("n %d randomNodes %d  randomCandidates %d lookupRunning %t randomNodes %v", n, len(s.randomNodes), randomCandidates, s.lookupRunning, s.randomNodes))
 		for i := 0; i < randomCandidates && i < n; i++ {
 			if addDial(dynDialedConn, s.randomNodes[i]) {
 				needDynDials--
@@ -237,14 +237,14 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 			needDynDials--
 		}
 	}
-	log.Trace("New tasks lookupBuf", "context", fmt.Sprintf("lookupBuf %d i %d  dialing %d randomNodes %v ", len(s.lookupBuf), i, len(s.dialing), s.randomNodes))
+	//log.Trace("New tasks lookupBuf", "context", fmt.Sprintf("lookupBuf %d i %d  dialing %d randomNodes %v ", len(s.lookupBuf), i, len(s.dialing), s.randomNodes))
 	s.lookupBuf = s.lookupBuf[:copy(s.lookupBuf, s.lookupBuf[i:])]
 	// Launch a discovery lookup if more candidates are needed.
 	if len(s.lookupBuf) < needDynDials && !s.lookupRunning {
 		s.lookupRunning = true
 		newtasks = append(newtasks, &discoverTask{})
 	}
-	log.Debug("New tasks discover", "context", fmt.Sprintf("newtasks %d i %d lookupBuf %d needDynDials %d ", len(newtasks), i, len(s.lookupBuf), needDynDials))
+	//log.Trace("New tasks discover", "context", fmt.Sprintf("newtasks %d i %d lookupBuf %d needDynDials %d ", len(newtasks), i, len(s.lookupBuf), needDynDials))
 	// Launch a timer to wait for the next node to expire if all
 	// candidates have been tried and no task is currently active.
 	// This should prevent cases where the dialer logic is not ticked
@@ -285,12 +285,12 @@ func (s *dialstate) taskDone(t task, now time.Time) {
 	switch t := t.(type) {
 	case *dialTask:
 		s.hist.add(t.dest.ID(), now.Add(dialHistoryExpiration))
-		log.Debug("Dial task done", "flag", t.flags, "ip", t.dest.IP, "id", t.dest.ID())
+		log.Trace("Dial task done", "flag", t.flags, "ip", t.dest.IP, "id", t.dest.ID())
 		delete(s.dialing, t.dest.ID())
 	case *discoverTask:
 		s.lookupRunning = false
 		s.lookupBuf = append(s.lookupBuf, t.results...)
-		log.Debug("Dial task done", "results", t.results, "lookupBuf", s.lookupBuf)
+		log.Trace("Dial task done", "results", t.results, "lookupBuf", s.lookupBuf)
 	}
 }
 

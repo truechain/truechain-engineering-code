@@ -59,6 +59,104 @@ func (ec *Client) Close() {
 	ec.c.Close()
 }
 
+// SnailBlockchain Access
+
+// SnailBlockByHash returns the given full block.
+//
+// Note that loading full blocks requires two requests.
+func (ec *Client) SnailBlockByHash(ctx context.Context, hash common.Hash) (*rpcSnailBlock, error) {
+	return ec.getSnailBlock(ctx, "etrue_getSnailBlockByHash", hash, true)
+}
+
+// SnailBlockByNumber returns a block from the current canonical chain. If number is nil, the
+// latest known block is returned.
+//
+// Note that loading full blocks requires two requests.
+func (ec *Client) SnailBlockByNumber(ctx context.Context, number *big.Int) (*rpcSnailBlock, error) {
+	return ec.getSnailBlock(ctx, "etrue_getSnailBlockByNumber", toBlockNumArg(number), true)
+}
+
+type rpcSnailBlock struct {
+	Hash             common.Hash      `json:"hash"`
+	Number           *hexutil.Big     `json:"number"`
+	ParentHash       common.Hash      `json:"parentHash"`
+	FruitsHash       common.Hash      `json:"fruitsHash"`
+	Nonce            types.BlockNonce `json:"nonce"`
+	MixHash          common.Hash      `json:"mixHash"`
+	Miner            common.Address   `json:"miner"`
+	Difficulty       *hexutil.Big     `json:"difficulty"`
+	ExtraData        hexutil.Bytes    `json:"extraData"`
+	Size             hexutil.Uint64   `json:"size"`
+	Timestamp        *hexutil.Big     `json:"timestamp"`
+	Fruits           interface{}      `json:"fruits"`
+	BeginFruitNumber *hexutil.Big     `json:"beginFruitNumber"`
+	EndFruitNumber   *hexutil.Big     `json:"endFruitNumber"`
+}
+
+func (ec *Client) getSnailBlock(ctx context.Context, method string, args ...interface{}) (*rpcSnailBlock, error) {
+	var raw json.RawMessage
+	err := ec.c.CallContext(ctx, &raw, method, args...)
+	if err != nil {
+		return nil, err
+	} else if len(raw) == 0 {
+		return nil, truechain.NotFound
+	}
+	// Decode snail block
+	var block rpcSnailBlock
+	if err := json.Unmarshal(raw, &block); err != nil {
+		return nil, err
+	}
+
+	return &block, nil
+}
+
+// FruitByHash returns the given fruit.
+//
+// Note that loading full blocks requires three requests.
+func (ec *Client) FruitByHash(ctx context.Context, hash common.Hash, fullSigns bool) (*rpcFruit, error) {
+	return ec.getFruit(ctx, "etrue_getFruitByHash", hash, fullSigns)
+}
+
+// FruitByNumber returns a block from the current canonical chain. If number is nil, the
+// latest known fruit is returned.
+//
+// Note that loading full blocks requires three requests.
+func (ec *Client) FruitByNumber(ctx context.Context, number *big.Int, fullSigns bool) (*rpcFruit, error) {
+	return ec.getFruit(ctx, "etrue_getFruitByNumber", toBlockNumArg(number), fullSigns)
+}
+
+type rpcFruit struct {
+	Hash            common.Hash      `json:"hash"`
+	Number          *hexutil.Big     `json:"number"`
+	FastHash        common.Hash      `json:"fastHash"`
+	FastNumber      *hexutil.Big     `json:"fastNumber"`
+	Nonce           types.BlockNonce `json:"nonce"`
+	MixHash         common.Hash      `json:"mixHash"`
+	Miner           common.Address   `json:"miner"`
+	FruitDifficulty *hexutil.Big     `json:"fruitDifficulty"`
+	ExtraData       hexutil.Bytes    `json:"extraData"`
+	Size            hexutil.Uint64   `json:"size"`
+	Timestamp       *hexutil.Big     `json:"timestamp"`
+	Signs           interface{}      `json:"signs"`
+}
+
+func (ec *Client) getFruit(ctx context.Context, method string, args ...interface{}) (*rpcFruit, error) {
+	var raw json.RawMessage
+	err := ec.c.CallContext(ctx, &raw, method, args...)
+	if err != nil {
+		return nil, err
+	} else if len(raw) == 0 {
+		return nil, truechain.NotFound
+	}
+	// Decode fruit
+	var block rpcFruit
+	if err := json.Unmarshal(raw, &block); err != nil {
+		return nil, err
+	}
+
+	return &block, nil
+}
+
 // Blockchain Access
 
 // BlockByHash returns the given full block.
@@ -79,9 +177,10 @@ func (ec *Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Bl
 }
 
 type rpcBlock struct {
-	Hash         common.Hash      `json:"hash"`
-	Transactions []rpcTransaction `json:"transactions"`
-	UncleHashes  []common.Hash    `json:"uncles"`
+	Hash         common.Hash              `json:"hash"`
+	Transactions []rpcTransaction         `json:"transactions"`
+	SwitchInfos  []*types.CommitteeMember `json:"switchInfos"`
+	Signs        []*types.PbftSign        `json:"signs"`
 }
 
 func (ec *Client) getBlock(ctx context.Context, method string, args ...interface{}) (*types.Block, error) {
@@ -116,30 +215,6 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 	if head.TxHash != types.EmptyRootHash && len(body.Transactions) == 0 {
 		return nil, fmt.Errorf("server returned empty transaction list but block header indicates transactions")
 	}
-	// Load uncles because they are not included in the block response.
-	var uncles []*types.Header
-	if len(body.UncleHashes) > 0 {
-		uncles = make([]*types.Header, len(body.UncleHashes))
-		reqs := make([]rpc.BatchElem, len(body.UncleHashes))
-		for i := range reqs {
-			reqs[i] = rpc.BatchElem{
-				Method: "etrue_getUncleByBlockHashAndIndex",
-				Args:   []interface{}{body.Hash, hexutil.EncodeUint64(uint64(i))},
-				Result: &uncles[i],
-			}
-		}
-		if err := ec.c.BatchCallContext(ctx, reqs); err != nil {
-			return nil, err
-		}
-		for i := range reqs {
-			if reqs[i].Error != nil {
-				return nil, reqs[i].Error
-			}
-			if uncles[i] == nil {
-				return nil, fmt.Errorf("got null header for uncle %d of block %x", i, body.Hash[:])
-			}
-		}
-	}
 	// Fill the sender cache of transactions in the block.
 	txs := make([]*types.Transaction, len(body.Transactions))
 	for i, tx := range body.Transactions {
@@ -148,7 +223,7 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 		}
 		txs[i] = tx.tx
 	}
-	return types.NewBlockWithHeader(head).WithBody(txs, nil, nil), nil
+	return types.NewBlockWithHeader(head).WithBody(txs, body.Signs, body.SwitchInfos), nil
 }
 
 // HeaderByHash returns the block header with the given hash.
@@ -547,6 +622,16 @@ func (ec *Client) Coinbase(ctx context.Context) (string, error) {
 func (ec *Client) IsMining(ctx context.Context) (bool, error) {
 	var result bool
 	err := ec.c.CallContext(ctx, &result, "etrue_mining", nil)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//personal_listAccounts
+func (ec *Client) ListAccounts(ctx context.Context) ([]common.Address, error) {
+	var result []common.Address
+	err := ec.c.CallContext(ctx, &result, "personal_listAccounts", nil)
 	if err != nil {
 		return result, err
 	}

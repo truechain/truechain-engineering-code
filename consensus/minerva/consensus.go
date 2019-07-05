@@ -349,10 +349,10 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 	}
 	count := len(parents) - len(headers) + index
 	var parentHeaders []*types.SnailHeader
-	if len(parents)-len(headers) < int(params.DifficultyPeriod.Int64()) {
+	if count < int(params.DifficultyPeriod.Int64()) {
 		parentHeaders = parents[:count]
 	} else {
-		parentHeaders = parents[index:count]
+		parentHeaders = parents[count-int(params.DifficultyPeriod.Int64()) : count]
 	}
 	return m.verifySnailHeader(chain, nil, headers[index], nil, parentHeaders, false, seals[index], false)
 }
@@ -710,6 +710,9 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	}
 	// Recompute the digest and PoW value and verify against the header
 	dataset := m.getDataset(header.Number.Uint64())
+	if dataset == nil {
+		return errors.New("get dataset is nil")
+	}
 	//m.CheckDataSetState(header.Number.Uint64())
 	digest, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
@@ -745,6 +748,11 @@ func (m *Minerva) VerifySnailSeal2(hight *big.Int, nonce string, headNoNoncehash
 	headHash := common.HexToHash(headNoNoncehash)
 
 	dataset := m.getDataset(hight.Uint64())
+	if dataset == nil {
+		log.Error(" get dataset is nil")
+		return false, false, []byte{}
+
+	}
 	//m.CheckDataSetState(header.Number.Uint64())
 	digest, result := truehashLight(dataset.dataset, headHash.Bytes(), binary.BigEndian.Uint64(nonceHash[:]))
 

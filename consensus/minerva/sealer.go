@@ -206,6 +206,12 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 		attempts = int64(0)
 		nonce    = seed
 	)
+
+	if dataset == nil {
+		log.Error("get dataset is nil")
+		return
+	}
+
 	logger := log.New("miner", id)
 	log.Trace("mineSnail", "miner", id, "block num", block.Number(), "fb num", block.FastNumber())
 	logger.Trace("Started truehash search for new nonces", "seed", seed)

@@ -170,6 +170,7 @@ func (c *CommitteeNode) String() string {
 
 type PbftSigns []*PbftSign
 
+//go:generate gencodec -type PbftSign -field-override pbftSignMarshaling -out gen_pbftSign_json.go
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
@@ -178,6 +179,12 @@ type PbftSign struct {
 
 	// caches
 	size atomic.Value
+}
+
+// field type overrides for gencodec
+type pbftSignMarshaling struct {
+	FastHeight *hexutil.Big
+	Sign       hexutil.Bytes
 }
 
 // "external" PbftSign encoding. used for etrue protocol, etc.

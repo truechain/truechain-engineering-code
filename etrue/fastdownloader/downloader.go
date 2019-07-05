@@ -362,9 +362,9 @@ func (d *Downloader) synchronise(id string, hash common.Hash, mode SyncMode, ori
 	defer atomic.StoreInt32(&d.synchronising, 0)
 
 	// Post a user notification of the sync (only once per session)
-	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
+	//if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
 		log.Info("Fast Block synchronisation started", "origin", origin, "height", height, "mode", d.mode)
-	}
+	//}
 
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()

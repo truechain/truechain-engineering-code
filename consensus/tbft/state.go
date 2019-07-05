@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
 	"reflect"
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
@@ -1723,7 +1724,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		remove = cs.hm.GetHealth(aEnter.CommitteeBase.Bytes())
 	}
 	if remove == nil {
-		log.Debug("swithResult,remove is nil")
+		log.Warn("swithResult,remove is nil")
 		return
 	}
 	sv := &ttypes.SwitchValidator{
@@ -1759,7 +1760,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 				}
 			}
 			if !have {
-				log.Debug("switchVerify", v.CommitteeBase, "false")
+				log.Warn("switchVerify", v.CommitteeBase, "false")
 				return false
 			}
 		}
@@ -1784,7 +1785,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		}
 
 		if remove == nil {
-			log.Debug("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
+			log.Warn("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
 			return false
 		}
 		sv := &ttypes.SwitchValidator{
@@ -1797,7 +1798,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		if err == nil {
 			return true
 		}
-		log.Debug("switchVerify", "result", err, "info", sv)
+		log.Warn("switchVerify", "result", err, "info", sv)
 	}
 	return false
 }
@@ -1809,7 +1810,7 @@ func (cs *ConsensusState) pickSwitchValidator(sv *ttypes.SwitchValidator, id boo
 			cs.svs = append(cs.svs[:0], cs.svs[1:]...)
 			return tmp
 		}
-		log.Debug("pickSV not match", "sv", sv, "item0", tmp)
+		log.Warn("pickSV not match", "sv", sv, "item0", tmp, "id", id)
 	}
 	return sv
 }

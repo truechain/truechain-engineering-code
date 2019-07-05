@@ -46,6 +46,7 @@ func TestSetupGenesis(t *testing.T) {
 	var (
 		customghash = common.HexToHash("0x3fec74f04bae7d8a8c71d250a6edfb330ecc18d2a4bbb44c85ca1cbec21bee29")
 		customg     = Genesis{
+			Config: params.TestChainConfig,
 			Alloc: types.GenesisAlloc{
 				{1}: {Balance: big.NewInt(1), Storage: map[common.Hash]common.Hash{{1}: {1}}},
 			},
@@ -137,6 +138,7 @@ func TestSetupGenesis(t *testing.T) {
 	for _, test := range tests {
 		db := etruedb.NewMemDatabase()
 		config, hash, _, err := test.fn(db)
+		config.TIP5 = nil
 		// Check the return values.
 		if !reflect.DeepEqual(err, test.wantErr) {
 			spew := spew.ConfigState{DisablePointerAddresses: true, DisableCapacities: true}

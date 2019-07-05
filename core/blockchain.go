@@ -260,7 +260,6 @@ func (bc *BlockChain) loadLastState() error {
 	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
-
 		// Send a message to the committee if you find a chain backtracking
 		if err := bc.repair(&currentBlock); err != nil {
 			return err
@@ -287,9 +286,14 @@ func (bc *BlockChain) loadLastState() error {
 	}
 	// Restore the last known currentReward
 	rewardHead := bc.GetLastRowByFastCurrentBlock()
+
 	if rewardHead != nil {
 		bc.currentReward.Store(rewardHead)
 		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
+	}else {
+		reward := &types.BlockReward{SnailNumber:big.NewInt(0),}
+		bc.currentReward.Store(reward)
+		rawdb.WriteHeadRewardNumber(bc.db, 0)
 	}
 
 	// Restore the last known currentReward
@@ -317,7 +321,6 @@ func (bc *BlockChain) loadLastState() error {
 //Gets the nearest reward block based on the current height of the fast chain
 func (bc *BlockChain) GetLastRowByFastCurrentBlock() *types.BlockReward {
 	block := bc.CurrentBlock()
-
 	for i := block.NumberU64(); i > 0; i-- {
 		if block.SnailNumber().Uint64() != 0 {
 			return &types.BlockReward{
@@ -329,6 +332,7 @@ func (bc *BlockChain) GetLastRowByFastCurrentBlock() *types.BlockReward {
 		}
 		block = bc.GetBlockByNumber(i)
 	}
+
 	return nil
 }
 
@@ -358,36 +362,34 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.signCache.Purge()
 	bc.rewardCache.Purge()
 
+
+	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
+		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
+			// Rewound state missing, rolled back to before pivot, reset to genesis
+			bc.currentBlock.Store(currentBlock)
+		}
+	}
+
 	// Rewind the block chain, ensuring we don't end up with a stateless head block
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil && currentHeader.Number.Uint64() < currentBlock.NumberU64() {
 		bc.currentBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
 	}
+
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
-		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
-			// Rewound state missing, rolled back to before pivot, reset to genesis
-			bc.currentBlock.Store(bc.genesisBlock)
-		}
+		bc.currentFastBlock.Store(currentBlock)
 	}
+
 	// Rewind the fast block in a simpleton way to the target head
 	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock != nil && currentHeader.Number.Uint64() < currentFastBlock.NumberU64() {
 		bc.currentFastBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
 	}
+
 	// If either blocks reached nil, reset to the genesis state
 	if currentBlock := bc.CurrentBlock(); currentBlock == nil {
 		bc.currentBlock.Store(bc.genesisBlock)
 	}
 	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock == nil {
 		bc.currentFastBlock.Store(bc.genesisBlock)
-	}
-
-	rawdb.WriteHeadRewardNumber(bc.db, 0)
-	// Restore the last known currentReward
-	if bc.CurrentBlock().NumberU64() != 0 {
-		currentReward := bc.GetLastRowByFastCurrentBlock()
-		if currentReward != nil {
-			bc.currentReward.Store(currentReward)
-			rawdb.WriteHeadRewardNumber(bc.db, currentReward.SnailNumber.Uint64())
-		}
 	}
 
 	currentBlock := bc.CurrentBlock()
@@ -438,7 +440,8 @@ func (bc *BlockChain) CurrentGcHeight() *big.Int {
 	if bc.currentBlock.Load() == nil {
 		return nil
 	}
-	return new(big.Int).SetUint64(bc.cacheConfig.HeightGcState.Load().(uint64))
+	//new(big.Int).SetUint64(bc.cacheConfig.HeightGcState.Load().(uint64))
+	return new(big.Int).SetUint64(uint64(0))
 }
 
 // CurrentBlock retrieves the current head block of the canonical chain. The
@@ -447,7 +450,8 @@ func (bc *BlockChain) CurrentCommitHeight() *big.Int {
 	if bc.currentBlock.Load() == nil {
 		return nil
 	}
-	commitHeight := bc.CurrentBlock().Number().Uint64() / uint64(blockDeleteHeight) * blockDeleteHeight
+	//commitHeight := bc.CurrentBlock().Number().Uint64() / uint64(blockDeleteHeight) * blockDeleteHeight
+	commitHeight := uint64(0)
 	return new(big.Int).SetUint64(commitHeight)
 }
 

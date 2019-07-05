@@ -359,6 +359,9 @@ func (w *worker) update() {
 
 		case ev := <-w.fruitCh:
 			// if only fruit only not need care about fruit event
+			if w.current.Block == nil || ev.Fruits[0].FastNumber() == nil {
+				return
+			}
 			if (w.fruitOnly || len(w.current.Block.Fruits()) == 0) && (w.current.Block.FastNumber().Cmp(ev.Fruits[0].FastNumber()) == 0) {
 				// after get the fruit event should star mining if have not mining
 				log.Debug("star commit new work  fruitCh")
@@ -559,7 +562,6 @@ func (w *worker) commitNewWork() {
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&w.mining) == 1 {
 		header.Coinbase = w.coinbase
-		log.Info("-----------------set coin base", ",", header.Coinbase)
 	}
 
 	// Could potentially happen if starting to mine in an odd state.
@@ -581,7 +583,11 @@ func (w *worker) commitNewWork() {
 
 	// only miner fruit if not fruit set only miner the fruit
 	if !w.fruitOnly {
-		w.CommitFruits(pendingFruits, w.chain, w.fastchain, w.engine)
+		err := w.CommitFruits(pendingFruits, w.chain, w.fastchain, w.engine)
+		if err != nil {
+			log.Error("Failed to commit fruits", "err", err)
+			return
+		}
 	}
 
 	if work.fruits != nil {
@@ -592,6 +598,15 @@ func (w *worker) commitNewWork() {
 			log.Info("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits)-1].FastNumber())
 			work.fruits = work.fruits[:params.MaximumFruits]
 		}
+
+		// make sure the time
+		if work.fruits != nil {
+			if work.fruits[len(work.fruits)-1].Time() == nil || work.header.Time == nil || work.header.Time.Cmp(work.fruits[len(work.fruits)-1].Time()) < 0 {
+				log.Error("validate time", "block.Time()", work.header.Time, "fruits[len(fruits)-1].Time()", work.fruits[len(work.fruits)-1].Time(), "block number", work.header.Number, "fruit fast number", work.fruits[len(work.fruits)-1].FastNumber())
+				return
+			}
+		}
+
 	}
 
 	// Set the pointerHash
@@ -706,7 +721,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 }
 
 // CommitFruits find all fruits and start to the last parent fruits number and end continue fruit list
-func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) {
+func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) error {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
 
@@ -724,7 +739,7 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	}
 
 	if fruits == nil {
-		return
+		return nil
 	}
 
 	log.Debug("commitFruits fruit pool list", "f min fb", fruits[0].FastNumber(), "f max fb", fruits[len(fruits)-1].FastNumber())
@@ -765,13 +780,18 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		}
 		if len(fruitset) >= params.MinimumFruits {
 			// need add the time interval
-			startTime := fc.GetHeaderByNumber(fruitset[0].FastNumber().Uint64()).Time
-			endTime := fc.GetHeaderByNumber(fruitset[len(fruitset)-1].FastNumber().Uint64()).Time
+			startFb := fc.GetHeaderByNumber(fruitset[0].FastNumber().Uint64())
+			endFb := fc.GetHeaderByNumber(fruitset[len(fruitset)-1].FastNumber().Uint64())
+			if startFb == nil || endFb == nil {
+				return fmt.Errorf("the fast chain have not exist")
+			}
+			startTime := startFb.Time
+			endTime := endFb.Time
 			timeinterval := new(big.Int).Sub(endTime, startTime)
 
 			unmineFruitLen := new(big.Int).Sub(fastHight, fruits[len(fruits)-1].FastNumber())
 			waitmine := rand.Intn(900)
-			tmp := big.NewInt(360)			// upgrade for temporary
+			tmp := big.NewInt(360) // upgrade for temporary
 			if timeinterval.Cmp(tmp) >= 0 && (waitmine > int(unmineFruitLen.Int64())) {
 				// must big then 5min
 				w.current.fruits = fruitset
@@ -786,6 +806,7 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		// make the fruits to nil if not find the fruitset
 		w.current.fruits = nil
 	}
+	return nil
 }
 
 //create a new list that maye add one fruit who just mined but not add in to pending list
@@ -803,7 +824,6 @@ func (w *worker) CopyPendingFruit(fruits map[common.Hash]*types.SnailBlock, bc *
 	for k, _ := range w.fruitPoolMap {
 		delete(w.fruitPoolMap, k)
 	}
-	log.Info("the map info 1", "len", len(w.fruitPoolMap))
 
 	var copyPendingFruits []*types.SnailBlock
 
@@ -828,12 +848,6 @@ func (w *worker) CopyPendingFruit(fruits map[common.Hash]*types.SnailBlock, bc *
 	blockby.Sort(copyPendingFruits)
 	if len(fruits) > 0 && len(copyPendingFruits) > 0 {
 		log.Debug("CopyPendingFruit pengding fruit info", "len of pengding", len(fruits), "sort copy fruits len", len(copyPendingFruits))
-	}
-
-	if len(copyPendingFruits) > 0 {
-
-		log.Info("the copypending info", "len", len(copyPendingFruits), "fruits 1", copyPendingFruits[0].FastNumber(), "end", copyPendingFruits[len(copyPendingFruits)-1].FastNumber())
-		log.Info("the map info", "len", len(w.fruitPoolMap))
 	}
 
 	return copyPendingFruits
@@ -983,7 +997,7 @@ func (w *worker) commitFastNumberRandom(fastBlockHight, snailFruitsLastFastNumbe
 	//rand find one
 	mineFastBlock := rand.Intn(len(w.fastBlockPool))
 
-	log.Info("need mine fruit info", "random one", mineFastBlock, "len pool", len(w.fastBlockPool), "begin", w.fastBlockPool[0], "end", w.fastBlockPool[len(w.fastBlockPool)-1])
+	log.Debug("need mine fruit info", "random one", mineFastBlock, "len pool", len(w.fastBlockPool), "begin", w.fastBlockPool[0], "end", w.fastBlockPool[len(w.fastBlockPool)-1])
 
 	return w.fastBlockPool[mineFastBlock]
 }
