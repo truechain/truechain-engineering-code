@@ -447,6 +447,16 @@ func (self *LightChain) GetHeaderByNumber(number uint64) *types.Header {
 	return self.hc.GetHeaderByNumber(number)
 }
 
+// GetSwitchInfo retrieves a block swtichinfo from database
+func (self *LightChain) GetSwitchInfo(number uint64) []*types.CommitteeMember {
+	head := self.hc.GetHeaderByNumber(number)
+	if head == nil {
+		return nil
+	}
+
+	return rawdb.ReadCommitteeInfo(self.chainDb, head.Hash(), number)
+}
+
 // GetHeaderByNumberOdr retrieves a block header from the database or network
 // by number, caching it (associated with its hash) if found.
 func (self *LightChain) GetHeaderByNumberOdr(ctx context.Context, number uint64) (*types.Header, error) {
