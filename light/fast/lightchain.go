@@ -517,3 +517,8 @@ func (bc *LightChain) SetCommitteeInfo(hash common.Hash, number uint64, infos []
 type injectInfo struct {
 	infos []*types.CommitteeMember
 }
+
+// GetHeaderChain loads the last known chain state from the database. This method
+func (self *LightChain) GetHeaderChain() *core.HeaderChain {
+	return self.hc
+}
