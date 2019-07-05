@@ -504,7 +504,7 @@ func (self *LightChain) LoadLastState() {
 	self.loadLastState()
 }
 
-// SetHead rewinds the local chain to a new head. Everything above the new
+// SetCommitteeInfo rewinds the local chain to a new head. Everything above the new
 // head will be deleted and the new one set.
 func (bc *LightChain) SetCommitteeInfo(hash common.Hash, number uint64, infos []*types.CommitteeMember) {
 	bc.mu.Lock()
