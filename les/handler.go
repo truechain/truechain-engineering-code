@@ -795,7 +795,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case GetSnailBlockBodiesMsg:
-		p.Log().Trace("Received snail block bodies request")
 		// Decode the retrieval message
 		var req struct {
 			ReqID uint64
@@ -826,13 +825,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
 					if body := snaildb.ReadBody(pm.chainDb, hash, *number); body != nil {
 						fruitHeads = append(fruitHeads, &fruitHeadsData{body.FruitsHeaders()})
-
 					}
 				}
 			}
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
+		p.Log().Trace("Received snail block bodies request", "type", req.Data.Type, "fruits", len(fruits), "fruitHeads", len(fruitHeads))
 		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, snailBlockBodiesData{Fruits: fruits, FruitHeads: fruitHeads, Type: req.Data.Type})
 
 	case SnailBlockBodiesMsg:
@@ -850,7 +849,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 
-		p.Log().Trace("Received snail block bodies response", "type", resp.Data.Type)
 		if resp.Data.Type == public.FruitHead {
 			// Deliver them all to the downloader for queuing
 			blocks := make([][]*types.SnailBlock, len(resp.Data.FruitHeads))
@@ -861,6 +859,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				}
 				blocks[i] = fruits
 			}
+			p.Log().Trace("Received snail block bodies response", "type", resp.Data.Type, "blocks", len(blocks), "FruitHeads", len(resp.Data.FruitHeads))
 			err := pm.downloader.DeliverBodies(p.id, blocks)
 			if err != nil {
 				log.Debug(fmt.Sprint(err))
