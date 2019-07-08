@@ -144,6 +144,7 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader, fruitHeads []*type
 	// Calculate the total difficulty of the header
 	ptd := hc.GetTd(header.ParentHash, number-1)
 	if ptd == nil {
+		log.Info("WriteHeader", "ptd", ptd, "parentHash", header.ParentHash, "number", number-1)
 		return NonStatTy, consensus.ErrUnknownAncestor
 	}
 	localTd := hc.GetTd(hc.currentHeaderHash, hc.CurrentHeader().Number.Uint64())
@@ -280,6 +281,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, fruits []
 		}
 		if !hc.IsCanonicalBlock(header.ParentHash, header.Number.Uint64()-1) {
 			if !hc.HasHeader(header.ParentHash, header.Number.Uint64()-1) {
+				log.Info("ValidateHeaderChain HasHeader", "header.ParentHash", header.ParentHash, "parentNumber", header.Number.Uint64()-1)
 				return i, consensus.ErrUnknownAncestor
 			}
 			return i, consensus.ErrPrunedAncestor
