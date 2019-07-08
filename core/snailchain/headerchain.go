@@ -279,13 +279,13 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, fruits []
 		if hash := hc.GetFruitsHash(header, fruitHeaders); hash != header.FruitsHash {
 			return i, fmt.Errorf("ValidateHeaderChain fruits hash mismatch: have %x, want %x", types.DeriveSha(types.FruitsHeaders(fruitHeaders)), header.FruitsHash)
 		}
-		if !hc.IsCanonicalBlock(header.ParentHash, header.Number.Uint64()-1) {
+		/*if !hc.IsCanonicalBlock(header.ParentHash, header.Number.Uint64()-1) {
 			if !hc.HasHeader(header.ParentHash, header.Number.Uint64()-1) {
 				log.Info("ValidateHeaderChain HasHeader", "header.ParentHash", header.ParentHash, "parentNumber", header.Number.Uint64()-1)
 				return i, consensus.ErrUnknownAncestor
 			}
 			return i, consensus.ErrPrunedAncestor
-		}
+		}*/
 		for j, fruit := range fruitHeaders {
 			if err := hc.engine.ValidateFruitHeader(header, fruit, hc, fastchain, checkpoint); err != nil {
 				log.Error("ValidateHeaderChain", "snailBlock number", header.Number, "fruit number", fruit.FastNumber, "err", err)
