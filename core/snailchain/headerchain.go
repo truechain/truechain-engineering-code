@@ -314,11 +314,6 @@ func (hc *HeaderChain) InsertHeaderChain(chain []*types.SnailHeader, fruitHeads 
 			log.Debug("Premature abort during headers import")
 			return i, errors.New("aborted")
 		}
-		// If the header's already known, skip it, otherwise store
-		if hc.HasHeader(header.Hash(), header.Number.Uint64()) {
-			stats.ignored++
-			continue
-		}
 		if len(fruitHeads) > 0 {
 			if err := writeHeader(header, fruitHeads[i]); err != nil {
 				return i, err
