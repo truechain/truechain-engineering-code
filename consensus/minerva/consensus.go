@@ -306,7 +306,7 @@ func (v *Minerva) ValidateFruitHeader(block *types.SnailHeader, fruit *types.Sna
 	if fruit.Time == nil || fb.Time == nil || fruit.Time.Cmp(fb.Time) < 0 {
 		return consensus.ErrFruitTime
 	}
-	if block.Number.Uint64() >= checkpoint {
+	if block.PointerNumber.Uint64() >= checkpoint {
 		err := v.VerifyFreshness(chain, fruit, block, false)
 		if err != nil {
 			log.Debug("ValidateFruitHeader verify freshness error.", "err", err, "fruit", fruit.FastNumber)
