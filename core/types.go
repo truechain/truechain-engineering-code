@@ -24,6 +24,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
+	"math/big"
 )
 
 // Validator is an interface which defines the standard for block validation. It
@@ -61,7 +62,7 @@ type SnailValidator interface {
 	ValidateBody(block *types.SnailBlock, verifyFruits bool) error
 
 	// ValidateFruit validates the given fruit's content
-	ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error
+	ValidateFruit(fruit *types.SnailBlock, headerNumber *big.Int, canonical bool) error
 	// VerifySnailSeal checking whether the given block satisfies
 	// the PoW difficulty requirements.
 	VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader, isFruit bool) error

@@ -178,7 +178,7 @@ func (v *BlockValidator) VerifySnailSeal(chain consensus.SnailChainReader, heade
 }
 
 //ValidateFruit is to verify if the fruit is legal
-func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
+func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock, headerNumber *big.Int, canonical bool) error {
 	//check number(fb)
 	//
 	currentNumber := v.fastchain.CurrentHeader().Number
@@ -205,11 +205,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	}
 
 	// check freshness
-	var blockHeader *types.SnailHeader
-	if block != nil {
-		blockHeader = block.Header()
-	}
-	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), blockHeader, canonical)
+	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), headerNumber, canonical)
 	if err != nil {
 		log.Debug("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
 		return err
@@ -280,7 +276,7 @@ func (v *BlockValidator) parallelValidateFruit(fruit, block *types.SnailBlock, w
 	if block != nil {
 		blockHeader = block.Header()
 	}
-	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), blockHeader, false)
+	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), blockHeader.Number, false)
 	if err != nil {
 		log.Debug("parallelValidateFruit verify freshness error.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "err", err)
 		ch <- err
