@@ -86,6 +86,7 @@ func (req *ChtRequest) StoreResult(db etruedb.Database) {
 	rawdb.WriteHeader(db, req.Header)
 	rawdb.WriteTd(db, hash, num, req.Td)
 	rawdb.WriteCanonicalHash(db, hash, num)
+	rawdb.WriteFastTrieProgress(db, num)
 	if len(req.Headers) > 0 {
 		for _, head := range req.Headers {
 			rawdb.WriteHeader(db, head)
