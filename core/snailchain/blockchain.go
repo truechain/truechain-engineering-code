@@ -1289,7 +1289,7 @@ func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, fruits 
 		return 0, fmt.Errorf("invalid len: len(snailHeader) (%d) not equal len([]fruitHeaders) (%d)", len(chain), len(fruits))
 	}
 	start := time.Now()
-	if i, err := bc.hc.ValidateHeaderChain(chain, fruits, checkFreq, nil); err != nil {
+	if i, err := bc.hc.ValidateHeaderChain(chain, fruits, checkFreq, nil, 0); err != nil {
 		return i, err
 	}
 

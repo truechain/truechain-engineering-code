@@ -218,7 +218,7 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader, fruitHeads []*type
 type WhCallback func(*types.SnailHeader, []*types.SnailHeader) error
 
 //ValidateHeaderChain validate the header of the snailchain
-func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int, fastchain *core.HeaderChain) (int, error) {
+func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int, fastchain *core.HeaderChain, checkpoint uint64) (int, error) {
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].Number.Uint64() != chain[i-1].Number.Uint64()+1 || chain[i].ParentHash != chain[i-1].Hash() {
