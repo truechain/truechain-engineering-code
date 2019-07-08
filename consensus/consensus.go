@@ -105,7 +105,7 @@ type Engine interface {
 	// the input slice).
 	VerifySnailHeaders(chain SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
 
-	ValidateFruitHeader(block *types.SnailHeader, fruit *types.SnailHeader, snailchain SnailChainReader, fastchain ChainReader) error
+	ValidateFruitHeader(block *types.SnailHeader, fruit *types.SnailHeader, snailchain SnailChainReader, fastchain ChainReader, checkpoint uint64) error
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
 	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader, isFruit bool) error
