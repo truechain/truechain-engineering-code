@@ -535,13 +535,13 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 
 	log.Debug("begininsertRestFruits", "len(reinject)", len(reinject))
 	for _, fruit := range reinject {
-		if err := pool.validator.ValidateFruit(fruit, new(big.Int).Add(pool.chain.CurrentBlock().Number(), big.NewInt(1)), true); err == nil {
-			pool.allFruits[fruit.FastHash()] = fruit
-			pool.fruitPending[fruit.FastHash()] = fruit
-		}
 		fb := pool.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
 		if fb == nil {
 			continue
+		}
+		if err := pool.validator.ValidateFruit(fruit, new(big.Int).Add(pool.chain.CurrentBlock().Number(), big.NewInt(1)), true); err == nil {
+			pool.allFruits[fruit.FastHash()] = fruit
+			pool.fruitPending[fruit.FastHash()] = fruit
 		}
 	}
 
