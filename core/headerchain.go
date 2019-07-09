@@ -227,11 +227,6 @@ func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader Fas
 			log.Debug("Premature abort during headers import")
 			return i, errors.New("aborted")
 		}
-		// If the header's already known, skip it, otherwise store
-		if fhc.HasHeader(header.Hash(), header.Number.Uint64()) {
-			stats.ignored++
-			continue
-		}
 		if err := writeHeader(header); err != nil {
 			return i, err
 		}
@@ -250,7 +245,7 @@ func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader Fas
 	if stats.ignored > 0 {
 		context = append(context, []interface{}{"ignored", stats.ignored}...)
 	}
-	log.Info("Imported new block headers", context...)
+	log.Info("Imported new fast block headers", context...)
 
 	return 0, nil
 }

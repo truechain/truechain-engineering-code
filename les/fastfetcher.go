@@ -475,7 +475,7 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 				}
 				f.queued[hash] = op
 				f.queue.Push(op, -int64(num))
-				log.Debug("Queued propagated snail block", "peer", req.peer.id, "number", num, "hash", hash, "queued", f.queue.Size())
+				log.Debug("Queued propagated fast block", "peer", req.peer.id, "number", num, "hash", hash, "queued", f.queue.Size())
 			}
 		}
 		return true
