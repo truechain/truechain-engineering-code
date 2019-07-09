@@ -157,6 +157,41 @@ func (ec *Client) getFruit(ctx context.Context, method string, args ...interface
 	return &block, nil
 }
 
+type rpcSnailHeader struct {
+	Hash       common.Hash      `json:"hash"`
+	Number     *hexutil.Big     `json:"number"`
+	ParentHash common.Hash      `json:"parentHash"`
+	FruitsHash common.Hash      `json:"fruitsHash"`
+	Nonce      types.BlockNonce `json:"nonce"`
+	MixHash    common.Hash      `json:"mixHash"`
+	Miner      common.Address   `json:"miner"`
+	Difficulty *hexutil.Big     `json:"difficulty"`
+	ExtraData  hexutil.Bytes    `json:"extraData"`
+	Size       hexutil.Uint64   `json:"size"`
+	Timestamp  *hexutil.Big     `json:"timestamp"`
+}
+
+// SnailHeaderByHash returns the block header with the given hash.
+func (ec *Client) SnailHeaderByHash(ctx context.Context, hash Hash) (*rpcSnailHeader, error) {
+	var head *rpcSnailHeader
+	err := ec.c.CallContext(ctx, &head, "etrue_getSnailBlockByHash", hash, false)
+	if err == nil && head == nil {
+		err = truechain.NotFound
+	}
+	return head, err
+}
+
+// SnailHeaderByNumber returns a block header from the current canonical chain. If number is
+// nil, the latest known header is returned.
+func (ec *Client) SnailHeaderByNumber(ctx context.Context, number *big.Int) (*rpcSnailHeader, error) {
+	var head *rpcSnailHeader
+	err := ec.c.CallContext(ctx, &head, "etrue_getSnailBlockByNumber", toBlockNumArg(number), false)
+	if err == nil && head == nil {
+		err = truechain.NotFound
+	}
+	return head, err
+}
+
 // Blockchain Access
 
 // BlockByHash returns the given full block.
