@@ -593,7 +593,6 @@ func (f *lightFetcher) checkAnnouncedHeaders(fp *fetcherPeerInfo, headers []*typ
 				// no more headers and nothing to match
 				return true
 			}
-			ptd := f.chain.GetTd(header.Hash(), header.Number.Uint64())
 
 			// we ran out of recently delivered headers but have not reached a node known by this peer yet, continue matching
 			hash, number := header.ParentHash, header.Number.Uint64()-1
@@ -604,11 +603,6 @@ func (f *lightFetcher) checkAnnouncedHeaders(fp *fetcherPeerInfo, headers []*typ
 				log.Error("Missing parent of validated header", "hash", hash, "number", number)
 				return false
 			}
-			if header.FruitsHash != (common.Hash{}) && td.Cmp(new(big.Int).Sub(ptd, header.Difficulty)) == 0 {
-				old := td
-				td = rawdb.ReadTd(f.pm.chainDb, hash, number)
-				log.Info("checkAnnouncedHeaders", "td", td, "old", old, "number", number, "i", i, "n", n, "Number", header.Number, "hash", hash, "hash", header.Hash())
-			}
 		} else {
 			header = headers[i]
 			td = tds[i]
@@ -617,6 +611,11 @@ func (f *lightFetcher) checkAnnouncedHeaders(fp *fetcherPeerInfo, headers []*typ
 		number := header.Number.Uint64()
 		if n == nil {
 			n = fp.nodeByHash[hash]
+		}
+		if header.FruitsHash != (common.Hash{}) && n.td.Cmp(td) != 0 {
+			old := td
+			td = rawdb.ReadTd(f.pm.chainDb, hash, number)
+			log.Info("checkAnnouncedHeaders", "td", td, "old", old, "number", number, "i", i, "n", n, "Number", header.Number, "hash", hash, "hash", header.Hash())
 		}
 		log.Debug("checkAnnouncedHeaders", "td", td, "headers", len(headers), "number", number, "n.td", n.td, "nodeByHash", len(fp.nodeByHash), "i", i)
 		if n != nil {
@@ -712,6 +711,7 @@ func (f *lightFetcher) checkKnownNode(p *peer, n *fetcherTreeNode) bool {
 		p.Log().Debug("Unknown peer to check known nodes")
 		return false
 	}
+	log.Info("checkKnownNode", "head", header.Number, "td", td)
 	if !f.checkAnnouncedHeaders(fp, []*types.SnailHeader{header}, []*big.Int{td}) {
 		p.Log().Debug("Inconsistent announcement")
 		go f.pm.removePeer(p.id, public.FetcherKnownCall)
