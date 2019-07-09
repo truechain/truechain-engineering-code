@@ -628,6 +628,18 @@ func (ec *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	return ec.c.CallContext(ctx, nil, "etrue_sendRawTransaction", common.ToHex(data))
 }
 
+// SendPayTransaction injects a signed transaction(both sender and payer) into the pending pool for execution.
+//
+// If the transaction was a contract creation use the TransactionReceipt method to get the
+// contract address after the transaction has been mined.
+func (ec *Client) SendPayTransaction(ctx context.Context, tx *types.Transaction) error {
+	data, err := rlp.EncodeToBytes(tx)
+	if err != nil {
+		return err
+	}
+	return ec.c.CallContext(ctx, nil, "etrue_sendTrueRawTransaction", common.ToHex(data))
+}
+
 func toCallArg(msg truechain.CallMsg) interface{} {
 	arg := map[string]interface{}{
 		"from": msg.From,
