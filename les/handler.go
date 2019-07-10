@@ -657,7 +657,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			Obj:     resp.Data,
 		}
 	case GetSnailBlockHeadersMsg:
-		p.Log().Trace("Received snail block header request")
 		// Decode the complex header query
 		var req struct {
 			ReqID uint64
@@ -671,6 +670,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if reject(query.Amount, MaxHeaderFetch) {
 			return errResp(ErrRequestRejected, "")
 		}
+		p.Log().Trace("Received snail block header request", "number", query.Origin.Number, "hash", query.Origin.Hash)
 
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true

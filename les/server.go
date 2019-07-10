@@ -85,6 +85,15 @@ func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, err
 		// convert last LES/2 section index back to LES/1 index for chtIndexer.SectionHead
 		chtLastSectionV1 := (chtLastSection+1)*(params.CHTFrequencyClient/params.CHTFrequencyServer) - 1
 		chtSectionHead := srv.chtIndexer.SectionHead(chtLastSectionV1)
+		for i := chtLastSection - 2; i > chtLastSection-6; i-- {
+			chtLastSectionV1 := (i+1)*(params.CHTFrequencyClient/params.CHTFrequencyServer) - 1
+			chtSectionHead := srv.chtIndexer.SectionHead(chtLastSectionV1)
+			if chtSectionHead == (common.Hash{}) {
+				break
+			}
+			chtRoot := light.GetChtRoot(pm.chainDb, chtLastSectionV1, chtSectionHead)
+			logger.Info("Loaded recent CHT", "i", i, "section", chtLastSectionV1, "head", chtSectionHead.String(), "root", chtRoot.String())
+		}
 		chtRoot := light.GetChtRoot(pm.chainDb, chtLastSectionV1, chtSectionHead)
 		logger.Info("Loaded CHT", "section", chtLastSection, "head", chtSectionHead.String(), "root", chtRoot.String())
 	}
