@@ -465,7 +465,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if reject(query.Amount, MaxHeaderFetch) {
 			return errResp(ErrRequestRejected, "")
 		}
-		p.Log().Trace("Received fast block header request", "number", query.Origin.Number, "hash", query.Origin.Hash)
+		p.Log().Trace("Received fast block header request", "number", query.Origin.Number, "count", query.Amount, "skip", query.Skip, "hash", query.Origin.Hash)
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
@@ -602,7 +602,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case GetFastBlockBodiesMsg:
-		p.Log().Trace("Received block bodies request")
 		// Decode the retrieval message
 		var req struct {
 			ReqID  uint64
@@ -620,6 +619,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if reject(uint64(reqCnt), MaxBodyFetch) {
 			return errResp(ErrRequestRejected, "")
 		}
+		p.Log().Trace("Received block bodies request", "count", len(req.Hashes))
 		for _, hash := range req.Hashes {
 			if bytes >= softResponseLimit {
 				break
@@ -670,7 +670,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if reject(query.Amount, MaxHeaderFetch) {
 			return errResp(ErrRequestRejected, "")
 		}
-		p.Log().Trace("Received snail block header request", "number", query.Origin.Number, "hash", query.Origin.Hash)
+		p.Log().Trace("Received snail block header request", "number", query.Origin.Number, "count", query.Amount, "skip", query.Skip, "hash", query.Origin.Hash)
 
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
