@@ -52,6 +52,10 @@ func (b *TrueAPIBackend) CurrentBlock() *types.Block {
 	return b.etrue.blockchain.CurrentBlock()
 }
 
+func (b *TrueAPIBackend) CurrentSnailBlock() *types.SnailBlock {
+	return b.etrue.snailblockchain.CurrentBlock()
+}
+
 func (b *TrueAPIBackend) SetHead(number uint64) {
 	b.etrue.protocolManager.downloader.Cancel()
 	b.etrue.blockchain.SetHead(number)
@@ -176,7 +180,7 @@ func (b *TrueAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *st
 	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
-	context := core.NewEVMContext(msg, header, b.etrue.BlockChain(),nil,nil)
+	context := core.NewEVMContext(msg, header, b.etrue.BlockChain(), nil, nil)
 	return vm.NewEVM(context, state, b.etrue.chainConfig, vmCfg), vmError, nil
 }
 

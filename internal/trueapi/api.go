@@ -670,6 +670,10 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 }
 
 func (s *PublicBlockChainAPI) GetFruitByNumber(ctx context.Context, fastblockNr rpc.BlockNumber, fullSigns bool) (map[string]interface{}, error) {
+	if fastblockNr == rpc.LatestBlockNumber {
+		fastHash := s.b.CurrentSnailBlock().Fruits()[len(s.b.CurrentSnailBlock().Fruits())-1].FastHash()
+		return s.GetFruitByHash(ctx, fastHash, fullSigns)
+	}
 	block, err := s.b.BlockByNumber(ctx, fastblockNr)
 	if block != nil {
 		if err == nil {
