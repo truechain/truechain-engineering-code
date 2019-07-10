@@ -485,22 +485,23 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 
 // insertHeaderChain processes header download request responses, returns true if successful
 func (f *fastLightFetcher) insertHeaderChain(headers []*types.Header, signs [][]*types.PbftSign) bool {
-	for i, sign := range signs {
-		_, errs := f.pm.election.VerifySigns(sign)
+	for i, header := range headers {
+		_, errs := f.pm.election.VerifySigns(signs[i])
 		for _, err := range errs {
 			if err != nil {
 				log.Info("VerifySigns error", "num", headers[i].Number, "hash", headers[i].Hash(), "err", err)
 				return false
 			}
 		}
-	}
-	if _, err := f.chain.InsertHeaderChain(headers, 1); err != nil {
-		if err == consensus.ErrFutureBlock {
-			return true
+		if _, err := f.chain.InsertHeaderChain([]*types.Header{header}, 1); err != nil {
+			if err == consensus.ErrFutureBlock {
+				return true
+			}
+			log.Debug("Failed to insert fast header chain", "err", err)
+			return false
 		}
-		log.Debug("Failed to insert fast header chain", "err", err)
-		return false
 	}
+
 	for _, fp := range f.peers {
 		f.checkKnownNode(fp, nil)
 	}
