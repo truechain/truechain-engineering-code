@@ -218,8 +218,6 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 		snail      *big.Int
 		beginFruit *big.Int
 		c          *types.ElectionCommittee
-		switches   []uint64
-		switchBlocks *switchPoint
 	)
 
 	blockHead := e.fastchain.GetHeaderByNumber(fastNumber.Uint64())
@@ -251,6 +249,21 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 		beginFruit = new(big.Int).Add(beginFruit, common.Big1)
 	}
 
+	// Load switch block to calculate committee members
+	switches := e.loadSwitchPoint(id, beginFruit, fastNumber)
+	if len(switches) > 0 {
+		return e.filterWithSwitchInfo(c, fastNumber, switches)
+	} else {
+		return c.Members
+	}
+}
+
+func (e *Election) loadSwitchPoint(id *big.Int, beginFruit *big.Int, fastNumber *big.Int) []uint64  {
+	var (
+		switches []uint64
+		switchBlocks *switchPoint
+	)
+
 	if cache, ok := e.switchCache.Get(id.Uint64()); ok {
 		switchBlocks = cache.(*switchPoint)
 		beginFruit = switchBlocks.checkNumber
@@ -273,13 +286,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 		}
 		e.switchCache.Add(id.Uint64(), switchBlocks)
 	}
-
-	if len(switches) > 0 {
-		return e.filterWithSwitchInfo(c, fastNumber, switches)
-	} else {
-		return c.Members
-	}
-
+	return switches
 }
 
 func (e *Election) filterWithSwitchInfo(c *types.ElectionCommittee, fastNumber *big.Int, switches []uint64) (members []*types.CommitteeMember) {
@@ -344,6 +351,9 @@ func (e *Election) getCommittee(id *big.Int) *types.ElectionCommittee {
 		// elect committee based on snail fruits
 		begin, end := ElectionEpoch(id)
 		c = election.ElectCommittee(e.snailchain, e.defaultMembers, begin, end)
+		beginFruit := e.beginFruitNumber(begin)
+		endFruit := e.endFruitNumber(end)
+		log.Info("Committee members", "committee", id, "beginBlock", beginFruit, "endBlock", endFruit, "count", len(c.Members), "backup", len(c.Backups))
 	}
 	e.commiteeCache.Add(id.Uint64(), c)
 	return c
