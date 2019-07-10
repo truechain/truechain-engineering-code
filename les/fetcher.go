@@ -59,6 +59,7 @@ type lightFetcher struct {
 	timeoutChn  chan uint64
 	requestChn  chan bool // true if initiated from outside
 	fastFetcher *fastLightFetcher
+	fastSync    bool
 }
 
 // fetcherPeerInfo holds fetcher-specific information about each active peer
@@ -214,6 +215,7 @@ func (f *lightFetcher) syncLoop() {
 			p.Log().Debug("Done synchronising with peer")
 			f.checkSyncedHeaders(p)
 			f.syncing = false
+			f.fastSync = false
 			f.lock.Unlock()
 			f.fastFetcher.notifySyncDone(p)
 			f.requestChn <- false
@@ -434,7 +436,7 @@ func (f *lightFetcher) nextRequest() (*distReq, uint64, bool) {
 					bestHash = hash
 					bestAmount = amount
 					bestTd = n.td
-					bestSyncing = fp.bestConfirmed == nil || fp.root == nil || !f.checkKnownNode(p, fp.root) || p.headInfo.FastNumber-currentFastheight > hashLimit
+					bestSyncing = fp.bestConfirmed == nil || fp.root == nil || !f.checkKnownNode(p, fp.root) || p.headInfo.FastNumber-currentFastheight > hashLimit || f.fastSync
 				}
 			}
 		}
@@ -819,4 +821,10 @@ func (f *lightFetcher) checkUpdateStats(p *peer, newEntry *updateStatsEntry) {
 // newLightFetcher creates a new light fetcher
 func (f *lightFetcher) setFastFetcher(flf *fastLightFetcher) {
 	f.fastFetcher = flf
+	whFunc := func() {
+		f.lock.Lock()
+		defer f.lock.Unlock()
+		f.fastSync = true
+	}
+	f.fastFetcher.SetSyncCallback(whFunc)
 }

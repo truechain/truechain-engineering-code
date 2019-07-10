@@ -53,8 +53,9 @@ type fastLightFetcher struct {
 	timeoutChn chan uint64
 	requestChn chan bool // true if initiated from outside
 	// head cache
-	queue  *prque.Prque            // Queue containing the import operations (head number sorted)
-	queued map[common.Hash]*inject // Set of already queued heads (to dedupe imports)
+	queue    *prque.Prque            // Queue containing the import operations (head number sorted)
+	queued   map[common.Hash]*inject // Set of already queued heads (to dedupe imports)
+	fastSync SyncCallback
 }
 
 // fastPeerInfo holds fetcher-specific information about each active peer
@@ -436,6 +437,10 @@ func (f *fastLightFetcher) nextRequest() (*distReq, uint64, bool) {
 				return func() { p.RequestHeadersByHash(reqID, cost, bestHash, int(bestAmount), 0, true, true, false) }
 			},
 		}
+	} else {
+		if f.fastSync != nil {
+			f.fastSync()
+		}
 	}
 	return rq, reqID, bestSyncing
 }
@@ -461,7 +466,6 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 		signs[int(req.amount)-1-i] = sign
 	}
 
-	log.Debug("processResponse", "headers", len(headers), "number", headers[0].Number, "lastnumber", headers[len(fheads)-1].Number, "current", f.chain.CurrentHeader().Number)
 	if headers[0].Number.Uint64() > f.chain.CurrentHeader().Number.Uint64()+1 {
 		for i, head := range headers {
 			hash := head.Hash()
@@ -485,6 +489,7 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 
 // insertHeaderChain processes header download request responses, returns true if successful
 func (f *fastLightFetcher) insertHeaderChain(headers []*types.Header, signs [][]*types.PbftSign) bool {
+	log.Debug("insertHeaderChain fast", "headers", len(headers), "number", headers[0].Number, "lastnumber", headers[len(headers)-1].Number, "current", f.chain.CurrentHeader().Number)
 	for i, header := range headers {
 		_, errs := f.pm.election.VerifySigns(signs[i])
 		for _, err := range errs {
@@ -543,4 +548,10 @@ func (f *fastLightFetcher) checkQueueHeight() {
 	if len(headers) > 0 {
 		f.insertHeaderChain(headers, signs)
 	}
+}
+
+type SyncCallback func()
+
+func (f *fastLightFetcher) SetSyncCallback(s SyncCallback) {
+	f.fastSync = s
 }
