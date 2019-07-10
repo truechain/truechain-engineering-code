@@ -401,10 +401,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if cost > pm.server.defParams.BufLimit {
 			cost = pm.server.defParams.BufLimit
 		}
-		if cost > bufValue {
+		if cost > bufValue && msg.Code != GetSnailBlockBodiesMsg {
 			recharge := time.Duration((cost - bufValue) * 1000000 / pm.server.defParams.MinRecharge)
 			p.Log().Error("Request came too early", "recharge", common.PrettyDuration(recharge), "code", msg.Code)
 			return true
+		} else {
+			p.Log().Info("Request too early", "bufValue", bufValue, "cost", cost, "baseCost", costs.baseCost, "reqCost", costs.reqCost)
 		}
 		return false
 	}

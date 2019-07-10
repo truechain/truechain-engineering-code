@@ -1456,7 +1456,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	for _, result := range results {
 		block := types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, nil)
 		fruitLen := uint64(len(result.Fruits))
-		log.Info("Snail insert download", "Number", block.Number(), "fruitLen", fruitLen)
 		if fruitLen > 0 {
 			fbNumber := result.Fruits[0].FastNumber().Uint64()
 			fbLastNumber := result.Fruits[fruitLen-1].FastNumber().Uint64()
@@ -1468,27 +1467,32 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		}
 	}
 
-	maxSize := maxSyncSnailHeight
 	txLen := len(sblocks)
-
-	log.Info("Snail insert download", "txLen", txLen)
-	if txLen > maxSize {
-		for i := 0; i < txLen; {
-			i = i + maxSize
-			if i <= txLen {
-				if err := d.importBlockAndSyncFast(sblocks[:maxSize], p, hash); err != nil {
-					return err
-				}
-				sblocks = append(sblocks[:0], sblocks[maxSize:]...)
-			} else {
-				if err := d.importBlockAndSyncFast(sblocks[:txLen%maxSize], p, hash); err != nil {
-					return err
-				}
-			}
-		}
-	} else if len(sblocks) > 0 {
+	log.Info("Snail insert download", "blocks", txLen)
+	if d.mode == LightSync {
 		if err := d.importBlockAndSyncFast(sblocks, p, hash); err != nil {
 			return err
+		}
+	} else {
+		maxSize := maxSyncSnailHeight
+		if txLen > maxSize {
+			for i := 0; i < txLen; {
+				i = i + maxSize
+				if i <= txLen {
+					if err := d.importBlockAndSyncFast(sblocks[:maxSize], p, hash); err != nil {
+						return err
+					}
+					sblocks = append(sblocks[:0], sblocks[maxSize:]...)
+				} else {
+					if err := d.importBlockAndSyncFast(sblocks[:txLen%maxSize], p, hash); err != nil {
+						return err
+					}
+				}
+			}
+		} else if len(sblocks) > 0 {
+			if err := d.importBlockAndSyncFast(sblocks, p, hash); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1535,14 +1539,29 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 			heads[i] = block.Header()
 			fruitHeads[i] = block.Body().FruitsHeaders()
 		}
-		if len(heads) > maxSyncSnailHeight/2 {
-			err := d.insertLightHeadChain(heads[:len(heads)/2], fruitHeads[:len(heads)/2])
-			if err != nil {
+
+		maxSize := maxSyncSnailHeight / 2
+		txLen := len(heads)
+
+		if txLen > maxSize {
+			for i := 0; i < txLen; {
+				i = i + maxSize
+				if i <= txLen {
+					if err := d.insertLightHeadChain(heads[:maxSize], fruitHeads[:maxSize]); err != nil {
+						return err
+					}
+					heads = append(heads[:0], heads[maxSize:]...)
+					fruitHeads = append(fruitHeads[:0], fruitHeads[maxSize:]...)
+				} else {
+					if err := d.insertLightHeadChain(heads[:txLen%maxSize], fruitHeads[:txLen%maxSize]); err != nil {
+						return err
+					}
+				}
+			}
+		} else if len(blocks) > 0 {
+			if err := d.insertLightHeadChain(heads, fruitHeads); err != nil {
 				return err
 			}
-			return d.insertLightHeadChain(heads[len(heads)/2:], fruitHeads[len(heads)/2:])
-		} else {
-			return d.insertLightHeadChain(heads, fruitHeads)
 		}
 	}
 
