@@ -5283,6 +5283,11 @@ var getBlockTransactionCountCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getBlockTransactionCountByHash' : 'etrue_getBlockTransactionCountByNumber';
 };
 
+var getBlockFruitCountCall = function (args) {
+  return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getBlockFruitCountByHash' : 'etrue_getBlockFrtuitCountByNumber';
+  };
+
+
 var uncleCountCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getUncleCountByBlockHash' : 'etrue_getUncleCountByBlockNumber';
 };
@@ -5406,6 +5411,14 @@ var methods = function () {
     var getBlockTransactionCount = new Method({
         name: 'getBlockTransactionCount',
         call: getBlockTransactionCountCall,
+        params: 1,
+        inputFormatter: [formatters.inputBlockNumberFormatter],
+        outputFormatter: utils.toDecimal
+    });
+
+    var getBlockFruitCount = new Method({
+        name: 'getBlockFruitCount',
+        call: getBlockFruitCountCall,
         params: 1,
         inputFormatter: [formatters.inputBlockNumberFormatter],
         outputFormatter: utils.toDecimal
@@ -5574,6 +5587,7 @@ var methods = function () {
         getUncle,
         getCompilers,
         getBlockTransactionCount,
+        getBlockFruitCount,
         getBlockUncleCount,
         getTransaction,
         getTransactionFromBlock,

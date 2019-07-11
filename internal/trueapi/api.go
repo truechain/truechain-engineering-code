@@ -1307,6 +1307,24 @@ func (s *PublicTransactionPoolAPI) GetBlockTransactionCountByHash(ctx context.Co
 	return nil
 }
 
+// GetBlockFruitCountByNumber returns the number of fruits in the block with the given block number.
+func (s *PublicTransactionPoolAPI) GetBlockFruitCountByNumber(ctx context.Context, blockNr rpc.BlockNumber) *hexutil.Uint {
+	if block, _ := s.b.SnailBlockByNumber(ctx, blockNr); block != nil {
+		n := hexutil.Uint(len(block.Fruits()))
+		return &n
+	}
+	return nil
+}
+
+// GetBlockFruitCountByHash returns the number of fruits in the block with the given hash.
+func (s *PublicTransactionPoolAPI) GetBlockFruitCountByHash(ctx context.Context, blockHash common.Hash) *hexutil.Uint {
+	if block, _ := s.b.GetSnailBlock(ctx, blockHash); block != nil {
+		n := hexutil.Uint(len(block.Fruits()))
+		return &n
+	}
+	return nil
+}
+
 // GetTransactionByBlockNumberAndIndex returns the transaction for the given block number and index.
 func (s *PublicTransactionPoolAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) *RPCTransaction {
 	if block, _ := s.b.BlockByNumber(ctx, blockNr); block != nil {
