@@ -209,14 +209,14 @@ func (s *PublicAccountAPI) Accounts() []common.Address {
 
 // RPCFruits represents a fruit that will serialize to the RPC representation of a fruit
 type RPCFruit struct {
-	Number          *big.Int    `json:"number"`
-	FruitDifficulty *big.Int    `json:"fruitDifficulty"`
-	FruitHash       common.Hash `json:"fruitHash"`
-	FastHash        common.Hash `json:"fastHash"`
-	FastNumber      *big.Int    `json:"fastNumber"`
-	SignHash        common.Hash `json:"signHash"`
-	PointerHash     common.Hash `json:"pointerHash"`
-	PointerNumber   *big.Int    `json:"pointerNumber"`
+	Number          *hexutil.Big `json:"number"`
+	FruitDifficulty *hexutil.Big `json:"fruitDifficulty"`
+	FruitHash       common.Hash  `json:"fruitHash"`
+	FastHash        common.Hash  `json:"fastHash"`
+	FastNumber      *hexutil.Big `json:"fastNumber"`
+	SignHash        common.Hash  `json:"signHash"`
+	PointerHash     common.Hash  `json:"pointerHash"`
+	PointerNumber   *hexutil.Big `json:"pointerNumber"`
 }
 
 // newRPCFruit returns a fruit that will serialize to the RPC
@@ -224,14 +224,14 @@ type RPCFruit struct {
 func newRPCFruit(fruit *types.SnailBlock) *RPCFruit {
 
 	result := &RPCFruit{
-		Number:          fruit.Header().Number,
-		FruitDifficulty: fruit.Header().FruitDifficulty,
+		Number:          (*hexutil.Big)(fruit.Header().Number),
+		FruitDifficulty: (*hexutil.Big)(fruit.Header().FruitDifficulty),
 		FruitHash:       fruit.Hash(),
 		FastHash:        fruit.FastHash(),
-		FastNumber:      fruit.Header().FastNumber,
+		FastNumber:      (*hexutil.Big)(fruit.Header().FastNumber),
 		SignHash:        fruit.Header().SignHash,
 		PointerHash:     fruit.Header().PointerHash,
-		PointerNumber:   fruit.Header().PointerNumber,
+		PointerNumber:   (*hexutil.Big)(fruit.Header().PointerNumber),
 	}
 	return result
 }
