@@ -337,12 +337,13 @@ func (pm *ProtocolManager) blockLoop() {
 
 	sheadCh := make(chan types.SnailChainHeadEvent, 10)
 	sheadSub := pm.blockchain.SubscribeChainHeadEvent(sheadCh)
-	lock := new(sync.Mutex)
 
 	go func() {
 		var lastHead *types.SnailHeader
 		lastBroadcastTd := common.Big0
 		lastBroadcastNumber := uint64(0)
+		lock := new(sync.Mutex)
+
 		for {
 			select {
 			case ev := <-sheadCh:
@@ -403,7 +404,7 @@ func (pm *ProtocolManager) blockLoop() {
 					hash := header.Hash()
 					number := header.Number.Uint64()
 					lock.Lock()
-					if header.Number.Uint64() > lastBroadcastNumber {
+					if number > lastBroadcastNumber {
 						lastBroadcastNumber = header.Number.Uint64()
 						if number%10 == 0 {
 							log.Debug("Announcing fast block to peers", "number", number, "hash", hash, "lastBroadcastNumber", lastBroadcastNumber)
