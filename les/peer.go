@@ -72,7 +72,8 @@ type peer struct {
 	sendQueue   *execQueue
 
 	poolEntry      *poolEntry
-	hasBlock       func(common.Hash, uint64, bool) bool
+	hasBlock       func(common.Hash, uint64) bool
+	hasFastBlock   func(common.Hash, uint64, bool) bool
 	responseErrors int
 
 	fcClient       *flowcontrol.ClientNode // nil if the peer is server only
@@ -208,11 +209,11 @@ func (p *peer) GetTxRelayCost(amount, size int) uint64 {
 }
 
 // HasBlock checks if the peer has a given block
-func (p *peer) HasBlock(hash common.Hash, number uint64, hasState bool) bool {
+func (p *peer) HasBlock(hash common.Hash, number uint64) bool {
 	p.lock.RLock()
 	hasBlock := p.hasBlock
 	p.lock.RUnlock()
-	return hasBlock != nil && hasBlock(hash, number, hasState)
+	return hasBlock != nil && hasBlock(hash, number)
 }
 
 // SendAnnounce announces the availability of a number of blocks through

@@ -200,7 +200,7 @@ func (f *fastLightFetcher) syncLoop() {
 			f.lock.Unlock()
 		case p := <-f.syncDone:
 			f.lock.Lock()
-			p.Log().Debug("Done fast synchronising with peer")
+			p.Log().Trace("Done fast synchronising with peer")
 			f.syncing = false
 			f.lock.Unlock()
 			f.checkQueueHeight()
@@ -212,7 +212,7 @@ func (f *fastLightFetcher) syncLoop() {
 // registerPeer adds a new peer to the fetcher's peer set
 func (f *fastLightFetcher) registerPeer(p *peer) {
 	p.lock.Lock()
-	p.hasBlock = func(hash common.Hash, number uint64, hasState bool) bool {
+	p.hasFastBlock = func(hash common.Hash, number uint64, hasState bool) bool {
 		return f.peerHasBlock(p, hash, number, hasState)
 	}
 	p.lock.Unlock()
@@ -325,6 +325,13 @@ func (f *fastLightFetcher) peerHasBlock(p *peer, hash common.Hash, number uint64
 		// it is recent enough that if it is known, is should be in the peer's block tree
 		return fp.nodeByHash[hash] != nil
 	}
+	f.chain.LockChain()
+	defer f.chain.UnlockChain()
+	// if it's older than the peer's block tree root but it's in the same canonical chain
+	// as the root, we can still be sure the peer knows it
+	//
+	// when syncing, just check if it is part of the known chain, there is nothing better we
+	// can do since we do not know the most recent block hash yet
 	return false
 }
 
@@ -421,6 +428,11 @@ func (f *fastLightFetcher) nextRequest() (*distReq, uint64, bool) {
 					n := fp.nodeByHash[bestHash]
 					if n != nil {
 						n.requested = true
+						for _, node := range fp.nodeByHash {
+							if node.number < n.number {
+								node.requested = true
+							}
+						}
 					}
 				}
 				f.lock.Unlock()
@@ -457,16 +469,16 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 		req.peer.Log().Debug("Response content mismatch", "requested", len(fheads), "reqfrom", fheads[0], "delivered", req.amount, "delfrom", req.hash)
 		return false
 	}
+	heght := f.chain.CurrentHeader().Number
 	headers := make([]*types.Header, req.amount)
+	signs := make([][]*types.PbftSign, req.amount)
 	for i, header := range fheads {
 		headers[int(req.amount)-1-i] = header
-	}
-	signs := make([][]*types.PbftSign, req.amount)
-	for i, sign := range resp.hss.Signs {
-		signs[int(req.amount)-1-i] = sign
+		signs[int(req.amount)-1-i] = resp.hss.Signs[i]
 	}
 
-	if headers[0].Number.Uint64() > f.chain.CurrentHeader().Number.Uint64()+1 {
+	log.Debug("Process response fast", "headers", len(headers), "number", headers[0].Number, "lastnumber", headers[len(headers)-1].Number, "current", heght)
+	if headers[0].Number.Uint64() > heght.Uint64()+1 {
 		for i, head := range headers {
 			hash := head.Hash()
 			num := head.Number.Uint64()
@@ -479,7 +491,7 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 				}
 				f.queued[hash] = op
 				f.queue.Push(op, -int64(num))
-				log.Debug("Queued propagated fast block", "peer", req.peer.id, "number", num, "hash", hash, "queued", f.queue.Size())
+				log.Debug("Queued fast block", "peer", req.peer.id, "number", num, "hash", hash, "queued", f.queue.Size(), "heght", heght)
 			}
 		}
 		return true
@@ -489,8 +501,10 @@ func (f *fastLightFetcher) processResponse(req fetchFastRequest, resp fetchFastR
 
 // insertHeaderChain processes header download request responses, returns true if successful
 func (f *fastLightFetcher) insertHeaderChain(headers []*types.Header, signs [][]*types.PbftSign) bool {
-	log.Debug("insertHeaderChain fast", "headers", len(headers), "number", headers[0].Number, "lastnumber", headers[len(headers)-1].Number, "current", f.chain.CurrentHeader().Number)
 	for i, header := range headers {
+		if f.chain.GetHeaderByHash(header.Hash()) != nil {
+			continue
+		}
 		_, errs := f.pm.election.VerifySigns(signs[i])
 		for _, err := range errs {
 			if err != nil {
@@ -521,13 +535,11 @@ func (f *fastLightFetcher) notifySyncDone(p *peer) {
 // If it was not known previously but found in the database, sets its known flag
 func (f *fastLightFetcher) checkQueueHeight() {
 	// Import any queued headers that could potentially fit
-	headers := []*types.Header{}
-	signs := [][]*types.PbftSign{}
+	log.Debug("Check queue height", "", f.queue.Size())
 	for !f.queue.Empty() {
 		height := f.chain.CurrentHeader().Number.Uint64()
 		op := f.queue.PopItem().(*inject)
 		header := op.header
-		hash := header.Hash()
 
 		// If too high up the chain or phase, continue later
 		number := header.Number.Uint64()
@@ -535,18 +547,7 @@ func (f *fastLightFetcher) checkQueueHeight() {
 			f.queue.Push(op, -int64(number))
 			break
 		}
-		// Otherwise if fresh and still unknown, try and import
-		if f.chain.GetHeaderByHash(hash) != nil {
-			for _, fp := range f.peers {
-				f.checkKnownNode(fp, nil)
-			}
-			continue
-		}
-		headers = append(headers, header)
-		signs = append(signs, op.signs)
-	}
-	if len(headers) > 0 {
-		f.insertHeaderChain(headers, signs)
+		f.insertHeaderChain([]*types.Header{header}, [][]*types.PbftSign{op.signs})
 	}
 }
 

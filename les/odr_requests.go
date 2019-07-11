@@ -89,7 +89,7 @@ func (r *BlockRequest) GetCost(peer *peer) uint64 {
 
 // CanSend tells if a certain peer is suitable for serving the given request
 func (r *BlockRequest) CanSend(peer *peer) bool {
-	return peer.HasBlock(r.Hash, r.Number, false)
+	return peer.HasBlock(r.Hash, r.Number)
 }
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
@@ -123,9 +123,8 @@ func (r *BlockRequest) Validate(db etruedb.Database, msg *Msg) error {
 	if header.FruitsHash != types.DeriveSha(types.FruitsHeaders(headers)) {
 		return errTxHashMismatch
 	}
-	// todo header.UncleHash != types.CalcUncleHash(body.Uncles)
 	// Validations passed, encode and store RLP
-	data, err := rlp.EncodeToBytes(body)
+	data, err := rlp.EncodeToBytes(&types.SnailBody{Fruits: body.Fruit})
 	if err != nil {
 		return err
 	}
@@ -144,7 +143,7 @@ func (r *FruitRequest) GetCost(peer *peer) uint64 {
 
 // CanSend tells if a certain peer is suitable for serving the given request
 func (r *FruitRequest) CanSend(peer *peer) bool {
-	return peer.HasBlock(r.Hash, r.Number, false)
+	return true
 }
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
@@ -163,21 +162,20 @@ func (r *FruitRequest) Validate(db etruedb.Database, msg *Msg) error {
 	if msg.MsgType != MsgFruitBodies {
 		return errInvalidMessageType
 	}
-	bodies := msg.Obj.([]*types.Body)
+	bodies := msg.Obj.([]*types.SnailBody)
 	if len(bodies) != 1 {
 		return errInvalidEntryCount
 	}
 	body := bodies[0]
 
 	// FastRetrieve our stored header and validate block content against it
-	header := rawdb.ReadHeader(db, r.Hash, r.Number)
+	header := snailDB.ReadHeader(db, r.Hash, r.Number)
 	if header == nil {
 		return errHeaderUnavailable
 	}
-	if header.TxHash != types.DeriveSha(types.Transactions(body.Transactions)) {
+	if header.SignHash != types.CalcSignHash(body.Signs) {
 		return errTxHashMismatch
 	}
-	// todo header.UncleHash != types.CalcUncleHash(body.Uncles)
 	// Validations passed, encode and store RLP
 	data, err := rlp.EncodeToBytes(body)
 	if err != nil {
@@ -198,7 +196,7 @@ func (r *FastBlockRequest) GetCost(peer *peer) uint64 {
 
 // CanSend tells if a certain peer is suitable for serving the given request
 func (r *FastBlockRequest) CanSend(peer *peer) bool {
-	return peer.HasBlock(r.Hash, r.Number, false)
+	return peer.hasFastBlock(r.Hash, r.Number, false)
 }
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
@@ -231,7 +229,6 @@ func (r *FastBlockRequest) Validate(db etruedb.Database, msg *Msg) error {
 	if header.TxHash != types.DeriveSha(types.Transactions(body.Transactions)) {
 		return errTxHashMismatch
 	}
-	// todo header.UncleHash != types.CalcUncleHash(body.Uncles)
 	// Validations passed, encode and store RLP
 	data, err := rlp.EncodeToBytes(body)
 	if err != nil {
@@ -252,7 +249,7 @@ func (r *ReceiptsRequest) GetCost(peer *peer) uint64 {
 
 // CanSend tells if a certain peer is suitable for serving the given request
 func (r *ReceiptsRequest) CanSend(peer *peer) bool {
-	return peer.HasBlock(r.Hash, r.Number, false)
+	return peer.hasFastBlock(r.Hash, r.Number, false)
 }
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
@@ -312,7 +309,7 @@ func (r *TrieRequest) GetCost(peer *peer) uint64 {
 
 // CanSend tells if a certain peer is suitable for serving the given request
 func (r *TrieRequest) CanSend(peer *peer) bool {
-	return peer.HasBlock(r.Id.BlockHash, r.Id.BlockNumber, true)
+	return peer.hasFastBlock(r.Id.BlockHash, r.Id.BlockNumber, true)
 }
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
@@ -382,7 +379,7 @@ func (r *CodeRequest) GetCost(peer *peer) uint64 {
 
 // CanSend tells if a certain peer is suitable for serving the given request
 func (r *CodeRequest) CanSend(peer *peer) bool {
-	return peer.HasBlock(r.Id.BlockHash, r.Id.BlockNumber, true)
+	return peer.hasFastBlock(r.Id.BlockHash, r.Id.BlockNumber, true)
 }
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
@@ -571,7 +568,7 @@ func (r *BloomRequest) CanSend(peer *peer) bool {
 	if peer.version < lpv2 {
 		return false
 	}
-	return peer.headInfo.Number >= r.Config.BloomTrieConfirms && r.BloomTrieNum <= (peer.headInfo.Number-r.Config.BloomTrieConfirms)/r.Config.BloomTrieSize
+	return peer.headInfo.FastNumber >= r.Config.BloomTrieConfirms && r.BloomTrieNum <= (peer.headInfo.FastNumber-r.Config.BloomTrieConfirms)/r.Config.BloomTrieSize
 }
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)

@@ -165,7 +165,7 @@ func (odr *LesOdr) FastRetrieve(ctx context.Context, req fast.OdrRequest) (err e
 		// retrieved from network, store in db
 		req.StoreResult(odr.db)
 	} else {
-		log.Debug("Failed to retrieve data from network", "err", err)
+		log.Debug("Failed to retrieve fast data from network", "err", err)
 	}
 	return
 }
