@@ -386,6 +386,20 @@ func (ec *Client) TransactionInBlock(ctx context.Context, blockHash Hash, index 
 	return json.tx, err
 }
 
+// FruitInBlockByHash returns a single fruit at index in the given block.
+func (ec *Client) FruitInBlockByHash(ctx context.Context, snailBlockHash Hash, index uint, fullSigns bool) (*rpcFruit, error) {
+	var json *rpcFruit
+	err := ec.c.CallContext(ctx, &json, "etrue_getFruitByBlockHashAndIndex", snailBlockHash, hexutil.Uint64(index), fullSigns)
+	return json, err
+}
+
+// FruitInBlockByNumber returns a single fruit at index in the given block.
+func (ec *Client) FruitInBlockByNumber(ctx context.Context, snailBlockNumber *big.Int, index uint, fullSigns bool) (*rpcFruit, error) {
+	var json *rpcFruit
+	err := ec.c.CallContext(ctx, &json, "etrue_getFruitByBlockNumberAndIndex", toBlockNumArg(snailBlockNumber), hexutil.Uint64(index), fullSigns)
+	return json, err
+}
+
 // TransactionReceipt returns the receipt of a transaction by transaction hash.
 // Note that the receipt is not available for pending transactions.
 func (ec *Client) TransactionReceipt(ctx context.Context, txHash Hash) (*types.Receipt, error) {

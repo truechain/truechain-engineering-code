@@ -5275,6 +5275,10 @@ var transactionFromBlockCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getTransactionByBlockHashAndIndex' : 'etrue_getTransactionByBlockNumberAndIndex';
 };
 
+var fruitFromBlockCall = function (args) {
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getFruitByBlockHashAndIndex' : 'etrue_getFruitByBlockNumberAndIndex';
+};
+
 var uncleCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getUncleByBlockHashAndIndex' : 'etrue_getUncleByBlockNumberAndIndex';
 };
@@ -5447,6 +5451,14 @@ var methods = function () {
         outputFormatter: formatters.outputTransactionFormatter
     });
 
+    var getFruitFromBlock = new Method({
+        name: 'getFruitFromBlock',
+        call: fruitFromBlockCall,
+        params: 2,
+        inputFormatter: [formatters.inputBlockNumberFormatter, utils.toHex],
+        outputFormatter: formatters.outputTransactionFormatter
+    });
+
     var getTransactionReceipt = new Method({
         name: 'getTransactionReceipt',
         call: 'etrue_getTransactionReceipt',
@@ -5591,6 +5603,7 @@ var methods = function () {
         getBlockUncleCount,
         getTransaction,
         getTransactionFromBlock,
+        getFruitFromBlock,
         getTransactionReceipt,
         getTransactionCount,
         call,
