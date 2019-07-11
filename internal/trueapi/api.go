@@ -1260,6 +1260,15 @@ func newRPCTransactionFromBlockIndex(b *types.Block, index uint64) *RPCTransacti
 	return newRPCTransaction(txs[index], b.Hash(), b.NumberU64(), index)
 }
 
+// newRPCFruitFromBlockIndex returns a fruit that will serialize to the RPC representation.
+func (s *PublicBlockChainAPI) newRPCFruitFromBlockIndex(ctx context.Context, b *types.SnailBlock, index uint64, fullSigns bool) (map[string]interface{}, error) {
+	fts := b.Fruits()
+	if index >= uint64(len(fts)) {
+		return nil, fmt.Errorf("the index you give (%d) is higher than len(fruits) (%d)", index, len(fts))
+	}
+	return s.GetFruitByHash(ctx, fts[index].FastHash(), fullSigns)
+}
+
 // newRPCRawTransactionFromBlockIndex returns the bytes of a transaction given a block and a transaction index.
 func newRPCRawTransactionFromBlockIndex(b *types.Block, index uint64) hexutil.Bytes {
 	txs := b.Transactions()
@@ -1310,7 +1319,7 @@ func (s *PublicTransactionPoolAPI) GetBlockTransactionCountByHash(ctx context.Co
 }
 
 // GetBlockFruitCountByNumber returns the number of fruits in the block with the given block number.
-func (s *PublicTransactionPoolAPI) GetBlockFruitCountByNumber(ctx context.Context, blockNr rpc.BlockNumber) *hexutil.Uint {
+func (s *PublicBlockChainAPI) GetBlockFruitCountByNumber(ctx context.Context, blockNr rpc.BlockNumber) *hexutil.Uint {
 	if block, _ := s.b.SnailBlockByNumber(ctx, blockNr); block != nil {
 		n := hexutil.Uint(len(block.Fruits()))
 		return &n
@@ -1319,7 +1328,7 @@ func (s *PublicTransactionPoolAPI) GetBlockFruitCountByNumber(ctx context.Contex
 }
 
 // GetBlockFruitCountByHash returns the number of fruits in the block with the given hash.
-func (s *PublicTransactionPoolAPI) GetBlockFruitCountByHash(ctx context.Context, blockHash common.Hash) *hexutil.Uint {
+func (s *PublicBlockChainAPI) GetBlockFruitCountByHash(ctx context.Context, blockHash common.Hash) *hexutil.Uint {
 	if block, _ := s.b.GetSnailBlock(ctx, blockHash); block != nil {
 		n := hexutil.Uint(len(block.Fruits()))
 		return &n
@@ -1341,6 +1350,22 @@ func (s *PublicTransactionPoolAPI) GetTransactionByBlockHashAndIndex(ctx context
 		return newRPCTransactionFromBlockIndex(block, uint64(index))
 	}
 	return nil
+}
+
+// GetFruitByBlockNumberAndIndex returns the fruit for the given block number and index.
+func (s *PublicBlockChainAPI) GetFruitByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint, fullSigns bool) (map[string]interface{}, error) {
+	if block, _ := s.b.SnailBlockByNumber(ctx, blockNr); block != nil {
+		return s.newRPCFruitFromBlockIndex(ctx, block, uint64(index), fullSigns)
+	}
+	return nil, nil
+}
+
+// GetFruitByBlockHashAndIndex returns the fruit for the given block hash and index.
+func (s *PublicBlockChainAPI) GetFruitByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint, fullSigns bool) (map[string]interface{}, error) {
+	if block, _ := s.b.GetSnailBlock(ctx, blockHash); block != nil {
+		return s.newRPCFruitFromBlockIndex(ctx, block, uint64(index), fullSigns)
+	}
+	return nil, nil
 }
 
 // GetRawTransactionByBlockNumberAndIndex returns the bytes of the transaction for the given block number and index.
