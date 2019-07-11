@@ -17,6 +17,7 @@
 package miner
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -711,6 +712,10 @@ func (w *worker) updateSnapshot() {
 
 func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) error {
 
+	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 {
+		return errors.New("miner invalid fruit time")
+	}
+
 	err := engine.VerifyFreshness(bc, fruit.Header(), env.header.Number, true)
 	if err != nil {
 		log.Debug("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
@@ -771,6 +776,13 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 					//need del the fruit
 					log.Debug("commitFruits  remove unVerifyFreshness fruit", "fb num", fruit.FastNumber())
 					w.etrue.SnailPool().RemovePendingFruitByFastHash(fruit.FastHash())
+
+					//post a event to start a new commitwork
+					var (
+						events []interface{}
+					)
+					events = append(events, types.NewMinedFruitEvent{Block: nil})
+					w.chain.PostChainEvents(events)
 					break
 				}
 			} else {
