@@ -249,7 +249,7 @@ func (f *fastLightFetcher) announce(p *peer, head *announceData) {
 
 	if fp.lastAnnounced != nil && head.FastNumber <= fp.lastAnnounced.number {
 		if head.FastNumber == fp.lastAnnounced.number && head.FastHash == fp.lastAnnounced.hash {
-			log.Info("Announce duplicated", "number", head.FastNumber, "hash", head.FastHash)
+			log.Debug("Announce duplicated", "number", head.FastNumber, "hash", head.FastHash)
 			return
 		}
 		// announced tds should be strictly monotonic

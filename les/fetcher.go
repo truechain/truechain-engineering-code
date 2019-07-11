@@ -265,7 +265,7 @@ func (f *lightFetcher) announce(p *peer, head *announceData) {
 
 	if fp.lastAnnounced != nil && head.Td.Cmp(fp.lastAnnounced.td) <= 0 {
 		if head.Td.Cmp(fp.lastAnnounced.td) == 0 && head.Hash == fp.lastAnnounced.hash {
-			log.Info("Announce duplicated", "number", head.Number, "hash", head.Hash)
+			log.Debug("Announce duplicated", "number", head.Number, "hash", head.Hash)
 			return
 		}
 		// announced tds should be strictly monotonic
