@@ -24,6 +24,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"github.com/truechain/truechain-engineering-code/params"
 	"math"
+	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -341,7 +342,7 @@ func (pm *ProtocolManager) blockLoop() {
 	go func() {
 		var lastHead *types.SnailHeader
 		lastBroadcastTd := common.Big0
-		lastBroadcastNumber := common.Big0
+		lastBroadcastNumber := uint64(0)
 		for {
 			select {
 			case ev := <-sheadCh:
@@ -354,7 +355,7 @@ func (pm *ProtocolManager) blockLoop() {
 					td := rawdb.ReadTd(pm.chainDb, hash, number)
 					lock.Lock()
 					if td != nil && td.Cmp(lastBroadcastTd) > 0 {
-						lastBroadcastTd = td
+						lastBroadcastTd = new(big.Int).Set(td)
 						var reorg uint64
 						if lastHead != nil {
 							reorg = lastHead.Number.Uint64() - rawdb.FindCommonAncestor(pm.chainDb, header, lastHead).Number.Uint64()
@@ -402,11 +403,10 @@ func (pm *ProtocolManager) blockLoop() {
 					hash := header.Hash()
 					number := header.Number.Uint64()
 					lock.Lock()
-					if header.Number.Cmp(lastBroadcastNumber) > 0 {
-
-						lastBroadcastNumber = header.Number
+					if header.Number.Uint64() > lastBroadcastNumber {
+						lastBroadcastNumber = header.Number.Uint64()
 						if number%10 == 0 {
-							log.Debug("Announcing fast block to peers", "number", number, "hash", hash)
+							log.Debug("Announcing fast block to peers", "number", number, "hash", hash, "lastBroadcastNumber", lastBroadcastNumber)
 						}
 
 						announce := announceData{FastHash: hash, FastNumber: number}
