@@ -1093,6 +1093,8 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		"extraData":       hexutil.Bytes(head.Extra),
 		"size":            hexutil.Uint64(fruit.Size()),
 		"timestamp":       (*hexutil.Big)(head.Time),
+		"PointerHash":     head.PointerHash,
+		"pointerNumber":   (*hexutil.Big)(head.PointerNumber),
 	}
 	signs := fruit.Signs()
 	if fullSigns {

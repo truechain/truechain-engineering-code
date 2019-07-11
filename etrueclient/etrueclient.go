@@ -146,6 +146,8 @@ type rpcFruit struct {
 	ExtraData       hexutil.Bytes    `json:"extraData"`
 	Size            hexutil.Uint64   `json:"size"`
 	Timestamp       *hexutil.Big     `json:"timestamp"`
+	PointerHash     common.Hash      `json:"pointerHash"`
+	PointerNumber   *hexutil.Big     `json:"pointerNumber"`
 	Signs           interface{}      `json:"signs"`
 }
 
