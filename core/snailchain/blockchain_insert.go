@@ -98,9 +98,9 @@ func (it *insertIterator) next(verifyFruits bool) (*types.SnailBlock, error) {
 	if err := <-it.results; err != nil {
 		return it.chain[it.index], err
 	}
-	err := it.validator.ValidateBody(it.chain[it.index], verifyFruits)
+	err := it.validator.ValidateRewarded(it.chain[it.index].NumberU64())
 	if err == nil {
-		err = it.validator.ValidateRewarded(it.chain[it.index].NumberU64())
+		err = it.validator.ValidateBody(it.chain[it.index], verifyFruits)
 	}
 	return it.chain[it.index], err
 }
