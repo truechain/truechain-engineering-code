@@ -28,6 +28,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"sync"
+	"time"
 )
 
 var (
@@ -51,6 +52,10 @@ var (
 
 	//ErrBlockTime is returned if the block's time less than the last fruit's time
 	ErrBlockTime = errors.New("invalid block time")
+)
+
+const (
+	maxTimeFutureFruit = 5
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -191,9 +196,9 @@ func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock, headerNumber *bi
 	if fb == nil {
 		return ErrInvalidFast
 	}
-
+	max := big.NewInt(time.Now().Unix() + maxTimeFutureFruit)
 	//check fruit's time
-	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 {
+	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 || fruit.Time().Cmp(max) >= 0 {
 		return ErrFruitTime
 	}
 
