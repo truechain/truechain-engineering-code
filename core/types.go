@@ -67,7 +67,7 @@ type SnailValidator interface {
 	// the PoW difficulty requirements.
 	VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader, isFruit bool) error
 	// ValidateRewarded validates the given block if rewarded
-	ValidateRewarded(number uint64) error
+	ValidateRewarded(number uint64, hash common.Hash) error
 }
 
 // SnailChain is an interface which defines the standard for snail block.
