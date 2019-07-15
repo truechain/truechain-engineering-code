@@ -17,7 +17,6 @@
 package miner
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -604,7 +603,7 @@ func (w *worker) commitNewWork() {
 		if work.fruits != nil {
 			if work.fruits[len(work.fruits)-1].Time() == nil || work.header.Time == nil || work.header.Time.Cmp(work.fruits[len(work.fruits)-1].Time()) < 0 {
 				log.Error("validate time", "block.Time()", work.header.Time, "fruits[len(fruits)-1].Time()", work.fruits[len(work.fruits)-1].Time(), "block number", work.header.Number, "fruit fast number", work.fruits[len(work.fruits)-1].FastNumber())
-				return
+				work.fruits = nil
 			}
 		}
 
@@ -711,10 +710,6 @@ func (w *worker) updateSnapshot() {
 }
 
 func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) error {
-
-	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 {
-		return errors.New("miner invalid fruit time")
-	}
 
 	err := engine.VerifyFreshness(bc, fruit.Header(), env.header.Number, true)
 	if err != nil {
