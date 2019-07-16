@@ -475,7 +475,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 			firstElectionNumber: new(big.Int).Set(common.Big0),
 			lastElectionNumber:  new(big.Int).Set(common.Big0),
 			switchCheckNumber:   params.ElectionPeriodNumber,
-			backupMembers:       e.genesisCommittee[6:],
+			backupMembers:       e.genesisCommittee[5:],
 			members:             e.genesisCommittee[:5],
 			switches:            rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), 0),
 		}
