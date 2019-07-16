@@ -477,8 +477,8 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		}
 
 		for i := 0; i < len(f); i++ {
-			d[i].Flag = types.StateUnusedFlag
-			d[i].MType = types.TypeBack
+			f[i].Flag = types.StateUnusedFlag
+			f[i].MType = types.TypeBack
 		}
 
 		return &committee{
