@@ -494,6 +494,7 @@ func (bc *SnailBlockChain) HasConfirmedBlock(hash common.Hash, number uint64) bo
 	if bc.blockCache.Contains(hash) {
 		return true
 	}
+	//use ReadCanonicalHash instead HasBody to avoid find common ancestor are not in Canonical chain,and if this ancestor is rewarded,this can avoid invalidate fork which may cost unnecessary time
 	getHash := rawdb.ReadCanonicalHash(bc.db, number)
 	return getHash == hash
 }
