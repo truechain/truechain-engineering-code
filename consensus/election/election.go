@@ -470,13 +470,13 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		log.Debug("get genesis committee")
 
 		d := e.genesisCommittee[5:]
-		e := e.genesisCommittee[:5]
+		f := e.genesisCommittee[:5]
 		for i := 0; i < len(d); i++ {
 			d[i].Flag = types.StateUsedFlag
 			d[i].MType = types.TypeWorked
 		}
 
-		for i := 0; i < len(e); i++ {
+		for i := 0; i < len(f); i++ {
 			d[i].Flag = types.StateUnusedFlag
 			d[i].MType = types.TypeBack
 		}
@@ -490,7 +490,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 			switchCheckNumber:   params.ElectionPeriodNumber,
 
 			backupMembers: d,
-			members:       e,
+			members:       f,
 			switches:      rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), 0),
 		}
 	}
