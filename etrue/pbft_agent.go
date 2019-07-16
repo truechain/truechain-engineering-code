@@ -1322,7 +1322,7 @@ func (agent *PbftAgent) singleloop() {
 //GetCurrentCommittee return committee member's pubkey information
 func (agent *PbftAgent) GetCurrentCommittee() []string {
 	members := agent.currentCommitteeInfo.Members
-	memberKeys := make([]string, len(members))
+	memberKeys := make([]string, 0)
 	for _, member := range members {
 		pubKeyStr := fmt.Sprintf("%x", member.Publickey)
 		memberKeys = append(memberKeys, pubKeyStr)
@@ -1333,7 +1333,7 @@ func (agent *PbftAgent) GetCurrentCommittee() []string {
 //GetAlternativeCommittee return received back committee member's pubkey information
 func (agent *PbftAgent) GetAlternativeCommittee() []string {
 	members := agent.currentCommitteeInfo.BackMembers
-	memberKeys := make([]string, len(members))
+	memberKeys := make([]string, 0)
 	for _, member := range members {
 		pubKeyStr := fmt.Sprintf("%x", member.Publickey)
 		memberKeys = append(memberKeys, pubKeyStr)
