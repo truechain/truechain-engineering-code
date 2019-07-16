@@ -110,9 +110,9 @@ var (
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
 	DevnetTrustedCheckpoint = &TrustedCheckpoint{
 		Name:         "devnet",
-		SectionIndex: 55,
-		SectionHead:  common.HexToHash("0x9f88b11036f4302ea84bf1065af0f0e7c78a5b03098f6eecc22c69a43a2a3357"),
-		CHTRoot:      common.HexToHash("0x204dc825e47f728ff911e303e46849216f21452577727f328f089de815983a66"),
+		SectionIndex: 62,
+		SectionHead:  common.HexToHash("0x6947853b9097db76f4776b3903d42f00284bb9e6c24c5d6fa3bd622a07a5b336"),
+		CHTRoot:      common.HexToHash("0xdd6ab039d76405e87033b81d0a78e4d1888a88d320d6c2c46f1d08a14d07e9e6"),
 		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
 	}
 

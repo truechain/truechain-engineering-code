@@ -397,7 +397,7 @@ func (self *LightChain) InsertHeaderChain(chain []*types.SnailHeader, fruitHeads
 
 		switch status {
 		case snailchain.CanonStatTy:
-			log.Debug("Inserted new snail header", "number", header.Number, "fruits", len(fruitHeads), "hash", header.Hash().String())
+			log.Debug("Inserted new snail header", "number", header.Number, "td", self.hc.GetTd(header.Hash(), header.Number.Uint64()), "fruits", len(fruitHeads), "hash", header.Hash().String())
 			events = append(events, types.SnailChainEvent{Block: types.NewSnailBlockWithHeader(header), Hash: header.Hash()})
 
 		case snailchain.SideStatTy:
