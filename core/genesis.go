@@ -273,10 +273,13 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 
 	// All genesis committee members are included in switchinfo of block #0
 	committee := &types.SwitchInfos{CID: common.Big0, Members: g.Committee, BackMembers: make([]*types.CommitteeMember, 0), Vals: make([]*types.SwitchEnter, 0)}
-	for _, member := range committee.Members {
+	for i, member := range committee.Members {
 		pubkey, _ := crypto.UnmarshalPubkey(member.Publickey)
 		member.Flag = types.StateUsedFlag
-		member.MType = types.TypeFixed
+		member.MType = types.TypeWorked
+		if i >= 4 {
+			member.MType = types.TypeBack
+		}
 		member.CommitteeBase = crypto.PubkeyToAddress(*pubkey)
 	}
 	return types.NewBlock(head, nil, nil, nil, committee.Members)
@@ -490,13 +493,13 @@ func decodePrealloc(data string) types.GenesisAlloc {
 
 // GenesisFastBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisFastBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.Block {
-	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}},Config:params.AllMinervaProtocolChanges}
+	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}, Config: params.AllMinervaProtocolChanges}
 	return g.MustFastCommit(db)
 }
 
 // GenesisSnailBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisSnailBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.SnailBlock {
-	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}},Config:params.AllMinervaProtocolChanges}
+	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}, Config: params.AllMinervaProtocolChanges}
 	return g.MustSnailCommit(db)
 }
 
