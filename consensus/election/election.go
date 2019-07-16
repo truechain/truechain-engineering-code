@@ -468,6 +468,19 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 	if committeeNumber.Cmp(common.Big0) == 0 {
 		// genesis committee
 		log.Debug("get genesis committee")
+
+		d := e.genesisCommittee[5:]
+		e := e.genesisCommittee[:5]
+		for i := 0; i < len(d); i++ {
+			d[i].Flag = types.StateUsedFlag
+			d[i].MType = types.TypeWorked
+		}
+
+		for i := 0; i < len(e); i++ {
+			d[i].Flag = types.StateUnusedFlag
+			d[i].MType = types.TypeBack
+		}
+
 		return &committee{
 			id:                  new(big.Int).Set(common.Big0),
 			beginFastNumber:     new(big.Int).Set(common.Big1),
@@ -475,9 +488,10 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 			firstElectionNumber: new(big.Int).Set(common.Big0),
 			lastElectionNumber:  new(big.Int).Set(common.Big0),
 			switchCheckNumber:   params.ElectionPeriodNumber,
-			backupMembers:       e.genesisCommittee[5:],
-			members:             e.genesisCommittee[:5],
-			switches:            rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), 0),
+
+			backupMembers: d,
+			members:       e,
+			switches:      rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), 0),
 		}
 	}
 
