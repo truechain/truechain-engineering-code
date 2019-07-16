@@ -472,13 +472,13 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		d := e.genesisCommittee[5:]
 		f := e.genesisCommittee[:5]
 		for i := 0; i < len(d); i++ {
-			d[i].Flag = types.StateUsedFlag
-			d[i].MType = types.TypeWorked
+			d[i].Flag = types.StateUnusedFlag
+			d[i].MType = types.TypeBack
 		}
 
 		for i := 0; i < len(f); i++ {
-			f[i].Flag = types.StateUnusedFlag
-			f[i].MType = types.TypeBack
+			f[i].Flag = types.StateUsedFlag
+			f[i].MType = types.TypeWorked
 		}
 
 		return &committee{
