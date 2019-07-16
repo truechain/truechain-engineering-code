@@ -199,6 +199,7 @@ func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock, headerNumber *bi
 	max := big.NewInt(time.Now().Unix() + maxTimeFutureFruit)
 	//check fruit's time
 	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 || fruit.Time().Cmp(max) >= 0 {
+		log.Info("ValidateFruit", "fruit time", fruit.Time(), "max", max, "err", ErrFruitTime)
 		return ErrFruitTime
 	}
 
