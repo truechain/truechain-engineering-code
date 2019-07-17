@@ -51,6 +51,10 @@ func (b *LesApiBackend) CurrentBlock() *types.Block {
 	return types.NewBlockWithHeader(b.etrue.FastBlockChain().CurrentHeader())
 }
 
+func (b *LesApiBackend) CurrentSnailBlock() *types.SnailBlock {
+	return nil
+}
+
 func (b *LesApiBackend) SetHead(number uint64) {
 	b.etrue.protocolManager.downloader.Cancel()
 	b.etrue.blockchain.SetHead(number)

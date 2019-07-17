@@ -110,7 +110,7 @@ type Engine interface {
 	// the consensus rules of the given engine.
 	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader, isFruit bool) error
 
-	VerifyFreshness(chain SnailChainReader, fruit, block *types.SnailHeader, canonical bool) error
+	VerifyFreshness(chain SnailChainReader, fruit *types.SnailHeader, headerNumber *big.Int, canonical bool) error
 
 	VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs []*types.PbftSign) error
 
