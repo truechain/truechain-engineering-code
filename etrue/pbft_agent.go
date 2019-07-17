@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -753,11 +754,6 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		return nil, err
 	}
 
-	if infos != nil {
-		header.CommitteeHash = types.RlpHash(infos)
-	} else {
-		header.CommitteeHash = params.EmptyHash
-	}
 	//assign Proposer
 	pubKey, _ := crypto.UnmarshalPubkey(agent.committeeNode.Publickey)
 	header.Proposer = crypto.PubkeyToAddress(*pubKey)
@@ -1321,4 +1317,26 @@ func (agent *PbftAgent) singleloop() {
 			log.Error("BroadcastConsensus error", "err", err)
 		}
 	}
+}
+
+//GetCurrentCommittee return committee member's pubkey information
+func (agent *PbftAgent) GetCurrentCommittee() []string {
+	members := agent.currentCommitteeInfo.Members
+	memberKeys := make([]string, 0)
+	for _, member := range members {
+		pubKeyStr := fmt.Sprintf("%x", member.Publickey)
+		memberKeys = append(memberKeys, pubKeyStr)
+	}
+	return memberKeys
+}
+
+//GetAlternativeCommittee return received back committee member's pubkey information
+func (agent *PbftAgent) GetAlternativeCommittee() []string {
+	members := agent.currentCommitteeInfo.BackMembers
+	memberKeys := make([]string, 0)
+	for _, member := range members {
+		pubKeyStr := fmt.Sprintf("%x", member.Publickey)
+		memberKeys = append(memberKeys, pubKeyStr)
+	}
+	return memberKeys
 }

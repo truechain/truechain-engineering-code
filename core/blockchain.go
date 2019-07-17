@@ -260,7 +260,6 @@ func (bc *BlockChain) loadLastState() error {
 	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
-
 		// Send a message to the committee if you find a chain backtracking
 		if err := bc.repair(&currentBlock); err != nil {
 			return err
@@ -289,12 +288,12 @@ func (bc *BlockChain) loadLastState() error {
 	rewardHead := bc.GetLastRowByFastCurrentBlock()
 
 	if rewardHead != nil {
-		fmt.Println("rewardHead","SnailNumber",rewardHead.SnailNumber,"FastNumber",rewardHead.FastNumber)
 		bc.currentReward.Store(rewardHead)
 		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
 	}else {
-		fmt.Println("rewardHead del")
-		rawdb.WriteHeadRewardNumber(bc.db, 1)
+		reward := &types.BlockReward{SnailNumber:big.NewInt(0),}
+		bc.currentReward.Store(reward)
+		rawdb.WriteHeadRewardNumber(bc.db, 0)
 	}
 
 	// Restore the last known currentReward
@@ -391,16 +390,6 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	}
 	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock == nil {
 		bc.currentFastBlock.Store(bc.genesisBlock)
-	}
-
-	rawdb.WriteHeadRewardNumber(bc.db, 0)
-	// Restore the last known currentReward
-	if bc.CurrentBlock().NumberU64() != 0 {
-		currentReward := bc.GetLastRowByFastCurrentBlock()
-		if currentReward != nil {
-			bc.currentReward.Store(currentReward)
-			rawdb.WriteHeadRewardNumber(bc.db, currentReward.SnailNumber.Uint64())
-		}
 	}
 
 	currentBlock := bc.CurrentBlock()

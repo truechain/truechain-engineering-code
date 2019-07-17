@@ -51,6 +51,10 @@ func (b *LesApiBackend) CurrentBlock() *types.Block {
 	return types.NewBlockWithHeader(b.etrue.BlockChain().CurrentHeader())
 }
 
+func (b *LesApiBackend) CurrentSnailBlock() *types.SnailBlock {
+	return nil
+}
+
 func (b *LesApiBackend) SetHead(number uint64) {
 	b.etrue.protocolManager.downloader.Cancel()
 	b.etrue.blockchain.SetHead(number)
@@ -130,7 +134,7 @@ func (b *LesApiBackend) GetTd(hash common.Hash) *big.Int {
 
 func (b *LesApiBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
 	state.SetBalance(msg.From(), math.MaxBig256)
-	context := core.NewEVMContext(msg, header, b.etrue.blockchain,nil,nil)
+	context := core.NewEVMContext(msg, header, b.etrue.blockchain, nil, nil)
 	return vm.NewEVM(context, state, b.etrue.chainConfig, vmCfg), state.Error, nil
 }
 

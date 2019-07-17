@@ -492,14 +492,7 @@ func (m *Minerva) VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeM
 }
 
 //VerifyFreshness the fruit have fresh is 17 blocks
-func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit, block *types.SnailHeader, canonical bool) error {
-	var headerNumber *big.Int
-	if block == nil {
-		// when block is nil, is used to verify new fruits for next block
-		headerNumber = new(big.Int).Add(chain.CurrentHeader().Number, common.Big1)
-	} else {
-		headerNumber = block.Number
-	}
+func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit *types.SnailHeader, headerNumber *big.Int, canonical bool) error {
 	// check freshness
 	pointer := chain.GetHeaderByNumber(fruit.PointerNumber.Uint64())
 	if pointer == nil {

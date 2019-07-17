@@ -5275,6 +5275,10 @@ var transactionFromBlockCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getTransactionByBlockHashAndIndex' : 'etrue_getTransactionByBlockNumberAndIndex';
 };
 
+var fruitFromBlockCall = function (args) {
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getFruitByBlockHashAndIndex' : 'etrue_getFruitByBlockNumberAndIndex';
+};
+
 var uncleCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getUncleByBlockHashAndIndex' : 'etrue_getUncleByBlockNumberAndIndex';
 };
@@ -5282,6 +5286,11 @@ var uncleCall = function (args) {
 var getBlockTransactionCountCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getBlockTransactionCountByHash' : 'etrue_getBlockTransactionCountByNumber';
 };
+
+var getBlockFruitCountCall = function (args) {
+  return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getBlockFruitCountByHash' : 'etrue_getBlockFrtuitCountByNumber';
+  };
+
 
 var uncleCountCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getUncleCountByBlockHash' : 'etrue_getUncleCountByBlockNumber';
@@ -5411,6 +5420,14 @@ var methods = function () {
         outputFormatter: utils.toDecimal
     });
 
+    var getBlockFruitCount = new Method({
+        name: 'getBlockFruitCount',
+        call: getBlockFruitCountCall,
+        params: 1,
+        inputFormatter: [formatters.inputBlockNumberFormatter],
+        outputFormatter: utils.toDecimal
+    });
+
     var getBlockUncleCount = new Method({
         name: 'getBlockUncleCount',
         call: uncleCountCall,
@@ -5429,6 +5446,14 @@ var methods = function () {
     var getTransactionFromBlock = new Method({
         name: 'getTransactionFromBlock',
         call: transactionFromBlockCall,
+        params: 2,
+        inputFormatter: [formatters.inputBlockNumberFormatter, utils.toHex],
+        outputFormatter: formatters.outputTransactionFormatter
+    });
+
+    var getFruitFromBlock = new Method({
+        name: 'getFruitFromBlock',
+        call: fruitFromBlockCall,
         params: 2,
         inputFormatter: [formatters.inputBlockNumberFormatter, utils.toHex],
         outputFormatter: formatters.outputTransactionFormatter
@@ -5574,9 +5599,11 @@ var methods = function () {
         getUncle,
         getCompilers,
         getBlockTransactionCount,
+        getBlockFruitCount,
         getBlockUncleCount,
         getTransaction,
         getTransactionFromBlock,
+        getFruitFromBlock,
         getTransactionReceipt,
         getTransactionCount,
         call,

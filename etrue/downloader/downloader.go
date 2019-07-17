@@ -1452,7 +1452,7 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 	}
 
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		log.Error("Snail downloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
+		log.Error("Snail downloaded item processing failed", "number", blocks[index].Number().Uint64(), "hash", blocks[index].Hash(), "err", err)
 		if err == types.ErrSnailHeightNotYet {
 			return err
 		}

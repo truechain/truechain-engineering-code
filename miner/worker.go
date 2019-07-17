@@ -598,6 +598,15 @@ func (w *worker) commitNewWork() {
 			log.Info("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits)-1].FastNumber())
 			work.fruits = work.fruits[:params.MaximumFruits]
 		}
+
+		// make sure the time
+		if work.fruits != nil {
+			if work.fruits[len(work.fruits)-1].Time() == nil || work.header.Time == nil || work.header.Time.Cmp(work.fruits[len(work.fruits)-1].Time()) < 0 {
+				log.Error("validate time", "block.Time()", work.header.Time, "fruits[len(fruits)-1].Time()", work.fruits[len(work.fruits)-1].Time(), "block number", work.header.Number, "fruit fast number", work.fruits[len(work.fruits)-1].FastNumber())
+				work.fruits = nil
+			}
+		}
+
 	}
 
 	// Set the pointerHash
@@ -702,7 +711,7 @@ func (w *worker) updateSnapshot() {
 
 func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) error {
 
-	err := engine.VerifyFreshness(bc, fruit.Header(), env.header, true)
+	err := engine.VerifyFreshness(bc, fruit.Header(), env.header.Number, true)
 	if err != nil {
 		log.Debug("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
 		return err
@@ -762,6 +771,13 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 					//need del the fruit
 					log.Debug("commitFruits  remove unVerifyFreshness fruit", "fb num", fruit.FastNumber())
 					w.etrue.SnailPool().RemovePendingFruitByFastHash(fruit.FastHash())
+
+					//post a event to start a new commitwork
+					var (
+						events []interface{}
+					)
+					events = append(events, types.NewMinedFruitEvent{Block: nil})
+					w.chain.PostChainEvents(events)
 					break
 				}
 			} else {

@@ -396,6 +396,11 @@ web3._extend({
 	property: 'etrue',
 	methods: [
 		new web3._extend.Method({
+			name: 'chainId',
+			call: 'etrue_chainId',
+			params: 0
+		}),
+		new web3._extend.Method({
 			name: 'sign',
 			call: 'etrue_sign',
 			params: 2,
