@@ -1246,7 +1246,7 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 	// Otherwise if the block is indeed in out own chain, announce it
 	if pm.snailchain.HasBlock(hash, snailBlock.NumberU64()) {
 		for _, peer := range peers {
-			peer.AsyncSendNewBlock(nil, snailBlock, td, false)
+			peer.AsyncSendNewBlockHash(nil, snailBlock, false)
 		}
 		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
 	}
