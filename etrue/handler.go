@@ -870,7 +870,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 
-		log.Debug("NodeData node state data", "data", data)
+		log.Debug("NodeData node state data", "data", len(data))
 		// Deliver all to the downloader
 		if err := pm.downloader.DeliverNodeData(p.id, data); err != nil {
 			log.Debug("Failed to deliver node state data", "err", err)
@@ -1088,6 +1088,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, block := range request.SnailBlock {
 			block.ReceivedAt = msg.ReceivedAt
 			block.ReceivedFrom = p
+			block.SetSnailBlockSigns(nil)
 
 			log.Debug("Enqueue snail block", "number", block.Number())
 			p.MarkSnailBlock(block.Hash())
@@ -1311,7 +1312,7 @@ func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
 		select {
 		case nodeInfoEvent := <-pm.pbNodeInfoCh:
 			pm.BroadcastPbNodeInfo(nodeInfoEvent.NodeInfo)
-		// Err() channel will be closed when unsubscribing.
+			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbNodeInfoSub.Err():
 			return
 		}

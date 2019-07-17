@@ -1386,7 +1386,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	first, last := results[0].Sheader, results[len(results)-1].Sheader
 	log.Info("Snail insert download chain", "results", len(results),
 		"firstnum", first.Number, "firsthash", first.Hash(),
-		"lastnum", last.Number, "lasthash", last.Hash(),
+		"lastnum", last.Number, "lasthash", last.Hash(),"mode",d.mode,
 	)
 	sblocks := []*types.SnailBlock{}
 	for _, result := range results {
@@ -1436,7 +1436,7 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 	result := blocks[len(blocks)-1]
 	fruitLen := uint64(len(result.Fruits()))
 	fbLastNumber := result.Fruits()[fruitLen-1].FastNumber().Uint64()
-	log.Info("Sync fast blocks", "fbNumber", fbNumber, "fbLastNumber", fbLastNumber, "first snail", firstB.Number(), "last snail", result.Number())
+	log.Info("Sync fast blocks", "fbNumber", fbNumber, "fbLastNumber", fbLastNumber, "first snail", firstB.Number(), "last snail", result.Number(),"mode",d.mode)
 	if err := d.SyncFast(p.GetID(), hash, fbLastNumber, d.mode); err != nil {
 		return err
 	}
@@ -1452,7 +1452,7 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 	}
 
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		log.Error("Snail downloaded item processing failed", "number", blocks[index].Number, "hash", blocks[index].Hash(), "err", err)
+		log.Error("Snail downloaded item processing failed", "number", blocks[index].Number().Uint64(), "hash", blocks[index].Hash(), "err", err)
 		if err == types.ErrSnailHeightNotYet {
 			return err
 		}
@@ -1464,6 +1464,7 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 }
 
 func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64, mode SyncMode) (err error) {
+	log.Debug("SyncFast","mode",mode)
 
 	currentNumber := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
 	if mode == FastSync {
@@ -1477,7 +1478,7 @@ func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64
 	}(time.Now())
 
 	if fbLastNumber > currentNumber {
-		log.Debug("Run fast downloader ", "fbNumLast", fbLastNumber, "currentNum", currentNumber)
+		log.Debug("Run fast downloader ", "fbNumLast", fbLastNumber, "currentNum", currentNumber,"mode",mode)
 		if mode == SnapShotSync && fbLastNumber > d.remoteHeader.Number.Uint64() {
 			mode = FastSync
 		}

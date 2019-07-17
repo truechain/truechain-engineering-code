@@ -492,14 +492,7 @@ func (m *Minerva) VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeM
 }
 
 //VerifyFreshness the fruit have fresh is 17 blocks
-func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit, block *types.SnailHeader, canonical bool) error {
-	var headerNumber *big.Int
-	if block == nil {
-		// when block is nil, is used to verify new fruits for next block
-		headerNumber = new(big.Int).Add(chain.CurrentHeader().Number, common.Big1)
-	} else {
-		headerNumber = block.Number
-	}
+func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit *types.SnailHeader, headerNumber *big.Int, canonical bool) error {
 	// check freshness
 	pointer := chain.GetHeaderByNumber(fruit.PointerNumber.Uint64())
 	if pointer == nil {
@@ -528,8 +521,7 @@ func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit, block
 
 // GetDifficulty get difficulty by header
 func (m *Minerva) GetDifficulty(header *types.SnailHeader, isFruit bool) (*big.Int, *big.Int) {
-	dataset := m.getDataset(header.Number.Uint64())
-	_, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	result := header.MixDigest
 
 	if isFruit {
 		last := result[16:]
@@ -677,6 +669,9 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	}
 	// Recompute the digest and PoW value and verify against the header
 	dataset := m.getDataset(header.Number.Uint64())
+	if dataset == nil {
+		return errors.New("get dataset is nil")
+	}
 	//m.CheckDataSetState(header.Number.Uint64())
 	digest, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
@@ -712,6 +707,11 @@ func (m *Minerva) VerifySnailSeal2(hight *big.Int, nonce string, headNoNoncehash
 	headHash := common.HexToHash(headNoNoncehash)
 
 	dataset := m.getDataset(hight.Uint64())
+	if dataset == nil {
+		log.Error(" get dataset is nil")
+		return false, false, []byte{}
+
+	}
 	//m.CheckDataSetState(header.Number.Uint64())
 	digest, result := truehashLight(dataset.dataset, headHash.Bytes(), binary.BigEndian.Uint64(nonceHash[:]))
 

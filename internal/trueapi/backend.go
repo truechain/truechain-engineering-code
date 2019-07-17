@@ -77,6 +77,7 @@ type Backend interface {
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
+	CurrentSnailBlock() *types.SnailBlock
 
 	// SnailPool API
 	SnailPoolContent() []*types.SnailBlock

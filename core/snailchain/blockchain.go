@@ -252,6 +252,10 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 		log.Error("the height can't set,because it is higher than current height", "height", head, "current height", bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64())
 		return errors.New("the height you give is too high,can not be set")
 	}
+	if head == bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64() {
+		log.Error("the height is current height", "height", head, "current height", bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64())
+		return errors.New("the height you want to set is current height")
+	}
 	/*	err := bc.Validator().ValidateRewarded(head + 1)
 		if err != nil {
 			log.Error("the hight can't set,because it's next block is already rewarded", "hight", head)
@@ -490,7 +494,9 @@ func (bc *SnailBlockChain) HasConfirmedBlock(hash common.Hash, number uint64) bo
 	if bc.blockCache.Contains(hash) {
 		return true
 	}
-	return rawdb.HasBody(bc.db, hash, number)
+	//use ReadCanonicalHash instead HasBody to avoid find common ancestor are not in Canonical chain,and if this ancestor is rewarded,this can avoid invalidate fork which may cost unnecessary time
+	getHash := rawdb.ReadCanonicalHash(bc.db, number)
+	return getHash == hash
 }
 
 // IsCanonicalBlock checks if a block on the Canonical block chain
@@ -618,6 +624,7 @@ func (bc *SnailBlockChain) procFutureBlocks() {
 
 		// Insert one by one as chain insertion needs contiguous ancestry between blocks
 		for i := range blocks {
+			log.Info("procFutureBlocks", "number", blocks[i].Number(), "hash", blocks[i].Hash())
 			bc.InsertChain(blocks[i : i+1])
 		}
 	}
@@ -902,6 +909,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 
 		// Some other error occurred, abort
 	case err != nil:
+		bc.futureBlocks.Remove(block.Hash())
 		stats.ignored += len(it.chain)
 		bc.reportBlock(block, err)
 		return it.index, events, err

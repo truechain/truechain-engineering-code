@@ -177,9 +177,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if err != nil {
 		return nil, err
 	}
-	bl := etrue.blockchain.GetBlockByNumber(0)
-	fmt.Print(bl)
-
 
 	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, etrue.chainConfig, etrue.engine, etrue.blockchain)
 	if err != nil {
