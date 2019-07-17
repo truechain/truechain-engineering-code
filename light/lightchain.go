@@ -553,3 +553,8 @@ func (self *LightChain) SubscribeChainHeadEvent(ch chan<- types.SnailChainHeadEv
 func (self *LightChain) SubscribeChainSideEvent(ch chan<- types.SnailChainSideEvent) event.Subscription {
 	return self.scope.Track(self.chainSideFeed.Subscribe(ch))
 }
+
+// GetHeaderChain loads the last known chain state from the database. This method
+func (self *LightChain) GetHeaderChain() *snailchain.HeaderChain {
+	return self.hc
+}

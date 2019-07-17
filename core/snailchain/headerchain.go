@@ -153,7 +153,7 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader, fruitHeads []*type
 			ptd.Add(ptd, f.FruitDifficulty)
 		}
 	} else {
-		log.Info("Check fruit hash", "number", number, "hash", hash)
+		log.Info("Check fruit hash", "number", number, "count", len(fruitHeads), "hash", hash)
 	}
 	externTd := new(big.Int).Add(header.Difficulty, ptd)
 

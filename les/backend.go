@@ -132,6 +132,7 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	}
 	leth.election = NewLightElection(leth.fblockchain, leth.blockchain)
 	leth.engine.SetElection(leth.election)
+	leth.engine.SetSnailChainReader(leth.blockchain.GetHeaderChain())
 
 	// Note: AddChildIndexer starts the update process for the child
 	leth.chtIndexer.Start(leth.blockchain)
