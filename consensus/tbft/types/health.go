@@ -320,7 +320,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 		log.Debug("Health", "id", v.ID, "val", val)
 		if sshift && (val > HealthOut+60) && v.State == ctypes.StateUsedFlag && !v.Self {
 			if sv0 := h.getCurSV(); sv0 == nil {
-				log.Warn("Health", "id", v.ID, "val", val)
+				log.Warn("Health", "id", v.ID, "ip", v.IP+":"+string(v.Port), "val", val)
 				back := h.pickUnuseValidator()
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
 				atomic.StoreUint32(&v.State, ctypes.StateSwitchingFlag)
