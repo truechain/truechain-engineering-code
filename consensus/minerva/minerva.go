@@ -29,7 +29,9 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"golang.org/x/crypto/sha3"
@@ -221,6 +223,7 @@ type Minerva struct {
 
 	sbc      consensus.SnailChainReader
 	election consensus.CommitteeElection
+	chainDB  etruedb.Database
 }
 
 //var MinervaLocal *Minerva
@@ -289,7 +292,16 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 
 	if current.dateInit == 0 && epoch > 0 {
 		if !getHashList(&headerHash, epoch) {
-			return nil
+			var aa [][]byte
+			aa = rawdb.ReadLastDataSet(m.chainDB)
+			len_aa := len(aa)
+			if len_aa == 0 {
+				return nil
+			}
+			for i := 0; i < len_aa; i++ {
+				headerHash[i] = aa[i]
+			}
+			//return nil
 		}
 	}
 
@@ -351,6 +363,10 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 //SetSnailChainReader Append interface SnailChainReader after instantiations
 func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
 	m.sbc = scr
+}
+
+func (m *Minerva) SetSnailHeaderHash(db etruedb.Database) {
+	m.chainDB = db
 }
 
 //SetElection Append interface CommitteeElection after instantiation
