@@ -58,8 +58,8 @@ var (
 
 	configPrefix = []byte("snailchain-truechain-config-") // config prefix for the db
 
-	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
-	BloomBitsIndexPrefix = []byte("siB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
+	// headBlockKey tracks the latest know full block's hash.
+	dataSetKey = []byte("LastDataSet")
 )
 
 // FtLookupEntry is a positional metadata to help looking up the data content of

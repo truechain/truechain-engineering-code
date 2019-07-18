@@ -440,12 +440,7 @@ type HelperTrieResps struct { // describes all responses, not just a single one
 	AuxData [][]byte
 	Heads   []*types.SnailHeader
 	Fhead   []*types.Header
-}
-
-// legacy LES/1
-type ChtReq struct {
-	ChtNum, BlockNum uint64
-	FromLevel        uint
+	DataSet [][]byte
 }
 
 // ODR request type for requesting headers by Canonical Hash Trie, see LesOdrRequest interface
@@ -541,6 +536,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 		r.Td = node.Td
 		r.Headers = resp.Heads
 		r.FHeader = resp.Fhead[0]
+		r.Dataset = resp.DataSet
 	default:
 		return errInvalidMessageType
 	}

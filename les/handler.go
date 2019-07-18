@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"github.com/truechain/truechain-engineering-code/light/fast"
@@ -1161,6 +1162,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			auxData  [][]byte
 			Heads    []*types.SnailHeader
 			fHeads   []*types.Header
+			dataSet  [][]byte
 		)
 		reqCnt := len(req.Reqs)
 		if reject(uint64(reqCnt), MaxHelperTrieProofsFetch) {
@@ -1205,6 +1207,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						for i := params.DifficultyPeriod.Int64() - 1; i > 0; i-- {
 							Heads = append(Heads, pm.blockchain.GetHeaderByNumber(blockNum-uint64(i)))
 						}
+						dataSet = pm.getHelperDataSet()
 					}
 				}
 			}
@@ -1214,7 +1217,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendHelperTrieProofs(req.ReqID, bv, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData, Heads: Heads, Fhead: fHeads})
+		return p.SendHelperTrieProofs(req.ReqID, bv, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData, Heads: Heads, Fhead: fHeads, DataSet: dataSet})
 
 	case HelperTrieProofsMsg:
 		if pm.odr == nil {
@@ -1369,6 +1372,29 @@ func (pm *ProtocolManager) getHelperTrieAuxData(req HelperTrieReq) ([]byte, *typ
 		return snaildb.ReadHeaderRLP(pm.chainDb, hash, blockNum), head
 	}
 	return nil, nil
+}
+
+// getHelperDataSet returns requested auxiliary data for the given HelperTrie request
+func (pm *ProtocolManager) getHelperDataSet() [][]byte {
+	var headerHash [][]byte
+
+	epoch := uint64((pm.blockchain.CurrentHeader().Number.Uint64() - 1) / minerva.UPDATABLOCKLENGTH)
+	if epoch <= 0 {
+		return nil
+	}
+
+	st_block_num := uint64((epoch-1)*minerva.UPDATABLOCKLENGTH + 1)
+
+	for i := 0; i < minerva.STARTUPDATENUM; i++ {
+		header := pm.blockchain.GetHeaderByNumber(uint64(i) + st_block_num)
+		if header == nil {
+			log.Error(" getDataset function getHead hash fail ", "blockNum is:  ", (uint64(i) + st_block_num))
+			return nil
+		}
+
+		headerHash = append(headerHash, header.Hash().Bytes())
+	}
+	return headerHash
 }
 
 func (pm *ProtocolManager) txStatus(hashes []common.Hash) []txStatus {

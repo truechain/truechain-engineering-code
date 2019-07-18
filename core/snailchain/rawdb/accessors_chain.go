@@ -414,3 +414,33 @@ func DeleteFruitsHead(db DatabaseDeleter, hash common.Hash, number uint64) {
 		log.Crit("Failed to delete snail block body", "err", err)
 	}
 }
+
+// ReadLastDataSet retrieves the number of tries nodes fast synced to allow
+// reporting correct numbers across restarts.
+func ReadLastDataSet(db DatabaseReader) [][]byte {
+	data, _ := db.Get(dataSetKey)
+	if len(data) == 0 {
+		return nil
+	}
+
+	var dataSet [][]byte
+	if err := rlp.Decode(bytes.NewReader(data), &dataSet); err != nil {
+		log.Error("Invalid last data set RLP", "err", err)
+		return nil
+	}
+	return dataSet
+
+}
+
+// WriteLastDataSet stores the fast sync trie process counter to support
+// retrieving it across restarts.
+func WriteLastDataSet(db DatabaseWriter, dataSet [][]byte) {
+	data, err := rlp.EncodeToBytes(dataSet)
+	if err != nil {
+		log.Crit("Failed to RLP encode last data set", "err", err)
+	}
+
+	if err := db.Put(dataSetKey, data); err != nil {
+		log.Crit("Failed to store last data set", "err", err)
+	}
+}

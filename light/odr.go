@@ -77,6 +77,7 @@ type ChtRequest struct {
 	Headers          []*types.SnailHeader
 	Start            bool
 	FHeader          *types.Header
+	Dataset          [][]byte
 }
 
 // StoreResult stores the retrieved data in local database
@@ -91,6 +92,9 @@ func (req *ChtRequest) StoreResult(db etruedb.Database) {
 		for _, head := range req.Headers {
 			rawdb.WriteHeader(db, head)
 		}
+	}
+	if len(req.Dataset) > 0 {
+		rawdb.WriteLastDataSet(db, req.Dataset)
 	}
 
 	fhash, fnum := req.FHeader.Hash(), req.FHeader.Number.Uint64()
