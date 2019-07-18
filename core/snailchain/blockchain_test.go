@@ -1317,15 +1317,47 @@ func testRewardOrg(t *testing.T, n int) {
 		fmt.Printf("insert error (block %d): %v\n", fastBlocks[i].NumberU64(), err)
 		return
 	}
-	log.Info("len", "snailBlocks[:len(snailBlocks)-1]", len(allSnailBlocks[:len(allSnailBlocks)-2]))
-	parents := allSnailBlocks[:len(allSnailBlocks)-8]
+	snailRewardBlock = snailChain.CurrentBlock()
+	log.Info("testRewardOrg1", "hash", snailChain.CurrentBlock().Hash(), "number", snailChain.CurrentBlock().Number())
+	diffparents := allSnailBlocks[:]
+	log.Info("len", "diffparents", len(diffparents), "allSnailBlocks", len(allSnailBlocks))
 	//genesis := commonGenesis.MustSnailCommit(db)
-	diffBlocks := GenerateChain(gspec.Config, blockchain, parents, 12, 7, nil)
-	//snailBlocks = snailBlocks[:len(snailBlocks)-1]
+	diffBlocks := GenerateChain(gspec.Config, blockchain, diffparents, 2, 7, func(i int, b *BlockGen) {
+		b.OffsetTime(51)
+	})
+	if _, err := snailChain.InsertChain(diffBlocks); err != nil {
+		t.Fatalf("err is mismatch, err is: %v", err)
+	}
+	diffparents = append(diffparents, diffBlocks...)
+	log.Info("len", "diffparents", len(diffparents), "allSnailBlocks", len(allSnailBlocks))
+	log.Info("testRewardOrg2", "hash", snailChain.CurrentBlock().Hash(), "number", snailChain.CurrentBlock().Number())
+	easyBlocks := GenerateChain(gspec.Config, blockchain, allSnailBlocks[:], 3, 7, func(i int, b *BlockGen) {
+		b.OffsetTime(50)
+	})
+	if _, err := snailChain.InsertChain(easyBlocks); err != nil {
+		t.Fatalf("err is mismatch, err is: %v", err)
+	}
+	log.Info("testRewardOrg3", "hash", snailChain.CurrentBlock().Hash(), "number", snailChain.CurrentBlock().Number())
+
+	pow.SetSnailChainReader(snailChain)
+	fastBlocks, _ = core.GenerateChainWithReward(gspec.Config, fastBlocks[len(fastBlocks)-1], snailRewardBlock, pow, db, n*params.MinimumFruits, nil)
+	if i, err := blockchain.InsertChain(fastBlocks); err != nil {
+		fmt.Printf("insert error (block %d): %v\n", fastBlocks[i].NumberU64(), err)
+		return
+	}
+	fastBlocks, _ = core.GenerateChainWithReward(gspec.Config, fastBlocks[len(fastBlocks)-1], easyBlocks[0], pow, db, n*params.MinimumFruits, nil)
+	if i, err := blockchain.InsertChain(fastBlocks); err != nil {
+		fmt.Printf("insert error (block %d): %v\n", fastBlocks[i].NumberU64(), err)
+		return
+	}
+
+	diffBlocks = GenerateChain(gspec.Config, blockchain, diffparents, 2, 7, func(i int, b *BlockGen) {
+		b.OffsetTime(51)
+	})
 	if _, err := snailChain.InsertChain(diffBlocks); err != ErrRewardedBlock {
 		t.Fatalf("err is wrong want:%v; is: %v", ErrRewardedBlock, err)
 	}
-	log.Info("TestReorgRward", "number", snailChain.CurrentBlock().Number())
+	log.Info("TestReorgRward end", "current hash", snailChain.CurrentBlock().Hash(), "current number", snailChain.CurrentBlock().Number(), "number 11 is equall", diffparents[len(diffparents)-2].Hash() == snailChain.GetBlockByNumber(diffparents[len(diffparents)-2].NumberU64()).Hash())
 }
 
 func TestReorgRward(t *testing.T) { testRewardOrg(t, 1) }
