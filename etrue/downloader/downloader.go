@@ -1570,6 +1570,7 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 
 func (d *Downloader) insertLightHeadChain(heads []*types.SnailHeader, fruitHeads [][]*types.SnailHeader) (err error) {
 	if index, err := d.lightchain.InsertHeaderChain(heads, fruitHeads, 100); err != nil {
+		log.Info("insertLightHeadChain", "index", index, "heads", len(heads), "err", err)
 		log.Error("Snail downloaded item processing failed", "number", heads[index].Number, "hash", heads[index].Hash(), "err", err)
 		if err == types.ErrSnailHeightNotYet {
 			return err

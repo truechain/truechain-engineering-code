@@ -59,7 +59,8 @@ var (
 	configPrefix = []byte("snailchain-truechain-config-") // config prefix for the db
 
 	// headBlockKey tracks the latest know full block's hash.
-	dataSetKey = []byte("LastDataSet")
+	headHashPrefix      = []byte("shh") // headHashPrefix + num (uint64 big endian) -> headHash
+	headHashEpochSuffix = []byte("she") // headHashPrefix + num (uint64 big endian) + headHashEpochSuffix -> headHashEpoch
 )
 
 // FtLookupEntry is a positional metadata to help looking up the data content of
@@ -140,4 +141,14 @@ func committeeKey(number uint64) []byte {
 // committeeStateKey = num (uint64 big endian) + committeePrefix + suffix
 func committeeStateKey(number uint64) []byte {
 	return append(committeeKey(number), committeeStateSuffix...)
+}
+
+// headHashKey = num (uint64 big endian) + committeePrefix
+func headHashKey(number uint64) []byte {
+	return append(headHashPrefix, encodeBlockNumber(number)...)
+}
+
+// headHashEpochKey = num (uint64 big endian) + headHashKey + suffix
+func headHashEpochKey(number uint64) []byte {
+	return append(headHashKey(number), headHashEpochSuffix...)
 }

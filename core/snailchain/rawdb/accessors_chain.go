@@ -108,9 +108,9 @@ func WriteHeadFastBlockHash(db DatabaseWriter, hash common.Hash) {
 	}
 }
 
-// ReadFastTrieProgress retrieves the number of tries nodes fast synced to allow
+// ReadLightCheckPoint retrieves the number of tries nodes fast synced to allow
 // reporting correct numbers across restarts.
-func ReadFastTrieProgress(db DatabaseReader) uint64 {
+func ReadLightCheckPoint(db DatabaseReader) uint64 {
 	data, _ := db.Get(fastTrieProgressKey)
 	if len(data) == 0 {
 		return 0
@@ -118,9 +118,9 @@ func ReadFastTrieProgress(db DatabaseReader) uint64 {
 	return new(big.Int).SetBytes(data).Uint64()
 }
 
-// WriteFastTrieProgress stores the fast sync trie process counter to support
+// WriteLightCheckPoint stores the fast sync trie process counter to support
 // retrieving it across restarts.
-func WriteFastTrieProgress(db DatabaseWriter, count uint64) {
+func WriteLightCheckPoint(db DatabaseWriter, count uint64) {
 	if err := db.Put(fastTrieProgressKey, new(big.Int).SetUint64(count).Bytes()); err != nil {
 		log.Crit("Failed to store snail fast sync trie progress", "err", err)
 	}
@@ -417,15 +417,15 @@ func DeleteFruitsHead(db DatabaseDeleter, hash common.Hash, number uint64) {
 
 // ReadLastDataSet retrieves the number of tries nodes fast synced to allow
 // reporting correct numbers across restarts.
-func ReadLastDataSet(db DatabaseReader) [][]byte {
-	data, _ := db.Get(dataSetKey)
+func ReadLastDataSet(db DatabaseReader, epoch uint64) [][]byte {
+	data, _ := db.Get(headHashEpochKey(epoch))
 	if len(data) == 0 {
 		return nil
 	}
 
 	var dataSet [][]byte
 	if err := rlp.Decode(bytes.NewReader(data), &dataSet); err != nil {
-		log.Error("Invalid last data set RLP", "err", err)
+		log.Error("Invalid last data set RLP", "epoch", epoch, "err", err)
 		return nil
 	}
 	return dataSet
@@ -434,13 +434,14 @@ func ReadLastDataSet(db DatabaseReader) [][]byte {
 
 // WriteLastDataSet stores the fast sync trie process counter to support
 // retrieving it across restarts.
-func WriteLastDataSet(db DatabaseWriter, dataSet [][]byte) {
+func WriteLastDataSet(db DatabaseWriter, epoch uint64, dataSet [][]byte) {
 	data, err := rlp.EncodeToBytes(dataSet)
 	if err != nil {
 		log.Crit("Failed to RLP encode last data set", "err", err)
 	}
 
-	if err := db.Put(dataSetKey, data); err != nil {
+	key := headHashEpochKey(epoch)
+	if err := db.Put(key, data); err != nil {
 		log.Crit("Failed to store last data set", "err", err)
 	}
 }

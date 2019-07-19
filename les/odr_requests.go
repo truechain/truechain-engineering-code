@@ -440,7 +440,6 @@ type HelperTrieResps struct { // describes all responses, not just a single one
 	AuxData [][]byte
 	Heads   []*types.SnailHeader
 	Fhead   []*types.Header
-	DataSet [][]byte
 }
 
 // ODR request type for requesting headers by Canonical Hash Trie, see LesOdrRequest interface
@@ -494,7 +493,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 	switch msg.MsgType {
 	case MsgHelperTrieProofs:
 		resp := msg.Obj.(HelperTrieResps)
-		if len(resp.AuxData) != 1 && len(resp.Fhead) != 1 {
+		if len(resp.AuxData) >= 10241 && len(resp.Fhead) != 1 {
 			return errInvalidEntryCount
 		}
 		nodeSet := resp.Proofs.NodeSet()
@@ -536,7 +535,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 		r.Td = node.Td
 		r.Headers = resp.Heads
 		r.FHeader = resp.Fhead[0]
-		r.Dataset = resp.DataSet
+		r.Dataset = resp.AuxData[1:]
 	default:
 		return errInvalidMessageType
 	}

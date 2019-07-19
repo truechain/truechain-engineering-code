@@ -1162,7 +1162,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			auxData  [][]byte
 			Heads    []*types.SnailHeader
 			fHeads   []*types.Header
-			dataSet  [][]byte
 		)
 		reqCnt := len(req.Reqs)
 		if reject(uint64(reqCnt), MaxHelperTrieProofsFetch) {
@@ -1207,7 +1206,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						for i := params.DifficultyPeriod.Int64() - 1; i > 0; i-- {
 							Heads = append(Heads, pm.blockchain.GetHeaderByNumber(blockNum-uint64(i)))
 						}
-						dataSet = pm.getHelperDataSet()
+						dataSet := pm.getHelperDataSet(blockNum)
+						auxData = append(auxData, dataSet...)
+						auxBytes += len(dataSet)
 					}
 				}
 			}
@@ -1217,7 +1218,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendHelperTrieProofs(req.ReqID, bv, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData, Heads: Heads, Fhead: fHeads, DataSet: dataSet})
+		return p.SendHelperTrieProofs(req.ReqID, bv, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData, Heads: Heads, Fhead: fHeads})
 
 	case HelperTrieProofsMsg:
 		if pm.odr == nil {
@@ -1231,7 +1232,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		p.Log().Trace("Received helper trie proof response", "heads", len(resp.Data.Heads))
+		p.Log().Trace("Received helper trie proof response", "heads", len(resp.Data.Heads), "data", len(resp.Data.AuxData))
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		deliverMsg = &Msg{
 			MsgType: MsgHelperTrieProofs,
@@ -1375,25 +1376,31 @@ func (pm *ProtocolManager) getHelperTrieAuxData(req HelperTrieReq) ([]byte, *typ
 }
 
 // getHelperDataSet returns requested auxiliary data for the given HelperTrie request
-func (pm *ProtocolManager) getHelperDataSet() [][]byte {
-	var headerHash [][]byte
-
-	epoch := uint64((pm.blockchain.CurrentHeader().Number.Uint64() - 1) / minerva.UPDATABLOCKLENGTH)
-	if epoch <= 0 {
+func (pm *ProtocolManager) getHelperDataSet(point uint64) [][]byte {
+	if point/minerva.UPDATABLOCKLENGTH+1 != (pm.blockchain.CurrentHeader().Number.Uint64()-1)/minerva.UPDATABLOCKLENGTH {
 		return nil
 	}
 
-	st_block_num := uint64((epoch-1)*minerva.UPDATABLOCKLENGTH + 1)
+	var headerHash [][]byte
+	epoch := uint64((pm.blockchain.CurrentHeader().Number.Uint64() - 1) / minerva.UPDATABLOCKLENGTH)
 
-	for i := 0; i < minerva.STARTUPDATENUM; i++ {
-		header := pm.blockchain.GetHeaderByNumber(uint64(i) + st_block_num)
-		if header == nil {
-			log.Error(" getDataset function getHead hash fail ", "blockNum is:  ", (uint64(i) + st_block_num))
-			return nil
+	startEpochNumber := uint64((epoch-1)*minerva.UPDATABLOCKLENGTH + 1)
+	if point/minerva.UPDATABLOCKLENGTH == 0 {
+		for i := 0; i < minerva.STARTUPDATENUM; i++ {
+			header := pm.blockchain.GetHeaderByNumber(uint64(i) + startEpochNumber)
+			headerHash = append(headerHash, header.Hash().Bytes())
 		}
-
-		headerHash = append(headerHash, header.Hash().Bytes())
+	} else {
+		for i := 0; i < minerva.STARTUPDATENUM; i++ {
+			header := pm.blockchain.GetHeaderByNumber(uint64(i) + startEpochNumber)
+			headerHash = append(headerHash, header.Hash().Bytes())
+		}
+		for i := 0; i < int(point%minerva.UPDATABLOCKLENGTH); i++ {
+			header := pm.blockchain.GetHeaderByNumber(uint64(i) + startEpochNumber + minerva.UPDATABLOCKLENGTH)
+			headerHash = append(headerHash, header.Hash().Bytes())
+		}
 	}
+
 	return headerHash
 }
 
