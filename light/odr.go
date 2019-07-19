@@ -21,7 +21,7 @@ package light
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/swarm/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/light/public"
