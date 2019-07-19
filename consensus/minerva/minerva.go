@@ -294,9 +294,12 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 							}
 							log.Info("getHashList", "count", len(headSet), "num", num, "epoch", epoch, "block", block)
 						}
+						if uint64(i)+st_block_num < num {
+							continue
+						}
 					}
 					if uint64(i)+st_block_num < num {
-						continue
+						return false
 					}
 				}
 				log.Error(" getDataset function getHead hash fail", "blockNum", (uint64(i) + st_block_num), "block", block)
@@ -362,7 +365,7 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 				d.datasetHash = d.GetDatasetSeedhash(d.dataset)
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
-				log.Info("updateLookupTBL is start", "epoch", epoch)
+				log.Info("updateLookupTBL is start", "epoch", epoch, "hash", len(headershash))
 				flag, _, cont := d.updateLookupTBL(d.dataset, headershash)
 				if flag {
 					// consistent is make sure the algorithm is current and not change
