@@ -283,9 +283,9 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 		for i := 0; i < STARTUPDATENUM; i++ {
 			header := m.sbc.GetHeaderByNumber(uint64(i) + st_block_num)
 			if header == nil {
-				if m.chainDB != nil && epoch > 1 {
+				if m.chainDB != nil {
 					num := rawdb.ReadLightCheckPoint(m.chainDB)
-					if epoch-1 == uint64((num-1)/UPDATABLOCKLENGTH) {
+					if epoch > 1 && epoch-1 == uint64((num-1)/UPDATABLOCKLENGTH) {
 						if !finish {
 							finish = true
 							headSet := rawdb.ReadLastDataSet(m.chainDB, epoch-1)
@@ -294,9 +294,9 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 							}
 							log.Info("getHashList", "count", len(headSet), "num", num, "epoch", epoch, "block", block)
 						}
-						if uint64(i)+st_block_num < num {
-							continue
-						}
+					}
+					if uint64(i)+st_block_num < num {
+						continue
 					}
 				}
 				log.Error(" getDataset function getHead hash fail", "blockNum", (uint64(i) + st_block_num), "block", block)
