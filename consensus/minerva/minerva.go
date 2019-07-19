@@ -308,13 +308,19 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 	}
 
 	if current.dateInit == 0 && epoch > 0 {
-		headSet := rawdb.ReadLastDataSet(m.chainDB, epoch-1)
-		log.Info("getDataset", "block", block, "count", len(headSet))
-		if len(headSet) == 0 && !getHashList(&headerHash, epoch) {
-			return nil
+		if m.chainDB != nil {
+			headSet := rawdb.ReadLastDataSet(m.chainDB, epoch-1)
+			log.Info("getDataset", "block", block, "count", len(headSet))
+			if len(headSet) == 0 && !getHashList(&headerHash, epoch) {
+				return nil
+			} else {
+				for i := 0; i < len(headSet); i++ {
+					headerHash[i] = headSet[i]
+				}
+			}
 		} else {
-			for i := 0; i < len(headSet); i++ {
-				headerHash[i] = headSet[i]
+			if !getHashList(&headerHash, epoch) {
+				return nil
 			}
 		}
 	}
