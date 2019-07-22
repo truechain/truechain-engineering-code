@@ -522,14 +522,11 @@ func (f *lightFetcher) processResponse(req fetchRequest, resp fetchResponse) boo
 		return false
 	}
 	headers := make([]*types.SnailHeader, req.amount)
+	fheaders := make([][]*types.SnailHeader, req.amount)
 	for i, header := range resp.headers {
 		headers[int(req.amount)-1-i] = header
-		log.Info("processResponse", "i", i, "head", header.Number, "hash", header.Hash())
-	}
-	fheaders := make([][]*types.SnailHeader, req.amount)
-	for i, header := range resp.fheaders {
-		fheaders[int(req.amount)-1-i] = header
-		log.Info("processResponse", "i", i, "head", len(header))
+		fheaders[int(req.amount)-1-i] = resp.fheaders[i]
+		log.Info("processResponse", "i", i, "head", len(resp.fheaders[i]), "head", header.Number, "hash", header.Hash())
 	}
 	if _, err := f.chain.InsertHeaderChain(headers, fheaders, 1); err != nil {
 		if err == consensus.ErrFutureBlock {
@@ -608,12 +605,7 @@ func (f *lightFetcher) checkAnnouncedHeaders(fp *fetcherPeerInfo, headers []*typ
 		if n == nil {
 			n = fp.nodeByHash[hash]
 		}
-		if header.FruitsHash != (common.Hash{}) && n.td.Cmp(td) != 0 {
-			old := td
-			td = rawdb.ReadTd(f.pm.chainDb, hash, number)
-			log.Info("checkAnnouncedHeaders", "td", td, "old", old, "number", number, "i", i, "n", n, "Number", header.Number, "hash", hash, "hash", header.Hash())
-		}
-		log.Debug("checkAnnouncedHeaders", "td", td, "headers", len(headers), "number", number, "n.td", n.td, "nodeByHash", len(fp.nodeByHash), "i", i)
+		log.Debug("checkAnnouncedHeaders", "td", td, "headers", len(headers), "number", number, "td", n.td, "nodeByHash", len(fp.nodeByHash), "i", i)
 		if n != nil {
 			if n.td == nil {
 				// node was unannounced

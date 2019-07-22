@@ -148,14 +148,12 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader, fruitHeads []*type
 		return NonStatTy, consensus.ErrUnknownAncestor
 	}
 	localTd := hc.GetTd(hc.currentHeaderHash, hc.CurrentHeader().Number.Uint64())
-	if header.FruitsHash != (common.Hash{}) && len(fruitHeads) > 0 {
-		for _, f := range fruitHeads {
-			ptd.Add(ptd, f.FruitDifficulty)
-		}
-	} else {
-		log.Info("Check fruit hash", "number", number, "count", len(fruitHeads), "hash", hash)
+	blockTd := big.NewInt(0)
+	for _, f := range fruitHeads {
+		blockTd.Add(blockTd, f.FruitDifficulty)
 	}
-	externTd := new(big.Int).Add(header.Difficulty, ptd)
+	blockTd.Add(blockTd, header.Difficulty)
+	externTd := new(big.Int).Add(blockTd, ptd)
 
 	// Irrelevant of the canonical status, write the td and header to the database
 	if err := hc.WriteTd(hash, number, externTd); err != nil {
