@@ -698,7 +698,6 @@ func (bc *SnailBlockChain) writeCanonicalBlock(block *types.SnailBlock) (status 
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	log.Info("Write new snail canonical block...", "number", block.Number(), "hash", block.Hash())
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
@@ -1285,9 +1284,13 @@ Error: %v
 // should be done or not. The reason behind the optional check is because some
 // of the header retrieval mechanisms already need to verify nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
-func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
+func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int) (int, error) {
+	if len(chain) != len(fruits) {
+		log.Error("invalid len", "len(snailHeader)", len(chain), "len(fruits)", len(fruits))
+		return 0, fmt.Errorf("invalid len: len(snailHeader) (%d) not equal len([]fruitHeaders) (%d)", len(chain), len(fruits))
+	}
 	start := time.Now()
-	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
+	if i, err := bc.hc.ValidateHeaderChain(chain, fruits, checkFreq, nil, 0); err != nil {
 		return i, err
 	}
 
@@ -1298,12 +1301,12 @@ func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, checkFr
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	whFunc := func(header *types.SnailHeader) error {
-		_, err := bc.hc.WriteHeader(header)
+	whFunc := func(header *types.SnailHeader, fruitHeads []*types.SnailHeader) error {
+		_, err := bc.hc.WriteHeader(header, nil)
 		return err
 	}
 
-	return bc.hc.InsertHeaderChain(chain, whFunc, start)
+	return bc.hc.InsertHeaderChain(chain, nil, whFunc, start)
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
@@ -1378,6 +1381,16 @@ func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.Snai
 	block := bc.GetBlock(hash, number)
 
 	return block, index
+}
+
+// GetFruitsHead retrieves fruits included in the snail block
+func (bc *SnailBlockChain) GetFruitsHead(number uint64) []*types.SnailHeader {
+	hash := rawdb.ReadCanonicalHash(bc.db, number)
+	if hash == (common.Hash{}) {
+		return nil
+	}
+	heads := rawdb.ReadFruitsHead(bc.db, hash, number)
+	return heads
 }
 
 // GetFruit retrieves a fruit from the database by FastHash

@@ -208,8 +208,8 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 		bodyWakeCh:    make(chan bool, 1),
 		receiptWakeCh: make(chan bool, 1),
 		headerProcCh:  make(chan []*types.Header, 1),
-		cancelTemp:	   true,
-		quitCh: make(chan struct{}),
+		cancelTemp:    true,
+		quitCh:        make(chan struct{}),
 	}
 
 	go dl.qosTuner()
@@ -218,6 +218,10 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 
 func (d *Downloader) GetBlockChain() BlockChain {
 	return d.blockchain
+}
+
+func (d *Downloader) GetLightChain() LightChain {
+	return d.lightchain
 }
 
 func (d *Downloader) SetHeader(remote *types.Header) {
@@ -275,7 +279,7 @@ func (d *Downloader) Synchronising() bool {
 // used for fetching hashes and blocks from.
 func (d *Downloader) RegisterPeer(id string, version int, peer etrue.Peer) error {
 	logger := log.New("peer Fast", id)
-	logger.Trace("Registering sync peer")
+	logger.Trace("Registering fast sync peer")
 
 	if err := d.peers.Register(newPeerConnection(id, version, peer, logger)); err != nil {
 		logger.Error("Failed to register sync peer", "err", err)

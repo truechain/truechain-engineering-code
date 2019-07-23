@@ -69,9 +69,9 @@ type queue struct {
 	resultOffset uint64               // Offset of the first cached fetch result in the block chain
 	resultSize   common.StorageSize   // Approximate size of a block (exponential moving average)
 
-	lock   *sync.Mutex
-	active *sync.Cond
-	closed bool
+	lock       *sync.Mutex
+	active     *sync.Cond
+	closed     bool
 	blockchain BlockChain
 }
 
@@ -79,7 +79,7 @@ type queue struct {
 func newQueue(chain BlockChain) *queue {
 	lock := new(sync.Mutex)
 	return &queue{
-		blockchain:chain,
+		blockchain:     chain,
 		headerPendPool: make(map[string]*etrue.FetchRequest),
 		headerContCh:   make(chan bool),
 		blockTaskPool:  make(map[common.Hash]*types.SnailHeader),
@@ -320,7 +320,11 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 		for _, result := range results {
 			size := result.Sheader.Size()
 			for _, fruit := range result.Fruits {
-				size += fruit.Size()
+				if q.mode == LightSync {
+					size += fruit.Header().Size()
+				} else {
+					size += fruit.Size()
+				}
 			}
 
 			q.resultSize = common.StorageSize(blockCacheSizeWeight)*size + (1-common.StorageSize(blockCacheSizeWeight))*q.resultSize
@@ -662,7 +666,7 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-		if 	q.blockchain.GetFruitsHash(header,fruitsLists[index]) != header.FruitsHash {
+		if q.mode != LightSync && q.blockchain.GetFruitsHash(header, fruitsLists[index]) != header.FruitsHash {
 			return errInvalidChain
 		}
 		result.Fruits = fruitsLists[index]

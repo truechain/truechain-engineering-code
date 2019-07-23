@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
@@ -47,6 +48,8 @@ type ChainReader interface {
 
 	// GetBlock retrieves a block from the database by hash and number.
 	GetBlock(hash common.Hash, number uint64) *types.Block
+
+	GetBlockReward(snumber uint64) *types.BlockReward
 }
 
 // ChainSnailReader defines a small collection of methods needed to access the local
@@ -80,6 +83,7 @@ type Engine interface {
 
 	SetSnailChainReader(scr SnailChainReader)
 
+	SetSnailHeaderHash(db etruedb.Database)
 	// Author retrieves the Ethereum address of the account that minted the given
 	// block, which may be different from the header's coinbase if a consensus
 	// engine is based on signatures.
@@ -105,6 +109,9 @@ type Engine interface {
 	// the input slice).
 	VerifySnailHeaders(chain SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
 
+	ValidateRewarded(number uint64, hash common.Hash, fastchain ChainReader) error
+
+	ValidateFruitHeader(block *types.SnailHeader, fruit *types.SnailHeader, snailchain SnailChainReader, fastchain ChainReader, checkpoint uint64) error
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
 	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader, isFruit bool) error

@@ -77,7 +77,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 	}
 	// Header-only chain requested
 	headers := makeHeaderChain(fastChain, []*types.SnailHeader{snailGenesis.Header()}, n, engine, db, canonicalSeed)
-	_, err := blockchain.InsertHeaderChain(headers, 1)
+	_, err := blockchain.InsertHeaderChain(headers, nil, 1)
 	return db, blockchain, fastChain, err
 }
 
@@ -139,7 +139,7 @@ func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, co
 	} else {
 
 		headerChainB = makeHeaderChain(fastChain, blockchain2.GetHeadsFromNumber(0), n, engine, db, forkSeed)
-		if _, err := blockchain2.InsertHeaderChain(headerChainB, 1); err != nil {
+		if _, err := blockchain2.InsertHeaderChain(headerChainB, nil, 1); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
 	}
@@ -450,10 +450,10 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 		for i, block := range diffBlocks {
 			diffHeaders[i] = block.Header()
 		}
-		if _, err := blockchain.InsertHeaderChain(easyHeaders, 1); err != nil {
+		if _, err := blockchain.InsertHeaderChain(easyHeaders, nil, 1); err != nil {
 			t.Fatalf("failed to insert easy chain: %v", err)
 		}
-		if _, err := blockchain.InsertHeaderChain(diffHeaders, 1); err != nil {
+		if _, err := blockchain.InsertHeaderChain(diffHeaders, nil, 1); err != nil {
 			t.Fatalf("failed to insert difficult chain: %v", err)
 		}
 	}
@@ -514,7 +514,7 @@ func testBadHashes(t *testing.T, full bool) {
 		BadHashes[headers[2].Hash()] = true
 		defer func() { delete(BadHashes, headers[2].Hash()) }()
 
-		_, err = blockchain.InsertHeaderChain(headers, 1)
+		_, err = blockchain.InsertHeaderChain(headers, nil, 1)
 	}
 	if err != ErrBlacklistedHash {
 		t.Errorf("error mismatch: have: %v, want: %v", err, ErrBlacklistedHash)
@@ -546,7 +546,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 		BadHashes[blocks[3].Header().Hash()] = true
 		defer func() { delete(BadHashes, blocks[3].Header().Hash()) }()
 	} else {
-		if _, err = blockchain.InsertHeaderChain(headers, 1); err != nil {
+		if _, err = blockchain.InsertHeaderChain(headers, nil, 1); err != nil {
 			t.Errorf("failed to import headers: %v", err)
 		}
 		if blockchain.CurrentHeader().Hash() != headers[3].Hash() {
@@ -609,7 +609,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 
 			blockchain.engine = minerva.NewFakeFailer(failNum)
 			blockchain.hc.engine = blockchain.engine
-			failRes, err = blockchain.InsertHeaderChain(headers, 1)
+			failRes, err = blockchain.InsertHeaderChain(headers, nil, 1)
 		}
 		// Check that the returned error indicates the failure.
 		if failRes != failAt {

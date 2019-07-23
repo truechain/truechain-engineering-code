@@ -20,14 +20,18 @@ package les
 import (
 	"crypto/ecdsa"
 	"encoding/binary"
+	"github.com/truechain/truechain-engineering-code/light/fast"
+	"github.com/truechain/truechain-engineering-code/light/public"
+	"github.com/truechain/truechain-engineering-code/params"
 	"math"
+	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -38,21 +42,19 @@ import (
 )
 
 type LesServer struct {
-	config          *etrue.Config
-	protocolManager *ProtocolManager
-	fcManager       *flowcontrol.ClientManager // nil if our node is client only
-	fcCostStats     *requestCostStats
-	defParams       *flowcontrol.ServerParams
-	lesTopics       []discv5.Topic
-	privateKey      *ecdsa.PrivateKey
-	quitSync        chan struct{}
+	lesCommons
 
-	chtIndexer, bloomTrieIndexer *core.ChainIndexer
+	fcManager   *flowcontrol.ClientManager // nil if our node is client only
+	fcCostStats *requestCostStats
+	defParams   *flowcontrol.ServerParams
+	lesTopics   []discv5.Topic
+	privateKey  *ecdsa.PrivateKey
+	quitSync    chan struct{}
 }
 
 func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, error) {
 	quitSync := make(chan struct{})
-	pm, err := NewProtocolManager(etrue.BlockChain().Config(), false, ServerProtocolVersions, config.NetworkId, etrue.EventMux(), etrue.Engine(), newPeerSet(), nil, etrue.TxPool(), etrue.ChainDb(), nil, nil, nil, quitSync, new(sync.WaitGroup))
+	pm, err := NewProtocolManager(etrue.BlockChain().Config(), public.DefaultServerIndexerConfig, false, config.NetworkId, etrue.EventMux(), etrue.Engine(), newPeerSet(), etrue.BlockChain(), etrue.SnailBlockChain(), etrue.TxPool(), etrue.ChainDb(), nil, nil, nil, quitSync, new(sync.WaitGroup), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -63,35 +65,48 @@ func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, err
 	}
 
 	srv := &LesServer{
-		config:           config,
-		protocolManager:  pm,
-		quitSync:         quitSync,
-		lesTopics:        lesTopics,
-		chtIndexer:       light.NewChtIndexer(etrue.ChainDb(), false),
-		bloomTrieIndexer: light.NewBloomTrieIndexer(etrue.ChainDb(), false),
+		lesCommons: lesCommons{
+			config:           config,
+			chainDb:          etrue.ChainDb(),
+			iConfig:          public.DefaultServerIndexerConfig,
+			chtIndexer:       light.NewChtIndexer(etrue.ChainDb(), nil, params.CHTFrequencyServer, params.HelperTrieProcessConfirmations),
+			bloomTrieIndexer: fast.NewBloomTrieIndexer(etrue.ChainDb(), nil, params.BloomBitsBlocks, params.BloomTrieFrequency),
+			protocolManager:  pm,
+		},
+		quitSync:  quitSync,
+		lesTopics: lesTopics,
 	}
 	logger := log.New()
 
 	chtV1SectionCount, _, _ := srv.chtIndexer.Sections() // indexer still uses LES/1 4k section size for backwards server compatibility
-	chtV2SectionCount := chtV1SectionCount / (light.CHTFrequencyClient / light.CHTFrequencyServer)
+	chtV2SectionCount := chtV1SectionCount / (params.CHTFrequencyClient / params.CHTFrequencyServer)
 	if chtV2SectionCount != 0 {
 		// convert to LES/2 section
 		chtLastSection := chtV2SectionCount - 1
 		// convert last LES/2 section index back to LES/1 index for chtIndexer.SectionHead
-		chtLastSectionV1 := (chtLastSection+1)*(light.CHTFrequencyClient/light.CHTFrequencyServer) - 1
+		chtLastSectionV1 := (chtLastSection+1)*(params.CHTFrequencyClient/params.CHTFrequencyServer) - 1
 		chtSectionHead := srv.chtIndexer.SectionHead(chtLastSectionV1)
-		chtRoot := light.GetChtV2Root(pm.chainDb, chtLastSection, chtSectionHead)
-		logger.Info("Loaded CHT", "section", chtLastSection, "head", chtSectionHead, "root", chtRoot)
+		for i := chtLastSection - 2; i > chtLastSection-10; i-- {
+			chtLastSectionV1 := (i+1)*(params.CHTFrequencyClient/params.CHTFrequencyServer) - 1
+			chtSectionHead := srv.chtIndexer.SectionHead(chtLastSectionV1)
+			if chtSectionHead == (common.Hash{}) {
+				break
+			}
+			chtRoot := light.GetChtRoot(pm.chainDb, chtLastSectionV1, chtSectionHead)
+			logger.Info("Loaded recent CHT", "i", i, "section", chtLastSectionV1, "head", chtSectionHead.String(), "root", chtRoot.String())
+		}
+		chtRoot := light.GetChtRoot(pm.chainDb, chtLastSectionV1, chtSectionHead)
+		logger.Info("Loaded CHT", "section", chtLastSection, "head", chtSectionHead.String(), "root", chtRoot.String())
 	}
 	bloomTrieSectionCount, _, _ := srv.bloomTrieIndexer.Sections()
 	if bloomTrieSectionCount != 0 {
 		bloomTrieLastSection := bloomTrieSectionCount - 1
 		bloomTrieSectionHead := srv.bloomTrieIndexer.SectionHead(bloomTrieLastSection)
-		bloomTrieRoot := light.GetBloomTrieRoot(pm.chainDb, bloomTrieLastSection, bloomTrieSectionHead)
+		bloomTrieRoot := fast.GetBloomTrieRoot(pm.chainDb, bloomTrieLastSection, bloomTrieSectionHead)
 		logger.Info("Loaded bloom trie", "section", bloomTrieLastSection, "head", bloomTrieSectionHead, "root", bloomTrieRoot)
 	}
 
-	srv.chtIndexer.Start(etrue.BlockChain())
+	srv.chtIndexer.Start(etrue.SnailBlockChain())
 	pm.server = srv
 
 	srv.defParams = &flowcontrol.ServerParams{
@@ -104,7 +119,7 @@ func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, err
 }
 
 func (s *LesServer) Protocols() []p2p.Protocol {
-	return s.protocolManager.SubProtocols
+	return s.makeProtocols(ServerProtocolVersions)
 }
 
 // Start starts the LES server
@@ -318,28 +333,36 @@ func (s *requestCostStats) update(msgCode, reqCnt, cost uint64) {
 func (pm *ProtocolManager) blockLoop() {
 	pm.wg.Add(1)
 	headCh := make(chan types.FastChainHeadEvent, 10)
-	headSub := pm.blockchain.SubscribeChainHeadEvent(headCh)
+	headSub := pm.fblockchain.SubscribeChainHeadEvent(headCh)
+
+	sheadCh := make(chan types.SnailChainHeadEvent, 10)
+	sheadSub := pm.blockchain.SubscribeChainHeadEvent(sheadCh)
+
 	go func() {
-		var lastHead *types.Header
+		var lastHead *types.SnailHeader
 		lastBroadcastTd := common.Big0
+		lastBroadcastNumber := uint64(0)
+		lock := new(sync.Mutex)
+
 		for {
 			select {
-			case ev := <-headCh:
+			case ev := <-sheadCh:
 				peers := pm.peers.AllPeers()
+
 				if len(peers) > 0 {
 					header := ev.Block.Header()
 					hash := header.Hash()
 					number := header.Number.Uint64()
 					td := rawdb.ReadTd(pm.chainDb, hash, number)
+					lock.Lock()
 					if td != nil && td.Cmp(lastBroadcastTd) > 0 {
+						lastBroadcastTd = new(big.Int).Set(td)
 						var reorg uint64
 						if lastHead != nil {
 							reorg = lastHead.Number.Uint64() - rawdb.FindCommonAncestor(pm.chainDb, header, lastHead).Number.Uint64()
 						}
 						lastHead = header
-						lastBroadcastTd = td
-
-						log.Debug("Announcing block to peers", "number", number, "hash", hash, "td", td, "reorg", reorg)
+						log.Debug("Announcing snail block to peers", "number", number, "hash", hash, "td", td, "reorg", reorg)
 
 						announce := announceData{Hash: hash, Number: number, Td: td, ReorgDepth: reorg}
 						var (
@@ -354,7 +377,7 @@ func (pm *ProtocolManager) blockLoop() {
 								select {
 								case p.announceChn <- announce:
 								default:
-									pm.removePeer(p.id)
+									pm.removePeer(p.id, public.ServerSimpleCall)
 								}
 
 							case announceTypeSigned:
@@ -367,13 +390,61 @@ func (pm *ProtocolManager) blockLoop() {
 								select {
 								case p.announceChn <- signedAnnounce:
 								default:
-									pm.removePeer(p.id)
+									pm.removePeer(p.id, public.ServerSignedCall)
 								}
 							}
 						}
 					}
+					lock.Unlock()
+				}
+			case ev := <-headCh:
+				peers := pm.peers.AllPeers()
+				if len(peers) > 0 {
+					header := ev.Block.Header()
+					hash := header.Hash()
+					number := header.Number.Uint64()
+					lock.Lock()
+					if number > lastBroadcastNumber {
+						lastBroadcastNumber = header.Number.Uint64()
+						if number%10 == 0 {
+							log.Debug("Announcing fast block to peers", "number", number, "hash", hash, "lastBroadcastNumber", lastBroadcastNumber)
+						}
+
+						announce := announceData{FastHash: hash, FastNumber: number}
+						var (
+							signed         bool
+							signedAnnounce announceData
+						)
+
+						for _, p := range peers {
+							switch p.announceType {
+
+							case announceTypeSimple:
+								select {
+								case p.announceChn <- announce:
+								default:
+									pm.removePeer(p.id, public.ServerSimpleCall)
+								}
+
+							case announceTypeSigned:
+								if !signed {
+									signedAnnounce = announce
+									signedAnnounce.sign(pm.server.privateKey)
+									signed = true
+								}
+
+								select {
+								case p.announceChn <- signedAnnounce:
+								default:
+									pm.removePeer(p.id, public.ServerSignedCall)
+								}
+							}
+						}
+					}
+					lock.Unlock()
 				}
 			case <-pm.quitSync:
+				sheadSub.Unsubscribe()
 				headSub.Unsubscribe()
 				pm.wg.Done()
 				return

@@ -1831,3 +1831,7 @@ func (bc *BlockChain) stateGcBodyAndReceipt(gcNumber uint64) {
 	bc.cacheConfig.HeightGcState.Store(gcNumber + blockDeleteOnce)
 	rawdb.WriteStateGcBR(bc.db, gcNumber+blockDeleteOnce)
 }
+
+// SetCommitteeInfo write committee info in rawdb for light client
+func (bc *BlockChain) SetCommitteeInfo(hash common.Hash, number uint64, infos []*types.CommitteeMember) {
+}

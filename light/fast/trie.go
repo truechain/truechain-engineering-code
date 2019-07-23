@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package light
+package fast
 
 import (
 	"context"
@@ -76,7 +76,7 @@ func (db *odrDatabase) ContractCode(addrHash, codeHash common.Hash) ([]byte, err
 	id := *db.id
 	id.AccKey = addrHash[:]
 	req := &CodeRequest{Id: &id, Hash: codeHash}
-	err := db.backend.Retrieve(db.ctx, req)
+	err := db.backend.FastRetrieve(db.ctx, req)
 	return req.Data, err
 }
 
@@ -108,7 +108,7 @@ func (t *odrTrie) TryGet(key []byte) ([]byte, error) {
 func (t *odrTrie) TryUpdate(key, value []byte) error {
 	key = crypto.Keccak256(key)
 	return t.do(key, func() error {
-		return t.trie.TryDelete(key)
+		return t.trie.TryUpdate(key, value)
 	})
 }
 
@@ -160,7 +160,7 @@ func (t *odrTrie) do(key []byte, fn func() error) error {
 			return err
 		}
 		r := &TrieRequest{Id: t.id, Key: key}
-		if err := t.db.backend.Retrieve(t.db.ctx, r); err != nil {
+		if err := t.db.backend.FastRetrieve(t.db.ctx, r); err != nil {
 			return err
 		}
 	}
@@ -215,7 +215,7 @@ func (it *nodeIterator) do(fn func() error) {
 		}
 		lasthash = missing.NodeHash
 		r := &TrieRequest{Id: it.t.id, Key: nibblesToKey(missing.Path)}
-		if it.err = it.t.db.backend.Retrieve(it.t.db.ctx, r); it.err != nil {
+		if it.err = it.t.db.backend.FastRetrieve(it.t.db.ctx, r); it.err != nil {
 			return
 		}
 	}

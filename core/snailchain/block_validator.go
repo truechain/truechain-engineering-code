@@ -172,7 +172,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock, verifyFruits bool
 		}
 		return consensus.ErrPrunedAncestor
 	}
-	log.Info("Validate new snail body", "block", block.Number(), "hash", block.Hash(), "fruits", header.FruitsHash, "first", fruits[0].FastNumber(), "count", len(fruits))
 	return nil
 }
 

@@ -30,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -134,7 +135,7 @@ func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
 // without the real blocks. Hence, writing headers directly should only be done
 // in two scenarios: pure-header mode of operation (light clients), or properly
 // separated header/block phases (non-archive clients).
-func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatus, err error) {
+func (hc *HeaderChain) WriteHeader(header *types.SnailHeader, fruitHeads []*types.SnailHeader) (status WriteStatus, err error) {
 	// Cache some values to prevent constant recalculation
 	var (
 		hash   = header.Hash()
@@ -143,16 +144,26 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatu
 	// Calculate the total difficulty of the header
 	ptd := hc.GetTd(header.ParentHash, number-1)
 	if ptd == nil {
+		log.Info("WriteHeader", "ptd", ptd, "parentHash", header.ParentHash, "number", number-1)
 		return NonStatTy, consensus.ErrUnknownAncestor
 	}
 	localTd := hc.GetTd(hc.currentHeaderHash, hc.CurrentHeader().Number.Uint64())
-	externTd := new(big.Int).Add(header.Difficulty, ptd)
+	blockTd := big.NewInt(0)
+	for _, f := range fruitHeads {
+		blockTd.Add(blockTd, f.FruitDifficulty)
+	}
+	blockTd.Add(blockTd, header.Difficulty)
+	externTd := new(big.Int).Add(blockTd, ptd)
 
 	// Irrelevant of the canonical status, write the td and header to the database
 	if err := hc.WriteTd(hash, number, externTd); err != nil {
 		log.Crit("Failed to write header total difficulty", "err", err)
 	}
 	rawdb.WriteHeader(hc.chainDb, header)
+	if len(fruitHeads) > 0 {
+		rawdb.WriteFruitsHead(hc.chainDb, header.Hash(), header.Number.Uint64(), fruitHeads)
+		rawdb.WriteFtHeadLookupEntries(hc.chainDb, header, fruitHeads)
+	}
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -205,10 +216,10 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatu
 // processed and light chain events sent, while in a BlockChain this is not
 // necessary since chain events are sent after inserting blocks. Second, the
 // header writes should be protected by the parent chain mutex individually.
-type WhCallback func(*types.SnailHeader) error
+type WhCallback func(*types.SnailHeader, []*types.SnailHeader) error
 
 //ValidateHeaderChain validate the header of the snailchain
-func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
+func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int, fastchain *core.HeaderChain, checkpoint uint64) (int, error) {
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].Number.Uint64() != chain[i-1].Number.Uint64()+1 || chain[i].ParentHash != chain[i-1].Hash() {
@@ -250,8 +261,41 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, checkFreq
 		if err := <-results; err != nil {
 			return i, err
 		}
+		if err := hc.engine.ValidateRewarded(header.Number.Uint64(), header.Hash(), fastchain); err != nil {
+			return i, err
+		}
+		fruitHeaders := fruits[i]
+		maxfb := fastchain.GetHeader(fruitHeaders[len(fruitHeaders)-1].FastHash, fruitHeaders[len(fruitHeaders)-1].FastNumber.Uint64())
+		minfb := fastchain.GetHeader(fruitHeaders[0].FastHash, fruitHeaders[0].FastNumber.Uint64())
+		if minfb == nil || maxfb == nil {
+			return i, consensus.ErrFutureBlock
+		}
+		if fruitHeaders[len(fruitHeaders)-1].Time == nil || header.Time == nil || header.Time.Cmp(fruitHeaders[len(fruitHeaders)-1].Time) < 0 {
+			log.Info("ValidateHeaderChain validate header time", "block.Time()", header.Time, "fruitHeaders[len(fruitHeaders)-1].Time", fruitHeaders[len(fruitHeaders)-1].Time)
+			return i, ErrBlockTime
+		}
+		gap := new(big.Int).Sub(maxfb.Time, minfb.Time)
+		if gap.Cmp(params.MinTimeGap) < 0 {
+			log.Info("ValidateHeaderChain snail validate time gap error", "block", header.Number, "first fb number", minfb.Number, "first fb time", minfb.Time, "last fb number", maxfb.Number, "last fb time", maxfb.Time, "tim gap", gap)
+			return i, ErrGapFruits
+		}
+		if hash := hc.GetFruitsHash(header, fruitHeaders); hash != header.FruitsHash {
+			return i, fmt.Errorf("ValidateHeaderChain fruits hash mismatch: have %x, want %x", types.DeriveSha(types.FruitsHeaders(fruitHeaders)), header.FruitsHash)
+		}
+		/*if !hc.IsCanonicalBlock(header.ParentHash, header.Number.Uint64()-1) {
+			if !hc.HasHeader(header.ParentHash, header.Number.Uint64()-1) {
+				log.Info("ValidateHeaderChain HasHeader", "header.ParentHash", header.ParentHash, "parentNumber", header.Number.Uint64()-1)
+				return i, consensus.ErrUnknownAncestor
+			}
+			return i, consensus.ErrPrunedAncestor
+		}*/
+		for j, fruit := range fruitHeaders {
+			if err := hc.engine.ValidateFruitHeader(header, fruit, hc, fastchain, checkpoint); err != nil {
+				log.Error("ValidateHeaderChain", "snailBlock number", header.Number, "fruit number", fruit.FastNumber, "err", err)
+				return j, err
+			}
+		}
 	}
-
 	return 0, nil
 }
 
@@ -263,7 +307,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, checkFreq
 // should be done or not. The reason behind the optional check is because some
 // of the header retrieval mechanisms already need to verfy nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
-func (hc *HeaderChain) InsertHeaderChain(chain []*types.SnailHeader, writeHeader WhCallback, start time.Time) (int, error) {
+func (hc *HeaderChain) InsertHeaderChain(chain []*types.SnailHeader, fruitHeads [][]*types.SnailHeader, writeHeader WhCallback, start time.Time) (int, error) {
 	// Collect some import statistics to report on
 	stats := struct{ processed, ignored int }{}
 	// All headers passed verification, import them into the database
@@ -274,13 +318,25 @@ func (hc *HeaderChain) InsertHeaderChain(chain []*types.SnailHeader, writeHeader
 			return i, errors.New("aborted")
 		}
 		// If the header's already known, skip it, otherwise store
-		if hc.HasHeader(header.Hash(), header.Number.Uint64()) {
-			stats.ignored++
-			continue
+		hash := header.Hash()
+		if hc.HasHeader(hash, header.Number.Uint64()) {
+			externTd := hc.GetTd(hash, header.Number.Uint64())
+			localTd := hc.GetTd(hc.currentHeaderHash, hc.CurrentHeader().Number.Uint64())
+			if externTd == nil || externTd.Cmp(localTd) <= 0 {
+				stats.ignored++
+				continue
+			}
 		}
-		if err := writeHeader(header); err != nil {
-			return i, err
+		if len(fruitHeads) > 0 {
+			if err := writeHeader(header, fruitHeads[i]); err != nil {
+				return i, err
+			}
+		} else {
+			if err := writeHeader(header, nil); err != nil {
+				return i, err
+			}
 		}
+
 		stats.processed++
 	}
 	// Report some public statistics so the user has a clue what's going on
@@ -502,4 +558,21 @@ func (hc *HeaderChain) Engine() consensus.Engine { return hc.engine }
 // a header chain does not have blocks available for retrieval.
 func (hc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.SnailBlock {
 	return nil
+}
+
+func (hc *HeaderChain) GetFruitsHash(header *types.SnailHeader, headers []*types.SnailHeader) common.Hash {
+	if hc.config.IsTIP5(header.Number) {
+		return types.DeriveSha(types.FruitsHeaders(headers))
+	}
+	return header.FruitsHash
+}
+
+// IsCanonicalBlock checks if a block on the Canonical block chain
+// or not, caching it if present.
+func (hc *HeaderChain) IsCanonicalBlock(hash common.Hash, number uint64) bool {
+	//if get number bigger than currentNumber return nil
+	if number > hc.currentHeader.Load().(*types.SnailHeader).Number.Uint64() {
+		return false
+	}
+	return rawdb.ReadCanonicalHash(hc.chainDb, number) == hash
 }

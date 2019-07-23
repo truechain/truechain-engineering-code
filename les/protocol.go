@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"io"
 	"math/big"
 
@@ -34,19 +35,18 @@ import (
 
 // Constants to match up protocol versions and messages
 const (
-	lpv1 = 1
 	lpv2 = 2
 )
 
 // Supported versions of the les protocol (first is primary)
 var (
-	ClientProtocolVersions    = []uint{lpv2, lpv1}
-	ServerProtocolVersions    = []uint{lpv2, lpv1}
+	ClientProtocolVersions    = []uint{lpv2}
+	ServerProtocolVersions    = []uint{lpv2}
 	AdvertiseProtocolVersions = []uint{lpv2} // clients are searching for the first advertised protocol in the list
 )
 
 // Number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = map[uint]uint64{lpv1: 15, lpv2: 22}
+var ProtocolLengths = map[uint]uint64{lpv2: 37}
 
 const (
 	NetworkId          = 1
@@ -56,30 +56,31 @@ const (
 // les protocol message codes
 const (
 	// Protocol messages belonging to LPV1
-	StatusMsg          = 0x00
-	AnnounceMsg        = 0x01
-	GetBlockHeadersMsg = 0x02
-	BlockHeadersMsg    = 0x03
-	GetBlockBodiesMsg  = 0x04
-	BlockBodiesMsg     = 0x05
-	GetReceiptsMsg     = 0x06
-	ReceiptsMsg        = 0x07
-	GetProofsV1Msg     = 0x08
-	ProofsV1Msg        = 0x09
-	GetCodeMsg         = 0x0a
-	CodeMsg            = 0x0b
-	SendTxMsg          = 0x0c
-	GetHeaderProofsMsg = 0x0d
-	HeaderProofsMsg    = 0x0e
+	StatusMsg               = 0x00
+	AnnounceMsg             = 0x01
+	GetFastBlockHeadersMsg  = 0x02
+	FastBlockHeadersMsg     = 0x03
+	GetFastBlockBodiesMsg   = 0x04
+	FastBlockBodiesMsg      = 0x05
+	GetSnailBlockHeadersMsg = 0x06
+	SnailBlockHeadersMsg    = 0x07
+	GetSnailBlockBodiesMsg  = 0x08
+	SnailBlockBodiesMsg     = 0x09
+	GetFruitBodiesMsg       = 0x0a
+	FruitBodiesMsg          = 0x0b
+
+	GetReceiptsMsg = 0x0c
+	ReceiptsMsg    = 0x0d
 	// Protocol messages belonging to LPV2
-	GetProofsV2Msg          = 0x0f
-	ProofsV2Msg             = 0x10
-	GetHelperTrieProofsMsg  = 0x11
-	HelperTrieProofsMsg     = 0x12
-	SendTxV2Msg             = 0x13
-	GetTxStatusMsg          = 0x14
-	TxStatusMsg             = 0x15
-	GetSnailBlockHeadersMsg = 0x16
+	GetCodeMsg             = 0x0e
+	CodeMsg                = 0x0f
+	GetProofsV2Msg         = 0x10
+	ProofsV2Msg            = 0x11
+	GetHelperTrieProofsMsg = 0x12
+	HelperTrieProofsMsg    = 0x13
+	SendTxV2Msg            = 0x15
+	GetTxStatusMsg         = 0x16
+	TxStatusMsg            = 0x17
 )
 
 type errCode int
@@ -125,9 +126,11 @@ var errorToString = map[int]string{
 }
 
 type announceBlock struct {
-	Hash   common.Hash // Hash of one particular block being announced
-	Number uint64      // Number of one particular block being announced
-	Td     *big.Int    // Total difficulty of one particular block being announced
+	Hash       common.Hash // Hash of one particular block being announced
+	Number     uint64      // Number of one particular block being announced
+	Td         *big.Int    // Total difficulty of one particular block being announced
+	FastHash   common.Hash // Hash of one particular block being announced
+	FastNumber uint64      // Number of one particular block being announced
 }
 
 // announceData is the network packet for the block announcements.
@@ -135,13 +138,15 @@ type announceData struct {
 	Hash       common.Hash // Hash of one particular block being announced
 	Number     uint64      // Number of one particular block being announced
 	Td         *big.Int    // Total difficulty of one particular block being announced
+	FastHash   common.Hash // Hash of one particular block being announced
+	FastNumber uint64      // Number of one particular block being announced
 	ReorgDepth uint64
 	Update     keyValueList
 }
 
 // sign adds a signature to the block announcement by the given privKey
 func (a *announceData) sign(privKey *ecdsa.PrivateKey) {
-	rlp, _ := rlp.EncodeToBytes(announceBlock{a.Hash, a.Number, a.Td})
+	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, FastHash: a.FastHash, FastNumber: a.FastNumber})
 	sig, _ := crypto.Sign(crypto.Keccak256(rlp), privKey)
 	a.Update = a.Update.add("sign", sig)
 }
@@ -152,22 +157,23 @@ func (a *announceData) checkSignature(id enode.ID) error {
 	if err := a.Update.decode().get("sign", &sig); err != nil {
 		return err
 	}
-	rlp, _ := rlp.EncodeToBytes(announceBlock{a.Hash, a.Number, a.Td})
+	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, FastHash: a.FastHash, FastNumber: a.FastNumber})
 	recPubkey, err := crypto.SigToPub(crypto.Keccak256(rlp), sig)
 	if err != nil {
 		return err
 	}
-
 	if id == enode.PubkeyToIDV4(recPubkey) {
 		return nil
 	}
-	return errors.New("Wrong signature")
+	return errors.New("wrong signature")
 }
 
 type blockInfo struct {
-	Hash   common.Hash // Hash of one particular block being announced
-	Number uint64      // Number of one particular block being announced
-	Td     *big.Int    // Total difficulty of one particular block being announced
+	Hash       common.Hash // Hash of one particular block being announced
+	Number     uint64      // Number of one particular block being announced
+	Td         *big.Int    // Total difficulty of one particular block being announced
+	FastHash   common.Hash // Hash of one particular block being announced
+	FastNumber uint64      // Number of one particular block being announced
 }
 
 // getBlockHeadersData represents a block header query.
@@ -176,6 +182,8 @@ type getBlockHeadersData struct {
 	Amount  uint64       // Maximum number of headers to retrieve
 	Skip    uint64       // Blocks to skip between consecutive headers
 	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
+	Fast    bool
+	Fruit   bool
 }
 
 // hashOrNumber is a combined field for specifying an origin block.
@@ -219,10 +227,59 @@ type CodeData []struct {
 	Value []byte
 }
 
-type proofsData [][]rlp.RawValue
-
 type txStatus struct {
 	Status core.TxStatus
 	Lookup *rawdb.TxLookupEntry `rlp:"nil"`
 	Error  string
+}
+
+// getBlockBodiesData represents a block body query.
+type getBlockBodiesData struct {
+	Hash []common.Hash // Block hash from which to retrieve Bodies (excludes Number)
+	Type uint32        // Distinguish fetcher and downloader
+}
+
+// BlockBodiesRawData represents a block header send.
+type BlockBodiesRawData struct {
+	Bodies     []rlp.RawValue
+	FruitHeads []*fruitHeadsData
+	Type       uint32 // Distinguish fetcher and downloader
+}
+
+// blockBodiesData is the network packet for block content distribution.
+type snailBlockBodiesData struct {
+	Fruits     []*fruitsData
+	FruitHeads []*fruitHeadsData
+	Type       uint32 // Distinguish fetcher and downloader
+}
+
+// blockBody represents the data content of a single block.
+type fruitHeadsData struct {
+	FruitHead []*types.SnailHeader
+}
+
+// blockBody represents the data content of a single block.
+type fruitsData struct {
+	Fruit []*types.SnailBlock
+}
+
+// snailHeadsData is the network packet for block content distribution.
+type snailHeadsData struct {
+	Heads      []*types.SnailHeader
+	FruitHeads []*fruitHeadsData
+}
+
+type incompleteBlocks struct {
+	Blocks []*incompleteBlock
+}
+
+type incompleteBlock struct {
+	Head  *types.Header
+	Signs []*types.PbftSign
+	Infos []*types.CommitteeMember
+}
+
+type headsWithSigns struct {
+	Heads []*types.Header
+	Signs [][]*types.PbftSign
 }

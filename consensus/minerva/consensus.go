@@ -51,6 +51,8 @@ var (
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
 	errInvalidFast       = errors.New("invalid fast number")
+	//ErrRewardedBlock is returned if a block to import is already rewarded.
+	ErrRewardedBlock = errors.New("block already rewarded")
 )
 
 // Author implements consensus.Engine, returning the header's coinbase as the
@@ -284,6 +286,51 @@ func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers [
 		}
 	}()
 	return abort, errorsOut
+}
+
+//ValidateRewarded verify whether the block has been rewarded.
+func (m *Minerva) ValidateRewarded(number uint64, hash common.Hash, fastchain consensus.ChainReader) error {
+	if br := fastchain.GetBlockReward(number); br != nil && br.SnailHash != hash {
+		log.Info("err reward snail block", "number", number, "reward hash", br.SnailHash, "this snail hash", hash, "fast number", br.FastNumber, "fast hash", br.FastHash)
+		return ErrRewardedBlock
+	}
+	return nil
+}
+
+//ValidateFruitHeader is to verify if the fruit is legal
+func (m *Minerva) ValidateFruitHeader(block *types.SnailHeader, fruit *types.SnailHeader, chain consensus.SnailChainReader, fastchain consensus.ChainReader, checkpoint uint64) error {
+	//check number(fb)
+	//
+	currentNumber := fastchain.CurrentHeader().Number
+	if fruit.FastNumber.Cmp(currentNumber) > 0 {
+		log.Warn("ValidateFruitHeader", "currentHeaderNumber", fastchain.CurrentHeader().Number, "currentBlockNumber", fastchain.CurrentHeader().Number)
+		return consensus.ErrFutureBlock
+	}
+
+	fb := fastchain.GetHeader(fruit.FastHash, fruit.FastNumber.Uint64())
+	if fb == nil {
+		log.Warn("ValidateFruitHeader", "fasthash", fruit.FastHash, "number", fruit.FastNumber, "currentHeader", fastchain.CurrentHeader().Number)
+		return consensus.ErrInvalidFast
+	}
+
+	//check fruit's time
+	if fruit.Time == nil || fb.Time == nil || fruit.Time.Cmp(fb.Time) < 0 {
+		return consensus.ErrFruitTime
+	}
+	if block.PointerNumber.Uint64() >= checkpoint {
+		err := m.VerifyFreshness(chain, fruit, block.Number, false)
+		if err != nil {
+			log.Debug("ValidateFruitHeader verify freshness error.", "err", err, "fruit", fruit.FastNumber)
+			return err
+		}
+	}
+
+	if err := m.VerifySnailHeader(chain, fastchain, fruit, true, true); err != nil {
+		log.Info("VerifySnailHeader verify failed.", "err", err)
+		return err
+	}
+
+	return nil
 }
 
 func (m *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header,
@@ -807,7 +854,6 @@ func (m *Minerva) PrepareSnailWithParent(fastchain consensus.ChainReader, chain 
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
 	if header != nil && header.SnailHash != (common.Hash{}) && header.SnailNumber != nil {
-		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber, "number", header.Number)
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
 		if sBlockHeader == nil {
 			return nil, types.ErrSnailHeightNotYet

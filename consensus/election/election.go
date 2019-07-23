@@ -29,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -144,10 +143,16 @@ type Election struct {
 	snailChainEventCh  chan types.SnailChainEvent
 	snailChainEventSub event.Subscription
 
-	fastchain  *core.BlockChain
+	fastchain  BlockChain
 	snailchain SnailBlockChain
 
 	engine consensus.Engine
+}
+
+type BlockChain interface {
+	CurrentHeader() *types.Header
+
+	GetBlockByNumber(number uint64) *types.Block
 }
 
 // SnailLightChain encapsulates functions required to synchronise a light chain.
@@ -160,9 +165,6 @@ type SnailLightChain interface {
 type SnailBlockChain interface {
 	SnailLightChain
 
-	// CurrentBlock retrieves the head block from the local chain.
-	CurrentBlock() *types.SnailBlock
-
 	SubscribeChainEvent(ch chan<- types.SnailChainEvent) event.Subscription
 
 	GetDatabase() etruedb.Database
@@ -170,6 +172,10 @@ type SnailBlockChain interface {
 	GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64)
 
 	GetBlockByNumber(number uint64) *types.SnailBlock
+
+	GetFruitsHead(number uint64) []*types.SnailHeader
+
+	GetHeaderByNumber(number uint64) *types.SnailHeader
 }
 
 type Config interface {
@@ -177,7 +183,7 @@ type Config interface {
 }
 
 // NewElection create election processor and load genesis committee
-func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
+func NewElection(fastBlockChain BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
 	// init
 	election := &Election{
 		fastchain:         fastBlockChain,
@@ -214,6 +220,16 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 		election.defaultMembers = append(election.defaultMembers, &member)
 	}
 
+	return election
+}
+
+func NewLightElection(fastBlockChain BlockChain, snailBlockChain SnailBlockChain) *Election {
+	// init
+	election := &Election{
+		fastchain:         fastBlockChain,
+		snailchain:        snailBlockChain,
+		electionMode:      ElectModeEtrue,
+	}
 	return election
 }
 
@@ -446,7 +462,7 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 	}
 
 	// Elect members from snailblock
-	members := e.electCommittee(snailBeginNumber, snailEndNumber)
+	members := ElectCommittee(e.snailchain, e.defaultMembers, snailBeginNumber, snailEndNumber)
 
 	// Cache committee members for next access
 	e.commiteeCache.Add(committeeNum.Uint64(), members)
@@ -753,8 +769,14 @@ func membersDisplay(members []*types.CommitteeMember) []map[string]interface{} {
 	return attrs
 }
 
+type snailReader interface {
+	GetFruitsHead(number uint64) []*types.SnailHeader
+
+	GetHeaderByNumber(number uint64) *types.SnailHeader
+}
+
 // getCandinates get candinate miners and seed from given snail blocks
-func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
+func getCandinates(snailchain snailReader, snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
 	var fruitsCount = make(map[common.Address]uint64)
 	var members []*candidateMember
 
@@ -762,26 +784,25 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 
 	// get all fruits want to be elected and their pubic key is valid
 	for blockNumber := snailBeginNumber; blockNumber.Cmp(snailEndNumber) <= 0; {
-		block := e.snailchain.GetBlockByNumber(blockNumber.Uint64())
+		block := snailchain.GetHeaderByNumber(blockNumber.Uint64())
 		if block == nil {
 			return common.Hash{}, nil
 		}
 
 		seed = append(seed, block.Hash().Bytes()...)
-
-		fruits := block.Fruits()
+		fruits := snailchain.GetFruitsHead(blockNumber.Uint64())
 		for _, f := range fruits {
-			if f.ToElect() {
-				pubkey, err := f.GetPubKey()
+			if len(f.Publickey) > 0 {
+				pubkey, err := crypto.UnmarshalPubkey(f.Publickey)
 				if err != nil {
 					continue
 				}
 				addr := crypto.PubkeyToAddress(*pubkey)
 
-				act, diff := e.engine.GetDifficulty(f.Header(), true)
+				act, diff := f.GetDifficulty(true)
 
 				member := &candidateMember{
-					coinbase:   f.Coinbase(),
+					coinbase:   f.Coinbase,
 					publickey:  pubkey,
 					address:    addr,
 					difficulty: new(big.Int).Sub(act, diff),
@@ -814,7 +835,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 	}
 	log.Debug("get final candidate", "count", len(candidates), "td", td)
 	if len(candidates) == 0 {
-		log.Warn("getCandinates not get candidates")
+		log.Debug("Get none candidates")
 		return common.Hash{}, nil
 	}
 
@@ -873,12 +894,12 @@ func (e *Election) getEndFast(id *big.Int) *big.Int {
 }
 
 // elect is a lottery function that select committee members from candidates miners
-func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*types.CommitteeMember {
+func elect(defaultMembers []*types.CommitteeMember, candidates []*candidateMember, seed common.Hash) []*types.CommitteeMember {
 	var addrs = make(map[common.Address]uint)
 	var members []*types.CommitteeMember
 	var defaults = make(map[common.Address]*types.CommitteeMember)
 
-	for _, g := range e.defaultMembers {
+	for _, g := range defaultMembers {
 		defaults[g.CommitteeBase] = g
 	}
 	log.Debug("elect committee members ..", "count", len(candidates), "seed", seed)
@@ -928,8 +949,8 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 	return members
 }
 
-// electCommittee elect committee members from snail block.
-func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big.Int) *types.ElectionCommittee {
+// ElectCommittee elect committee members from snail block.
+func ElectCommittee(snailchain snailReader, defaultMembers []*types.CommitteeMember, snailBeginNumber *big.Int, snailEndNumber *big.Int) *types.ElectionCommittee {
 	log.Info("elect new committee..", "begin", snailBeginNumber, "end", snailEndNumber,
 		"threshold", params.ElectionFruitsThreshold, "max", params.MaximumCommitteeNumber)
 
@@ -937,16 +958,16 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 		committee types.ElectionCommittee
 		members   []*types.CommitteeMember
 	)
-	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
+	seed, candidates := getCandinates(snailchain, snailBeginNumber, snailEndNumber)
 	if candidates == nil {
-		log.Warn("can't get election candidates, retain default committee", "begin", snailBeginNumber, "end", snailEndNumber)
+		log.Warn("Candidates empty retain default members", "begin", snailBeginNumber, "end", snailEndNumber)
 	} else {
 		var (
 			all      []*types.CommitteeMember
 			addrs    = make(map[common.Address]*types.CommitteeMember)
 			defaults = make(map[common.Address]*types.CommitteeMember)
 		)
-		for _, g := range e.defaultMembers {
+		for _, g := range defaultMembers {
 			defaults[g.CommitteeBase] = g
 		}
 		for _, cm := range candidates {
@@ -967,7 +988,7 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 		}
 		log.Info("Candidates addrs", "count", len(all))
 		if len(all) > params.ProposalCommitteeNumber {
-			members = e.elect(candidates, seed)
+			members = elect(defaultMembers, candidates, seed)
 		} else {
 			// Apply the whole candidates
 			log.Info("Apply all candidates", "begin", snailBeginNumber, "end", snailEndNumber)
@@ -991,12 +1012,16 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	}
 
 	if len(committee.Members) >= params.MinimumCommitteeNumber {
-		committee.Backups = append(committee.Backups, e.defaultMembers...)
+		committee.Backups = append(committee.Backups, defaultMembers...)
 	} else {
 		// PBFT need a minimum 3f+1 members
 		// Use genesis committee as default committee
 		log.Warn("Append default committee members", "elected", len(committee.Members), "begin", snailBeginNumber, "end", snailEndNumber)
-		committee.Members = append(committee.Members, e.genesisCommittee...)
+		for _, m := range defaultMembers {
+			var member = *m
+			member.Flag = types.StateUsedFlag
+			committee.Members = append(committee.Members, &member)
+		}
 	}
 
 	return &committee
@@ -1158,8 +1183,8 @@ func (e *Election) FinalizeCommittee(block *types.Block) error {
 // Start load current committ and starts election processing
 func (e *Election) Start() error {
 	// get current committee info
-	fastHeadNumber := e.fastchain.CurrentBlock().Number()
-	snailHeadNumber := e.snailchain.CurrentBlock().Number()
+	fastHeadNumber := e.fastchain.CurrentHeader().Number
+	snailHeadNumber := e.snailchain.CurrentHeader().Number
 
 	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if currentCommittee == nil {

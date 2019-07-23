@@ -41,24 +41,26 @@ var (
 	fastTrieProgressKey = []byte("TrieSnailSync")
 
 	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
-	headerPrefix          = []byte("sh") // headerPrefix + num (uint64 big endian) + hash -> header
-	headerTDSuffix        = []byte("st") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
-	headerHashSuffix      = []byte("sn") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
-	headerNumberPrefix    = []byte("sH") // headerNumberPrefix + hash -> num (uint64 big endian)
+	headerPrefix       = []byte("sh") // headerPrefix + num (uint64 big endian) + hash -> header
+	headerTDSuffix     = []byte("st") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
+	headerHashSuffix   = []byte("sn") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
+	headerNumberPrefix = []byte("sH") // headerNumberPrefix + hash -> num (uint64 big endian)
 
-	committeePrefix = []byte("c") // committeePrefix + num (uint64 big endian) -> committee
+	committeePrefix      = []byte("c") // committeePrefix + num (uint64 big endian) -> committee
 	committeeStateSuffix = []byte("s") // committeePrefix + num (uint64 big endian) + committeeStateSuffix -> committeeStates
 
-	blockBodyPrefix     = []byte("sb") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
-	blockReceiptsPrefix = []byte("sr") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
+	blockBodyPrefix     = []byte("sb")  // blockBodyPrefix + num (uint64 big endian) + hash -> block body
+	fruitHeadsPrefix    = []byte("sbf") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
+	blockReceiptsPrefix = []byte("sr")  // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
 
 	ftLookupPrefix  = []byte("sl") // ftLookupPrefix + hash -> fruit lookup metadata
 	bloomBitsPrefix = []byte("sB") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
-	configPrefix   = []byte("snailchain-truechain-config-") // config prefix for the db
+	configPrefix = []byte("snailchain-truechain-config-") // config prefix for the db
 
-	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
-	BloomBitsIndexPrefix = []byte("siB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
+	// headBlockKey tracks the latest know full block's hash.
+	headHashPrefix      = []byte("shh") // headHashPrefix + num (uint64 big endian) -> headHash
+	headHashEpochSuffix = []byte("she") // headHashPrefix + num (uint64 big endian) + headHashEpochSuffix -> headHashEpoch
 )
 
 // FtLookupEntry is a positional metadata to help looking up the data content of
@@ -101,6 +103,11 @@ func blockBodyKey(number uint64, hash common.Hash) []byte {
 	return append(append(blockBodyPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
 }
 
+// fruitHeadsKey = blockBodyPrefix + num (uint64 big endian) + hash
+func fruitHeadsKey(number uint64, hash common.Hash) []byte {
+	return append(append(fruitHeadsPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+}
+
 // blockReceiptsKey = blockReceiptsPrefix + num (uint64 big endian) + hash
 func blockReceiptsKey(number uint64, hash common.Hash) []byte {
 	return append(append(blockReceiptsPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
@@ -134,4 +141,14 @@ func committeeKey(number uint64) []byte {
 // committeeStateKey = num (uint64 big endian) + committeePrefix + suffix
 func committeeStateKey(number uint64) []byte {
 	return append(committeeKey(number), committeeStateSuffix...)
+}
+
+// headHashKey = num (uint64 big endian) + committeePrefix
+func headHashKey(number uint64) []byte {
+	return append(headHashPrefix, encodeBlockNumber(number)...)
+}
+
+// headHashEpochKey = num (uint64 big endian) + headHashKey + suffix
+func headHashEpochKey(number uint64) []byte {
+	return append(headHashKey(number), headHashEpochSuffix...)
 }

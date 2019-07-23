@@ -32,7 +32,25 @@ var (
 
 	TestnetGenesisHash      = common.HexToHash("0x4b82a68ebbf32f2e816754f2b50eda0ae2c0a71dd5f4e0ecd93ccbfb7dba00b8")
 	TestnetSnailGenesisHash = common.HexToHash("0x4ab1748c057b744de202d6ebea64e8d3a0b2ec4c19abbc59e8639967b14b7c96")
+
+	DevnetSnailGenesisHash = common.HexToHash("0xdf819f11beead767f91a6c05d74e5f902fc2988e9039a969a023bc75e467cdeb")
 )
+
+// TrustedCheckpoints associates each known checkpoint with the genesis hash of
+// the chain it belongs to.
+var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
+	MainnetSnailGenesisHash: MainnetTrustedCheckpoint,
+	TestnetSnailGenesisHash: TestnetTrustedCheckpoint,
+	DevnetSnailGenesisHash:  DevnetTrustedCheckpoint,
+}
+
+// TrustedCheckpoints associates each known checkpoint with the genesis hash of
+// the chain it belongs to.
+var TrustedBloomCheckpoints = map[common.Hash]*TrustedCheckpoint{
+	MainnetSnailGenesisHash: MainnetTrustedCheckpoint,
+	TestnetSnailGenesisHash: TestnetTrustedCheckpoint,
+	DevnetSnailGenesisHash:  DevnetTrustedBloomCheckpoint,
+}
 
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
@@ -47,6 +65,15 @@ var (
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
 	}
 
+	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
+	MainnetTrustedCheckpoint = &TrustedCheckpoint{
+		Name:         "mainnet",
+		SectionIndex: 227,
+		SectionHead:  common.HexToHash("0xa2e0b25d72c2fc6e35a7f853cdacb193b4b4f95c606accf7f8fa8415283582c7"),
+		CHTRoot:      common.HexToHash("0xf69bdd4053b95b61a27b106a0e86103d791edd8574950dc96aa351ab9b9f1aa0"),
+		BloomRoot:    common.HexToHash("0xec1b454d4c6322c78ccedf76ac922a8698c3cac4d98748a84af4995b7bd3d744"),
+	}
+
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	TestnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(18928),
@@ -57,6 +84,15 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(450000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(4000)},
+	}
+
+	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
+	TestnetTrustedCheckpoint = &TrustedCheckpoint{
+		Name:         "testnet",
+		SectionIndex: 161,
+		SectionHead:  common.HexToHash("0x5378afa734e1feafb34bcca1534c4d96952b754579b96a4afb23d5301ecececc"),
+		CHTRoot:      common.HexToHash("0x1cf2b071e7443a62914362486b613ff30f60cea0d9c268ed8c545f876a3ee60c"),
+		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
 	}
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -71,6 +107,24 @@ var (
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
 	}
 
+	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
+	DevnetTrustedCheckpoint = &TrustedCheckpoint{
+		Name:         "devnet",
+		SectionIndex: 64,
+		SectionHead:  common.HexToHash("0x0743dadf541e3061ff4e6c28eecea23030378b04cc58490c8656614a200afb6f"),
+		CHTRoot:      common.HexToHash("0x19817c3097af4edf3f864585a14dc9cdcfbc757956b699feb95d744ff132a4d4"),
+		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
+	}
+
+	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
+	DevnetTrustedBloomCheckpoint = &TrustedCheckpoint{
+		Name:         "devnet",
+		SectionIndex: 2,
+		SectionHead:  common.HexToHash("9cd5e2ec8a8505dd5b8dc7bc248daceafbb135a84e68e23ba0d9b12e1be2651a"),
+		CHTRoot:      common.HexToHash("1a91e78eb6772ed586a1a31b5058876b664d96bddbf5d9f2942ea302da403d2d"),
+		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
+	}
+
 	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
@@ -81,6 +135,18 @@ var (
 
 	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil}
 )
+
+// TrustedCheckpoint represents a set of post-processed trie roots (CHT and
+// BloomTrie) associated with the appropriate section index and head hash. It is
+// used to start light syncing from this checkpoint and avoid downloading the
+// entire header chain while still being able to securely access old headers/logs.
+type TrustedCheckpoint struct {
+	Name         string      `json:"-"`
+	SectionIndex uint64      `json:"sectionIndex"`
+	SectionHead  common.Hash `json:"sectionHead"`
+	CHTRoot      common.Hash `json:"chtRoot"`
+	BloomRoot    common.Hash `json:"bloomRoot"`
+}
 
 // ChainConfig is the core config which determines the blockchain settings.
 //

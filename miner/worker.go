@@ -675,7 +675,7 @@ func (w *worker) commitNewWork() {
 		log.Info("____Commit new mining work", "number", work.Block.Number(), "uncles", len(uncles), "fruits", len(work.Block.Fruits()), " fastblock", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty(), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		w.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
-
+	work.Block.Time()
 	w.push(work)
 	w.updateSnapshot()
 }

@@ -78,9 +78,11 @@ type ProtocolManager struct {
 	fastSync uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	snapSync uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 
-	acceptTxs    uint32 // Flag whether we're considered synchronised (enables transaction processing)
-	acceptFruits uint32
-	//acceptSnailBlocks uint32
+	acceptTxs        uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	acceptFruits     uint32
+	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
+	checkpointHash   common.Hash // Block hash for the sync progress validator to cross reference
+
 	txpool      txPool
 	SnailPool   SnailPool
 	blockchain  *core.BlockChain
@@ -171,6 +173,12 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		manager.snapSync = uint32(1)
 	}
 
+	// If we have trusted checkpoints, enforce them on the chain
+	if checkpoint, ok := params.TrustedCheckpoints[blockchain.Genesis().Hash()]; ok {
+		manager.checkpointNumber = (checkpoint.SectionIndex+1)*params.CHTFrequencyClient - 1
+		manager.checkpointHash = checkpoint.SectionHead
+	}
+
 	// Initiate a sub-protocol for every implemented version we can handle
 	manager.SubProtocols = make([]p2p.Protocol, 0, len(ProtocolVersions))
 	for i, version := range ProtocolVersions {
@@ -209,7 +217,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// TODO: support downloader func.
 	fmode := fastdownloader.SyncMode(mode)
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
-	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
+	manager.downloader = downloader.New(mode, manager.checkpointNumber, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
 	manager.fdownloader.SetSD(manager.downloader)
 
 	fastValidator := func(header *types.Header) error {

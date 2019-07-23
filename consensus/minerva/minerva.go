@@ -29,7 +29,9 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"golang.org/x/crypto/sha3"
@@ -221,6 +223,7 @@ type Minerva struct {
 
 	sbc      consensus.SnailChainReader
 	election consensus.CommitteeElection
+	chainDB  etruedb.Database
 }
 
 //var MinervaLocal *Minerva
@@ -276,10 +279,30 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 			return false
 		}
 
+		finish := false
 		for i := 0; i < STARTUPDATENUM; i++ {
 			header := m.sbc.GetHeaderByNumber(uint64(i) + st_block_num)
 			if header == nil {
-				log.Error(" getDataset function getHead hash fail ", "blockNum is:  ", (uint64(i) + st_block_num))
+				if m.chainDB != nil {
+					num := rawdb.ReadLightCheckPoint(m.chainDB)
+					if epoch > 1 && epoch-1 == uint64((num-1)/UPDATABLOCKLENGTH) {
+						if !finish {
+							finish = true
+							headSet := rawdb.ReadLastDataSet(m.chainDB, epoch-1)
+							for i := 0; i < len(headSet); i++ {
+								headerHash[i] = headSet[i]
+							}
+							log.Info("getHashList", "count", len(headSet), "num", num, "epoch", epoch, "block", block)
+						}
+						if uint64(i)+st_block_num < num {
+							continue
+						}
+					}
+					if uint64(i)+st_block_num < num {
+						return false
+					}
+				}
+				log.Error(" getDataset function getHead hash fail", "blockNum", (uint64(i) + st_block_num), "block", block)
 				return false
 			}
 			headerHash[i] = header.Hash().Bytes()
@@ -288,8 +311,20 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 	}
 
 	if current.dateInit == 0 && epoch > 0 {
-		if !getHashList(&headerHash, epoch) {
-			return nil
+		if m.chainDB != nil {
+			headSet := rawdb.ReadLastDataSet(m.chainDB, epoch-1)
+			log.Info("getDataset", "block", block, "count", len(headSet))
+			if len(headSet) == 0 && !getHashList(&headerHash, epoch) {
+				return nil
+			} else {
+				for i := 0; i < len(headSet); i++ {
+					headerHash[i] = headSet[i]
+				}
+			}
+		} else {
+			if !getHashList(&headerHash, epoch) {
+				return nil
+			}
 		}
 	}
 
@@ -330,7 +365,7 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 				d.datasetHash = d.GetDatasetSeedhash(d.dataset)
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
-				log.Info("updateLookupTBL is start", "epoch", epoch)
+				log.Info("updateLookupTBL is start", "epoch", epoch, "hash", len(headershash))
 				flag, _, cont := d.updateLookupTBL(d.dataset, headershash)
 				if flag {
 					// consistent is make sure the algorithm is current and not change
@@ -351,6 +386,10 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 //SetSnailChainReader Append interface SnailChainReader after instantiations
 func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
 	m.sbc = scr
+}
+
+func (m *Minerva) SetSnailHeaderHash(db etruedb.Database) {
+	m.chainDB = db
 }
 
 //SetElection Append interface CommitteeElection after instantiation

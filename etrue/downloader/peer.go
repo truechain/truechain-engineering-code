@@ -89,15 +89,17 @@ func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int
 }
 
 func (w *lightPeerWrapper) RequestReceipts([]common.Hash, bool) error {
-	panic("Snail RequestReceipts not supported in light client mode sync")
+	log.Info("Snail RequestReceipts not supported in light client mode sync")
+	return nil
 }
 
-func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool, uint32) error {
-	panic("Snail RequestReceipts not supported in light client mode sync")
+func (w *lightPeerWrapper) RequestBodies(hashes []common.Hash, fast bool, call uint32) error {
+	return w.peer.RequestBodies(hashes, fast, call)
 }
 
 func (w *lightPeerWrapper) RequestNodeData([]common.Hash, bool) error {
-	panic("Snail RequestNodeData not supported in light client mode sync")
+	log.Info("Snail RequestNodeData not supported in light client mode sync")
+	return nil
 }
 
 // newPeerConnection creates a new downloader peer.

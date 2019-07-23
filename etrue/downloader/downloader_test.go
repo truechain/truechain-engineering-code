@@ -102,7 +102,7 @@ func newTester() *downloadTester {
 	tester.stateDb = etruedb.NewMemDatabase()
 	tester.ftester = fastdownloader.NewTester(testdb, tester.stateDb)
 
-	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer, tester.ftester.GetDownloader())
+	tester.downloader = New(FullSync, 0, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer, tester.ftester.GetDownloader())
 	tester.fdownloader = tester.ftester.GetDownloader()
 
 	return tester
@@ -363,7 +363,7 @@ func (dl *downloadTester) GetTd(hash common.Hash, number uint64) *big.Int {
 }
 
 // InsertHeaderChain injects a new batch of headers into the simulated chain.
-func (dl *downloadTester) InsertHeaderChain(headers []*types.SnailHeader, checkFreq int) (int, error) {
+func (dl *downloadTester) InsertHeaderChain(headers []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int) (int, error) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
 
@@ -515,7 +515,7 @@ func (dl *downloadTester) dropPeer(id string, call uint32) {
 	dl.downloader.UnregisterPeer(id)
 }
 
-func (dl *downloadTester)  GetFruitsHash(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash {
+func (dl *downloadTester) GetFruitsHash(header *types.SnailHeader, fruits []*types.SnailBlock) common.Hash {
 
 	if params.AllMinervaProtocolChanges.IsTIP5(header.Number) {
 		var headers []*types.SnailHeader
@@ -526,7 +526,6 @@ func (dl *downloadTester)  GetFruitsHash(header *types.SnailHeader, fruits []*ty
 	}
 	return types.DeriveSha(types.Fruits(fruits))
 }
-
 
 type downloadTesterPeer struct {
 	dl    *downloadTester

@@ -59,6 +59,7 @@ type HeaderChain struct {
 	headerCache *lru.Cache // Cache for the most recent block headers
 	tdCache     *lru.Cache // Cache for the most recent block total difficulties
 	numberCache *lru.Cache // Cache for the most recent block numbers
+	rewardCache   *lru.Cache // Cache for the most recent block rewards
 
 	procInterrupt func() bool
 
@@ -140,7 +141,6 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	rawdb.WriteHeader(hc.chainDb, header)
 
-
 	// Extend the canonical chain with the new header
 	rawdb.WriteCanonicalHash(hc.chainDb, hash, number)
 	rawdb.WriteHeadHeaderHash(hc.chainDb, hash)
@@ -150,7 +150,6 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	status = CanonStatTy
 
-	log.Debug("headerCache", "hash", hash.String(), "number", number)
 	hc.headerCache.Add(hash, header)
 	hc.numberCache.Add(hash, number)
 
@@ -229,11 +228,6 @@ func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader Fas
 			log.Debug("Premature abort during headers import")
 			return i, errors.New("aborted")
 		}
-		// If the header's already known, skip it, otherwise store
-		if fhc.HasHeader(header.Hash(), header.Number.Uint64()) {
-			stats.ignored++
-			continue
-		}
 		if err := writeHeader(header); err != nil {
 			return i, err
 		}
@@ -252,7 +246,7 @@ func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader Fas
 	if stats.ignored > 0 {
 		context = append(context, []interface{}{"ignored", stats.ignored}...)
 	}
-	log.Info("Imported new block headers", context...)
+	log.Info("Imported new fast block headers", context...)
 
 	return 0, nil
 }
@@ -316,7 +310,6 @@ func (fhc *HeaderChain) GetAncestor(hash common.Hash, number, ancestor uint64, m
 	}
 	return hash, number
 }
-
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
@@ -432,5 +425,26 @@ func (fhc *HeaderChain) Engine() consensus.Engine { return fhc.engine }
 // GetBlock implements consensus.ChainReader, and returns nil for every input as
 // a header chain does not have blocks available for retrieval.
 func (fhc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.Block {
+	return nil
+}
+
+// Get BlockReward for HeaderChain
+func (fhc *HeaderChain) GetBlockReward(snumber uint64) *types.BlockReward {
+
+	if rewards_, ok := fhc.rewardCache.Get(snumber); ok {
+		rewards := rewards_.(*types.BlockReward)
+		if fhc.CurrentHeader().Number.Uint64() >= rewards.FastNumber.Uint64() {
+			return rewards
+		}
+		return nil
+	}
+
+	rewards := rawdb.ReadBlockReward(fhc.chainDb, snumber)
+
+	if rewards != nil && fhc.CurrentHeader().Number.Uint64() >= rewards.FastNumber.Uint64() {
+		fhc.rewardCache.Add(snumber, rewards)
+		return rewards
+	}
+
 	return nil
 }
