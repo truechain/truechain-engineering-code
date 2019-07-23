@@ -76,7 +76,7 @@ func NewHeaderChain(chainDb etruedb.Database, config *params.ChainConfig, engine
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
-
+	rewardCache, _ := lru.New(headerCacheLimit)
 	// Seed a fast but crypto originating random generator
 	seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
@@ -89,6 +89,7 @@ func NewHeaderChain(chainDb etruedb.Database, config *params.ChainConfig, engine
 		headerCache:   headerCache,
 		tdCache:       tdCache,
 		numberCache:   numberCache,
+		rewardCache:   rewardCache,
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
 		engine:        engine,
