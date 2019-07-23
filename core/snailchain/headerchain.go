@@ -261,6 +261,9 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, fruits []
 		if err := <-results; err != nil {
 			return i, err
 		}
+		if err := hc.engine.ValidateRewarded(header.Number.Uint64(), header.Hash(), fastchain); err != nil {
+			return i, err
+		}
 		fruitHeaders := fruits[i]
 		maxfb := fastchain.GetHeader(fruitHeaders[len(fruitHeaders)-1].FastHash, fruitHeaders[len(fruitHeaders)-1].FastNumber.Uint64())
 		minfb := fastchain.GetHeader(fruitHeaders[0].FastHash, fruitHeaders[0].FastNumber.Uint64())

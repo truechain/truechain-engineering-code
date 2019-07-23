@@ -51,6 +51,8 @@ var (
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
 	errInvalidFast       = errors.New("invalid fast number")
+	//ErrRewardedBlock is returned if a block to import is already rewarded.
+	ErrRewardedBlock = errors.New("block already rewarded")
 )
 
 // Author implements consensus.Engine, returning the header's coinbase as the
@@ -286,8 +288,17 @@ func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers [
 	return abort, errorsOut
 }
 
+//ValidateRewarded verify whether the block has been rewarded.
+func (m *Minerva) ValidateRewarded(number uint64, hash common.Hash, fastchain consensus.ChainReader) error {
+	if br := fastchain.GetBlockReward(number); br != nil && br.SnailHash != hash {
+		log.Info("err reward snail block", "number", number, "reward hash", br.SnailHash, "this snail hash", hash, "fast number", br.FastNumber, "fast hash", br.FastHash)
+		return ErrRewardedBlock
+	}
+	return nil
+}
+
 //ValidateFruitHeader is to verify if the fruit is legal
-func (v *Minerva) ValidateFruitHeader(block *types.SnailHeader, fruit *types.SnailHeader, chain consensus.SnailChainReader, fastchain consensus.ChainReader, checkpoint uint64) error {
+func (m *Minerva) ValidateFruitHeader(block *types.SnailHeader, fruit *types.SnailHeader, chain consensus.SnailChainReader, fastchain consensus.ChainReader, checkpoint uint64) error {
 	//check number(fb)
 	//
 	currentNumber := fastchain.CurrentHeader().Number
@@ -307,14 +318,14 @@ func (v *Minerva) ValidateFruitHeader(block *types.SnailHeader, fruit *types.Sna
 		return consensus.ErrFruitTime
 	}
 	if block.PointerNumber.Uint64() >= checkpoint {
-		err := v.VerifyFreshness(chain, fruit, block.Number, false)
+		err := m.VerifyFreshness(chain, fruit, block.Number, false)
 		if err != nil {
 			log.Debug("ValidateFruitHeader verify freshness error.", "err", err, "fruit", fruit.FastNumber)
 			return err
 		}
 	}
 
-	if err := v.VerifySnailHeader(chain, fastchain, fruit, true, true); err != nil {
+	if err := m.VerifySnailHeader(chain, fastchain, fruit, true, true); err != nil {
 		log.Info("VerifySnailHeader verify failed.", "err", err)
 		return err
 	}

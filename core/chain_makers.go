@@ -103,7 +103,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
-	b.feeAmout  =feeAmount
+	b.feeAmout = feeAmount
 }
 
 // Number returns the block number of the block being generated.
@@ -175,7 +175,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	}
 
 	if n <= 0 {
-		return nil,nil
+		return nil, nil
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	chainreader := &fakeChainReader{config: config}
@@ -325,6 +325,7 @@ func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header       
 func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
 func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }
+func (cr *fakeChainReader) GetBlockReward(snumber uint64) *types.BlockReward        { return nil }
 
 func NewCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *BlockChain, error) {
 	db, blockchain, err := newCanonical(engine, n, full)

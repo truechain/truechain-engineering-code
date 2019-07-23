@@ -48,6 +48,8 @@ type ChainReader interface {
 
 	// GetBlock retrieves a block from the database by hash and number.
 	GetBlock(hash common.Hash, number uint64) *types.Block
+
+	GetBlockReward(snumber uint64) *types.BlockReward
 }
 
 // ChainSnailReader defines a small collection of methods needed to access the local
@@ -106,6 +108,8 @@ type Engine interface {
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
 	VerifySnailHeaders(chain SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
+
+	ValidateRewarded(number uint64, hash common.Hash, fastchain ChainReader) error
 
 	ValidateFruitHeader(block *types.SnailHeader, fruit *types.SnailHeader, snailchain SnailChainReader, fastchain ChainReader, checkpoint uint64) error
 	// VerifySeal checks whether the crypto seal on a header is valid according to
