@@ -59,6 +59,7 @@ type HeaderChain struct {
 	headerCache *lru.Cache // Cache for the most recent block headers
 	tdCache     *lru.Cache // Cache for the most recent block total difficulties
 	numberCache *lru.Cache // Cache for the most recent block numbers
+	rewardCache   *lru.Cache // Cache for the most recent block rewards
 
 	procInterrupt func() bool
 
@@ -424,5 +425,26 @@ func (fhc *HeaderChain) Engine() consensus.Engine { return fhc.engine }
 // GetBlock implements consensus.ChainReader, and returns nil for every input as
 // a header chain does not have blocks available for retrieval.
 func (fhc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.Block {
+	return nil
+}
+
+// Get BlockReward for HeaderChain
+func (fhc *HeaderChain) GetBlockReward(snumber uint64) *types.BlockReward {
+
+	if rewards_, ok := fhc.rewardCache.Get(snumber); ok {
+		rewards := rewards_.(*types.BlockReward)
+		if fhc.CurrentHeader().Number.Uint64() >= rewards.FastNumber.Uint64() {
+			return rewards
+		}
+		return nil
+	}
+
+	rewards := rawdb.ReadBlockReward(fhc.chainDb, snumber)
+
+	if rewards != nil && fhc.CurrentHeader().Number.Uint64() >= rewards.FastNumber.Uint64() {
+		fhc.rewardCache.Add(snumber, rewards)
+		return rewards
+	}
+
 	return nil
 }
