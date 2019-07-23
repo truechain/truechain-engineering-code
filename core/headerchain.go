@@ -55,11 +55,12 @@ type HeaderChain struct {
 
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
+	currentReward     atomic.Value // Current head of the currentReward
 
 	headerCache *lru.Cache // Cache for the most recent block headers
 	tdCache     *lru.Cache // Cache for the most recent block total difficulties
 	numberCache *lru.Cache // Cache for the most recent block numbers
-	rewardCache   *lru.Cache // Cache for the most recent block rewards
+	rewardCache *lru.Cache // Cache for the most recent block rewards
 
 	procInterrupt func() bool
 
@@ -75,7 +76,7 @@ func NewHeaderChain(chainDb etruedb.Database, config *params.ChainConfig, engine
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
-
+	rewardCache, _ := lru.New(headerCacheLimit)
 	// Seed a fast but crypto originating random generator
 	seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
@@ -88,6 +89,7 @@ func NewHeaderChain(chainDb etruedb.Database, config *params.ChainConfig, engine
 		headerCache:   headerCache,
 		tdCache:       tdCache,
 		numberCache:   numberCache,
+		rewardCache:   rewardCache,
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
 		engine:        engine,
@@ -140,6 +142,20 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 	)
 
 	rawdb.WriteHeader(hc.chainDb, header)
+
+	if header.SnailNumber.Int64() != 0 {
+		//create BlockReward
+		br := &types.BlockReward{
+			FastHash:    header.Hash(),
+			FastNumber:  header.Number,
+			SnailHash:   header.SnailHash,
+			SnailNumber: header.SnailNumber,
+		}
+		//insert BlockReward to db
+		rawdb.WriteBlockReward(hc.chainDb, br)
+		rawdb.WriteHeadRewardNumber(hc.chainDb, header.SnailNumber.Uint64())
+		hc.currentReward.Store(br)
+	}
 
 	// Extend the canonical chain with the new header
 	rawdb.WriteCanonicalHash(hc.chainDb, hash, number)
@@ -221,6 +237,7 @@ func (fhc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int
 func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader FastWhCallback, start time.Time) (int, error) {
 	// Collect some import statistics to report on
 	stats := struct{ processed, ignored int }{}
+
 	// All headers passed verification, import them into the database
 	for i, header := range chain {
 		// Short circuit insertion if shutting down
@@ -402,6 +419,7 @@ func (fhc *HeaderChain) SetHead(head uint64, delFn FastDeleteCallback) {
 	fhc.headerCache.Purge()
 	fhc.tdCache.Purge()
 	fhc.numberCache.Purge()
+	fhc.rewardCache.Purge()
 
 	if fhc.CurrentHeader() == nil {
 		fhc.currentHeader.Store(fhc.genesisHeader)
