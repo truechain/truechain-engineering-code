@@ -55,7 +55,8 @@ type HeaderChain struct {
 
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
-
+	currentReward    atomic.Value // Current head of the currentReward
+	
 	headerCache *lru.Cache // Cache for the most recent block headers
 	tdCache     *lru.Cache // Cache for the most recent block total difficulties
 	numberCache *lru.Cache // Cache for the most recent block numbers
@@ -221,6 +222,8 @@ func (fhc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int
 func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader FastWhCallback, start time.Time) (int, error) {
 	// Collect some import statistics to report on
 	stats := struct{ processed, ignored int }{}
+
+	var batch = fhc.chainDb.NewBatch()
 	// All headers passed verification, import them into the database
 	for i, header := range chain {
 		// Short circuit insertion if shutting down
@@ -232,6 +235,21 @@ func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader Fas
 			return i, err
 		}
 		stats.processed++
+
+		if header.SnailNumber.Int64() != 0 {
+			//create BlockReward
+			br := &types.BlockReward{
+				FastHash:    header.Hash(),
+				FastNumber:  header.Number,
+				SnailHash:   header.SnailHash,
+				SnailNumber: header.SnailNumber,
+			}
+			//insert BlockReward to db
+			rawdb.WriteBlockReward(batch, br)
+			rawdb.WriteHeadRewardNumber(fhc.chainDb, header.SnailNumber.Uint64())
+
+			fhc.currentReward.Store(br)
+		}
 	}
 	// Report some public statistics so the user has a clue what's going on
 	last := chain[len(chain)-1]
@@ -402,6 +420,7 @@ func (fhc *HeaderChain) SetHead(head uint64, delFn FastDeleteCallback) {
 	fhc.headerCache.Purge()
 	fhc.tdCache.Purge()
 	fhc.numberCache.Purge()
+	fhc.rewardCache.Purge()
 
 	if fhc.CurrentHeader() == nil {
 		fhc.currentHeader.Store(fhc.genesisHeader)
