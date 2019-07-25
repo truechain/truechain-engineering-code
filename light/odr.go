@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package light implements on-demand retrieval capable state and chain objects
-// for the Ethereum Light Client.
 package light
 
 import (
@@ -70,6 +68,8 @@ func (req *BlockRequest) StoreResult(db etruedb.Database) {
 // ChtRequest is the ODR request type for state/storage trie entries
 type ChtRequest struct {
 	OdrRequest
+	Untrusted        bool   // Indicator whether the result retrieved is trusted or not
+	PeerId           string // The specified peer id from which to retrieve data.
 	Config           *public.IndexerConfig
 	ChtNum, BlockNum uint64
 	ChtRoot          common.Hash
@@ -86,9 +86,11 @@ type ChtRequest struct {
 func (req *ChtRequest) StoreResult(db etruedb.Database) {
 	hash, num := req.Header.Hash(), req.Header.Number.Uint64()
 
-	rawdb.WriteHeader(db, req.Header)
-	rawdb.WriteTd(db, hash, num, req.Td)
-	rawdb.WriteCanonicalHash(db, hash, num)
+	if !req.Untrusted {
+		rawdb.WriteHeader(db, req.Header)
+		rawdb.WriteTd(db, hash, num, req.Td)
+		rawdb.WriteCanonicalHash(db, hash, num)
+	}
 	rawdb.WriteLightCheckPoint(db, num)
 	if len(req.Headers) > 0 {
 		for _, head := range req.Headers {

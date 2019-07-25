@@ -38,8 +38,6 @@ var (
 	forkSeed      = 2
 )
 
-
-
 //The test block is inserted into the chain
 func TestInsertBlock(t *testing.T) {
 
@@ -154,7 +152,7 @@ func TestBadBlockHashes(t *testing.T)  { testBadHashes(t, true) }
 
 func testBadHashes(t *testing.T, full bool) {
 
-	engine 	  := ethash.NewFaker()
+	engine := ethash.NewFaker()
 	// Create a pristine chain and database
 	db, blockchain, err := newCanonical(engine, 0, full)
 	if err != nil {
@@ -199,9 +197,9 @@ func TestFastVsFullChains(t *testing.T) {
 		}
 		genesis = gspec.MustFastCommit(gendb)
 		signer  = types.NewTIP1Signer(gspec.Config.ChainID)
-		engine = ethash.NewFaker()
+		engine  = ethash.NewFaker()
 	)
-	blocks, receipts := GenerateChain(gspec.Config, genesis,engine , gendb, 1024, func(i int, block *BlockGen) {
+	blocks, receipts := GenerateChain(gspec.Config, genesis, engine, gendb, 1024, func(i int, block *BlockGen) {
 		block.SetCoinbase(common.Address{0x00})
 
 		// If the block number is multiple of 3, send a few bonus transactions to the miner
@@ -357,7 +355,6 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	//log.Info("light", "state", archive.CurrentBlock().Root())
 }
 
-
 // Tests if the canonical block can be fetched from the database during chain insertion.
 func TestCanonicalBlockRetrieval(t *testing.T) {
 	engine := ethash.NewFaker()
@@ -404,7 +401,6 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 	pend.Wait()
 }
 
-
 // Tests that importing small side forks doesn't leave junk in the trie database
 // cache (which would eventually cause memory issues).
 func TestTrieForkGC(t *testing.T) {
@@ -413,7 +409,7 @@ func TestTrieForkGC(t *testing.T) {
 
 	db := etruedb.NewMemDatabase()
 	genesis := new(Genesis).MustFastCommit(db)
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 2*TriesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
 	forks := make([]*types.Block, len(blocks))
@@ -442,7 +438,7 @@ func TestTrieForkGC(t *testing.T) {
 		}
 	}
 	// Dereference all the recent tries and ensure no past trie is left in
-	for i := 0; i < triesInMemory; i++ {
+	for i := 0; i < TriesInMemory; i++ {
 		chain.stateCache.TrieDB().Dereference(blocks[len(blocks)-1-i].Root())
 		chain.stateCache.TrieDB().Dereference(forks[len(blocks)-1-i].Root())
 	}

@@ -226,7 +226,7 @@ func (f *fastLightFetcher) registerPeer(p *peer) {
 // unregisterPeer removes a new peer from the fetcher's peer set
 func (f *fastLightFetcher) unregisterPeer(p *peer) {
 	p.lock.Lock()
-	p.hasBlock = nil
+	p.hasFastBlock = nil
 	p.lock.Unlock()
 
 	f.lock.Lock()
@@ -438,7 +438,7 @@ func (f *fastLightFetcher) nextRequest() (*distReq, uint64, bool) {
 				f.lock.Unlock()
 
 				cost := p.GetRequestCost(GetFastBlockHeadersMsg, int(bestAmount))
-				p.fcServer.QueueRequest(reqID, cost)
+				p.fcServer.QueuedRequest(reqID, cost)
 				f.reqMu.Lock()
 				f.requested[reqID] = fetchFastRequest{hash: bestHash, amount: bestAmount, peer: p, sent: mclock.Now()}
 				f.reqMu.Unlock()

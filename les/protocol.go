@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package les implements the Light Ethereum Subprotocol.
 package les
 
 import (
@@ -81,7 +80,29 @@ const (
 	SendTxV2Msg            = 0x15
 	GetTxStatusMsg         = 0x16
 	TxStatusMsg            = 0x17
+	// Protocol messages introduced in LPV3
+	StopMsg   = 0x18
+	ResumeMsg = 0x19
 )
+
+type requestInfo struct {
+	name     string
+	maxCount uint64
+}
+
+var requests = map[uint64]requestInfo{
+	GetFastBlockHeadersMsg:  {"GetBlockHeaders", MaxHeaderFetch},
+	GetFastBlockBodiesMsg:   {"GetBlockBodies", MaxBodyFetch},
+	GetSnailBlockHeadersMsg: {"GetBlockHeaders", MaxHeaderFetch},
+	GetSnailBlockBodiesMsg:  {"GetBlockBodies", MaxBodyFetch},
+	GetFruitBodiesMsg:       {"GetBlockBodies", MaxBodyFetch},
+	GetReceiptsMsg:          {"GetReceipts", MaxReceiptFetch},
+	GetCodeMsg:              {"GetCode", MaxCodeFetch},
+	GetProofsV2Msg:          {"GetProofsV2", MaxProofsFetch},
+	GetHelperTrieProofsMsg:  {"GetHelperTrieProofs", MaxHelperTrieProofsFetch},
+	SendTxV2Msg:             {"SendTxV2", MaxTxSend},
+	GetTxStatusMsg:          {"GetTxStatus", MaxTxStatus},
+}
 
 type errCode int
 
@@ -144,6 +165,14 @@ type announceData struct {
 	Update     keyValueList
 }
 
+// sanityCheck verifies that the values are reasonable, as a DoS protection
+func (a *announceData) sanityCheck() error {
+	if tdlen := a.Td.BitLen(); tdlen > 100 {
+		return fmt.Errorf("too large block TD: bitlen %d", tdlen)
+	}
+	return nil
+}
+
 // sign adds a signature to the block announcement by the given privKey
 func (a *announceData) sign(privKey *ecdsa.PrivateKey) {
 	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, FastHash: a.FastHash, FastNumber: a.FastNumber})
@@ -152,9 +181,9 @@ func (a *announceData) sign(privKey *ecdsa.PrivateKey) {
 }
 
 // checkSignature verifies if the block announcement has a valid signature by the given pubKey
-func (a *announceData) checkSignature(id enode.ID) error {
+func (a *announceData) checkSignature(id enode.ID, update keyValueMap) error {
 	var sig []byte
-	if err := a.Update.decode().get("sign", &sig); err != nil {
+	if err := update.get("sign", &sig); err != nil {
 		return err
 	}
 	rlp, _ := rlp.EncodeToBytes(announceBlock{Hash: a.Hash, Number: a.Number, Td: a.Td, FastHash: a.FastHash, FastNumber: a.FastNumber})

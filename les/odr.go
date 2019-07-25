@@ -96,9 +96,9 @@ const (
 	MsgFruitBodies
 	MsgCode
 	MsgReceipts
-	MsgProofsV1
 	MsgProofsV2
 	MsgHelperTrieProofs
+	MsgTxStatus
 )
 
 // Msg encodes a LES message that delivers reply data for a request
@@ -120,12 +120,15 @@ func (odr *LesOdr) Retrieve(ctx context.Context, req light.OdrRequest) (err erro
 		},
 		canSend: func(dp distPeer) bool {
 			p := dp.(*peer)
-			return lreq.CanSend(p)
+			if !p.onlyAnnounce {
+				return lreq.CanSend(p)
+			}
+			return false
 		},
 		request: func(dp distPeer) func() {
 			p := dp.(*peer)
 			cost := lreq.GetCost(p)
-			p.fcServer.QueueRequest(reqID, cost)
+			p.fcServer.QueuedRequest(reqID, cost)
 			return func() { lreq.Request(reqID, p) }
 		},
 	}
@@ -151,12 +154,15 @@ func (odr *LesOdr) FastRetrieve(ctx context.Context, req fast.OdrRequest) (err e
 		},
 		canSend: func(dp distPeer) bool {
 			p := dp.(*peer)
-			return lreq.CanSend(p)
+			if !p.onlyAnnounce {
+				return lreq.CanSend(p)
+			}
+			return false
 		},
 		request: func(dp distPeer) func() {
 			p := dp.(*peer)
 			cost := lreq.GetCost(p)
-			p.fcServer.QueueRequest(reqID, cost)
+			p.fcServer.QueuedRequest(reqID, cost)
 			return func() { lreq.Request(reqID, p) }
 		},
 	}

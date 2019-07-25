@@ -31,7 +31,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
-	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
 
@@ -159,11 +158,9 @@ func (c *ChtIndexerBackend) Commit() error {
 		return err
 	}
 	c.triedb.Commit(root, false)
-	log.Info("Process", "section", c.section, "sectionSize", c.sectionSize, "CHTFrequencyClient", params.CHTFrequencyClient, "lastHash", c.lastHash, "root", root)
+	log.Info("Process", "section", c.section, "sectionSize", c.sectionSize, "lastHash", c.lastHash, "root", root)
+	log.Info("Storing CHT", "section", c.section, "head", fmt.Sprintf("%064x", c.lastHash), "root", fmt.Sprintf("%064x", root))
 
-	if ((c.section+1)*c.sectionSize)%params.CHTFrequencyClient == 0 {
-		log.Info("Storing CHT", "section", c.section*c.sectionSize/params.CHTFrequencyClient, "head", fmt.Sprintf("%064x", c.lastHash), "root", fmt.Sprintf("%064x", root))
-	}
 	StoreChtRoot(c.diskdb, c.section, c.lastHash, root)
 	return nil
 }

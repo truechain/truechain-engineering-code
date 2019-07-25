@@ -61,7 +61,7 @@ const (
 	maxFutureBlocks         = 256
 	maxTimeFutureBlocks     = 30
 	badBlockLimit           = 10
-	triesInMemory           = 128
+	TriesInMemory           = 128
 	triesInMemoryDownloader = 16
 
 	fastBlockStateInternal = 6
@@ -111,6 +111,7 @@ type BlockChain struct {
 	chainSideFeed    event.Feed
 	chainHeadFeed    event.Feed
 	logsFeed         event.Feed
+	blockProcFeed    event.Feed
 	RewardNumberFeed event.Feed
 	scope            event.SubscriptionScope
 	genesisBlock     *types.Block
@@ -290,8 +291,8 @@ func (bc *BlockChain) loadLastState() error {
 	if rewardHead != nil {
 		bc.currentReward.Store(rewardHead)
 		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
-	}else {
-		reward := &types.BlockReward{SnailNumber:big.NewInt(0),}
+	} else {
+		reward := &types.BlockReward{SnailNumber: big.NewInt(0)}
 		bc.currentReward.Store(reward)
 		rawdb.WriteHeadRewardNumber(bc.db, 0)
 	}
@@ -361,7 +362,6 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.futureBlocks.Purge()
 	bc.signCache.Purge()
 	bc.rewardCache.Purge()
-
 
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
 		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
@@ -815,7 +815,7 @@ func (bc *BlockChain) Stop() {
 	if !bc.cacheConfig.Disabled {
 		triedb := bc.stateCache.TrieDB()
 
-		for _, offset := range []uint64{0, 1, triesInMemoryDownloader - 1, triesInMemory - 1} {
+		for _, offset := range []uint64{0, 1, triesInMemoryDownloader - 1, TriesInMemory - 1} {
 			if number := bc.CurrentBlock().NumberU64(); number > offset {
 				recent := bc.GetBlockByNumber(number - offset)
 
@@ -1082,7 +1082,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -int64(block.NumberU64()))
-		if current := block.NumberU64(); current > triesInMemory {
+		if current := block.NumberU64(); current > TriesInMemory {
 			// If we exceeded our memory allowance, flush matured singleton nodes to disk
 			var (
 				nodes, imgs = triedb.Size()
@@ -1092,15 +1092,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 				triedb.Cap(limit - etruedb.IdealBatchSize)
 			}
 			// Find the next state trie we need to commit
-			header := bc.GetHeaderByNumber(current - triesInMemory)
+			header := bc.GetHeaderByNumber(current - TriesInMemory)
 			chosen := header.Number.Uint64()
 
 			// If we exceeded out time allowance, flush an entire trie to disk
 			if bc.gcproc > bc.cacheConfig.TrieTimeLimit || header.Number.Int64()%blockDeleteHeight == 0 {
 				// If we're exceeding limits but haven't reached a large enough memory gap,
 				// warn the user that the system is becoming unstable.
-				if chosen < lastWrite+triesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
-					log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/triesInMemory)
+				if chosen < lastWrite+TriesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
+					log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/TriesInMemory)
 				}
 				// Flush an entire trie and restart the counters
 				triedb.Commit(header.Root, true)
@@ -1172,6 +1172,8 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	if len(chain) == 0 {
 		return 0, nil
 	}
+	bc.blockProcFeed.Send(true)
+	defer bc.blockProcFeed.Send(false)
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].NumberU64() != chain[i-1].NumberU64()+1 || chain[i].ParentHash() != chain[i-1].Hash() {
@@ -1834,4 +1836,10 @@ func (bc *BlockChain) stateGcBodyAndReceipt(gcNumber uint64) {
 
 // SetCommitteeInfo write committee info in rawdb for light client
 func (bc *BlockChain) SetCommitteeInfo(hash common.Hash, number uint64, infos []*types.CommitteeMember) {
+}
+
+// SubscribeBlockProcessingEvent registers a subscription of bool where true means
+// block processing has started while false means it has stopped.
+func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {
+	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
 }

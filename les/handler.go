@@ -14,23 +14,21 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package les implements the Light Ethereum Subprotocol.
 package les
 
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"github.com/truechain/truechain-engineering-code/light/fast"
 	"github.com/truechain/truechain-engineering-code/light/public"
 	"math/big"
-	"net"
-	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -51,6 +49,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
+
+var errTooManyInvalidRequest = errors.New("too many invalid requests made")
 
 const (
 	softResponseLimit = 2 * 1024 * 1024 // Target maximum size of returned blocks, headers or node data.
@@ -113,49 +113,52 @@ type txPool interface {
 }
 
 type ProtocolManager struct {
-	lightSync   bool
-	txpool      txPool
-	txrelay     *LesTxRelay
-	networkId   uint64
+	// Configs
 	chainConfig *params.ChainConfig
 	iConfig     *public.IndexerConfig
-	blockchain  BlockChain
-	fblockchain FastBlockChain
-	chainDb     etruedb.Database
-	odr         *LesOdr
-	server      *LesServer
-	serverPool  *serverPool
-	clientPool  *freeClientPool
-	lesTopic    discv5.Topic
-	reqDist     *requestDistributor
-	retriever   *retrieveManager
 
-	downloader  *downloader.Downloader
-	fdownloader *fastdownloader.Downloader
-	fetcher     *lightFetcher
-	fastFetcher *fastLightFetcher
-	peers       *peerSet
-	maxPeers    int
-
-	eventMux *event.TypeMux
+	client       bool   // The indicator whether the node is light client
+	maxPeers     int    // The maximum number peers allowed to connect.
+	networkId    uint64 // The identity of network.
+	txpool       txPool
+	txrelay      *lesTxRelay
+	blockchain   BlockChain
+	fblockchain  FastBlockChain
+	chainDb      etruedb.Database
+	odr          *LesOdr
+	server       *LesServer
+	serverPool   *serverPool
+	lesTopic     discv5.Topic
+	reqDist      *requestDistributor
+	retriever    *retrieveManager
+	servingQueue *servingQueue
+	downloader   *downloader.Downloader
+	fdownloader  *fastdownloader.Downloader
+	fetcher      *lightFetcher
+	fastFetcher  *fastLightFetcher
+	ulc          *ulc
+	peers        *peerSet
+	checkpoint   *params.TrustedCheckpoint
+	reg          *checkpointOracle // If reg == nil, it means the checkpoint registrar is not activated
 
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh   chan *peer
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
-	// wait group is used for graceful shutdowns during downloading
-	// and processing
 	wg       *sync.WaitGroup
+	eventMux *event.TypeMux
 	election *Election
+	// Callbacks
+	synced func() bool
 }
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the ethereum network.
-func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *public.IndexerConfig, lightSync bool, networkId uint64, mux *event.TypeMux, engine consensus.Engine, peers *peerSet, blockchain FastBlockChain, snailchain BlockChain, txpool txPool, chainDb etruedb.Database, odr *LesOdr, txrelay *LesTxRelay, serverPool *serverPool, quitSync chan struct{}, wg *sync.WaitGroup, election *Election) (*ProtocolManager, error) {
+func NewProtocolManager(chainConfig *params.ChainConfig, checkpoint *params.TrustedCheckpoint, indexerConfig *public.IndexerConfig, ulcServers []string, ulcFraction int, client bool, networkId uint64, mux *event.TypeMux, engine consensus.Engine, peers *peerSet, blockchain FastBlockChain, snailchain BlockChain, txpool txPool, chainDb etruedb.Database, odr *LesOdr, serverPool *serverPool, registrar *checkpointOracle, quitSync chan struct{}, wg *sync.WaitGroup, election *Election, synced func() bool) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		lightSync:   lightSync,
+		client:      client,
 		eventMux:    mux,
 		blockchain:  snailchain,
 		fblockchain: blockchain,
@@ -165,37 +168,48 @@ func NewProtocolManager(chainConfig *params.ChainConfig, indexerConfig *public.I
 		odr:         odr,
 		networkId:   networkId,
 		txpool:      txpool,
-		txrelay:     txrelay,
 		serverPool:  serverPool,
+		reg:         registrar,
 		peers:       peers,
 		newPeerCh:   make(chan *peer),
 		quitSync:    quitSync,
 		wg:          wg,
 		noMorePeers: make(chan struct{}),
 		election:    election,
+		checkpoint:  checkpoint,
+		synced:      synced,
 	}
 	if odr != nil {
 		manager.retriever = odr.retriever
 		manager.reqDist = odr.retriever.dist
 	}
 
+	if ulcServers != nil {
+		ulc, err := newULC(ulcServers, ulcFraction)
+		if err != nil {
+			log.Warn("Failed to initialize ultra light client", "err", err)
+		} else {
+			manager.ulc = ulc
+		}
+	}
 	removePeer := manager.removePeer
 	if disableClientRemovePeer {
 		removePeer = func(id string, call uint32) {}
 	}
-	if lightSync {
-		var checkpoint uint64
-		if cht, ok := params.TrustedCheckpoints[blockchain.Genesis().Hash()]; ok {
-			checkpoint = (cht.SectionIndex+1)*params.CHTFrequencyClient - 1
+	if client {
+		var checkpointNumber uint64
+		if checkpoint != nil {
+			checkpointNumber = (checkpoint.SectionIndex+1)*params.CHTFrequency - 1
 		}
 		mode := downloader.LightSync
 		fmode := fastdownloader.SyncMode(mode)
 		manager.fdownloader = fastdownloader.New(fmode, chainDb, manager.eventMux, nil, blockchain, removePeer)
-		manager.downloader = downloader.New(mode, checkpoint, chainDb, manager.eventMux, nil, snailchain, removePeer, manager.fdownloader)
+		manager.downloader = downloader.New(mode, checkpointNumber, chainDb, manager.eventMux, nil, snailchain, removePeer, manager.fdownloader)
 		manager.peers.notify((*downloaderPeerNotify)(manager))
 		manager.fastFetcher = newFastLightFetcher(manager)
 		manager.fetcher = newLightFetcher(manager)
 		manager.fetcher.setFastFetcher(manager.fastFetcher)
+
 	}
 
 	return manager, nil
@@ -209,11 +223,9 @@ func (pm *ProtocolManager) removePeer(id string, call uint32) {
 
 func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
-
-	if pm.lightSync {
+	if pm.client {
 		go pm.syncer()
 	} else {
-		pm.clientPool = newFreeClientPool(pm.chainDb, maxPeers, 10000, mclock.System{})
 		go func() {
 			for range pm.newPeerCh {
 			}
@@ -231,8 +243,9 @@ func (pm *ProtocolManager) Stop() {
 	pm.noMorePeers <- struct{}{}
 
 	close(pm.quitSync) // quits syncer, fetcher
-	if pm.clientPool != nil {
-		pm.clientPool.stop()
+
+	if pm.servingQueue != nil {
+		pm.servingQueue.stop()
 	}
 
 	// Disconnect existing sessions.
@@ -273,7 +286,11 @@ func (pm *ProtocolManager) runPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWrit
 }
 
 func (pm *ProtocolManager) newPeer(pv int, nv uint64, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
-	return newPeer(pv, nv, p, newMeteredMsgWriter(rw))
+	var trusted bool
+	if pm.ulc != nil {
+		trusted = pm.ulc.trusted(p.ID())
+	}
+	return newPeer(pv, nv, trusted, p, newMeteredMsgWriter(rw))
 }
 
 // handle is the callback invoked to manage the life cycle of a les peer. When
@@ -281,11 +298,16 @@ func (pm *ProtocolManager) newPeer(pv int, nv uint64, p *p2p.Peer, rw p2p.MsgRea
 func (pm *ProtocolManager) handle(p *peer) error {
 	// Ignore maxPeers if this is a trusted peer
 	// In server mode we try to check into the client pool after handshake
-	if pm.lightSync && pm.peers.Len() >= pm.maxPeers && !p.Peer.Info().Network.Trusted {
+	if pm.client && pm.peers.Len() >= pm.maxPeers && !p.Peer.Info().Network.Trusted {
+		clientRejectedMeter.Mark(1)
 		return p2p.DiscTooManyPeers
 	}
-
-	p.Log().Debug("Light Truechain peer connected", "name", p.Name())
+	// Reject light clients if server is not synced.
+	if !pm.client && !pm.synced() {
+		clientRejectedMeter.Mark(1)
+		return p2p.DiscRequested
+	}
+	p.Log().Debug("Light Ethereum peer connected", "name", p.Name())
 
 	// Execute the LES handshake
 	var (
@@ -299,23 +321,11 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	)
 	if err := p.Handshake(td, hash, number, genesis.Hash(), fastHash, fastHeight, pm.server); err != nil {
 		p.Log().Debug("Light Truechain handshake failed", "err", err)
+		clientErrorMeter.Mark(1)
 		return err
 	}
-
-	if !pm.lightSync && !p.Peer.Info().Network.Trusted {
-		addr, ok := p.RemoteAddr().(*net.TCPAddr)
-		// test peer address is not a tcp address, don't use client pool if can not typecast
-		if ok {
-			id := addr.IP.String()
-			if strings.Contains(p.id, "a0002cb58d") {
-				return p2p.DiscTooManyPeers
-			}
-
-			if !pm.clientPool.connect(id, func() { go pm.removePeer(p.id, public.DiscTooManyPeers) }) {
-				return p2p.DiscTooManyPeers
-			}
-			defer pm.clientPool.disconnect(id)
-		}
+	if p.fcClient != nil {
+		defer p.fcClient.Disconnect()
 	}
 
 	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
@@ -323,19 +333,18 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	}
 	// Register the peer locally
 	if err := pm.peers.Register(p); err != nil {
+		clientErrorMeter.Mark(1)
 		p.Log().Error("Light Truechain peer registration failed", "err", err)
 		return err
 	}
 	p.Log().Debug("Light Truechain peer connected Register", "name", p.Name())
-
+	connectedAt := time.Now()
 	defer func() {
-		if pm.server != nil && pm.server.fcManager != nil && p.fcClient != nil {
-			p.fcClient.Remove(pm.server.fcManager)
-		}
 		pm.removePeer(p.id, public.Normal)
+		connectionTimer.UpdateSince(connectedAt)
 	}()
 	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
-	if pm.lightSync {
+	if pm.client {
 		p.lock.Lock()
 		head := p.headInfo
 		p.lock.Unlock()
@@ -348,38 +357,27 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			pm.serverPool.registered(p.poolEntry)
 		}
 	}
-
-	stop := make(chan struct{})
-	defer close(stop)
-	go func() {
-		// new block announce loop
-		for {
-			select {
-			case announce := <-p.announceChn:
-				p.SendAnnounce(announce)
-			case <-stop:
-				return
-			}
-		}
-	}()
-	p.Log().Debug("Light Truechain peer connected enter loop", "name", p.Name())
 	// main loop. handle incoming messages.
+	p.Log().Debug("Light Truechain peer connected enter loop", "name", p.Name())
 	for {
 		if err := pm.handleMsg(p); err != nil {
 			p.Log().Debug("Light Truechain message handling failed", "err", err)
+			if p.fcServer != nil {
+				p.fcServer.DumpLogs()
+			}
 			return err
 		}
 	}
 }
 
-var (
-	reqList   = []uint64{GetFastBlockHeadersMsg, GetFastBlockBodiesMsg, GetSnailBlockHeadersMsg, GetSnailBlockBodiesMsg, GetFruitBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
-	reqListV2 = []uint64{GetFastBlockHeadersMsg, GetFastBlockBodiesMsg, GetSnailBlockHeadersMsg, GetSnailBlockBodiesMsg, GetFruitBodiesMsg, GetCodeMsg, GetReceiptsMsg, SendTxV2Msg, GetTxStatusMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
-)
-
 // handleMsg is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
 func (pm *ProtocolManager) handleMsg(p *peer) error {
+	select {
+	case err := <-p.errCh:
+		return err
+	default:
+	}
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
 	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg code:%d, err: %v", p.id, msg.Code, err))
@@ -392,23 +390,47 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	p.Log().Trace("Light Truechain message arrived", "code", msg.Code, "bytes", msg.Size)
 
-	costs := p.fcCosts[msg.Code]
-	reject := func(reqCnt, maxCnt uint64) bool {
-		if p.fcClient == nil || reqCnt > maxCnt {
+	p.responseCount++
+	responseCount := p.responseCount
+	var (
+		maxCost uint64
+		task    *servingTask
+	)
+
+	accept := func(reqID, reqCnt, maxCnt uint64) bool {
+		inSizeCost := func() uint64 {
+			if pm.server.costTracker != nil {
+				return pm.server.costTracker.realCost(0, msg.Size, 0)
+			}
+			return 0
+		}
+		if p.isFrozen() || reqCnt == 0 || p.fcClient == nil || reqCnt > maxCnt {
+			p.fcClient.OneTimeCost(inSizeCost())
+			return false
+		}
+		maxCost = p.fcCosts.getMaxCost(msg.Code, reqCnt)
+		gf := float64(1)
+		if pm.server.costTracker != nil {
+			gf = pm.server.costTracker.globalFactor()
+			if gf < 0.001 {
+				p.Log().Error("Invalid global cost factor", "globalFactor", gf)
+				gf = 1
+			}
+		}
+		maxTime := uint64(float64(maxCost) / gf)
+
+		if accepted, bufShort, servingPriority := p.fcClient.AcceptRequest(reqID, responseCount, maxCost); !accepted {
+			p.freezeClient()
+			p.Log().Warn("Request came too early", "remaining", common.PrettyDuration(time.Duration(bufShort*1000000/p.fcParams.MinRecharge)))
+			p.fcClient.OneTimeCost(inSizeCost())
+			return false
+		} else {
+			task = pm.servingQueue.newTask(p, maxTime, servingPriority)
+		}
+		if task.start() {
 			return true
 		}
-		bufValue, _ := p.fcClient.AcceptRequest()
-		cost := costs.baseCost + reqCnt*costs.reqCost
-		if cost > pm.server.defParams.BufLimit {
-			cost = pm.server.defParams.BufLimit
-		}
-		if cost > bufValue && msg.Code != GetSnailBlockBodiesMsg {
-			recharge := time.Duration((cost - bufValue) * 1000000 / pm.server.defParams.MinRecharge)
-			p.Log().Error("Request came too early", "recharge", common.PrettyDuration(recharge), "code", msg.Code)
-			return true
-		} else if msg.Code == GetSnailBlockBodiesMsg {
-			p.Log().Info("Request too early", "bufValue", bufValue, "cost", cost, "baseCost", costs.baseCost, "reqCost", costs.reqCost)
-		}
+		p.fcClient.RequestProcessed(reqID, responseCount, maxCost, inSizeCost())
 		return false
 	}
 
@@ -419,6 +441,40 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	var deliverMsg *Msg
 
+	sendResponse := func(reqID, amount uint64, reply *reply, servingTime uint64) {
+		p.responseLock.Lock()
+		defer p.responseLock.Unlock()
+
+		if p.isFrozen() {
+			amount = 0
+			reply = nil
+		}
+		var replySize uint32
+		if reply != nil {
+			replySize = reply.size()
+		}
+		var realCost uint64
+		if pm.server.costTracker != nil {
+			realCost = pm.server.costTracker.realCost(servingTime, msg.Size, replySize)
+			if amount != 0 {
+				pm.server.costTracker.updateStats(msg.Code, amount, servingTime, realCost)
+			}
+		} else {
+			realCost = maxCost
+		}
+		bv := p.fcClient.RequestProcessed(reqID, responseCount, maxCost, realCost)
+		if reply != nil {
+			p.queueSend(func() {
+				if err := reply.send(bv); err != nil {
+					select {
+					case p.errCh <- err:
+					default:
+					}
+				}
+			})
+		}
+	}
+
 	// Handle the message depending on its contents
 	switch msg.Code {
 	case StatusMsg:
@@ -428,17 +484,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	// Block header query, collect the requested headers and reply
 	case AnnounceMsg:
-
 		var req announceData
 		if err := msg.Decode(&req); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
+		if err := req.sanityCheck(); err != nil {
+			return err
+		}
+		update, size := req.Update.decode()
+		if p.rejectUpdate(size) {
+			return errResp(ErrRequestRejected, "")
+		}
+		p.updateFlowControl(update)
+
 		if req.Hash != (common.Hash{}) || req.FastHash != (common.Hash{}) {
 			if p.announceType == announceTypeNone {
 				return errResp(ErrUnexpectedResponse, "AnnounceMsg")
 			}
 			if p.announceType == announceTypeSigned {
-				if err := req.checkSignature(p.ID()); err != nil {
+				if err := req.checkSignature(p.ID(), update); err != nil {
 					p.Log().Trace("Invalid announcement signature", "err", err)
 					return err
 				}
@@ -465,111 +529,113 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		query := req.Query
-		if reject(query.Amount, MaxHeaderFetch) {
-			return errResp(ErrRequestRejected, "")
-		}
-		p.Log().Trace("Received fast block header request", "number", query.Origin.Number, "count", query.Amount, "skip", query.Skip, "hash", query.Origin.Hash)
-		hashMode := query.Origin.Hash != (common.Hash{})
-		first := true
-		maxNonCanonical := uint64(100)
+		if accept(req.ReqID, query.Amount, MaxHeaderFetch) {
+			go func() {
+				hashMode := query.Origin.Hash != (common.Hash{})
+				first := true
+				maxNonCanonical := uint64(100)
 
-		// Gather headers until the fetch or network limits is reached
-		var (
-			bytes   common.StorageSize
-			blocks  []*incompleteBlock
-			unknown bool
-		)
-		for !unknown && len(blocks) < int(query.Amount) && bytes < softResponseLimit {
-			// FastRetrieve the next header satisfying the query
-			var origin *types.Header
-			block := &incompleteBlock{}
-
-			if hashMode {
-				if first {
-					first = false
-					origin = pm.fblockchain.GetHeaderByHash(query.Origin.Hash)
-					if origin != nil {
-						query.Origin.Number = origin.Number.Uint64()
-					}
-				} else {
-					origin = pm.fblockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
-				}
-			} else {
-				origin = pm.fblockchain.GetHeaderByNumber(query.Origin.Number)
-			}
-			if origin == nil {
-				break
-			}
-			var body *types.Body
-			if origin.CommitteeHash != (types.EmptySignHash) {
-				body = rawdb.ReadBody(pm.chainDb, origin.Hash(), origin.Number.Uint64())
-				block.Infos = make([]*types.CommitteeMember, len(body.Infos))
-				copy(block.Infos, body.Infos)
-			}
-			if !query.Fruit {
-				if body == nil {
-					body = rawdb.ReadBody(pm.chainDb, origin.Hash(), origin.Number.Uint64())
-				}
-				if body != nil {
-					block.Signs = make([]*types.PbftSign, len(body.Signs))
-					copy(block.Signs, body.Signs)
-				}
-			}
-			block.Head = origin
-			blocks = append(blocks, block)
-			bytes += estHeaderRlpSize
-
-			// Advance to the next header of the query
-			switch {
-			case hashMode && query.Reverse:
-				// Hash based traversal towards the genesis block
-				ancestor := query.Skip + 1
-				if ancestor == 0 {
-					unknown = true
-				} else {
-					query.Origin.Hash, query.Origin.Number = pm.fblockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
-					unknown = (query.Origin.Hash == common.Hash{})
-				}
-			case hashMode && !query.Reverse:
-				// Hash based traversal towards the leaf block
+				// Gather blocks until the fetch or network limits is reached
 				var (
-					current = origin.Number.Uint64()
-					next    = current + query.Skip + 1
+					bytes   common.StorageSize
+					blocks  []*incompleteBlock
+					unknown bool
 				)
-				if next <= current {
-					infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")
-					p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
-					unknown = true
-				} else {
-					if header := pm.fblockchain.GetHeaderByNumber(next); header != nil {
-						nextHash := header.Hash()
-						expOldHash, _ := pm.fblockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
-						if expOldHash == query.Origin.Hash {
-							query.Origin.Hash, query.Origin.Number = nextHash, next
+				for !unknown && len(blocks) < int(query.Amount) && bytes < softResponseLimit {
+					if !first && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+
+					// FastRetrieve the next header satisfying the query
+					var origin *types.Header
+					block := &incompleteBlock{}
+
+					if hashMode {
+						if first {
+							first = false
+							origin = pm.fblockchain.GetHeaderByHash(query.Origin.Hash)
+							if origin != nil {
+								query.Origin.Number = origin.Number.Uint64()
+							}
+						} else {
+							origin = pm.fblockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
+						}
+					} else {
+						origin = pm.fblockchain.GetHeaderByNumber(query.Origin.Number)
+					}
+					if origin == nil {
+						break
+					}
+					var body *types.Body
+					if origin.CommitteeHash != (types.EmptySignHash) {
+						body = rawdb.ReadBody(pm.chainDb, origin.Hash(), origin.Number.Uint64())
+						block.Infos = make([]*types.CommitteeMember, len(body.Infos))
+						copy(block.Infos, body.Infos)
+					}
+					if !query.Fruit {
+						if body == nil {
+							body = rawdb.ReadBody(pm.chainDb, origin.Hash(), origin.Number.Uint64())
+						}
+						if body != nil {
+							block.Signs = make([]*types.PbftSign, len(body.Signs))
+							copy(block.Signs, body.Signs)
+						}
+					}
+					block.Head = origin
+					blocks = append(blocks, block)
+					bytes += estHeaderRlpSize
+
+					// Advance to the next header of the query
+					switch {
+					case hashMode && query.Reverse:
+						// Hash based traversal towards the genesis block
+						ancestor := query.Skip + 1
+						if ancestor == 0 {
+							unknown = true
+						} else {
+							query.Origin.Hash, query.Origin.Number = pm.fblockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
+							unknown = (query.Origin.Hash == common.Hash{})
+						}
+					case hashMode && !query.Reverse:
+						// Hash based traversal towards the leaf block
+						var (
+							current = origin.Number.Uint64()
+							next    = current + query.Skip + 1
+						)
+						if next <= current {
+							infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")
+							p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
+							unknown = true
+						} else {
+							if header := pm.fblockchain.GetHeaderByNumber(next); header != nil {
+								nextHash := header.Hash()
+								expOldHash, _ := pm.fblockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
+								if expOldHash == query.Origin.Hash {
+									query.Origin.Hash, query.Origin.Number = nextHash, next
+								} else {
+									unknown = true
+								}
+							} else {
+								unknown = true
+							}
+						}
+					case query.Reverse:
+						// Number based traversal towards the genesis block
+						if query.Origin.Number >= query.Skip+1 {
+							query.Origin.Number -= query.Skip + 1
 						} else {
 							unknown = true
 						}
-					} else {
-						unknown = true
+
+					case !query.Reverse:
+						// Number based traversal towards the leaf block
+						query.Origin.Number += query.Skip + 1
 					}
 				}
-			case query.Reverse:
-				// Number based traversal towards the genesis block
-				if query.Origin.Number >= query.Skip+1 {
-					query.Origin.Number -= query.Skip + 1
-				} else {
-					unknown = true
-				}
-
-			case !query.Reverse:
-				// Number based traversal towards the leaf block
-				query.Origin.Number += query.Skip + 1
-			}
+				sendResponse(req.ReqID, query.Amount, p.ReplyBlockHeaders(req.ReqID, incompleteBlocks{blocks}), task.done())
+			}()
 		}
-
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + query.Amount*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, query.Amount, rcost)
-		return p.SendBlockHeaders(req.ReqID, bv, incompleteBlocks{blocks})
 
 	case FastBlockHeadersMsg:
 		if pm.fdownloader == nil {
@@ -584,7 +650,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
 		heads := make([]*types.Header, len(resp.Headers.Blocks))
 		signs := make([][]*types.PbftSign, len(resp.Headers.Blocks))
 		p.Log().Trace("Received block header response message", "count", len(resp.Headers.Blocks))
@@ -619,25 +685,24 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			bodies []rlp.RawValue
 		)
 		reqCnt := len(req.Hashes)
-		if reject(uint64(reqCnt), MaxBodyFetch) {
-			return errResp(ErrRequestRejected, "")
-		}
-		p.Log().Trace("Received block bodies request", "count", len(req.Hashes))
-		for _, hash := range req.Hashes {
-			if bytes >= softResponseLimit {
-				break
-			}
-			// FastRetrieve the requested block body, stopping if enough was found
-			if number := rawdb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
-				if data := rawdb.ReadBodyRLP(pm.chainDb, hash, *number); len(data) != 0 {
-					bodies = append(bodies, data)
-					bytes += len(data)
+		if accept(req.ReqID, uint64(reqCnt), MaxBodyFetch) {
+			go func() {
+				p.Log().Trace("Received block bodies request", "count", len(req.Hashes))
+				for _, hash := range req.Hashes {
+					if bytes >= softResponseLimit {
+						break
+					}
+					// FastRetrieve the requested block body, stopping if enough was found
+					if number := rawdb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
+						if data := rawdb.ReadBodyRLP(pm.chainDb, hash, *number); len(data) != 0 {
+							bodies = append(bodies, data)
+							bytes += len(data)
+						}
+					}
 				}
-			}
+				sendResponse(req.ReqID, uint64(reqCnt), p.ReplyBlockBodiesRLP(req.ReqID, bodies), task.done())
+			}()
 		}
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendBlockBodiesRLP(req.ReqID, bv, bodies)
 
 	case FastBlockBodiesMsg:
 		if pm.odr == nil {
@@ -653,7 +718,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
 		deliverMsg = &Msg{
 			MsgType: MsgBlockBodies,
 			ReqID:   resp.ReqID,
@@ -670,102 +735,100 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		query := req.Query
-		if reject(query.Amount, MaxHeaderFetch) {
-			return errResp(ErrRequestRejected, "")
-		}
-		p.Log().Trace("Received snail block header request", "number", query.Origin.Number, "count", query.Amount, "skip", query.Skip, "hash", query.Origin.Hash)
+		if accept(req.ReqID, query.Amount, MaxHeaderFetch) {
+			go func() {
+				p.Log().Trace("Received snail block header request", "number", query.Origin.Number, "count", query.Amount, "skip", query.Skip, "hash", query.Origin.Hash)
 
-		hashMode := query.Origin.Hash != (common.Hash{})
-		first := true
-		maxNonCanonical := uint64(100)
+				hashMode := query.Origin.Hash != (common.Hash{})
+				first := true
+				maxNonCanonical := uint64(100)
 
-		// Gather headers until the fetch or network limits is reached
-		var (
-			bytes      common.StorageSize
-			headers    []*types.SnailHeader
-			fruitHeads []*fruitHeadsData
-			unknown    bool
-		)
-		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
-			// FastRetrieve the next header satisfying the query
-			var origin *types.SnailHeader
-			if hashMode {
-				if first {
-					first = false
-					origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
-					if origin != nil {
-						query.Origin.Number = origin.Number.Uint64()
-					}
-				} else {
-					origin = pm.blockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
-				}
-			} else {
-				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
-			}
-			if origin == nil {
-				break
-			}
-			if hashMode && !query.Fruit {
-				if number := snaildb.ReadHeaderNumber(pm.chainDb, query.Origin.Hash); number != nil {
-					if body := snaildb.ReadBody(pm.chainDb, query.Origin.Hash, *number); body != nil {
-						fruitHeads = append(fruitHeads, &fruitHeadsData{body.FruitsHeaders()})
-					}
-				}
-			}
-			headers = append(headers, origin)
-			bytes += estHeaderRlpSize
-
-			// Advance to the next header of the query
-			switch {
-			case hashMode && query.Reverse:
-				// Hash based traversal towards the genesis block
-				ancestor := query.Skip + 1
-				if ancestor == 0 {
-					unknown = true
-				} else {
-					query.Origin.Hash, query.Origin.Number = pm.blockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
-					unknown = (query.Origin.Hash == common.Hash{})
-				}
-			case hashMode && !query.Reverse:
-				// Hash based traversal towards the leaf block
+				// Gather headers until the fetch or network limits is reached
 				var (
-					current = origin.Number.Uint64()
-					next    = current + query.Skip + 1
+					bytes      common.StorageSize
+					headers    []*types.SnailHeader
+					fruitHeads []*fruitHeadsData
+					unknown    bool
 				)
-				if next <= current {
-					infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")
-					p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
-					unknown = true
-				} else {
-					if header := pm.blockchain.GetHeaderByNumber(next); header != nil {
-						nextHash := header.Hash()
-						expOldHash, _ := pm.blockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
-						if expOldHash == query.Origin.Hash {
-							query.Origin.Hash, query.Origin.Number = nextHash, next
+				for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
+					// FastRetrieve the next header satisfying the query
+					var origin *types.SnailHeader
+					if hashMode {
+						if first {
+							first = false
+							origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
+							if origin != nil {
+								query.Origin.Number = origin.Number.Uint64()
+							}
+						} else {
+							origin = pm.blockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
+						}
+					} else {
+						origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
+					}
+					if origin == nil {
+						break
+					}
+					if hashMode && !query.Fruit {
+						if number := snaildb.ReadHeaderNumber(pm.chainDb, query.Origin.Hash); number != nil {
+							if body := snaildb.ReadBody(pm.chainDb, query.Origin.Hash, *number); body != nil {
+								fruitHeads = append(fruitHeads, &fruitHeadsData{body.FruitsHeaders()})
+							}
+						}
+					}
+					headers = append(headers, origin)
+					bytes += estHeaderRlpSize
+
+					// Advance to the next header of the query
+					switch {
+					case hashMode && query.Reverse:
+						// Hash based traversal towards the genesis block
+						ancestor := query.Skip + 1
+						if ancestor == 0 {
+							unknown = true
+						} else {
+							query.Origin.Hash, query.Origin.Number = pm.blockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
+							unknown = (query.Origin.Hash == common.Hash{})
+						}
+					case hashMode && !query.Reverse:
+						// Hash based traversal towards the leaf block
+						var (
+							current = origin.Number.Uint64()
+							next    = current + query.Skip + 1
+						)
+						if next <= current {
+							infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")
+							p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
+							unknown = true
+						} else {
+							if header := pm.blockchain.GetHeaderByNumber(next); header != nil {
+								nextHash := header.Hash()
+								expOldHash, _ := pm.blockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
+								if expOldHash == query.Origin.Hash {
+									query.Origin.Hash, query.Origin.Number = nextHash, next
+								} else {
+									unknown = true
+								}
+							} else {
+								unknown = true
+							}
+						}
+					case query.Reverse:
+						// Number based traversal towards the genesis block
+						if query.Origin.Number >= query.Skip+1 {
+							query.Origin.Number -= query.Skip + 1
 						} else {
 							unknown = true
 						}
-					} else {
-						unknown = true
+
+					case !query.Reverse:
+						// Number based traversal towards the leaf block
+						query.Origin.Number += query.Skip + 1
 					}
 				}
-			case query.Reverse:
-				// Number based traversal towards the genesis block
-				if query.Origin.Number >= query.Skip+1 {
-					query.Origin.Number -= query.Skip + 1
-				} else {
-					unknown = true
-				}
-
-			case !query.Reverse:
-				// Number based traversal towards the leaf block
-				query.Origin.Number += query.Skip + 1
-			}
+				sendResponse(req.ReqID, query.Amount, p.ReplySnailBlockHeaders(req.ReqID, snailHeadsData{Heads: headers, FruitHeads: fruitHeads}), task.done())
+			}()
 		}
-
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + query.Amount*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, query.Amount, rcost)
-		return p.SendSnailBlockHeaders(req.ReqID, bv, snailHeadsData{Heads: headers, FruitHeads: fruitHeads})
 
 	case SnailBlockHeadersMsg:
 		if pm.downloader == nil {
@@ -783,7 +846,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if len(resp.Headers.Heads) != 0 {
 			p.Log().Trace("Received snail block header response message", "headers", len(resp.Headers.Heads), "number", resp.Headers.Heads[0].Number)
 		}
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
 		if pm.fetcher != nil && pm.fetcher.requestedID(resp.ReqID) {
 			fruitHeads := make([][]*types.SnailHeader, len(resp.Headers.FruitHeads))
 			for i, head := range resp.Headers.FruitHeads {
@@ -812,30 +875,29 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			fruitHeads []*fruitHeadsData
 		)
 		reqCnt := len(req.Data.Hash)
-		if reject(uint64(reqCnt), MaxSnailBodyFetch) {
-			return errResp(ErrRequestRejected, "")
-		}
-		for _, hash := range req.Data.Hash {
-			if req.Data.Type == public.Fruit {
-				// Retrieve the requested block body, stopping if enough was found
-				if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
-					if body := snaildb.ReadBody(pm.chainDb, hash, *number); body != nil {
-						fruits = append(fruits, &fruitsData{body.Fruits})
+		if accept(req.ReqID, uint64(reqCnt), MaxSnailBodyFetch) {
+			go func() {
+				for _, hash := range req.Data.Hash {
+					if req.Data.Type == public.Fruit {
+						// Retrieve the requested block body, stopping if enough was found
+						if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
+							if body := snaildb.ReadBody(pm.chainDb, hash, *number); body != nil {
+								fruits = append(fruits, &fruitsData{body.Fruits})
+							}
+						}
+					} else if req.Data.Type == public.FruitHead {
+						// Retrieve the requested block body, stopping if enough was found
+						if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
+							if body := snaildb.ReadBody(pm.chainDb, hash, *number); body != nil {
+								fruitHeads = append(fruitHeads, &fruitHeadsData{body.FruitsHeaders()})
+							}
+						}
 					}
 				}
-			} else if req.Data.Type == public.FruitHead {
-				// Retrieve the requested block body, stopping if enough was found
-				if number := snaildb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
-					if body := snaildb.ReadBody(pm.chainDb, hash, *number); body != nil {
-						fruitHeads = append(fruitHeads, &fruitHeadsData{body.FruitsHeaders()})
-					}
-				}
-			}
+				p.Log().Trace("Received snail block bodies request", "type", req.Data.Type, "fruits", len(fruits), "fruitHeads", len(fruitHeads))
+				sendResponse(req.ReqID, uint64(reqCnt), p.ReplySnailBlockBodiesRLP(req.ReqID, snailBlockBodiesData{Fruits: fruits, FruitHeads: fruitHeads, Type: req.Data.Type}), task.done())
+			}()
 		}
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		p.Log().Trace("Received snail block bodies request", "type", req.Data.Type, "fruits", len(fruits), "fruitHeads", len(fruitHeads))
-		return p.SendSnailBlockBodiesRLP(req.ReqID, bv, snailBlockBodiesData{Fruits: fruits, FruitHeads: fruitHeads, Type: req.Data.Type})
 
 	case SnailBlockBodiesMsg:
 		if pm.odr == nil {
@@ -850,8 +912,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
-
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
 		if resp.Data.Type == public.FruitHead {
 			// Deliver them all to the downloader for queuing
 			blocks := make([][]*types.SnailBlock, len(resp.Data.FruitHeads))
@@ -891,26 +952,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			bodies []rlp.RawValue
 		)
 		reqCnt := len(req.Hashes)
-		if reject(uint64(reqCnt), MaxFruitBodyFetch) {
-			return errResp(ErrRequestRejected, "")
-		}
-		for _, hash := range req.Hashes {
-			if bytes >= softResponseLimit {
-				break
-			}
-			// Retrieve the requested fruit body, stopping if enough was found
-			if fruit, _, _, _ := snaildb.ReadFruit(pm.chainDb, hash); fruit != nil {
-				data, err := rlp.EncodeToBytes(fruit.Body())
-				if err != nil {
-					log.Crit("Failed to RLP encode snail body", "err", err)
+		if accept(req.ReqID, uint64(reqCnt), MaxFruitBodyFetch) {
+			go func() {
+				for _, hash := range req.Hashes {
+					if bytes >= softResponseLimit {
+						break
+					}
+					// Retrieve the requested fruit body, stopping if enough was found
+					if fruit, _, _, _ := snaildb.ReadFruit(pm.chainDb, hash); fruit != nil {
+						data, err := rlp.EncodeToBytes(fruit.Body())
+						if err != nil {
+							log.Crit("Failed to RLP encode snail body", "err", err)
+						}
+						bodies = append(bodies, data)
+						bytes += len(data)
+					}
 				}
-				bodies = append(bodies, data)
-				bytes += len(data)
-			}
+				sendResponse(req.ReqID, uint64(reqCnt), p.ReplyFruitBodiesRLP(req.ReqID, bodies), task.done())
+			}()
 		}
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendFruitBodiesRLP(req.ReqID, bv, bodies)
 
 	case FruitBodiesMsg:
 		if pm.odr == nil {
@@ -926,7 +986,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
 		deliverMsg = &Msg{
 			MsgType: MsgFruitBodies,
 			ReqID:   resp.ReqID,
@@ -949,33 +1009,55 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			data  [][]byte
 		)
 		reqCnt := len(req.Reqs)
-		if reject(uint64(reqCnt), MaxCodeFetch) {
-			return errResp(ErrRequestRejected, "")
-		}
-		for _, req := range req.Reqs {
-			// FastRetrieve the requested state entry, stopping if enough was found
-			if number := rawdb.ReadHeaderNumber(pm.chainDb, req.BHash); number != nil {
-				if header := rawdb.ReadHeader(pm.chainDb, req.BHash, *number); header != nil {
+		if accept(req.ReqID, uint64(reqCnt), MaxCodeFetch) {
+			go func() {
+				for i, request := range req.Reqs {
+					if i != 0 && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+					// Look up the root hash belonging to the request
+					number := rawdb.ReadHeaderNumber(pm.chainDb, request.BHash)
+					if number == nil {
+						p.Log().Warn("Failed to retrieve block num for code", "hash", request.BHash)
+						atomic.AddUint32(&p.invalidCount, 1)
+						continue
+					}
+					header := rawdb.ReadHeader(pm.chainDb, request.BHash, *number)
+					if header == nil {
+						p.Log().Warn("Failed to retrieve header for code", "block", *number, "hash", request.BHash)
+						continue
+					}
+					// Refuse to search stale state data in the database since looking for
+					// a non-exist key is kind of expensive.
+					local := pm.blockchain.CurrentHeader().Number.Uint64()
+					if !pm.server.archiveMode && header.Number.Uint64()+core.TriesInMemory <= local {
+						p.Log().Debug("Reject stale code request", "number", header.Number.Uint64(), "head", local)
+						atomic.AddUint32(&p.invalidCount, 1)
+						continue
+					}
 					statedb, err := pm.fblockchain.State()
-					if err != nil {
-						continue
-					}
-					account, err := pm.getAccount(statedb, header.Root, common.BytesToHash(req.AccKey))
-					if err != nil {
-						continue
-					}
-					code, _ := statedb.Database().TrieDB().Node(common.BytesToHash(account.CodeHash))
 
+					account, err := pm.getAccount(statedb, header.Root, common.BytesToHash(request.AccKey))
+					if err != nil {
+						p.Log().Warn("Failed to retrieve account for code", "block", header.Number, "hash", header.Hash(), "account", common.BytesToHash(request.AccKey), "err", err)
+						atomic.AddUint32(&p.invalidCount, 1)
+						continue
+					}
+					code, err := statedb.Database().TrieDB().Node(common.BytesToHash(account.CodeHash))
+					if err != nil {
+						p.Log().Warn("Failed to retrieve account code", "block", header.Number, "hash", header.Hash(), "account", common.BytesToHash(request.AccKey), "codehash", common.BytesToHash(account.CodeHash), "err", err)
+						continue
+					}
+					// Accumulate the code and abort if enough data was retrieved
 					data = append(data, code)
 					if bytes += len(code); bytes >= softResponseLimit {
 						break
 					}
 				}
-			}
+				sendResponse(req.ReqID, uint64(reqCnt), p.ReplyCode(req.ReqID, data), task.done())
+			}()
 		}
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendCode(req.ReqID, bv, data)
 
 	case CodeMsg:
 		if pm.odr == nil {
@@ -991,7 +1073,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
 		deliverMsg = &Msg{
 			MsgType: MsgCode,
 			ReqID:   resp.ReqID,
@@ -1014,34 +1096,40 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			receipts []rlp.RawValue
 		)
 		reqCnt := len(req.Hashes)
-		if reject(uint64(reqCnt), MaxReceiptFetch) {
-			return errResp(ErrRequestRejected, "")
-		}
-		for _, hash := range req.Hashes {
-			if bytes >= softResponseLimit {
-				break
-			}
-			// FastRetrieve the requested block's receipts, skipping if unknown to us
-			var results types.Receipts
-			if number := rawdb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
-				results = rawdb.ReadReceipts(pm.chainDb, hash, *number)
-			}
-			if results == nil {
-				if header := pm.fblockchain.GetHeaderByHash(hash); header == nil || header.ReceiptHash != types.EmptyRootHash {
-					continue
+		if accept(req.ReqID, uint64(reqCnt), MaxReceiptFetch) {
+			go func() {
+				for i, hash := range req.Hashes {
+					if i != 0 && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+					if bytes >= softResponseLimit {
+						break
+					}
+					// Retrieve the requested block's receipts, skipping if unknown to us
+					var results types.Receipts
+					number := rawdb.ReadHeaderNumber(pm.chainDb, hash)
+					if number == nil {
+						atomic.AddUint32(&p.invalidCount, 1)
+						continue
+					}
+					results = rawdb.ReadReceipts(pm.chainDb, hash, *number)
+					if results == nil {
+						if header := pm.fblockchain.GetHeaderByHash(hash); header == nil || header.ReceiptHash != types.EmptyRootHash {
+							continue
+						}
+					}
+					// If known, encode and queue for response packet
+					if encoded, err := rlp.EncodeToBytes(results); err != nil {
+						log.Error("Failed to encode receipt", "err", err)
+					} else {
+						receipts = append(receipts, encoded)
+						bytes += len(encoded)
+					}
 				}
-			}
-			// If known, encode and queue for response packet
-			if encoded, err := rlp.EncodeToBytes(results); err != nil {
-				log.Error("Failed to encode receipt", "err", err)
-			} else {
-				receipts = append(receipts, encoded)
-				bytes += len(encoded)
-			}
+				sendResponse(req.ReqID, uint64(reqCnt), p.ReplyReceiptsRLP(req.ReqID, receipts), task.done())
+			}()
 		}
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendReceiptsRLP(req.ReqID, bv, receipts)
 
 	case ReceiptsMsg:
 		if pm.odr == nil {
@@ -1057,7 +1145,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
 		deliverMsg = &Msg{
 			MsgType: MsgReceipts,
 			ReqID:   resp.ReqID,
@@ -1081,50 +1169,85 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			root      common.Hash
 		)
 		reqCnt := len(req.Reqs)
-		if reject(uint64(reqCnt), MaxProofsFetch) {
-			return errResp(ErrRequestRejected, "")
-		}
+		if accept(req.ReqID, uint64(reqCnt), MaxProofsFetch) {
+			go func() {
+				nodes := public.NewNodeSet()
 
-		nodes := public.NewNodeSet()
+				for i, request := range req.Reqs {
+					if i != 0 && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+					// Look up the root hash belonging to the request
+					var (
+						number *uint64
+						header *types.Header
+						trie   state.Trie
+					)
+					if request.BHash != lastBHash {
+						root, lastBHash = common.Hash{}, request.BHash
 
-		for _, req := range req.Reqs {
-			// Look up the state belonging to the request
-			if statedb == nil || req.BHash != lastBHash {
-				statedb, root, lastBHash = nil, common.Hash{}, req.BHash
-
-				if number := rawdb.ReadHeaderNumber(pm.chainDb, req.BHash); number != nil {
-					if header := rawdb.ReadHeader(pm.chainDb, req.BHash, *number); header != nil {
-						statedb, _ = pm.fblockchain.State()
+						if number = rawdb.ReadHeaderNumber(pm.chainDb, request.BHash); number == nil {
+							p.Log().Warn("Failed to retrieve block num for proof", "hash", request.BHash)
+							atomic.AddUint32(&p.invalidCount, 1)
+							continue
+						}
+						if header = rawdb.ReadHeader(pm.chainDb, request.BHash, *number); header == nil {
+							p.Log().Warn("Failed to retrieve header for proof", "block", *number, "hash", request.BHash)
+							continue
+						}
+						// Refuse to search stale state data in the database since looking for
+						// a non-exist key is kind of expensive.
+						local := pm.blockchain.CurrentHeader().Number.Uint64()
+						if !pm.server.archiveMode && header.Number.Uint64()+core.TriesInMemory <= local {
+							p.Log().Debug("Reject stale trie request", "number", header.Number.Uint64(), "head", local)
+							atomic.AddUint32(&p.invalidCount, 1)
+							continue
+						}
 						root = header.Root
 					}
+					// If a header lookup failed (non existent), ignore subsequent requests for the same header
+					if root == (common.Hash{}) {
+						atomic.AddUint32(&p.invalidCount, 1)
+						continue
+					}
+					// Open the account or storage trie for the request
+					statedb, _ = pm.fblockchain.State()
+
+					switch len(request.AccKey) {
+					case 0:
+						// No account key specified, open an account trie
+						trie, err = statedb.Database().OpenTrie(root)
+						if trie == nil || err != nil {
+							p.Log().Warn("Failed to open storage trie for proof", "block", header.Number, "hash", header.Hash(), "root", root, "err", err)
+							continue
+						}
+					default:
+						// Account key specified, open a storage trie
+						account, err := pm.getAccount(statedb, root, common.BytesToHash(request.AccKey))
+						if err != nil {
+							p.Log().Warn("Failed to retrieve account for proof", "block", header.Number, "hash", header.Hash(), "account", common.BytesToHash(request.AccKey), "err", err)
+							atomic.AddUint32(&p.invalidCount, 1)
+							continue
+						}
+						trie, err = statedb.Database().OpenStorageTrie(common.BytesToHash(request.AccKey), account.Root)
+						if trie == nil || err != nil {
+							p.Log().Warn("Failed to open storage trie for proof", "block", header.Number, "hash", header.Hash(), "account", common.BytesToHash(request.AccKey), "root", account.Root, "err", err)
+							continue
+						}
+					}
+					// Prove the user's request from the account or stroage trie
+					if err := trie.Prove(request.Key, request.FromLevel, nodes); err != nil {
+						p.Log().Warn("Failed to prove state request", "block", header.Number, "hash", header.Hash(), "err", err)
+						continue
+					}
+					if nodes.DataSize() >= softResponseLimit {
+						break
+					}
 				}
-			}
-			if statedb == nil {
-				continue
-			}
-			// Pull the account or storage trie of the request
-			var trie state.Trie
-			if len(req.AccKey) > 0 {
-				account, err := pm.getAccount(statedb, root, common.BytesToHash(req.AccKey))
-				if err != nil {
-					continue
-				}
-				trie, _ = statedb.Database().OpenStorageTrie(common.BytesToHash(req.AccKey), account.Root)
-			} else {
-				trie, _ = statedb.Database().OpenTrie(root)
-			}
-			if trie == nil {
-				continue
-			}
-			// Prove the user's request from the account or stroage trie
-			trie.Prove(req.Key, req.FromLevel, nodes)
-			if nodes.DataSize() >= softResponseLimit {
-				break
-			}
+				sendResponse(req.ReqID, uint64(reqCnt), p.ReplyProofsV2(req.ReqID, nodes.NodeList()), task.done())
+			}()
 		}
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendProofsV2(req.ReqID, bv, nodes.NodeList())
 
 	case ProofsV2Msg:
 		if pm.odr == nil {
@@ -1140,7 +1263,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
 		deliverMsg = &Msg{
 			MsgType: MsgProofsV2,
 			ReqID:   resp.ReqID,
@@ -1164,61 +1287,63 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			fHeads   []*types.Header
 		)
 		reqCnt := len(req.Reqs)
-		if reject(uint64(reqCnt), MaxHelperTrieProofsFetch) {
-			return errResp(ErrRequestRejected, "")
-		}
+		if accept(req.ReqID, uint64(reqCnt), MaxHelperTrieProofsFetch) {
+			go func() {
 
-		var (
-			lastIdx  uint64
-			lastType uint
-			root     common.Hash
-			auxTrie  *trie.Trie
-		)
-		nodes := public.NewNodeSet()
-		for _, req := range req.Reqs {
-			p.Log().Info("Received helper trie proof request", "req", req.Start)
-			if auxTrie == nil || req.Type != lastType || req.TrieIdx != lastIdx {
-				auxTrie, lastType, lastIdx = nil, req.Type, req.TrieIdx
+				var (
+					lastIdx  uint64
+					lastType uint
+					root     common.Hash
+					auxTrie  *trie.Trie
+				)
+				nodes := public.NewNodeSet()
+				for i, request := range req.Reqs {
+					if i != 0 && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+					if auxTrie == nil || request.Type != lastType || request.TrieIdx != lastIdx {
+						auxTrie, lastType, lastIdx = nil, request.Type, request.TrieIdx
 
-				var prefix string
-				if root, prefix = pm.getHelperTrie(req.Type, req.TrieIdx); root != (common.Hash{}) {
-					auxTrie, _ = trie.New(root, trie.NewDatabase(etruedb.NewTable(pm.chainDb, prefix)))
-				}
-			}
-			if req.AuxReq == auxRoot {
-				var data []byte
-				if root != (common.Hash{}) {
-					data = root[:]
-				}
-				auxData = append(auxData, data)
-				auxBytes += len(data)
-			} else {
-				if auxTrie != nil {
-					auxTrie.Prove(req.Key, req.FromLevel, nodes)
-				}
-				if req.AuxReq != 0 {
-					data, head := pm.getHelperTrieAuxData(req)
-					fHeads = append(fHeads, head)
-					auxData = append(auxData, data)
-					auxBytes += len(data)
-					if req.Start {
-						blockNum := binary.BigEndian.Uint64(req.Key)
-						for i := params.DifficultyPeriod.Int64() - 1; i > 0; i-- {
-							Heads = append(Heads, pm.blockchain.GetHeaderByNumber(blockNum-uint64(i)))
+						var prefix string
+						if root, prefix = pm.getHelperTrie(request.Type, request.TrieIdx); root != (common.Hash{}) {
+							auxTrie, _ = trie.New(root, trie.NewDatabase(etruedb.NewTable(pm.chainDb, prefix)))
 						}
-						dataSet := pm.getHelperDataSet(blockNum)
-						auxData = append(auxData, dataSet...)
-						auxBytes += len(dataSet)
+					}
+					if request.AuxReq == auxRoot {
+						var data []byte
+						if root != (common.Hash{}) {
+							data = root[:]
+						}
+						auxData = append(auxData, data)
+						auxBytes += len(data)
+					} else {
+						if auxTrie != nil {
+							auxTrie.Prove(request.Key, request.FromLevel, nodes)
+						}
+						if request.AuxReq != 0 {
+							data, head := pm.getHelperTrieAuxData(request)
+							fHeads = append(fHeads, head)
+							auxData = append(auxData, data)
+							auxBytes += len(data)
+							if request.Start {
+								blockNum := binary.BigEndian.Uint64(request.Key)
+								for i := params.DifficultyPeriod.Int64() - 1; i > 0; i-- {
+									Heads = append(Heads, pm.blockchain.GetHeaderByNumber(blockNum-uint64(i)))
+								}
+								dataSet := pm.getHelperDataSet(blockNum)
+								auxData = append(auxData, dataSet...)
+								auxBytes += len(dataSet)
+							}
+						}
+					}
+					if nodes.DataSize()+auxBytes >= softResponseLimit {
+						break
 					}
 				}
-			}
-			if nodes.DataSize()+auxBytes >= softResponseLimit {
-				break
-			}
+				sendResponse(req.ReqID, uint64(reqCnt), p.ReplyHelperTrieProofs(req.ReqID, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData, Heads: Heads, Fhead: fHeads}), task.done())
+			}()
 		}
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-		return p.SendHelperTrieProofs(req.ReqID, bv, HelperTrieResps{Proofs: nodes.NodeList(), AuxData: auxData, Heads: Heads, Fhead: fHeads})
 
 	case HelperTrieProofsMsg:
 		if pm.odr == nil {
@@ -1233,7 +1358,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.Log().Trace("Received helper trie proof response", "heads", len(resp.Data.Heads), "data", len(resp.Data.AuxData))
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
 		deliverMsg = &Msg{
 			MsgType: MsgHelperTrieProofs,
 			ReqID:   resp.ReqID,
@@ -1253,29 +1378,27 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		reqCnt := len(req.Txs)
-		if reject(uint64(reqCnt), MaxTxSend) {
-			return errResp(ErrRequestRejected, "")
-		}
-
-		hashes := make([]common.Hash, len(req.Txs))
-		for i, tx := range req.Txs {
-			hashes[i] = tx.Hash()
-		}
-		stats := pm.txStatus(hashes)
-		for i, stat := range stats {
-			if stat.Status == core.TxStatusUnknown {
-				if errs := pm.txpool.AddRemotes([]*types.Transaction{req.Txs[i]}); errs[0] != nil {
-					stats[i].Error = errs[0].Error()
-					continue
+		if accept(req.ReqID, uint64(reqCnt), MaxTxSend) {
+			go func() {
+				stats := make([]fast.TxStatus, len(req.Txs))
+				for i, tx := range req.Txs {
+					if i != 0 && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+					hash := tx.Hash()
+					stats[i] = pm.txStatus(hash)
+					if stats[i].Status == core.TxStatusUnknown {
+						if errs := pm.txpool.AddRemotes([]*types.Transaction{tx}); errs[0] != nil {
+							stats[i].Error = errs[0].Error()
+							continue
+						}
+						stats[i] = pm.txStatus(hash)
+					}
 				}
-				stats[i] = pm.txStatus([]common.Hash{hashes[i]})[0]
-			}
+				sendResponse(req.ReqID, uint64(reqCnt), p.ReplyTxStatus(req.ReqID, stats), task.done())
+			}()
 		}
-
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-
-		return p.SendTxStatus(req.ReqID, bv, stats)
 
 	case GetTxStatusMsg:
 		if pm.txpool == nil {
@@ -1290,13 +1413,19 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		reqCnt := len(req.Hashes)
-		if reject(uint64(reqCnt), MaxTxStatus) {
-			return errResp(ErrRequestRejected, "")
+		if accept(req.ReqID, uint64(reqCnt), MaxTxStatus) {
+			go func() {
+				stats := make([]fast.TxStatus, len(req.Hashes))
+				for i, hash := range req.Hashes {
+					if i != 0 && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+					stats[i] = pm.txStatus(hash)
+				}
+				sendResponse(req.ReqID, uint64(reqCnt), p.ReplyTxStatus(req.ReqID, stats), task.done())
+			}()
 		}
-		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
-		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
-
-		return p.SendTxStatus(req.ReqID, bv, pm.txStatus(req.Hashes))
 
 	case TxStatusMsg:
 		if pm.odr == nil {
@@ -1306,13 +1435,40 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		p.Log().Trace("Received tx status response")
 		var resp struct {
 			ReqID, BV uint64
-			Status    []txStatus
+			Status    []fast.TxStatus
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 
-		p.fcServer.GotReply(resp.ReqID, resp.BV)
+		p.fcServer.ReceivedReply(resp.ReqID, resp.BV)
+
+		p.Log().Trace("Received helper trie proof response")
+		deliverMsg = &Msg{
+			MsgType: MsgTxStatus,
+			ReqID:   resp.ReqID,
+			Obj:     resp.Status,
+		}
+
+	case StopMsg:
+		if pm.odr == nil {
+			return errResp(ErrUnexpectedResponse, "")
+		}
+		p.freezeServer(true)
+		pm.retriever.frozen(p)
+		p.Log().Warn("Service stopped")
+
+	case ResumeMsg:
+		if pm.odr == nil {
+			return errResp(ErrUnexpectedResponse, "")
+		}
+		var bv uint64
+		if err := msg.Decode(&bv); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		p.fcServer.ResumeFreeze(bv)
+		p.freezeServer(false)
+		p.Log().Warn("Service resumed")
 
 	default:
 		p.Log().Trace("Received unknown message", "code", msg.Code)
@@ -1327,6 +1483,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return err
 			}
 		}
+	}
+	// If the client has made too much invalid request(e.g. request a non-exist data),
+	// reject them to prevent SPAM attack.
+	if atomic.LoadUint32(&p.invalidCount) > maxRequestErrors {
+		return errTooManyInvalidRequest
 	}
 	return nil
 }
@@ -1352,9 +1513,8 @@ func (pm *ProtocolManager) getAccount(statedb *state.StateDB, root, hash common.
 func (pm *ProtocolManager) getHelperTrie(id uint, idx uint64) (common.Hash, string) {
 	switch id {
 	case htCanonical:
-		idxV1 := (idx+1)*(pm.iConfig.PairChtSize/pm.iConfig.ChtSize) - 1
-		sectionHead := snaildb.ReadCanonicalHash(pm.chainDb, (idxV1+1)*pm.iConfig.ChtSize-1)
-		return light.GetChtRoot(pm.chainDb, idxV1, sectionHead), light.ChtTablePrefix
+		sectionHead := rawdb.ReadCanonicalHash(pm.chainDb, (idx+1)*pm.iConfig.ChtSize-1)
+		return light.GetChtRoot(pm.chainDb, idx, sectionHead), light.ChtTablePrefix
 	case htBloomBits:
 		sectionHead := rawdb.ReadCanonicalHash(pm.chainDb, (idx+1)*pm.iConfig.BloomTrieSize-1)
 		return fast.GetBloomTrieRoot(pm.chainDb, idx, sectionHead), fast.BloomTrieTablePrefix
@@ -1404,21 +1564,17 @@ func (pm *ProtocolManager) getHelperDataSet(point uint64) [][]byte {
 	return headerHash
 }
 
-func (pm *ProtocolManager) txStatus(hashes []common.Hash) []txStatus {
-	stats := make([]txStatus, len(hashes))
-	for i, stat := range pm.txpool.Status(hashes) {
-		// Save the status we've got from the transaction pool
-		stats[i].Status = stat
-
-		// If the transaction is unknown to the pool, try looking it up locally
-		if stat == core.TxStatusUnknown {
-			if block, number, index := rawdb.ReadTxLookupEntry(pm.chainDb, hashes[i]); block != (common.Hash{}) {
-				stats[i].Status = core.TxStatusIncluded
-				stats[i].Lookup = &rawdb.TxLookupEntry{BlockHash: block, BlockIndex: number, Index: index}
-			}
+func (pm *ProtocolManager) txStatus(hash common.Hash) fast.TxStatus {
+	var stat fast.TxStatus
+	stat.Status = pm.txpool.Status([]common.Hash{hash})[0]
+	// If the transaction is unknown to the pool, try looking it up locally
+	if stat.Status == core.TxStatusUnknown {
+		if block, number, index := rawdb.ReadTxLookupEntry(pm.chainDb, hash); block != (common.Hash{}) {
+			stat.Status = core.TxStatusIncluded
+			stat.Lookup = &rawdb.TxLookupEntry{BlockHash: block, BlockIndex: number, Index: index}
 		}
 	}
-	return stats
+	return stat
 }
 
 // downloaderPeerNotify implements peerSetNotify
@@ -1455,7 +1611,7 @@ func (pc *peerConnection) RequestHeadersByHash(origin common.Hash, amount int, s
 			} else {
 				cost = peer.GetRequestCost(GetSnailBlockHeadersMsg, amount)
 			}
-			peer.fcServer.QueueRequest(reqID, cost)
+			peer.fcServer.QueuedRequest(reqID, cost)
 			return func() { peer.RequestHeadersByHash(reqID, cost, origin, amount, skip, reverse, fast, true) }
 		},
 	}
@@ -1488,7 +1644,7 @@ func (pc *peerConnection) RequestHeadersByNumber(origin uint64, amount int, skip
 			} else {
 				cost = peer.GetRequestCost(GetSnailBlockHeadersMsg, amount)
 			}
-			peer.fcServer.QueueRequest(reqID, cost)
+			peer.fcServer.QueuedRequest(reqID, cost)
 			return func() { peer.RequestHeadersByNumber(reqID, cost, origin, amount, skip, reverse, fast) }
 		},
 	}
@@ -1504,7 +1660,7 @@ func (pc *peerConnection) RequestBodies(hashes []common.Hash, fast bool, call ui
 	rq := &distReq{
 		getCost: func(dp distPeer) uint64 {
 			peer := dp.(*peer)
-			return peer.GetRequestCost(GetSnailBlockHeadersMsg, len(hashes))
+			return peer.GetRequestCost(GetSnailBlockBodiesMsg, len(hashes))
 		},
 		canSend: func(dp distPeer) bool {
 			return dp.(*peer) == pc.peer
@@ -1512,8 +1668,8 @@ func (pc *peerConnection) RequestBodies(hashes []common.Hash, fast bool, call ui
 		request: func(dp distPeer) func() {
 			peer := dp.(*peer)
 			cost := uint64(0)
-			cost = peer.GetRequestCost(GetSnailBlockHeadersMsg, len(hashes))
-			peer.fcServer.QueueRequest(reqID, cost)
+			cost = peer.GetRequestCost(GetSnailBlockBodiesMsg, len(hashes))
+			peer.fcServer.QueuedRequest(reqID, cost)
 			return func() { peer.RequestSnailBodies(reqID, cost, getBlockBodiesData{hashes, public.FruitHead}) }
 		},
 	}

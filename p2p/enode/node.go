@@ -18,9 +18,11 @@ package enode
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/rlp"
 	"math/bits"
 	"math/rand"
 	"net"
@@ -28,6 +30,8 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/p2p/enr"
 )
+
+var errMissingPrefix = errors.New("missing 'enr:' prefix for base64-encoded record")
 
 // Node represents a host on the network.
 type Node struct {
@@ -46,6 +50,34 @@ func New(validSchemes enr.IdentityScheme, r *enr.Record) (*Node, error) {
 		return nil, fmt.Errorf("invalid node ID length %d, need %d", n, len(ID{}))
 	}
 	return node, nil
+}
+
+// MustParse parses a node record or enode:// URL. It panics if the input is invalid.
+func MustParse(rawurl string) *Node {
+	n, err := Parse(ValidSchemes, rawurl)
+	if err != nil {
+		panic("invalid node: " + err.Error())
+	}
+	return n
+}
+
+// Parse decodes and verifies a base64-encoded node record.
+func Parse(validSchemes enr.IdentityScheme, input string) (*Node, error) {
+	if strings.HasPrefix(input, "enode://") {
+		return ParseV4(input)
+	}
+	if !strings.HasPrefix(input, "enr:") {
+		return nil, errMissingPrefix
+	}
+	bin, err := base64.RawURLEncoding.DecodeString(input[4:])
+	if err != nil {
+		return nil, err
+	}
+	var r enr.Record
+	if err := rlp.DecodeBytes(bin, &r); err != nil {
+		return nil, err
+	}
+	return New(validSchemes, &r)
 }
 
 // ID returns the node identifier.
@@ -68,7 +100,7 @@ func (n *Node) Load(k enr.Entry) error {
 	return n.r.Load(k)
 }
 
-// IP returns the IP address of the node.
+// IP returns the IP address of the node. This prefers IPv4 addresses.
 func (n *Node) IP() net.IP {
 	var ip net.IP
 	n.Load((*enr.IP)(&ip))
@@ -105,10 +137,11 @@ func (n *Node) Record() *enr.Record {
 	return &cpy
 }
 
-// checks whether n is a valid complete node.
+// ValidateComplete checks whether n has a valid IP and UDP port.
+// Deprecated: don't use this method.
 func (n *Node) ValidateComplete() error {
 	if n.Incomplete() {
-		return errors.New("incomplete node")
+		return errors.New("missing IP address")
 	}
 	if n.UDP() == 0 {
 		return errors.New("missing UDP port")
@@ -122,8 +155,7 @@ func (n *Node) ValidateComplete() error {
 	return n.Load(&key)
 }
 
-// The string representation of a Node is a URL.
-// Please see ParseNode for a description of the format.
+// String returns the text representation of the record.
 func (n *Node) String() string {
 	return n.v4URL()
 }

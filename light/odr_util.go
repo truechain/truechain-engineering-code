@@ -75,6 +75,16 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 	return r.Header, nil
 }
 
+// GetUntrustedHeaderByNumber fetches specified block header without correctness checking.
+// Note this function should only be used in light client checkpoint syncing.
+func GetUntrustedHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64, peerId string) (*types.Header, error) {
+	r := &ChtRequest{BlockNum: number, ChtNum: number / odr.IndexerConfig().ChtSize, Untrusted: true, PeerId: peerId, Config: odr.IndexerConfig()}
+	if err := odr.Retrieve(ctx, r); err != nil {
+		return nil, err
+	}
+	return r.FHeader, nil
+}
+
 func GetCanonicalHash(ctx context.Context, odr OdrBackend, number uint64) (common.Hash, error) {
 	hash := rawdb.ReadCanonicalHash(odr.Database(), number)
 	if (hash != common.Hash{}) {

@@ -469,6 +469,8 @@ func (s *Truechain) IsListening() bool                  { return true } // Alway
 func (s *Truechain) EthVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
 func (s *Truechain) NetVersion() uint64                 { return s.networkID }
 func (s *Truechain) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
+func (s *Truechain) Synced() bool                       { return atomic.LoadUint32(&s.protocolManager.acceptTxs) == 1 }
+func (s *Truechain) ArchiveMode() bool                  { return s.config.NoPruning }
 
 // Protocols implements node.Service, returning all the currently configured
 // network protocols to start.
