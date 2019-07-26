@@ -36,12 +36,12 @@ type checkpointOracle struct {
 	// Whether the contract backend is set.
 	running int32
 
-	getLocal     func(uint64) params.TrustedCheckpoint // Function used to retrieve local checkpoint
-	syncDoneHook func()                                // Function used to notify that light syncing has completed.
+	getLocal     func(uint64, uint64) params.TrustedCheckpoint // Function used to retrieve local checkpoint
+	syncDoneHook func()                                        // Function used to notify that light syncing has completed.
 }
 
 // newCheckpointOracle returns a checkpoint registrar handler.
-func newCheckpointOracle(config *params.CheckpointOracleConfig, getLocal func(uint64) params.TrustedCheckpoint) *checkpointOracle {
+func newCheckpointOracle(config *params.CheckpointOracleConfig, getLocal func(uint64, uint64) params.TrustedCheckpoint) *checkpointOracle {
 	if config == nil {
 		log.Info("Checkpoint registrar is not enabled")
 		return nil

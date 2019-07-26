@@ -41,9 +41,9 @@ const (
 
 	// HelperTrieConfirmations is the number of confirmations before a client is expected
 	// to have the given HelperTrie available.
-	HelperTrieConfirmations = 2048
+	HelperTrieConfirmations = 128
 
 	// HelperTrieProcessConfirmations is the number of confirmations before a HelperTrie
 	// is generated
-	HelperTrieProcessConfirmations = 2
+	HelperTrieProcessConfirmations = 16
 )

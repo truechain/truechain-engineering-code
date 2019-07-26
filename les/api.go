@@ -67,7 +67,7 @@ func (api *PrivateLightAPI) LatestCheckpoint() ([4]string, error) {
 //   result[2], 32 bytes hex encoded latest section bloom trie root hash
 func (api *PrivateLightAPI) GetCheckpoint(index uint64) ([3]string, error) {
 	var res [3]string
-	cp := api.backend.getLocalCheckpoint(index)
+	cp := api.backend.getLocalCheckpoint(index, 0)
 	if cp.Empty() {
 		return res, errNoCheckpoint
 	}

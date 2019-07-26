@@ -159,7 +159,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 	}
 
-	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId)
+	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId, "syncmode", config.SyncMode)
 
 	if !config.SkipBcVersionCheck {
 		bcVersion := rawdb.ReadDatabaseVersion(chainDb)
