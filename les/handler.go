@@ -1515,8 +1515,8 @@ func (pm *ProtocolManager) getAccount(statedb *state.StateDB, root, hash common.
 func (pm *ProtocolManager) getHelperTrie(id uint, idx uint64) (common.Hash, string) {
 	switch id {
 	case htCanonical:
-		sectionHead := rawdb.ReadCanonicalHash(pm.chainDb, (idx+1)*pm.iConfig.ChtSize-1)
-		log.Info("getHelperTrie", "idx", idx, "sectionHead", sectionHead, "num", (idx+1)*pm.iConfig.ChtSize-1)
+		num := (idx+1)*pm.iConfig.ChtSize - 1
+		sectionHead := snaildb.ReadCanonicalHash(pm.chainDb, num)
 		return light.GetChtRoot(pm.chainDb, idx, sectionHead), light.ChtTablePrefix
 	case htBloomBits:
 		sectionHead := rawdb.ReadCanonicalHash(pm.chainDb, (idx+1)*pm.iConfig.BloomTrieSize-1)
