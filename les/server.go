@@ -112,29 +112,28 @@ func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, err
 
 	chtSection, height, _ := srv.chtIndexer.Sections()
 	if chtSection != 0 {
-		for i := chtSection; i > chtSection-2; i-- {
-			chtSection = chtSection - 1
-			chtSectionHead := srv.chtIndexer.SectionHead(chtSection)
+		for i := chtSection; i > chtSection-3; i-- {
+			chtSectionCurrnt := chtSection - 1
+			chtSectionHead := srv.chtIndexer.SectionHead(chtSectionCurrnt)
 			if chtSectionHead == (common.Hash{}) {
 				break
 			}
-			chtTrieRoot := light.GetChtRoot(pm.chainDb, chtSection, chtSectionHead)
-			logger.Info("Loaded recent CHT", "section", chtSection, "head", chtSectionHead.String(), "root", chtTrieRoot.String(),
+			chtTrieRoot := light.GetChtRoot(pm.chainDb, chtSectionCurrnt, chtSectionHead)
+			logger.Info("Loaded recent CHT", "section", chtSectionCurrnt, "head", chtSectionHead.String(), "root", chtTrieRoot.String(),
 				"height", height, "current", etrue.SnailBlockChain().GetHeaderByHash(chtSectionHead).Number)
 		}
 	}
 
 	bloomSection, height, _ := srv.bloomTrieIndexer.Sections()
 	if bloomSection != 0 {
-
-		for i := bloomSection; i > bloomSection-2; i-- {
-			bloomSection = bloomSection - 1
-			bloomSectionHead := srv.bloomTrieIndexer.SectionHead(bloomSection)
+		for i := bloomSection; i > bloomSection-3; i-- {
+			bloomSectionCurrent := i - 1
+			bloomSectionHead := srv.bloomTrieIndexer.SectionHead(bloomSectionCurrent)
 			if bloomSectionHead == (common.Hash{}) {
 				break
 			}
-			bloomTrieRoot := fast.GetBloomTrieRoot(pm.chainDb, bloomSection, bloomSectionHead)
-			logger.Info("Loaded bloom trie", "section", bloomSection, "head", bloomSectionHead.String(), "root", bloomTrieRoot.String(),
+			bloomTrieRoot := fast.GetBloomTrieRoot(pm.chainDb, bloomSectionCurrent, bloomSectionHead)
+			logger.Info("Loaded bloom trie", "section", bloomSectionCurrent, "head", bloomSectionHead.String(), "root", bloomTrieRoot.String(),
 				"height", height, "current", etrue.BlockChain().GetHeaderByHash(bloomSectionHead).Number)
 		}
 	}
