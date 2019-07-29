@@ -113,13 +113,13 @@ func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, err
 	chtSection, height, _ := srv.chtIndexer.Sections()
 	if chtSection != 0 {
 		for i := chtSection; i > chtSection-3; i-- {
-			chtSectionCurrnt := chtSection - 1
-			chtSectionHead := srv.chtIndexer.SectionHead(chtSectionCurrnt)
+			chtSectionCurrent := i - 1
+			chtSectionHead := srv.chtIndexer.SectionHead(chtSectionCurrent)
 			if chtSectionHead == (common.Hash{}) {
 				break
 			}
-			chtTrieRoot := light.GetChtRoot(pm.chainDb, chtSectionCurrnt, chtSectionHead)
-			logger.Info("Loaded recent CHT", "section", chtSectionCurrnt, "head", chtSectionHead.String(), "root", chtTrieRoot.String(),
+			chtTrieRoot := light.GetChtRoot(pm.chainDb, chtSectionCurrent, chtSectionHead)
+			logger.Info("Loaded recent CHT", "section", chtSectionCurrent, "head", chtSectionHead.String(), "root", chtTrieRoot.String(),
 				"height", height, "current", etrue.SnailBlockChain().GetHeaderByHash(chtSectionHead).Number)
 		}
 	}
