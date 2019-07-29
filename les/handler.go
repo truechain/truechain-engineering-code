@@ -307,7 +307,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		clientRejectedMeter.Mark(1)
 		return p2p.DiscRequested
 	}
-	p.Log().Debug("Light Ethereum peer connected", "name", p.Name())
+	p.Log().Debug("Light Truechain peer connected", "name", p.Name())
 
 	// Execute the LES handshake
 	var (
@@ -1307,9 +1307,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 						var prefix string
 						if root, prefix = pm.getHelperTrie(request.Type, request.TrieIdx); root != (common.Hash{}) {
+							p.Log().Info("Received helper trie proof request", "req", request.Start, "", request.TrieIdx, "root", root.String())
 							auxTrie, _ = trie.New(root, trie.NewDatabase(etruedb.NewTable(pm.chainDb, prefix)))
 						}
 					}
+
 					if request.AuxReq == auxRoot {
 						var data []byte
 						if root != (common.Hash{}) {
@@ -1514,6 +1516,7 @@ func (pm *ProtocolManager) getHelperTrie(id uint, idx uint64) (common.Hash, stri
 	switch id {
 	case htCanonical:
 		sectionHead := rawdb.ReadCanonicalHash(pm.chainDb, (idx+1)*pm.iConfig.ChtSize-1)
+		log.Info("getHelperTrie", "idx", idx, "sectionHead", sectionHead, "num", (idx+1)*pm.iConfig.ChtSize-1)
 		return light.GetChtRoot(pm.chainDb, idx, sectionHead), light.ChtTablePrefix
 	case htBloomBits:
 		sectionHead := rawdb.ReadCanonicalHash(pm.chainDb, (idx+1)*pm.iConfig.BloomTrieSize-1)

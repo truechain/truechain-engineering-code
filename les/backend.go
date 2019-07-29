@@ -88,7 +88,7 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	if err != nil {
 		return nil, err
 	}
-	chainConfig, genesisHash, _, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+	chainConfig, genesisHash, snailGenesis, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, isCompat := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !isCompat {
 		return nil, genesisErr
 	}
@@ -124,7 +124,7 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	leth.bloomTrieIndexer = fast.NewBloomTrieIndexer(chainDb, leth.odr, params.BloomBitsBlocksClient, params.BloomTrieFrequency)
 	leth.odr.SetIndexers(leth.chtIndexer, leth.bloomTrieIndexer, leth.bloomIndexer)
 
-	checkpoint := params.TrustedCheckpoints[genesisHash]
+	checkpoint := params.TrustedCheckpoints[snailGenesis]
 
 	if leth.fblockchain, err = fast.NewLightChain(leth.odr, leth.chainConfig, leth.engine, checkpoint); err != nil {
 		return nil, err

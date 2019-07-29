@@ -46,14 +46,6 @@ var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
 	DevnetSnailGenesisHash:  DevnetTrustedCheckpoint,
 }
 
-// TrustedCheckpoints associates each known checkpoint with the genesis hash of
-// the chain it belongs to.
-var TrustedBloomCheckpoints = map[common.Hash]*TrustedCheckpoint{
-	MainnetSnailGenesisHash: MainnetTrustedCheckpoint,
-	TestnetSnailGenesisHash: TestnetTrustedCheckpoint,
-	DevnetSnailGenesisHash:  DevnetTrustedBloomCheckpoint,
-}
-
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
@@ -135,18 +127,12 @@ var (
 
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
 	DevnetTrustedCheckpoint = &TrustedCheckpoint{
-		SectionIndex: 64,
-		SectionHead:  common.HexToHash("0x0743dadf541e3061ff4e6c28eecea23030378b04cc58490c8656614a200afb6f"),
-		CHTRoot:      common.HexToHash("0x19817c3097af4edf3f864585a14dc9cdcfbc757956b699feb95d744ff132a4d4"),
-		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
-	}
-
-	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
-	DevnetTrustedBloomCheckpoint = &TrustedCheckpoint{
-		SectionIndex: 2,
-		SectionHead:  common.HexToHash("9cd5e2ec8a8505dd5b8dc7bc248daceafbb135a84e68e23ba0d9b12e1be2651a"),
-		CHTRoot:      common.HexToHash("1a91e78eb6772ed586a1a31b5058876b664d96bddbf5d9f2942ea302da403d2d"),
-		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
+		SectionIndex:  12,
+		SectionHead:   common.HexToHash("0xa672246bf631e2ea05977c8720a7c318564e4f2251436a5edd9ea6a0ea31e423"),
+		CHTRoot:       common.HexToHash("0x4f234caa182b92a792929fe6ff9aa85fe30c81b8525a1c8f73f044de1b31b2cf"),
+		SectionBIndex: 33,
+		SectionBHead:  common.HexToHash("0x4a1e87bbf82fbf205ab351cee72f5d46197774c724eea26cacfb52d204aee2c2"),
+		BloomRoot:     common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"),
 	}
 
 	chainId = big.NewInt(9223372036854775790)
@@ -165,10 +151,12 @@ var (
 // used to start light syncing from this checkpoint and avoid downloading the
 // entire header chain while still being able to securely access old headers/logs.
 type TrustedCheckpoint struct {
-	SectionIndex uint64      `json:"sectionIndex"`
-	SectionHead  common.Hash `json:"sectionHead"`
-	CHTRoot      common.Hash `json:"chtRoot"`
-	BloomRoot    common.Hash `json:"bloomRoot"`
+	SectionIndex  uint64      `json:"sectionIndex"`
+	SectionHead   common.Hash `json:"sectionHead"`
+	CHTRoot       common.Hash `json:"chtRoot"`
+	SectionBIndex uint64      `json:"sectionBIndex"`
+	SectionBHead  common.Hash `json:"sectionBHead"`
+	BloomRoot     common.Hash `json:"bloomRoot"`
 }
 
 // HashEqual returns an indicator comparing the itself hash with given one.

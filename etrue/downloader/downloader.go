@@ -65,7 +65,7 @@ var (
 	reorgProtHeaderDelay = 2  // Number of headers to delay delivering to cover mini reorgs
 
 	fsHeaderSafetyNet = 2048             // Number of headers to discard in case a chain violation is detected
-	fsHeaderContCheck = 15 * time.Second // Time interval to check for header continuations during state download
+	fsHeaderContCheck = 30 * time.Second // Time interval to check for header continuations during state download
 
 	maxSyncSnailHeight = 12
 )

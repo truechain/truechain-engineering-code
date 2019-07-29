@@ -122,13 +122,13 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 // AddTrustedCheckpoint adds a trusted checkpoint to the blockchain
 func (lc *LightChain) AddTrustedCheckpoint(cp *params.TrustedCheckpoint) {
 	if lc.odr.BloomTrieIndexer() != nil {
-		StoreBloomTrieRoot(lc.chainDb, cp.SectionIndex, cp.SectionHead, cp.BloomRoot)
-		lc.odr.BloomTrieIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
+		StoreBloomTrieRoot(lc.chainDb, cp.SectionBIndex, cp.SectionBHead, cp.BloomRoot)
+		lc.odr.BloomTrieIndexer().AddCheckpoint(cp.SectionBIndex, cp.SectionBHead)
 	}
 	if lc.odr.BloomIndexer() != nil {
-		lc.odr.BloomIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
+		lc.odr.BloomIndexer().AddCheckpoint(cp.SectionBIndex, cp.SectionBHead)
 	}
-	log.Info("Added trusted checkpoint", "chain", (cp.SectionIndex+1)*lc.indexerConfig.ChtSize-1, "hash", cp.SectionHead)
+	log.Info("Added fast trusted checkpoint", "chain", (cp.SectionBIndex+1)*lc.indexerConfig.BloomSize-1, "hash", cp.SectionBHead)
 }
 
 func (lc *LightChain) getProcInterrupt() bool {
