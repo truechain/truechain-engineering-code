@@ -289,7 +289,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, fruits []
 			}
 			return i, consensus.ErrPrunedAncestor
 		}*/
-		for j, fruit := range fruitHeaders {
+		for _, fruit := range fruitHeaders {
 			if err := hc.engine.ValidateFruitHeader(header, fruit, hc, fastchain, checkpoint); err != nil {
 				log.Error("ValidateHeaderChain", "snailBlock number", header.Number, "fruit number", fruit.FastNumber, "err", err)
 				return i, err
