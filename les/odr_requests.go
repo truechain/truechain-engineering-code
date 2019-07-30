@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package light implements on-demand retrieval capable state and chain objects
-// for the Ethereum Light Client.
 package les
 
 import (
@@ -73,6 +71,8 @@ func LesRequest(req light.OdrRequest) LesOdrRequest {
 		return (*ChtRequest)(r)
 	case *fast.BloomRequest:
 		return (*BloomRequest)(r)
+	case *fast.TxStatusRequest:
+		return (*TxStatusRequest)(r)
 	default:
 		return nil
 	}
@@ -429,12 +429,7 @@ type ChtRequest light.ChtRequest
 // GetCost returns the cost of the given ODR request according to the serving
 // peer's cost table (implementation of LesOdrRequest)
 func (r *ChtRequest) GetCost(peer *peer) uint64 {
-	switch peer.version {
-	case lpv2:
-		return peer.GetRequestCost(GetHelperTrieProofsMsg, 1)
-	default:
-		panic(nil)
-	}
+	return peer.GetRequestCost(GetHelperTrieProofsMsg, 1)
 }
 
 // CanSend tells if a certain peer is suitable for serving the given request

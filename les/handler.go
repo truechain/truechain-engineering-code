@@ -767,6 +767,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
 					}
 					if origin == nil {
+						atomic.AddUint32(&p.invalidCount, 1)
 						break
 					}
 					if hashMode && !query.Fruit {
@@ -788,7 +789,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 							unknown = true
 						} else {
 							query.Origin.Hash, query.Origin.Number = pm.blockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
-							unknown = (query.Origin.Hash == common.Hash{})
+							unknown = query.Origin.Hash == common.Hash{}
 						}
 					case hashMode && !query.Reverse:
 						// Hash based traversal towards the leaf block
@@ -820,11 +821,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						} else {
 							unknown = true
 						}
-
 					case !query.Reverse:
 						// Number based traversal towards the leaf block
 						query.Origin.Number += query.Skip + 1
 					}
+					first = false
 				}
 				sendResponse(req.ReqID, query.Amount, p.ReplySnailBlockHeaders(req.ReqID, snailHeadsData{Heads: headers, FruitHeads: fruitHeads}), task.done())
 			}()
@@ -954,11 +955,15 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		reqCnt := len(req.Hashes)
 		if accept(req.ReqID, uint64(reqCnt), MaxFruitBodyFetch) {
 			go func() {
-				for _, hash := range req.Hashes {
+				for i, hash := range req.Hashes {
+					if i != 0 && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+					// Retrieve the requested fruit body, stopping if enough was found
 					if bytes >= softResponseLimit {
 						break
 					}
-					// Retrieve the requested fruit body, stopping if enough was found
 					if fruit, _, _, _ := snaildb.ReadFruit(pm.chainDb, hash); fruit != nil {
 						data, err := rlp.EncodeToBytes(fruit.Body())
 						if err != nil {
