@@ -669,6 +669,8 @@ func (s *Service) assembleSnailBlockStats(block *types.SnailBlock) *snailBlockSt
 		header      *types.SnailHeader
 		td          *big.Int
 		fruitNumber *big.Int
+		diff        string
+		maxFruit    *big.Int
 	)
 	if s.etrue != nil {
 		// Full nodes have all needed information available
@@ -678,6 +680,8 @@ func (s *Service) assembleSnailBlockStats(block *types.SnailBlock) *snailBlockSt
 		header = block.Header()
 		td = s.etrue.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
 		fruitNumber = big.NewInt(int64(len(block.Fruits())))
+		diff = block.Difficulty().String()
+		maxFruit = block.MaxFruitNumber()
 	} else {
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
 		if block != nil {
@@ -687,6 +691,11 @@ func (s *Service) assembleSnailBlockStats(block *types.SnailBlock) *snailBlockSt
 			header = s.les.SnailBlockChain().CurrentHeader()
 		}
 		td = s.les.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
+		heads := s.les.SnailBlockChain().GetFruitsHead(header.Number.Uint64())
+		if len(heads) > 0 {
+			fruitNumber = big.NewInt(int64(len(heads)))
+			maxFruit = heads[len(heads)-1].FastNumber
+		}
 	}
 	// Assemble and return the block stats
 	author, _ := s.engine.AuthorSnail(header)
@@ -696,11 +705,11 @@ func (s *Service) assembleSnailBlockStats(block *types.SnailBlock) *snailBlockSt
 		ParentHash:  header.ParentHash,
 		Timestamp:   header.Time,
 		Miner:       author,
-		Diff:        block.Difficulty().String(),
+		Diff:        diff,
 		TotalDiff:   td.String(),
 		Uncles:      nil,
 		FruitNumber: fruitNumber,
-		LastFruit:   block.MaxFruitNumber(),
+		LastFruit:   maxFruit,
 	}
 }
 
