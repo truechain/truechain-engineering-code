@@ -682,11 +682,11 @@ func (s *Service) assembleSnailBlockStats(block *types.SnailBlock) *snailBlockSt
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
 		if block != nil {
 			header = block.Header()
+			fruitNumber = big.NewInt(int64(len(block.Fruits())))
 		} else {
 			header = s.les.SnailBlockChain().CurrentHeader()
 		}
 		td = s.les.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
-		fruitNumber = big.NewInt(int64(len(block.Fruits())))
 	}
 	// Assemble and return the block stats
 	author, _ := s.engine.AuthorSnail(header)
