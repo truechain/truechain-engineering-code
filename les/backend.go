@@ -247,8 +247,8 @@ func (s *LightEtrue) ResetWithGenesisBlock(gb *types.Block) {
 	s.fblockchain.ResetWithGenesisBlock(gb)
 }
 
-func (s *LightEtrue) BlockChain() *light.LightChain      { return s.blockchain }
-func (s *LightEtrue) FastBlockChain() *fast.LightChain   { return s.fblockchain }
+func (s *LightEtrue) SnailBlockChain() *light.LightChain { return s.blockchain }
+func (s *LightEtrue) BlockChain() *fast.LightChain       { return s.fblockchain }
 func (s *LightEtrue) TxPool() *fast.TxPool               { return s.txPool }
 func (s *LightEtrue) Engine() consensus.Engine           { return s.engine }
 func (s *LightEtrue) LesVersion() int                    { return int(ClientProtocolVersions[0]) }

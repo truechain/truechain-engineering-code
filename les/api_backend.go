@@ -49,7 +49,7 @@ func (b *LesApiBackend) ChainConfig() *params.ChainConfig {
 }
 
 func (b *LesApiBackend) CurrentBlock() *types.Block {
-	return types.NewBlockWithHeader(b.etrue.FastBlockChain().CurrentHeader())
+	return types.NewBlockWithHeader(b.etrue.BlockChain().CurrentHeader())
 }
 
 func (b *LesApiBackend) CurrentSnailBlock() *types.SnailBlock {
