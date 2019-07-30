@@ -58,10 +58,12 @@ func (b *LesApiBackend) CurrentSnailBlock() *types.SnailBlock {
 
 func (b *LesApiBackend) SetHead(number uint64) {
 	b.etrue.protocolManager.downloader.Cancel()
-	b.etrue.blockchain.SetHead(number)
+	b.etrue.fblockchain.SetHead(number)
 }
 
 func (b *LesApiBackend) SetSnailHead(number uint64) {
+	b.etrue.protocolManager.downloader.Cancel()
+	b.etrue.blockchain.SetHead(number)
 }
 
 func (b *LesApiBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {

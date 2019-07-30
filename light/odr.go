@@ -19,7 +19,6 @@ package light
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/light/public"
@@ -99,19 +98,11 @@ func (req *ChtRequest) StoreResult(db etruedb.Database) {
 	}
 
 	epoch := uint64((num - 1) / minerva.UPDATABLOCKLENGTH)
-	if count := len(req.Dataset); count > 0 {
-		if epoch == 0 {
-			if count != minerva.STARTUPDATENUM {
-				log.Info("StoreResult hash error", "count", count, "num", num, "epoch", epoch)
-			}
-			rawdb.WriteLastDataSet(db, epoch, req.Dataset)
-		} else {
-			if count != minerva.STARTUPDATENUM+int(num%uint64(minerva.UPDATABLOCKLENGTH)-1) {
-				log.Info("StoreResult hash error", "count", count, "num", num)
-			}
-			rawdb.WriteLastDataSet(db, epoch, req.Dataset[minerva.STARTUPDATENUM:])
-			rawdb.WriteLastDataSet(db, epoch-1, req.Dataset[:minerva.STARTUPDATENUM])
-		}
+	if count := len(req.Dataset); count > minerva.STARTUPDATENUM {
+		rawdb.WriteLastDataSet(db, epoch-1, req.Dataset[:minerva.STARTUPDATENUM])
+		rawdb.WriteLastDataSet(db, epoch, req.Dataset[minerva.STARTUPDATENUM:])
+	} else {
+		rawdb.WriteLastDataSet(db, epoch, req.Dataset)
 	}
 
 	fhash, fnum := req.FHeader.Hash(), req.FHeader.Number.Uint64()

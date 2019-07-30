@@ -1540,17 +1540,19 @@ func (pm *ProtocolManager) getHelperTrieAuxData(req HelperTrieReq) ([]byte, *typ
 
 // getHelperDataSet returns requested auxiliary data for the given HelperTrie request
 func (pm *ProtocolManager) getHelperDataSet(point uint64) [][]byte {
-	if point/minerva.UPDATABLOCKLENGTH+1 != (pm.blockchain.CurrentHeader().Number.Uint64()-1)/minerva.UPDATABLOCKLENGTH {
-		return nil
-	}
 
 	var headerHash [][]byte
-	epoch := uint64((pm.blockchain.CurrentHeader().Number.Uint64() - 1) / minerva.UPDATABLOCKLENGTH)
-
+	epoch := uint64((point - 1) / minerva.UPDATABLOCKLENGTH)
 	startEpochNumber := uint64((epoch-1)*minerva.UPDATABLOCKLENGTH + 1)
-	if point/minerva.UPDATABLOCKLENGTH == 0 {
+
+	if point < minerva.STARTUPDATENUM {
+		for i := uint64(0); i < point; i++ {
+			header := pm.blockchain.GetHeaderByNumber(uint64(i + 1))
+			headerHash = append(headerHash, header.Hash().Bytes())
+		}
+	} else if point < minerva.UPDATABLOCKLENGTH {
 		for i := 0; i < minerva.STARTUPDATENUM; i++ {
-			header := pm.blockchain.GetHeaderByNumber(uint64(i) + startEpochNumber)
+			header := pm.blockchain.GetHeaderByNumber(uint64(i + 1))
 			headerHash = append(headerHash, header.Hash().Bytes())
 		}
 	} else {

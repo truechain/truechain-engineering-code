@@ -130,8 +130,8 @@ var (
 		SectionIndex:  12,
 		SectionHead:   common.HexToHash("0xa672246bf631e2ea05977c8720a7c318564e4f2251436a5edd9ea6a0ea31e423"),
 		CHTRoot:       common.HexToHash("0x4f234caa182b92a792929fe6ff9aa85fe30c81b8525a1c8f73f044de1b31b2cf"),
-		SectionBIndex: 33,
-		SectionBHead:  common.HexToHash("0x4a1e87bbf82fbf205ab351cee72f5d46197774c724eea26cacfb52d204aee2c2"),
+		SectionBIndex: 34,
+		SectionBHead:  common.HexToHash("0xd455c656df21d60886b45b16f28ee017bd9e48ba7d8df0997ebf282c703aca9c"),
 		BloomRoot:     common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"),
 	}
 
