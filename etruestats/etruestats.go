@@ -73,7 +73,6 @@ type blockChain interface {
 
 type snailBlockChain interface {
 	SubscribeChainHeadEvent(ch chan<- types.SnailChainHeadEvent) event.Subscription
-	SubscribeNewFruitEvent(ch chan<- types.NewMinedFruitEvent) event.Subscription
 }
 
 // Service implements an Truechain netstats reporting daemon that pushes local
@@ -158,6 +157,7 @@ func (s *Service) loop() {
 	} else {
 		blockchain = s.les.FastBlockChain()
 		txpool = s.les.TxPool()
+		snailBlockChain = s.les.BlockChain()
 	}
 	//fastBlock
 	chainHeadCh := make(chan types.FastChainHeadEvent, chainHeadChanSize)
