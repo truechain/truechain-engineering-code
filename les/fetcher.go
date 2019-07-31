@@ -221,6 +221,7 @@ func (f *lightFetcher) syncLoop() {
 			f.syncing = false
 			f.fastSync = false
 			f.lock.Unlock()
+			f.fastFetcher.notifySyncDone(p)
 			f.requestTrigger <- struct{}{} // f.requestTriggered is always true here
 		}
 	}
