@@ -363,7 +363,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, mode SyncMode, ori
 
 	// Post a user notification of the sync (only once per session)
 	//if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
-		log.Info("Fast Block synchronisation started", "origin", origin, "height", height, "mode", d.mode)
+	log.Info("Fast Block synchronisation started", "origin", origin, "height", height, "mode", d.mode)
 	//}
 
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
@@ -726,7 +726,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 				break
 			}
 			// Header retrieval timed out, consider the peer bad and drop
-			p.GetLog().Debug("Header request timed out", "elapsed", ttl)
+			p.GetLog().Debug("Header request timed out", "elapsed", ttl, "from", from)
 			headerTimeoutMeter.Mark(1)
 			p.GetLog().Trace("drop peer fast fetchHeaders timout ", "id", p.GetID())
 			d.dropPeer(p.GetID(), types.DownloaderFetchCall)

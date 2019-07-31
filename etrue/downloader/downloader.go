@@ -311,7 +311,7 @@ func (d *Downloader) RegisterLightPeer(id string, version int, ip string, peer e
 func (d *Downloader) UnregisterPeer(id string) error {
 	// Unregister the peer from the active peer set and revoke any fetch tasks
 	logger := log.New("peer Snail", id)
-	logger.Trace("Unregistering sync peer")
+	logger.Trace("Unregistering sync snail peer")
 	if err := d.peers.Unregister(id); err != nil {
 		logger.Error("Failed to unregister sync peer", "err", err)
 		return err

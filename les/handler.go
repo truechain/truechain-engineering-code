@@ -553,7 +553,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 					if hashMode {
 						if first {
-							first = false
 							origin = pm.fblockchain.GetHeaderByHash(query.Origin.Hash)
 							if origin != nil {
 								query.Origin.Number = origin.Number.Uint64()
@@ -565,6 +564,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						origin = pm.fblockchain.GetHeaderByNumber(query.Origin.Number)
 					}
 					if origin == nil {
+						atomic.AddUint32(&p.invalidCount, 1)
 						break
 					}
 					var body *types.Body
@@ -595,7 +595,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 							unknown = true
 						} else {
 							query.Origin.Hash, query.Origin.Number = pm.fblockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
-							unknown = (query.Origin.Hash == common.Hash{})
+							unknown = query.Origin.Hash == common.Hash{}
 						}
 					case hashMode && !query.Reverse:
 						// Hash based traversal towards the leaf block
@@ -632,6 +632,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						// Number based traversal towards the leaf block
 						query.Origin.Number += query.Skip + 1
 					}
+					first = false
 				}
 				sendResponse(req.ReqID, query.Amount, p.ReplyBlockHeaders(req.ReqID, incompleteBlocks{blocks}), task.done())
 			}()
@@ -688,16 +689,23 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if accept(req.ReqID, uint64(reqCnt), MaxBodyFetch) {
 			go func() {
 				p.Log().Trace("Received block bodies request", "count", len(req.Hashes))
-				for _, hash := range req.Hashes {
+				for i, hash := range req.Hashes {
+					if i != 0 && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+					// Retrieve the requested block body, stopping if enough was found
 					if bytes >= softResponseLimit {
 						break
 					}
-					// FastRetrieve the requested block body, stopping if enough was found
-					if number := rawdb.ReadHeaderNumber(pm.chainDb, hash); number != nil {
-						if data := rawdb.ReadBodyRLP(pm.chainDb, hash, *number); len(data) != 0 {
-							bodies = append(bodies, data)
-							bytes += len(data)
-						}
+					number := rawdb.ReadHeaderNumber(pm.chainDb, hash)
+					if number == nil {
+						atomic.AddUint32(&p.invalidCount, 1)
+						continue
+					}
+					if data := rawdb.ReadBodyRLP(pm.chainDb, hash, *number); len(data) != 0 {
+						bodies = append(bodies, data)
+						bytes += len(data)
 					}
 				}
 				sendResponse(req.ReqID, uint64(reqCnt), p.ReplyBlockBodiesRLP(req.ReqID, bodies), task.done())
@@ -751,11 +759,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					unknown    bool
 				)
 				for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
-					// FastRetrieve the next header satisfying the query
+					if !first && !task.waitOrStop() {
+						sendResponse(req.ReqID, 0, nil, task.servingTime)
+						return
+					}
+					// Retrieve the next header satisfying the query
 					var origin *types.SnailHeader
 					if hashMode {
 						if first {
-							first = false
 							origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
 							if origin != nil {
 								query.Origin.Number = origin.Number.Uint64()
