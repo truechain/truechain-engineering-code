@@ -40,7 +40,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 )
 
-const bufLimitRatio = 60000 // fixed bufLimit/MRR ratio
+const bufLimitRatio = 6000 // fixed bufLimit/MRR ratio
 
 type LesServer struct {
 	lesCommons

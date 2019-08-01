@@ -542,10 +542,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					unknown bool
 				)
 				for !unknown && len(blocks) < int(query.Amount) && bytes < softResponseLimit {
-					if !first && !task.waitOrStop() {
-						sendResponse(req.ReqID, 0, nil, task.servingTime)
-						return
-					}
 
 					// FastRetrieve the next header satisfying the query
 					var origin *types.Header
@@ -689,11 +685,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if accept(req.ReqID, uint64(reqCnt), MaxBodyFetch) {
 			go func() {
 				p.Log().Trace("Received block bodies request", "count", len(req.Hashes))
-				for i, hash := range req.Hashes {
-					if i != 0 && !task.waitOrStop() {
-						sendResponse(req.ReqID, 0, nil, task.servingTime)
-						return
-					}
+				for _, hash := range req.Hashes {
 					// Retrieve the requested block body, stopping if enough was found
 					if bytes >= softResponseLimit {
 						break
@@ -759,10 +751,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					unknown    bool
 				)
 				for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit {
-					if !first && !task.waitOrStop() {
-						sendResponse(req.ReqID, 0, nil, task.servingTime)
-						return
-					}
 					// Retrieve the next header satisfying the query
 					var origin *types.SnailHeader
 					if hashMode {
@@ -966,11 +954,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		reqCnt := len(req.Hashes)
 		if accept(req.ReqID, uint64(reqCnt), MaxFruitBodyFetch) {
 			go func() {
-				for i, hash := range req.Hashes {
-					if i != 0 && !task.waitOrStop() {
-						sendResponse(req.ReqID, 0, nil, task.servingTime)
-						return
-					}
+				for _, hash := range req.Hashes {
 					// Retrieve the requested fruit body, stopping if enough was found
 					if bytes >= softResponseLimit {
 						break

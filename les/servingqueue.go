@@ -17,6 +17,7 @@
 package les
 
 import (
+	"github.com/ethereum/go-ethereum/log"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -290,6 +291,7 @@ func (sq *servingQueue) addTask(task *servingTask) {
 	sqServedGauge.Update(int64(sq.recentTime))
 	sqQueuedGauge.Update(int64(sq.queuedTime))
 	if sq.recentTime+sq.queuedTime > sq.burstLimit {
+		log.Info("addTask", "recentTime", sq.recentTime, "queuedTime", sq.queuedTime, "burstLimit", sq.burstLimit)
 		sq.freezePeers()
 	}
 }
