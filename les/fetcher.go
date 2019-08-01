@@ -584,7 +584,7 @@ func (f *lightFetcher) processResponse(req fetchRequest, resp fetchResponse) boo
 	for i, header := range resp.headers {
 		headers[int(req.amount)-1-i] = header
 		fheaders[int(req.amount)-1-i] = resp.fheaders[i]
-		log.Info("processResponse", "i", i, "head", len(resp.fheaders[i]), "head", header.Number, "hash", header.Hash())
+		log.Debug("processResponse", "i", i, "head", len(resp.fheaders[i]), "head", header.Number, "hash", header.Hash())
 	}
 	if _, err := f.chain.InsertHeaderChain(headers, fheaders, 1); err != nil {
 		if err == consensus.ErrFutureBlock {
@@ -610,10 +610,9 @@ func (f *lightFetcher) processResponse(req fetchRequest, resp fetchResponse) boo
 // downloaded and validated batch or headers
 func (f *lightFetcher) newHeaders(headers []*types.SnailHeader, tds []*big.Int) {
 	var maxTd *big.Int
-	log.Info("newHeaders", "headers", len(headers), "tds", len(tds))
+	log.Debug("newHeaders", "headers", len(headers), "tds", len(tds))
 	for p, fp := range f.peers {
 		if !f.checkAnnouncedHeaders(fp, headers, tds) {
-			p.Log().Debug("Inconsistent announcement")
 			go f.pm.removePeer(p.id, public.FetcherHeadCall)
 		}
 		if fp.confirmedTd != nil && (maxTd == nil || maxTd.Cmp(fp.confirmedTd) > 0) {
