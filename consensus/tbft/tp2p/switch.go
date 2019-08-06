@@ -375,13 +375,13 @@ func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 			return
 		}
 
-		log.Debug("Error reconnecting to peer. Trying again", "tries", i, "err", err, "addr", addr)
+		log.Error("Error reconnecting to peer. Trying again", "tries", i, "err", err, "addr", addr)
 		// sleep a set amount
 		sw.randomSleep(reconnectInterval)
 		continue
 	}
 
-	log.Trace("Failed to reconnect to peer. Beginning exponential backoff",
+	log.Warn("Failed to reconnect to peer. Beginning exponential backoff",
 		"addr", addr, "elapsed", time.Since(start))
 	for i := 0; i < reconnectBackOffAttempts; i++ {
 		if !sw.IsRunning() {
@@ -398,9 +398,9 @@ func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 		if err == nil {
 			return // success
 		}
-		log.Debug("Error reconnecting to peer. Trying again", "tries", i, "err", err, "addr", addr)
+		log.Warn("Error reconnecting to peer. Trying again", "tries", i, "err", err, "addr", addr)
 	}
-	log.Debug("Failed to reconnect to peer. Giving up", "addr", addr, "elapsed", time.Since(start))
+	log.Error("Failed to reconnect to peer. Giving up", "addr", addr, "elapsed", time.Since(start))
 }
 
 // SetAddrBook allows to set address book on Switch.
@@ -472,9 +472,9 @@ func (sw *Switch) DialPeersAsync(addrBook AddrBook, peers []string, persistent b
 			if err != nil {
 				switch err.(type) {
 				case ErrSwitchConnectToSelf, ErrSwitchDuplicatePeerID:
-					log.Debug("Error dialing peer", "err", err)
+					log.Warn("Error dialing peer", "err", err)
 				default:
-					log.Debug("Error dialing peer", "err", err)
+					log.Warn("Error dialing peer", "err", err)
 				}
 			}
 		}(i)
