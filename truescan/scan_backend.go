@@ -279,7 +279,7 @@ func (ts *TrueScan) handleSnailChain(block *types.SnailBlock) {
 		ParentHash: block.ParentHash().String(),
 		Nonce:      strconv.FormatUint(block.Nonce(), 10),
 		Miner:      block.Coinbase().String(),
-		Difficulty: block.Difficulty().Uint64(),
+		Difficulty: block.Header().Difficulty.Uint64(),
 		ExtraData:  bytesToHex(block.Extra()),
 		Size:       block.Size().Int(),
 		Timestamp:  block.Time().Uint64(),
