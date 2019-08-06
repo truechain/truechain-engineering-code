@@ -644,6 +644,26 @@ func (s *PublicBlockChainAPI) GetBlockByHash(ctx context.Context, blockHash comm
 	return nil, err
 }
 
+// GetSnailDiffcults
+func (s *PublicBlockChainAPI) GetSnailDiffcults(ctx context.Context, from rpc.BlockNumber, to rpc.BlockNumber) (map[string]interface{}, error) {
+	fields := map[string]interface{}{}
+	diffs := make([]interface{}, to-from+1)
+	times := make([]interface{}, to-from+1)
+
+	for i := from; i <= to; i++ {
+		block, _ := s.b.SnailBlockByNumber(ctx, i)
+		head := block.Header()
+		if block != nil {
+			diffs[i-from] = (*hexutil.Big)(head.Difficulty)
+			times[i-from] = (*hexutil.Big)(head.Time)
+		}
+	}
+	fields["diffs"] = diffs
+	fields["times"] = times
+
+	return fields, nil
+}
+
 // GetSnailBlockByNumber returns the requested snail block. When blockNr is -1 the chain head is returned.
 func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber, inclFruit bool) (map[string]interface{}, error) {
 	block, err := s.b.SnailBlockByNumber(ctx, blockNr)
