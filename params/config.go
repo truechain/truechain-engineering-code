@@ -125,6 +125,17 @@ var (
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
 	}
 
+	SingleNodeChainConfig = &ChainConfig{
+		ChainID: big.NewInt(400),
+		Minerva: &(MinervaConfig{
+			MinimumDifficulty:      big.NewInt(200),
+			MinimumFruitDifficulty: big.NewInt(2),
+			DurationLimit:          big.NewInt(120),
+		}),
+		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
+	}
+
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
 	DevnetTrustedCheckpoint = &TrustedCheckpoint{
 		SectionIndex:  12,

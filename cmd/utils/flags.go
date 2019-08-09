@@ -612,6 +612,9 @@ func MakeDataDir(ctx *cli.Context) string {
 		if ctx.GlobalBool(DevnetFlag.Name) {
 			return filepath.Join(path, "devnet")
 		}
+		if ctx.GlobalBool(SingleNodeFlag.Name) {
+			return filepath.Join(path, "singlenode")
+		}
 		return path
 	}
 	Fatalf("Cannot determine default data directory, please set manually (--datadir)")
@@ -686,7 +689,7 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		urls = params.TestnetBootnodes
 	case ctx.GlobalBool(DevnetFlag.Name):
 		urls = params.DevnetBootnodes
-	case cfg.BootstrapNodes != nil:
+	case cfg.BootstrapNodes != nil || ctx.GlobalBool(SingleNodeFlag.Name):
 		return // already set, don't apply defaults.
 	}
 
@@ -940,8 +943,9 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "testnet")
 	case ctx.GlobalBool(DevnetFlag.Name):
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "devnet")
+	case ctx.GlobalBool(SingleNodeFlag.Name):
+		cfg.DataDir = ctx.GlobalString(DataDirFlag.Name)
 	}
-
 	if ctx.GlobalIsSet(KeyStoreDirFlag.Name) {
 		cfg.KeyStoreDir = ctx.GlobalString(KeyStoreDirFlag.Name)
 	}
@@ -1056,7 +1060,7 @@ func checkExclusive(ctx *cli.Context, args ...interface{}) {
 // SetTruechainConfig applies etrue-related command line flags to the config.
 func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	// Avoid conflicting network flags
-	checkExclusive(ctx, TestnetFlag, DevnetFlag)
+	checkExclusive(ctx, TestnetFlag, DevnetFlag, SingleNodeFlag)
 	//checkExclusive(ctx, LightServFlag, LightModeFlag)
 	checkExclusive(ctx, LightServFlag, SyncModeFlag, "light")
 
@@ -1185,6 +1189,11 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 			cfg.NetworkId = 100
 		}
 		cfg.Genesis = core.DefaultDevGenesisBlock()
+	case ctx.GlobalBool(SingleNodeFlag.Name):
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 400
+		}
+		cfg.Genesis = core.DefaultSingleNodeGenesisBlock()
 	}
 	// TODO(fjl): move trie cache generations into config
 	if gen := ctx.GlobalInt(TrieCacheGenFlag.Name); gen > 0 {
@@ -1298,6 +1307,8 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 		genesis = core.DefaultTestnetGenesisBlock()
 	case ctx.GlobalBool(DevnetFlag.Name):
 		genesis = core.DefaultDevGenesisBlock()
+	case ctx.GlobalBool(SingleNodeFlag.Name):
+		genesis = core.DefaultSingleNodeGenesisBlock()
 	}
 	return genesis
 }
