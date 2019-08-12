@@ -79,6 +79,7 @@ type ChtRequest struct {
 	Start            bool
 	FHeader          *types.Header
 	Dataset          [][]byte
+	DatasetRoot      common.Hash
 }
 
 // StoreResult stores the retrieved data in local database
@@ -97,12 +98,14 @@ func (req *ChtRequest) StoreResult(db etruedb.Database) {
 		}
 	}
 
-	epoch := uint64((num - 1) / minerva.UPDATABLOCKLENGTH)
-	if count := len(req.Dataset); count > minerva.STARTUPDATENUM {
-		rawdb.WriteLastDataSet(db, epoch-1, req.Dataset[:minerva.STARTUPDATENUM])
-		rawdb.WriteLastDataSet(db, epoch, req.Dataset[minerva.STARTUPDATENUM:])
-	} else {
-		rawdb.WriteLastDataSet(db, epoch, req.Dataset)
+	if req.Start {
+		epoch := uint64((num - 1) / minerva.UPDATABLOCKLENGTH)
+		if count := len(req.Dataset); count > minerva.STARTUPDATENUM {
+			rawdb.WriteLastDataSet(db, epoch-1, req.Dataset[:minerva.STARTUPDATENUM])
+			rawdb.WriteLastDataSet(db, epoch, req.Dataset[minerva.STARTUPDATENUM:])
+		} else {
+			rawdb.WriteLastDataSet(db, epoch, req.Dataset)
+		}
 	}
 
 	fhash, fnum := req.FHeader.Hash(), req.FHeader.Number.Uint64()

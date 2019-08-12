@@ -1,6 +1,9 @@
 package public
 
-import "github.com/truechain/truechain-engineering-code/params"
+import (
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/params"
+)
 
 const (
 	Normal = iota
@@ -44,6 +47,9 @@ type IndexerConfig struct {
 
 	// The number of confirmations needed to generate/accept a bloom trie.
 	BloomTrieConfirms uint64
+
+	//the cht hash
+	Hash common.Hash
 }
 
 var (
@@ -84,3 +90,8 @@ var (
 		BloomTrieConfirms: 32,
 	}
 )
+
+// StoreResult stores the retrieved data in local database
+func (ic *IndexerConfig) SetDatasetRoot(hash common.Hash) {
+	ic.Hash = hash
+}

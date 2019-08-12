@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"github.com/truechain/truechain-engineering-code/light/fast"
 	"github.com/truechain/truechain-engineering-code/light/public"
+	"golang.org/x/crypto/sha3"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -1565,8 +1566,15 @@ func (pm *ProtocolManager) getHelperDataSet(point uint64) [][]byte {
 			headerHash = append(headerHash, header.Hash().Bytes())
 		}
 	}
-
+	log.Info("Get helper dataSet", "point", point, "hash", rlpHash(headerHash).String())
 	return headerHash
+}
+
+func rlpHash(x interface{}) (h common.Hash) {
+	hw := sha3.NewLegacyKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }
 
 func (pm *ProtocolManager) txStatus(hash common.Hash) fast.TxStatus {

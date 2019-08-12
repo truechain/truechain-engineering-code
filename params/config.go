@@ -168,6 +168,7 @@ type TrustedCheckpoint struct {
 	SectionBIndex uint64      `json:"sectionBIndex"`
 	SectionBHead  common.Hash `json:"sectionBHead"`
 	BloomRoot     common.Hash `json:"bloomRoot"`
+	DSRoot        common.Hash `json:"datasetRoot"`
 }
 
 // HashEqual returns an indicator comparing the itself hash with given one.

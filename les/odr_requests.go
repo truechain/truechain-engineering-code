@@ -40,11 +40,11 @@ var (
 	errInvalidEntryCount   = errors.New("invalid number of response entries")
 	errHeaderUnavailable   = errors.New("header unavailable")
 	errTxHashMismatch      = errors.New("transaction hash mismatch")
-	errUncleHashMismatch   = errors.New("uncle hash mismatch")
 	errReceiptHashMismatch = errors.New("receipt hash mismatch")
 	errDataHashMismatch    = errors.New("data hash mismatch")
 	errCHTHashMismatch     = errors.New("cht hash mismatch")
 	errCHTNumberMismatch   = errors.New("cht number mismatch")
+	errDatasetMismatch     = errors.New("dataset mismatch")
 	errUselessNodes        = errors.New("useless nodes in merkle proof nodeset")
 )
 
@@ -469,7 +469,7 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 		return errInvalidMessageType
 	}
 	resp := msg.Obj.(HelperTrieResps)
-	if len(resp.AuxData) >= 10241 && len(resp.Fhead) != 1 {
+	if len(resp.AuxData) >= 1 && len(resp.Fhead) != 1 {
 		return errInvalidEntryCount
 	}
 	nodeSet := resp.Proofs.NodeSet()
@@ -513,9 +513,15 @@ func (r *ChtRequest) Validate(db etruedb.Database, msg *Msg) error {
 	r.Header = header
 	r.Proof = nodeSet
 	r.Td = node.Td
-	r.Headers = resp.Heads
-	r.FHeader = resp.Fhead[0]
-	r.Dataset = resp.AuxData[1:]
+	if r.Start {
+		if r.DatasetRoot != rlpHash(resp.AuxData[1:]) {
+			log.Info("Validating CHT", "cht", r.ChtNum, "block", r.BlockNum, "count", len(resp.AuxData[1:]))
+			return errDatasetMismatch
+		}
+		r.Headers = resp.Heads
+		r.FHeader = resp.Fhead[0]
+		r.Dataset = resp.AuxData[1:]
+	}
 	return nil
 }
 

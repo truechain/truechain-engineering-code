@@ -68,7 +68,7 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 		start = true
 	}
 	log.Info("GetHeaderByNumber", "number", number, "chtCount", chtCount, "ChtSize", odr.IndexerConfig().ChtSize)
-	r := &ChtRequest{ChtRoot: GetChtRoot(db, chtCount-1, sectionHead), ChtNum: chtCount - 1, BlockNum: number, Config: odr.IndexerConfig(), Start: start}
+	r := &ChtRequest{ChtRoot: GetChtRoot(db, chtCount-1, sectionHead), ChtNum: chtCount - 1, BlockNum: number, Config: odr.IndexerConfig(), Start: start, DatasetRoot: odr.IndexerConfig().Hash}
 	if err := odr.Retrieve(ctx, r); err != nil {
 		return nil, err
 	}

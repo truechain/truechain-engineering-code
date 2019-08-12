@@ -130,6 +130,7 @@ func (lc *LightChain) AddTrustedCheckpoint(cp *params.TrustedCheckpoint) {
 	if lc.odr.ChtIndexer() != nil {
 		StoreChtRoot(lc.chainDb, cp.SectionIndex, cp.SectionHead, cp.CHTRoot)
 		lc.odr.ChtIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
+		lc.odr.IndexerConfig().SetDatasetRoot(cp.DSRoot)
 	}
 	log.Info("Added trusted checkpoint", "block", (cp.SectionIndex+1)*lc.indexerConfig.ChtSize-1, "hash", cp.SectionHead)
 }
