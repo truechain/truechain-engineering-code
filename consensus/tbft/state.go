@@ -4,19 +4,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
+	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	cfg "github.com/truechain/truechain-engineering-code/params"
 	"reflect"
 	"runtime/debug"
 	"sync"
 	"time"
-
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	cfg "github.com/truechain/truechain-engineering-code/params"
 )
 
 //-----------------------------------------------------------------------------
@@ -594,6 +593,8 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 
 	var err error
 	msg, peerID := mi.Msg, mi.PeerID
+	//have a message update health tick to zero
+	cs.hm.Update(tp2p.ID(mi.PeerID))
 	switch msg := msg.(type) {
 	case *ProposalMessage:
 		// will not cause transition.
@@ -1469,7 +1470,6 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 
 func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool, err error) {
 	log.Debug("addVote", "voteHeight", vote.Height, "voteType", vote.Type, "valIndex", vote.ValidatorIndex, "csHeight", cs.Height)
-
 	// A precommit for the previous height?
 	// These come in while we wait timeoutCommit
 	if vote.Height+1 == cs.Height {
