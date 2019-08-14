@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
@@ -571,21 +573,22 @@ func TestRunPbftChange1(t *testing.T) {
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28896, Port2: 28897, Coinbase: m4.Coinbase, Publickey: m4.Publickey})
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28898, Port2: 28899, Coinbase: m5.Coinbase, Publickey: m5.Publickey})
 
+	fmt.Println(GetAddressFromPrivKey(pr1))
 	n1.Start()
 	n1.PutCommittee(c1)
 	n1.PutNodes(common.Big1, cn)
 	n1.Notify(c1.Id, Start)
 
 	//for {
-	c1.Members[3].Flag = types.StateRemovedFlag
-	c1.Members[3].MType = types.TypeWorked
-	c1.BackMembers[0].Flag = types.StateUsedFlag
-	c1.StartHeight = getIDForCache("Agent1")
-	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
-	n1.UpdateCommittee(c1)
+	// c1.Members[3].Flag = types.StateRemovedFlag
+	// c1.Members[3].MType = types.TypeWorked
+	// c1.BackMembers[0].Flag = types.StateUsedFlag
+	// c1.StartHeight = getIDForCache("Agent1")
+	// c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
+	// n1.UpdateCommittee(c1)
 	//}
 
-	go CloseStart(start)
+	// go CloseStart(start)
 
 	<-start
 }
@@ -658,6 +661,8 @@ func TestRunPbftChange2(t *testing.T) {
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28896, Port2: 28897, Coinbase: m4.Coinbase, Publickey: m4.Publickey})
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28898, Port2: 28899, Coinbase: m5.Coinbase, Publickey: m5.Publickey})
 
+	fmt.Println(GetAddressFromPrivKey(pr2))
+
 	n2.Start()
 	n2.PutCommittee(c1)
 	n2.Notify(c1.Id, Start)
@@ -665,15 +670,15 @@ func TestRunPbftChange2(t *testing.T) {
 
 	//for {
 	//time.Sleep(time.Second * 220)
-	c1.Members[3].Flag = types.StateRemovedFlag
-	c1.Members[3].MType = types.TypeWorked
-	c1.BackMembers[0].Flag = types.StateUsedFlag
-	c1.StartHeight = getIDForCache("Agent2")
-	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
-	n2.UpdateCommittee(c1)
+	// c1.Members[3].Flag = types.StateRemovedFlag
+	// c1.Members[3].MType = types.TypeWorked
+	// c1.BackMembers[0].Flag = types.StateUsedFlag
+	// c1.StartHeight = getIDForCache("Agent2")
+	// c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
+	// n2.UpdateCommittee(c1)
 	//}
 
-	go CloseStart(start)
+	// go CloseStart(start)
 	<-start
 }
 
@@ -745,6 +750,8 @@ func TestRunPbftChange3(t *testing.T) {
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28896, Port2: 28897, Coinbase: m4.Coinbase, Publickey: m4.Publickey})
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28898, Port2: 28899, Coinbase: m5.Coinbase, Publickey: m5.Publickey})
 
+	fmt.Println(GetAddressFromPrivKey(pr3))
+
 	n3.Start()
 	n3.PutCommittee(c1)
 	n3.Notify(c1.Id, Start)
@@ -752,15 +759,15 @@ func TestRunPbftChange3(t *testing.T) {
 
 	//for {
 	//time.Sleep(time.Second * 220)
-	c1.Members[3].Flag = types.StateRemovedFlag
-	c1.Members[3].MType = types.TypeWorked
-	c1.BackMembers[0].Flag = types.StateUsedFlag
-	c1.StartHeight = getIDForCache("Agent3")
-	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
-	n3.UpdateCommittee(c1)
+	// c1.Members[3].Flag = types.StateRemovedFlag
+	// c1.Members[3].MType = types.TypeWorked
+	// c1.BackMembers[0].Flag = types.StateUsedFlag
+	// c1.StartHeight = getIDForCache("Agent3")
+	// c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
+	// n3.UpdateCommittee(c1)
 	//}
 
-	go CloseStart(start)
+	// go CloseStart(start)
 	<-start
 }
 
@@ -937,4 +944,52 @@ func TestRunPbftChange5(t *testing.T) {
 	//}
 	go CloseStart(start)
 	<-start
+}
+
+func makeHealth() *ttypes.SwitchValidator {
+	key1, _ := hex.DecodeString(string("d878614f687c663baf7cdcbc32cc0fc88a036cdc6850023d880b03984426a629"))
+	priv1, _ := crypto.ToECDSA(key1)
+	pub1 := GetPubKey(priv1)
+	val1 := ttypes.NewValidator(tcrypto.PubKeyTrue(*pub1), 1)
+
+	key2, _ := hex.DecodeString(string("c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc"))
+	priv2, _ := crypto.ToECDSA(key2)
+	pub2 := GetPubKey(priv2)
+	val2 := ttypes.NewValidator(tcrypto.PubKeyTrue(*pub2), 1)
+
+	remove := ttypes.NewHealth(tp2p.ID("remove"), types.TypeWorked, types.StateRemovedFlag, val1, false)
+	add := ttypes.NewHealth(tp2p.ID("add"), types.TypeBack, types.StateAppendFlag, val2, false)
+
+	vals := make([]*types.CommitteeMember, 0, 0)
+	vals = append(vals, &types.CommitteeMember{
+		CommitteeBase: common.BytesToAddress(add.Val.Address),
+		Flag:          types.StateAppendFlag,
+	})
+	vals = append(vals, &types.CommitteeMember{
+		CommitteeBase: common.BytesToAddress(remove.Val.Address),
+		Flag:          types.StateRemovedFlag,
+	})
+	// will need check vals with validatorSet
+	sv := &ttypes.SwitchValidator{
+		Infos:     vals,
+		Resion:    "switch",
+		From:      0,
+		DoorCount: 0,
+		Remove:    remove,
+		Add:       add,
+		Round:     -1,
+		ID:        1212122, // for tmp
+	}
+	return sv
+}
+
+func TestSV(t *testing.T) {
+	sv0 := makeHealth()
+	sv1 := *sv0
+	sv1.From = 1
+
+	e := sv1.Equal(sv0)
+
+	fmt.Println(e)
+	fmt.Println("finish")
 }
