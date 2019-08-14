@@ -48,24 +48,30 @@ func (b *TrueAPIBackend) ChainConfig() *params.ChainConfig {
 	return b.etrue.chainConfig
 }
 
+// CurrentBlock return the fast chain current Block
 func (b *TrueAPIBackend) CurrentBlock() *types.Block {
 	return b.etrue.blockchain.CurrentBlock()
 }
 
+// CurrentSnailBlock return the Snail chain current Block
 func (b *TrueAPIBackend) CurrentSnailBlock() *types.SnailBlock {
 	return b.etrue.snailblockchain.CurrentBlock()
 }
 
+// SetHead Set the newest position of Fast Chain, that will reset the fast blockchain comment
 func (b *TrueAPIBackend) SetHead(number uint64) {
 	b.etrue.protocolManager.downloader.Cancel()
 	b.etrue.blockchain.SetHead(number)
 }
 
+// SetSnailHead Set the newest position of snail chain
 func (b *TrueAPIBackend) SetSnailHead(number uint64) {
 	b.etrue.protocolManager.downloader.Cancel()
 	b.etrue.snailblockchain.SetHead(number)
 }
 
+// HeaderByNumber returns Header of fast chain by the number
+// rpc.PendingBlockNumber == "pending"; rpc.LatestBlockNumber == "latest" ; rpc.LatestBlockNumber == "earliest"
 func (b *TrueAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
@@ -78,10 +84,14 @@ func (b *TrueAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNu
 	}
 	return b.etrue.blockchain.GetHeaderByNumber(uint64(blockNr)), nil
 }
+
+// HeaderByHash returns header of fast chain by the hash
 func (b *TrueAPIBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
 	return b.etrue.blockchain.GetHeaderByHash(hash), nil
 }
 
+// SnailHeaderByNumber returns Header of snail chain by the number
+// rpc.PendingBlockNumber == "pending"; rpc.LatestBlockNumber == "latest" ; rpc.LatestBlockNumber == "earliest"
 func (b *TrueAPIBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
@@ -95,6 +105,7 @@ func (b *TrueAPIBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.Bl
 	return b.etrue.snailblockchain.GetHeaderByNumber(uint64(blockNr)), nil
 }
 
+// BlockByNumber returns block of fast chain by the number
 func (b *TrueAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
 	// Only snailchain has miner, also return current block here for fastchain
 	if blockNr == rpc.PendingBlockNumber {
@@ -108,6 +119,7 @@ func (b *TrueAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNum
 	return b.etrue.blockchain.GetBlockByNumber(uint64(blockNr)), nil
 }
 
+// SnailBlockByNumber returns block of snial chain by the number
 func (b *TrueAPIBackend) SnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailBlock, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
