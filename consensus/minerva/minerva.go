@@ -291,7 +291,7 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 								headerHash[j] = headSet[j]
 							}
 							i = i + len(headerHash) - 1
-							log.Info("getHashList", "count", len(headSet), "num", num, "epoch", epoch, "block", block)
+							log.Debug("getHashList", "count", len(headSet), "num", num, "epoch", epoch, "block", block)
 							continue
 						}
 					}
@@ -307,7 +307,7 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 	if current.dateInit == 0 && epoch > 0 {
 		if m.chainDB != nil {
 			headSet := rawdb.ReadLastDataSet(m.chainDB, epoch-1)
-			log.Info("getDataset", "block", block, "count", len(headSet))
+			log.Debug("getDataset", "block", block, "count", len(headSet))
 			if len(headSet) != STARTUPDATENUM && !getHashList(&headerHash, epoch) {
 				return nil
 			} else {
@@ -359,7 +359,7 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 				d.datasetHash = d.GetDatasetSeedhash(d.dataset)
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
-				log.Info("updateLookupTBL is start", "epoch", epoch, "hash", len(headershash))
+				log.Debug("updateLookupTBL is start", "epoch", epoch, "hash", len(headershash))
 				flag, _, cont := d.updateLookupTBL(d.dataset, headershash)
 				if flag {
 					// consistent is make sure the algorithm is current and not change

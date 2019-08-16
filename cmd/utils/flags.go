@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -505,6 +506,16 @@ var (
 		Usage: "Comma separated enode URLs for P2P discovery bootstrap (set v4+v5 instead for light servers)",
 		Value: "",
 	}
+	BootnodesV4Flag = cli.StringFlag{
+		Name:  "bootnodesv4",
+		Usage: "Comma separated enode URLs for P2P v4 discovery bootstrap (light server, full nodes)",
+		Value: "",
+	}
+	BootnodesV5Flag = cli.StringFlag{
+		Name:  "bootnodesv5",
+		Usage: "Comma separated enode URLs for P2P v5 discovery bootstrap (light server, light nodes)",
+		Value: "",
+	}
 	NodeKeyFileFlag = cli.StringFlag{
 		Name:  "nodekey",
 		Usage: "P2P node key file",
@@ -704,6 +715,32 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
+// setBootstrapNodesV5 creates a list of bootstrap nodes from the command line
+// flags, reverting to pre-configured ones if none have been specified.
+func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
+	urls := params.DiscoveryV5Bootnodes
+	switch {
+	case ctx.GlobalIsSet(BootnodesFlag.Name) || ctx.GlobalIsSet(BootnodesV5Flag.Name):
+		if ctx.GlobalIsSet(BootnodesV5Flag.Name) {
+			urls = strings.Split(ctx.GlobalString(BootnodesV5Flag.Name), ",")
+		} else {
+			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
+		}
+	case cfg.BootstrapNodesV5 != nil || ctx.GlobalBool(SingleNodeFlag.Name):
+		return // already set, don't apply defaults.
+	}
+
+	cfg.BootstrapNodesV5 = make([]*discv5.Node, 0, len(urls))
+	for _, url := range urls {
+		node, err := discv5.ParseNode(url)
+		if err != nil {
+			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
+			continue
+		}
+		cfg.BootstrapNodesV5 = append(cfg.BootstrapNodesV5, node)
+	}
+}
+
 // setListenAddress creates a TCP listening address string from set command
 // line flags.
 func setListenAddress(ctx *cli.Context, cfg *p2p.Config) {
@@ -870,7 +907,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setNAT(ctx, cfg)
 	setListenAddress(ctx, cfg)
 	setBootstrapNodes(ctx, cfg)
-	//setBootstrapNodesV5(ctx, cfg)
+	setBootstrapNodesV5(ctx, cfg)
 
 	lightClient := ctx.GlobalString(SyncModeFlag.Name) == "light"
 	lightServer := ctx.GlobalInt(LightServFlag.Name) != 0
