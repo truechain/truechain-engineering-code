@@ -102,9 +102,17 @@ func (n *Node) Load(k enr.Entry) error {
 
 // IP returns the IP address of the node. This prefers IPv4 addresses.
 func (n *Node) IP() net.IP {
-	var ip net.IP
-	n.Load((*enr.IP)(&ip))
-	return ip
+	var (
+		ip4 enr.IPv4
+		ip6 enr.IPv6
+	)
+	if n.Load(&ip4) == nil {
+		return net.IP(ip4)
+	}
+	if n.Load(&ip6) == nil {
+		return net.IP(ip6)
+	}
+	return nil
 }
 
 // UDP returns the UDP port of the node.
@@ -157,17 +165,22 @@ func (n *Node) ValidateComplete() error {
 
 // String returns the text representation of the record.
 func (n *Node) String() string {
-	return n.v4URL()
+	if isNewV4(n) {
+		return n.URLv4() // backwards-compatibility glue for NewV4 nodes
+	}
+	enc, _ := rlp.EncodeToBytes(&n.r) // always succeeds because record is valid
+	b64 := base64.RawURLEncoding.EncodeToString(enc)
+	return "enr:" + b64
 }
 
 // MarshalText implements encoding.TextMarshaler.
 func (n *Node) MarshalText() ([]byte, error) {
-	return []byte(n.v4URL()), nil
+	return []byte(n.String()), nil
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (n *Node) UnmarshalText(text []byte) error {
-	dec, err := ParseV4(string(text))
+	dec, err := Parse(ValidSchemes, string(text))
 	if err == nil {
 		*n = *dec
 	}
