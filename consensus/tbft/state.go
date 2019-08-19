@@ -593,8 +593,8 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 
 	var err error
 	msg, peerID := mi.Msg, mi.PeerID
-	//have a message update health tick to zero
-	cs.hm.Update(tp2p.ID(mi.PeerID))
+	////have a message update health tick to zero
+	//cs.hm.Update(tp2p.ID(mi.PeerID))
 	switch msg := msg.(type) {
 	case *ProposalMessage:
 		// will not cause transition.
@@ -614,6 +614,10 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
 		log.Trace("VoteMessage", "peerID", peerID, "round", msg.Vote.Round, "height", msg.Vote.Height, "type", msg.Vote.Type)
+
+		log.Info("clear", "peerid", tp2p.ID(msg.Vote.ValidatorAddress))
+		cs.hm.Update(tp2p.ID(msg.Vote.ValidatorAddress))
+
 		err := cs.tryAddVote(msg.Vote, peerID)
 		if err == ErrAddingVote {
 			// TODO: punish peer
