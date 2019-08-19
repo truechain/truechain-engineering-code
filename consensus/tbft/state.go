@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	cfg "github.com/truechain/truechain-engineering-code/params"
@@ -615,8 +614,8 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
 		log.Trace("VoteMessage", "peerID", peerID, "round", msg.Vote.Round, "height", msg.Vote.Height, "type", msg.Vote.Type)
 
-		log.Info("clear", "peerid", tp2p.ID(msg.Vote.ValidatorAddress))
-		cs.hm.Update(tp2p.ID(msg.Vote.ValidatorAddress))
+		//log.Info("clear", "peerid", tp2p.ID(msg.Vote.ValidatorAddress))
+		//cs.hm.Update(tp2p.ID(msg.Vote.ValidatorAddress))
 
 		err := cs.tryAddVote(msg.Vote, peerID)
 		if err == ErrAddingVote {
