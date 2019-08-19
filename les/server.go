@@ -67,7 +67,7 @@ type LesServer struct {
 func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, error) {
 	lesTopics := make([]discv5.Topic, len(AdvertiseProtocolVersions))
 	for i, pv := range AdvertiseProtocolVersions {
-		lesTopics[i] = lesTopic(etrue.BlockChain().Genesis().Hash(), pv)
+		lesTopics[i] = lesTopic(etrue.SnailBlockChain().Genesis().Hash(), pv)
 	}
 	quitSync := make(chan struct{})
 	srv := &LesServer{
