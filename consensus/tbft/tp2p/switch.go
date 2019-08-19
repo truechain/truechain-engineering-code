@@ -3,6 +3,7 @@ package tp2p
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
 	config "github.com/truechain/truechain-engineering-code/params"
@@ -532,13 +533,14 @@ func (sw *Switch) listenerRoutine(l Listener) {
 	for {
 		inConn, ok := <-l.Connections()
 		if !ok {
-			log.Debug("listenerRoutine not ok")
+			log.Info("listenerRoutine not ok")
 			break
 		}
 
 		// ignore connection if we already have enough
 		// leave room for MinNumOutboundPeers
 		maxPeers := sw.config.MaxNumPeers - DefaultMinNumOutboundPeers
+		tbft.AddLog("MaxNumPeers", sw.config.MaxNumPeers, "maxPeers", maxPeers)
 		if maxPeers <= sw.peers.Size() {
 			help.CheckAndPrintError(inConn.Close())
 			continue
@@ -547,7 +549,7 @@ func (sw *Switch) listenerRoutine(l Listener) {
 		// New inbound connection!
 		err := sw.addInboundPeerWithConfig(inConn, sw.config)
 		if err != nil {
-			log.Trace("Ignoring inbound connection: error while adding peer", "address", inConn.RemoteAddr().String(), "err", err)
+			log.Info("Ignoring inbound connection: error while adding peer", "address", inConn.RemoteAddr().String(), "err", err)
 			continue
 		}
 	}
@@ -562,6 +564,7 @@ func (sw *Switch) addInboundPeerWithConfig(
 ) error {
 	peerConn, err := newInboundPeerConn(conn, config, sw.nodeKey.PrivKey)
 	if err != nil {
+		tbft.AddLog("newPeerConnError", err.Error())
 		help.CheckAndPrintError(conn.Close()) // peer is nil
 		return err
 	}
@@ -591,6 +594,7 @@ func (sw *Switch) addOutboundPeerWithConfig(
 		persistent,
 		sw.nodeKey.PrivKey,
 	)
+	tbft.AddLog("newOutboundPeerConnError", err)
 	if err != nil {
 		if persistent {
 			go sw.reconnectToPeer(addr)
@@ -601,6 +605,7 @@ func (sw *Switch) addOutboundPeerWithConfig(
 	log.Trace("add out bound peer")
 	if err := sw.addPeer(peerConn); err != nil {
 		peerConn.CloseConn()
+		tbft.AddLog("addPeerError", err)
 		return err
 	}
 	return nil
