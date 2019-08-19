@@ -1,4 +1,4 @@
-package tbft
+package testlog
 
 import "github.com/ethereum/go-ethereum/log"
 

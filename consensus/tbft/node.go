@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
 	"math/big"
 	"strconv"
 	"strings"
@@ -215,13 +216,13 @@ func (s *service) updateNodes() {
 	defer s.lock.Unlock()
 	defer atomic.StoreInt32(&s.singleCon, 0)
 
-	AddLog("nodeTableLen", len(s.nodeTable))
+	testlog.AddLog("nodeTableLen", len(s.nodeTable))
 
 	for _, v := range s.nodeTable {
 		if v != nil {
-			AddLog("connToBegin", v.ID)
+			testlog.AddLog("connToBegin", v.ID)
 			if s.canConn(v) {
-				AddLog("connTo", v.toString())
+				testlog.AddLog("connTo", v.toString())
 				s.connTo(v)
 			}
 		}
@@ -243,7 +244,7 @@ func (s *service) connTo(node *nodeInfo) {
 	log.Trace("[put nodes]connTo", "addr", node.Adrress)
 	errDialErr := s.sw.DialPeerWithAddress(node.Adrress, true)
 	if errDialErr != nil {
-		AddLog("errDialErr:", errDialErr.Error())
+		testlog.AddLog("errDialErr:", errDialErr.Error())
 		if strings.HasPrefix(errDialErr.Error(), "Duplicate peer ID") {
 			node.Enable = true
 		} else {

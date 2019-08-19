@@ -3,8 +3,8 @@ package tp2p
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
 	"net"
 	"sync/atomic"
 	"time"
@@ -145,7 +145,7 @@ func newOutboundPeerConn(
 
 	pc, err := newPeerConn(conn, config, true, persistent, ourNodePrivKey, addr)
 	if err != nil {
-		tbft.AddLog("newPeerConnError", err.Error())
+		testlog.AddLog("newPeerConnError", err.Error())
 		if cerr := conn.Close(); cerr != nil {
 			return peerConn{}, errors.New(fmt.Sprint(err, cerr.Error()))
 		}
