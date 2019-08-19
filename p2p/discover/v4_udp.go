@@ -342,15 +342,6 @@ func (t *UDPv4) LookupRandom() []*enode.Node {
 	return t.lookupRandom()
 }
 
-// LookupRandom finds random nodes in the network.
-func (t *UDPv4) Delete(node *enode.Node) {
-	if t.tab.len() == 0 {
-		// All nodes were dropped, refresh. The very first query will hit this
-		// case and run the bootstrapping logic.
-		<-t.tab.refresh()
-	}
-}
-
 func (t *UDPv4) LookupPubkey(key *ecdsa.PublicKey) []*enode.Node {
 	if t.tab.len() == 0 {
 		// All nodes were dropped, refresh. The very first query will hit this

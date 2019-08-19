@@ -24,9 +24,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/light/fast"
 	"github.com/truechain/truechain-engineering-code/light/public"
+	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"math/rand"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -107,10 +109,11 @@ type peer struct {
 	updateTime     mclock.AbsTime
 	frozen         uint32 // 1 if client is in frozen state
 
-	fcClient *flowcontrol.ClientNode // nil if the peer is server only
-	fcServer *flowcontrol.ServerNode // nil if the peer is client only
-	fcParams flowcontrol.ServerParams
-	fcCosts  requestCostTable
+	fcClient       *flowcontrol.ClientNode // nil if the peer is server only
+	fcServer       *flowcontrol.ServerNode // nil if the peer is client only
+	fcParams       flowcontrol.ServerParams
+	fcCosts        requestCostTable
+	balanceTracker *balanceTracker // set by clientPool.connect, used and removed by ProtocolManager.handle
 
 	trusted                 bool
 	onlyAnnounce            bool
@@ -124,10 +127,30 @@ func newPeer(version int, network uint64, trusted bool, p *p2p.Peer, rw p2p.MsgR
 		rw:      rw,
 		version: version,
 		network: network,
-		id:      fmt.Sprintf("%x", p.ID().Bytes()),
+		id:      peerIdToString(p.ID()),
 		trusted: trusted,
 		errCh:   make(chan error, 1),
 	}
+}
+
+// peerIdToString converts enode.ID to a string form
+func peerIdToString(id enode.ID) string {
+	return fmt.Sprintf("%x", id.Bytes())
+}
+
+// freeClientId returns a string identifier for the peer. Multiple peers with the
+// same identifier can not be connected in free mode simultaneously.
+func (p *peer) freeClientId() string {
+	if addr, ok := p.RemoteAddr().(*net.TCPAddr); ok {
+		if addr.IP.IsLoopback() {
+			// using peer id instead of loopback ip address allows multiple free
+			// connections from local machine to own server
+			return p.id
+		} else {
+			return addr.IP.String()
+		}
+	}
+	return p.id
 }
 
 // rejectUpdate returns true if a parameter update has to be rejected because

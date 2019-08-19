@@ -54,7 +54,7 @@ const (
 
 // les protocol message codes
 const (
-	// Protocol messages belonging to LPV1
+	// Protocol messages inherited from LPV1
 	StatusMsg               = 0x00
 	AnnounceMsg             = 0x01
 	GetFastBlockHeadersMsg  = 0x02
