@@ -32,7 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p/netutil"
 )
 
-const Version = 4
+const Version = 520
 
 // Errors
 var (
@@ -84,6 +84,7 @@ type (
 
 	// findnode is a query for nodes close to the given target.
 	findnode struct {
+		Version    uint
 		Target     NodeID // doesn't need to be an actual public key
 		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
@@ -276,6 +277,7 @@ func (t *udp) sendPing(remote *Node, toaddr *net.UDPAddr, topics []Topic) (hash 
 
 func (t *udp) sendFindnode(remote *Node, target NodeID) {
 	t.sendPacket(remote.ID, remote.addr(), byte(findnodePacket), findnode{
+		Version:    Version,
 		Target:     target,
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	})

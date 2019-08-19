@@ -269,7 +269,7 @@ func (s *LightEtrue) Start(srvr *p2p.Server) error {
 	s.netRPCService = trueapi.NewPublicNetAPI(srvr, s.networkId)
 	// clients are searching for the first advertised protocol in the list
 	protocolVersion := AdvertiseProtocolVersions[0]
-	s.serverPool.start(srvr, lesTopic(s.blockchain.Genesis().Hash(), protocolVersion))
+	s.serverPool.start(srvr, lesTopic(s.SnailBlockChain().Genesis().Hash(), protocolVersion))
 	s.protocolManager.Start(s.config.LightPeers)
 	return nil
 }
