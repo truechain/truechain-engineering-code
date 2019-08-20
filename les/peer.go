@@ -29,6 +29,7 @@ import (
 	"math/big"
 	"math/rand"
 	"net"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -187,6 +188,7 @@ func (p *peer) freezeClient() {
 		p.Peer.Disconnect(p2p.DiscUselessPeer)
 		return
 	}
+	debug.PrintStack()
 	if atomic.SwapUint32(&p.frozen, 1) == 0 {
 		go func() {
 			p.SendStop()

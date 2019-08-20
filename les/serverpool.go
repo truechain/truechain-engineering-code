@@ -175,6 +175,7 @@ func (pool *serverPool) start(server *p2p.Server, topic discv5.Topic) {
 		pool.discSetPeriod = make(chan time.Duration, 1)
 		pool.discNodes = make(chan *enode.Node, 100)
 		pool.discLookups = make(chan bool, 100)
+		log.Info("serverPool start")
 		go pool.discoverNodes()
 	}
 	pool.checkDial()

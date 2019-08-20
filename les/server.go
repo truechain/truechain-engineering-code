@@ -200,7 +200,7 @@ func (s *LesServer) startEventLoop() {
 				totalCapacityGauge.Update(int64(totalCapacity))
 				newFreePeers := totalCapacity / s.freeClientCap
 				if newFreePeers < maxFreePeers && newFreePeers < uint64(s.maxPeers) {
-					log.Warn("Reduced total capacity", "maxFreePeers", newFreePeers)
+					log.Warn("Reduced total capacity", "maxFreePeers", newFreePeers, "maxFreePeers", maxFreePeers, "maxPeers", s.maxPeers)
 				}
 				maxFreePeers = newFreePeers
 				s.clientPool.setLimits(s.maxPeers, totalCapacity)
