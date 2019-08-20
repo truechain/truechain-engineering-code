@@ -879,7 +879,7 @@ func init() {
 	unknown = &nodeState{
 		name: "unknown",
 		enter: func(net *Network, n *Node) {
-			net.tab.delete(n)
+			//net.tab.delete(n)
 			n.pingEcho = nil
 			// Abort active queries.
 			for _, q := range n.deferredQueries {
@@ -1008,7 +1008,7 @@ func init() {
 				err := net.handleKnownPong(n, pkt)
 				return known, err
 			case pongTimeout:
-				net.tab.deleteReplace(n)
+				//net.tab.deleteReplace(n)
 				return unresponsive, nil
 			case pingPacket:
 				net.handlePing(n, pkt)
