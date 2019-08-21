@@ -330,6 +330,7 @@ type peerAttempt struct {
 	Disconnected time.Time `json:"disconnected"`
 }
 
+// RemovedPeerType contains three kind of remove peer type.
 type RemovedPeerType string
 type ActivityType string
 
