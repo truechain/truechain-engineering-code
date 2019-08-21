@@ -133,6 +133,7 @@ func (b *TrueAPIBackend) SnailBlockByNumber(ctx context.Context, blockNr rpc.Blo
 	return b.etrue.snailblockchain.GetBlockByNumber(uint64(blockNr)), nil
 }
 
+// StateAndHeaderByNumber returns the state of block by the number
 func (b *TrueAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	// Pending state is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
@@ -149,18 +150,22 @@ func (b *TrueAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc
 	return stateDb, header, err
 }
 
+// GetBlock returns the block by the block's hash
 func (b *TrueAPIBackend) GetBlock(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return b.etrue.blockchain.GetBlockByHash(hash), nil
 }
 
+// GetSnailBlock returns the snail block by the block's hash
 func (b *TrueAPIBackend) GetSnailBlock(ctx context.Context, hash common.Hash) (*types.SnailBlock, error) {
 	return b.etrue.snailblockchain.GetBlockByHash(hash), nil
 }
 
+// GetFruit returns the fruit by the block's hash
 func (b *TrueAPIBackend) GetFruit(ctx context.Context, fastblockHash common.Hash) (*types.SnailBlock, error) {
 	return b.etrue.snailblockchain.GetFruit(fastblockHash), nil
 }
 
+// GetReceipts returns the Receipt details by txhash
 func (b *TrueAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	if number := rawdb.ReadHeaderNumber(b.etrue.chainDb, hash); number != nil {
 		return rawdb.ReadReceipts(b.etrue.chainDb, hash, *number), nil
@@ -168,6 +173,7 @@ func (b *TrueAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (typ
 	return nil, nil
 }
 
+// GetLogs returns the logs by txhash
 func (b *TrueAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
 	number := rawdb.ReadHeaderNumber(b.etrue.chainDb, hash)
 	if number == nil {
@@ -184,10 +190,12 @@ func (b *TrueAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*ty
 	return logs, nil
 }
 
+// GetTd returns the total diffcult with block height by blockhash
 func (b *TrueAPIBackend) GetTd(blockHash common.Hash) *big.Int {
 	return b.etrue.snailblockchain.GetTdByHash(blockHash)
 }
 
+// GetEVM returns the EVM
 func (b *TrueAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
 	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
