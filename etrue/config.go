@@ -172,7 +172,7 @@ type Config struct {
 	//true indicate only mine fruit
 	MineFruit bool `toml:",omitempty"`
 
-	//true indicate only mine fruit
+	//true indicate  mine snailblock and fruit
 	Mine bool `toml:",omitempty"`
 
 	//true indicate only remote mine
