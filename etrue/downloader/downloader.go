@@ -36,6 +36,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
+	//"github.com/truechain/truechain-engineering-code/trie"
 )
 
 var (
@@ -107,7 +108,7 @@ type Downloader struct {
 	peers      *etrue.PeerSet // Set of active peers from which download can proceed
 	
 	stateDB    etruedb.Database
-	stateBloom *trie.SyncBloom // Bloom filter for fast trie node existence checks
+	//stateBloom *trie.SyncBloom // Bloom filter for fast trie node existence checks
 	
 	rttEstimate   uint64 // Round trip time to target for download requests
 	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)

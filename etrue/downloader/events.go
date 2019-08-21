@@ -16,7 +16,8 @@
 
 package downloader
 
-etrue "github.com/truechain/truechain-engineering-code/core/types"
+import "github.com/truechain/truechain-engineering-code/core/types"
+
 
 type DoneEvent struct{
 	Latest *types.SnailHeader
