@@ -36,6 +36,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
+	//"github.com/truechain/truechain-engineering-code/trie"
 )
 
 var (
@@ -99,20 +100,22 @@ var (
 
 type Downloader struct {
 	mode SyncMode // Synchronisation mode defining the strategy used (per sync cycle)
+	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	checkpoint uint64         // Checkpoint block number to enforce head against (e.g. fast sync
 	genesis    uint64         // Genesis block number to limit sync to (e.g. light client CHT)
 	queue      *queue         // Scheduler for selecting the hashes to download
 	peers      *etrue.PeerSet // Set of active peers from which download can proceed
+	
 	stateDB    etruedb.Database
-
+	//stateBloom *trie.SyncBloom // Bloom filter for fast trie node existence checks
+	
 	rttEstimate   uint64 // Round trip time to target for download requests
 	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)
 
 	// Statistics
 	syncStatsChainOrigin uint64 // Origin block number where syncing started at
 	syncStatsChainHeight uint64 // Highest block number known when syncing started
-
 	syncStatsLock  sync.RWMutex // Lock protecting the sync stats fields
 	syncStatsState stateSyncStats
 
@@ -127,6 +130,7 @@ type Downloader struct {
 	synchronising   int32
 	notified        int32
 	committed       int32
+	ancientLimit    uint64 // The maximum block number which can be regarded as ancient data.
 
 	// Channels
 	headerCh     chan etrue.DataPack       // [eth/62] Channel receiving inbound block headers
@@ -423,7 +427,16 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int) (err error) {
-
+	d.mux.Post(StartEvent{})
+	defer func() {
+		// reset on error
+		if err != nil {
+			d.mux.Post(FailedEvent{err})
+		} else {
+			latest := d.lightchain.CurrentHeader()
+			d.mux.Post(DoneEvent{latest})
+		}
+	}()
 	if p.GetVersion() < 62 {
 		return errTooOld
 	}
