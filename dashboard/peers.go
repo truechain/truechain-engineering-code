@@ -332,6 +332,8 @@ type peerAttempt struct {
 
 // RemovedPeerType contains three kind of remove peer type.
 type RemovedPeerType string
+
+// ActivityType is to show a peer is active or inactive.
 type ActivityType string
 
 const (
