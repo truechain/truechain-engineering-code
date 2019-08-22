@@ -1166,7 +1166,11 @@ func (net *Network) handleKnownPong(n *Node, pkt *ingressPacket) error {
 }
 
 func (net *Network) handleQueryEvent(n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
-	log.Info("handleQueryEvent", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name, "ip", n.IP)
+	if n != nil && pkt != nil {
+		log.Info("handleQueryEvent", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name, "ip", n.IP)
+	} else {
+		log.Info("handleQueryEvent nil", "ev", ev, "pkt", pkt, "name", n.state)
+	}
 	switch ev {
 	case findnodePacket:
 		target := crypto.Keccak256Hash(pkt.data.(*findnode).Target[:])
