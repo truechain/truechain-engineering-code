@@ -133,7 +133,7 @@ func (fv *BlockValidator) ValidateState(block, parent *types.Block, statedb *sta
 	return nil
 }
 
-// CalcGasLimit computes the gas limit of the next block after parent.
+// FastCalcGasLimit computes the gas limit of the next block after parent.
 // This is miner strategy, not consensus protocol.
 func FastCalcGasLimit(parent *types.Block, gasFloor, gasCeil uint64) uint64 {
 	// contrib = (parentGasUsed * 3 / 2) / 1024
