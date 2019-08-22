@@ -806,7 +806,7 @@ func (q *findnodeQuery) start(net *Network) bool {
 	// Satisfy queries against the local node directly.
 	if q.remote == net.tab.self {
 		closest := net.tab.closest(q.target, bucketSize)
-		log.Info("findnodeQuery start self", "entries", len(closest.entries))
+		log.Debug("findnodeQuery start self", "entries", len(closest.entries))
 		q.reply <- closest.entries
 		return true
 	}
@@ -972,18 +972,13 @@ func init() {
 			// Insert into the table and start revalidation of the last node
 			// in the bucket if it is full.
 			last := net.tab.add(n)
-			log.Info("Pinging remote node known", "last", last)
+			log.Debug("Pinging remote node known", "last", last, "n", n.IP)
 			if last != nil && last.state == known {
 				// TODO: do this asynchronously
 				net.transition(last, contested)
 			}
 		},
 		handle: func(net *Network, n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
-			if n != nil && pkt != nil {
-				log.Info("Pinging remote node known", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name)
-			} else {
-				log.Warn("Pinging remote node known", "ev", ev, "pkt", pkt, "name", n.state)
-			}
 			switch ev {
 			case pingPacket:
 				net.handlePing(n, pkt)
@@ -1005,11 +1000,6 @@ func init() {
 			net.ping(n, n.addr())
 		},
 		handle: func(net *Network, n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
-			if n != nil && pkt != nil {
-				log.Info("Pinging remote node known", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name)
-			} else {
-				log.Warn("Pinging remote node known", "ev", ev, "pkt", pkt, "name", n.state)
-			}
 			switch ev {
 			case pongPacket:
 				// Node is still alive.
@@ -1031,11 +1021,6 @@ func init() {
 		name:     "unresponsive",
 		canQuery: true,
 		handle: func(net *Network, n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
-			if n != nil && pkt != nil {
-				log.Info("Pinging remote node known", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name)
-			} else {
-				log.Warn("Pinging remote node known", "ev", ev, "pkt", pkt, "name", n.state)
-			}
 			switch ev {
 			case pingPacket:
 				net.handlePing(n, pkt)
@@ -1174,16 +1159,11 @@ func (net *Network) handleKnownPong(n *Node, pkt *ingressPacket) error {
 }
 
 func (net *Network) handleQueryEvent(n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
-	if n != nil && pkt != nil {
-		log.Info("handleQueryEvent", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name, "ip", n.IP)
-	} else {
-		log.Warn("handleQueryEvent nil", "ev", ev, "pkt", pkt, "name", n.state)
-	}
 	switch ev {
 	case findnodePacket:
 		target := crypto.Keccak256Hash(pkt.data.(*findnode).Target[:])
 		results := net.tab.closest(target, bucketSize).entries
-		log.Info("handleQueryEvent", "results", len(results), "pkt", pkt.remoteAddr.IP, "name", n.state.name)
+		log.Debug("handleQueryEvent", "results", len(results), "pkt", pkt.remoteAddr.IP, "name", n.state.name)
 		net.conn.sendNeighbours(n, results)
 		return n.state, nil
 	case neighborsPacket:
@@ -1282,7 +1262,7 @@ func (net *Network) handleNeighboursPacket(n *Node, pkt *ingressPacket) error {
 
 	req := pkt.data.(*neighbors)
 	nodes := make([]*Node, len(req.Nodes))
-	log.Info("handleNeighboursPacket", "Nodes", len(req.Nodes), "pkt", pkt.remoteAddr.IP, "name", n.state.name)
+	log.Debug("handleNeighboursPacket", "Nodes", len(req.Nodes), "pkt", pkt.remoteAddr.IP, "name", n.state.name)
 	for i, rn := range req.Nodes {
 		nn, err := net.internNodeFromNeighbours(pkt.remoteAddr, rn)
 		if err != nil {
