@@ -982,7 +982,7 @@ func init() {
 			if n != nil && pkt != nil {
 				log.Info("Pinging remote node known", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name)
 			} else {
-				log.Info("Pinging remote node known", "ev", ev, "pkt", pkt, "name", n.state)
+				log.Warn("Pinging remote node known", "ev", ev, "pkt", pkt, "name", n.state)
 			}
 			switch ev {
 			case pingPacket:
@@ -1005,7 +1005,11 @@ func init() {
 			net.ping(n, n.addr())
 		},
 		handle: func(net *Network, n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
-			log.Info("Pinging remote node contested", "ev", ev, "pkt", pkt.remoteAddr.IP)
+			if n != nil && pkt != nil {
+				log.Info("Pinging remote node known", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name)
+			} else {
+				log.Warn("Pinging remote node known", "ev", ev, "pkt", pkt, "name", n.state)
+			}
 			switch ev {
 			case pongPacket:
 				// Node is still alive.
@@ -1169,7 +1173,7 @@ func (net *Network) handleQueryEvent(n *Node, ev nodeEvent, pkt *ingressPacket) 
 	if n != nil && pkt != nil {
 		log.Info("handleQueryEvent", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name, "ip", n.IP)
 	} else {
-		log.Info("handleQueryEvent nil", "ev", ev, "pkt", pkt, "name", n.state)
+		log.Warn("handleQueryEvent nil", "ev", ev, "pkt", pkt, "name", n.state)
 	}
 	switch ev {
 	case findnodePacket:
