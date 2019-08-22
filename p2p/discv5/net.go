@@ -979,7 +979,11 @@ func init() {
 			}
 		},
 		handle: func(net *Network, n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
-			log.Info("Pinging remote node known", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name)
+			if n != nil && pkt != nil {
+				log.Info("Pinging remote node known", "ev", ev, "pkt", pkt.remoteAddr.IP, "name", n.state.name)
+			} else {
+				log.Info("Pinging remote node known", "ev", ev, "pkt", pkt, "name", n.state)
+			}
 			switch ev {
 			case pingPacket:
 				net.handlePing(n, pkt)
