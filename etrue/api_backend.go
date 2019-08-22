@@ -204,26 +204,32 @@ func (b *TrueAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *st
 	return vm.NewEVM(context, state, b.etrue.chainConfig, vmCfg), vmError, nil
 }
 
+// SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent in fast blockchain
 func (b *TrueAPIBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeRemovedLogsEvent(ch)
 }
 
+// SubscribeChainEvent registers a subscription of chainEvnet in fast blockchain
 func (b *TrueAPIBackend) SubscribeChainEvent(ch chan<- types.FastChainEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainEvent(ch)
 }
 
+// SubscribeChainHeadEvent registers a subscription of chainHeadEvnet in fast blockchain
 func (b *TrueAPIBackend) SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainHeadEvent(ch)
 }
 
+// SubscribeChainSideEvent registers a subscription of chainSideEvnet in fast blockchain,deprecated
 func (b *TrueAPIBackend) SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainSideEvent(ch)
 }
 
+// SubscribeLogsEvent registers a subscription of log in fast blockchain
 func (b *TrueAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return b.etrue.BlockChain().SubscribeLogsEvent(ch)
 }
 
+// GetReward returns the Reward info by number in fastchain
 func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 	if number < 0 {
 		return b.etrue.blockchain.CurrentReward()
@@ -231,18 +237,22 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 	return b.etrue.blockchain.GetBlockReward(uint64(number))
 }
 
+// GetSnailRewardContent returns the Reward content by number in Snailchain
 func (b *TrueAPIBackend) GetSnailRewardContent(snailNumber rpc.BlockNumber) *types.SnailRewardContenet {
 	return b.etrue.agent.GetSnailRewardContent(uint64(snailNumber))
 }
 
+// GetCommittee returns the Committee info by committee number
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
 	return b.etrue.election.GetCommitteeById(big.NewInt(number.Int64())), nil
 }
 
+// SendTx returns nil by success to add local txpool
 func (b *TrueAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.etrue.txPool.AddLocal(signedTx)
 }
 
+// GetPoolTransactions returns Transactions by pending state in txpool
 func (b *TrueAPIBackend) GetPoolTransactions() (types.Transactions, error) {
 	pending, err := b.etrue.txPool.Pending()
 	if err != nil {
@@ -255,14 +265,17 @@ func (b *TrueAPIBackend) GetPoolTransactions() (types.Transactions, error) {
 	return txs, nil
 }
 
+// GetPoolTransaction returns Transaction by txHash in txpool
 func (b *TrueAPIBackend) GetPoolTransaction(hash common.Hash) *types.Transaction {
 	return b.etrue.txPool.Get(hash)
 }
 
+// GetPoolNonce returns user nonce by user address in txpool
 func (b *TrueAPIBackend) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
 	return b.etrue.txPool.State().GetNonce(addr), nil
 }
 
+// Stats returns the count tx in txpool
 func (b *TrueAPIBackend) Stats() (pending int, queued int) {
 	return b.etrue.txPool.Stats()
 }
