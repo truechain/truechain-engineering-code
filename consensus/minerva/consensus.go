@@ -532,6 +532,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs [
 	return nil
 }
 
+//VerifySwitchInfo verify the switch info of Committee
 func (m *Minerva) VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error {
 
 	return m.election.VerifySwitchInfo(fastnumber, info)
