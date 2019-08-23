@@ -47,6 +47,7 @@ const (
 	expiration  = 20 * time.Second
 
 	driftThreshold = 10 * time.Second // Allowed clock drift before warning user
+	lookupTimeout  = 2 * time.Millisecond
 )
 
 // RPC request structures
@@ -241,7 +242,7 @@ func ListenUDP(priv *ecdsa.PrivateKey, conn conn, nodeDBPath string, netrestrict
 	if err != nil {
 		return nil, err
 	}
-	log.Info("UDP listener up", "net", net.tab.self)
+	log.Info("UDP listener up v5", "net", net.tab.self)
 	transport.net = net
 	go transport.readLoop()
 	return net, nil

@@ -246,14 +246,13 @@ func (net *Network) lookup(target common.Hash, stopOnMatch bool) []*Node {
 	// Get initial answers from the local node.
 	result.push(net.tab.self, bucketSize)
 	for {
-		log.Debug("lookup", "entries", len(result.entries))
 		// Ask the α closest nodes that we haven't asked yet.
 		for i := 0; i < len(result.entries) && pendingQueries < alpha; i++ {
 			n := result.entries[i]
 			if !asked[n.ID] {
 				asked[n.ID] = true
 				pendingQueries++
-				log.Debug("lookup", "", i, "n", n.IP)
+				log.Debug("lookup", "i", i, "n", n.IP, "entries", len(result.entries))
 				net.reqQueryFindnode(n, target, reply)
 			}
 		}
@@ -274,7 +273,7 @@ func (net *Network) lookup(target common.Hash, stopOnMatch bool) []*Node {
 				}
 			}
 			pendingQueries--
-		case <-time.After(respTimeout):
+		case <-time.After(lookupTimeout):
 			// forget all pending requests, start new ones
 			pendingQueries = 0
 			reply = make(chan []*Node, alpha)
@@ -806,7 +805,6 @@ func (q *findnodeQuery) start(net *Network) bool {
 	// Satisfy queries against the local node directly.
 	if q.remote == net.tab.self {
 		closest := net.tab.closest(q.target, bucketSize)
-		log.Debug("findnodeQuery start self", "entries", len(closest.entries))
 		q.reply <- closest.entries
 		return true
 	}
