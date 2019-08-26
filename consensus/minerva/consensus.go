@@ -746,7 +746,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	return nil
 }
 
-// VerifySnailSeal implements consensus.Engine, checking whether the given block satisfies
+// VerifySnailSeal2 implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
 func (m *Minerva) VerifySnailSeal2(hight *big.Int, nonce string, headNoNoncehash string, ftarg *big.Int, btarg *big.Int, haveFruits bool) (bool, bool, []byte) {
 	// If we're running a fake PoW, accept any seal as valid
