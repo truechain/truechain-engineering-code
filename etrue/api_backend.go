@@ -284,22 +284,27 @@ func (b *TrueAPIBackend) TxPoolContent() (map[common.Address]types.Transactions,
 	return b.etrue.TxPool().Content()
 }
 
+// SubscribeNewTxsEvent returns the subscript event of new tx
 func (b *TrueAPIBackend) SubscribeNewTxsEvent(ch chan<- types.NewTxsEvent) event.Subscription {
 	return b.etrue.TxPool().SubscribeNewTxsEvent(ch)
 }
 
+// Downloader returns the fast downloader
 func (b *TrueAPIBackend) Downloader() *downloader.Downloader {
 	return b.etrue.Downloader()
 }
 
+// ProtocolVersion returns the version of protocol
 func (b *TrueAPIBackend) ProtocolVersion() int {
 	return b.etrue.EthVersion()
 }
 
+// SuggestPrice returns tht suggest gas price
 func (b *TrueAPIBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestPrice(ctx)
 }
 
+// ChainDb returns tht database of fastchain
 func (b *TrueAPIBackend) ChainDb() etruedb.Database {
 	return b.etrue.ChainDb()
 }
