@@ -776,10 +776,8 @@ func (m *Minerva) VerifySnailSeal2(hight *big.Int, nonce string, headNoNoncehash
 
 		if new(big.Int).SetBytes(lastResult).Cmp(ftarg) <= 0 {
 			return true, true, digest
-		} else {
-			return false, false, []byte{}
 		}
-
+		return false, false, []byte{}
 	}
 
 	return false, false, []byte{}
