@@ -552,6 +552,7 @@ func (sw *Switch) listenerRoutine(l Listener) {
 			log.Info("Ignoring inbound connection: error while adding peer", "address", inConn.RemoteAddr().String(), "err", err)
 			continue
 		}
+		testlog.AddLog("addInboundPeerWithConfig success", inConn.RemoteAddr().String())
 	}
 
 	// cleanup
@@ -562,6 +563,7 @@ func (sw *Switch) addInboundPeerWithConfig(
 	conn net.Conn,
 	config *config.P2PConfig,
 ) error {
+	testlog.AddLog("addPeer in", conn.RemoteAddr().String())
 	peerConn, err := newInboundPeerConn(conn, config, sw.nodeKey.PrivKey)
 	if err != nil {
 		testlog.AddLog("newPeerConnError", err.Error())
@@ -570,6 +572,7 @@ func (sw *Switch) addInboundPeerWithConfig(
 	}
 	log.Trace("add in bound peer")
 	if err = sw.addPeer(peerConn); err != nil {
+		testlog.AddLog("addPeer", conn.RemoteAddr().String(), "error", err.Error())
 		peerConn.CloseConn()
 		return err
 	}
@@ -587,7 +590,7 @@ func (sw *Switch) addOutboundPeerWithConfig(
 	config *config.P2PConfig,
 	persistent bool,
 ) error {
-	log.Info("Dialing peer", "address", addr)
+	log.Info("Dialing peer out", "address", addr)
 	peerConn, err := newOutboundPeerConn(
 		addr,
 		config,
