@@ -820,7 +820,7 @@ func (m *Minerva) PrepareSnail(fastchain consensus.ChainReader, chain consensus.
 	return nil
 }
 
-// PrepareSnail implements consensus.Engine, initializing the difficulty field of a
+// PrepareSnailWithParent implements consensus.Engine, initializing the difficulty field of a
 //// header to conform to the minerva protocol. The changes are done inline.
 func (m *Minerva) PrepareSnailWithParent(fastchain consensus.ChainReader, chain consensus.SnailChainReader, header *types.SnailHeader, parents []*types.SnailHeader) error {
 	//parents := m.getParents(chain, header)
