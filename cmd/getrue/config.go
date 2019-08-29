@@ -103,10 +103,10 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 		cfg.Etrue.PrivateKey = prikey
 		cfg.Etrue.CommitteeKey = crypto.FromECDSA(prikey)
 
-		cfg.Etrue.MineFruit = true
+		//cfg.Etrue.MineFruit = true
 		cfg.Etrue.Mine = true
 		cfg.Etrue.Etherbase =crypto.PubkeyToAddress(prikey.PublicKey)
-
+		//cfg.Etrue.NetworkId =400
 		//set node config
 		cfg.Node.HTTPPort = 8888
 		cfg.Node.HTTPHost = "127.0.0.1"
