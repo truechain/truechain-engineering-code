@@ -955,6 +955,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 	return nil
 }
 
+// GetRewardContentBySnailNumber retrieves SnailRewardContenet by snail block.
 func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types.SnailRewardContenet {
 	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
 	if e != nil {
