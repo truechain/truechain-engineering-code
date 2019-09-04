@@ -1064,7 +1064,7 @@ func rewardFruitCommitteeMember(state *state.StateDB, election consensus.Committ
 	return nil
 }
 
-//Reward for block allocation
+//GetBlockReward Reward for block allocation
 func GetBlockReward(num *big.Int) (committee, minerBlock, minerFruit *big.Int, e error) {
 	base := new(big.Int).Div(getCurrentCoin(num), Big1e6).Int64()
 	m, c, e := getDistributionRatio(NetworkFragmentsNuber)
