@@ -25,6 +25,8 @@ var (
 
 	ErrBlockOnChain = errors.New("block already insert fastchain")
 
+	// ErrForkFastBlock is returned when validating a block but the same number other
+	// block already in the chain.
 	ErrForkFastBlock = errors.New("fork fastBlock")
 
 	// ErrPrunedAncestor is returned when validating a block requires an ancestor
