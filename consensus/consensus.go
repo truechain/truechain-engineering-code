@@ -52,7 +52,7 @@ type ChainReader interface {
 	GetBlockReward(snumber uint64) *types.BlockReward
 }
 
-// ChainSnailReader defines a small collection of methods needed to access the local
+// SnailChainReader defines a small collection of methods needed to access the local
 // block chain during header and/or uncle verification.
 // Temporary interface for snail
 type SnailChainReader interface {
