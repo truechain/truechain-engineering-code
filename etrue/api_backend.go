@@ -308,11 +308,11 @@ func (b *TrueAPIBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 func (b *TrueAPIBackend) ChainDb() etruedb.Database {
 	return b.etrue.ChainDb()
 }
-
+// EventMux returns Event locker
 func (b *TrueAPIBackend) EventMux() *event.TypeMux {
 	return b.etrue.EventMux()
 }
-
+// AccountManager returns Account Manager
 func (b *TrueAPIBackend) AccountManager() *accounts.Manager {
 	return b.etrue.AccountManager()
 }
