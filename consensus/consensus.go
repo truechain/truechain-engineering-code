@@ -158,7 +158,7 @@ type Engine interface {
 	GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types.SnailRewardContenet
 }
 
-//Election module implementation committee interface
+//CommitteeElection module implementation committee interface
 type CommitteeElection interface {
 	// VerifySigns verify the fast chain committee signatures in batches
 	VerifySigns(pvs []*types.PbftSign) ([]*types.CommitteeMember, []error)
