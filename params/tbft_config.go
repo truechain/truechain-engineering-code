@@ -160,10 +160,10 @@ func DefaultP2PConfig() *P2PConfig {
 		AddrBookStrict:          true,
 		MaxNumPeers:             50,
 		FlushThrottleTimeout:    100,
-		MaxPacketMsgPayloadSize: 1024,    // 1 kB
-		SendRate:                5120000, // 5 mB/s
-		RecvRate:                5120000, // 5 mB/s
-		AllowDuplicateIP:        true,    // so non-breaking yet
+		MaxPacketMsgPayloadSize: 1024,     // 1 kB
+		SendRate:                51200000, // 50 mB/s
+		RecvRate:                51200000, // 50 mB/s
+		AllowDuplicateIP:        true,     // so non-breaking yet
 		HandshakeTimeout:        20 * time.Second,
 		DialTimeout:             3 * time.Second,
 		TestDialFail:            false,

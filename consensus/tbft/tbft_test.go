@@ -1014,6 +1014,82 @@ func TestRunPbft4(t *testing.T) {
 	<-start
 }
 
+func TestRunPbft5(t *testing.T) {
+	//log.OpenLogDebug(3)
+	IDCacheInit()
+	start := make(chan int)
+	pr1 := getPrivateKey(0)
+	pr2 := getPrivateKey(1)
+	pr3 := getPrivateKey(2)
+	pr4 := getPrivateKey(3)
+
+	agent4 := NewPbftAgent("Agent4")
+
+	config4 := new(config.TbftConfig)
+	*config4 = *config.DefaultConfig()
+	p2p4 := new(config.P2PConfig)
+	*p2p4 = *config4.P2P
+	p2p4.ListenAddress1 = "tcp://127.0.0.1:28896"
+	p2p4.ListenAddress2 = "tcp://127.0.0.1:28897"
+	*config4.P2P = *p2p4
+
+	con4 := new(config.ConsensusConfig)
+	*con4 = *config4.Consensus
+	con4.WalPath = filepath.Join("data", "cs.wal4", "wal")
+	*config4.Consensus = *con4
+
+	n4, _ := NewNode(config4, "1", pr4, agent4)
+
+	c1 := new(types.CommitteeInfo)
+	c1.Id = big.NewInt(1)
+	m1 := new(types.CommitteeMember)
+	m1.Publickey = GetPub(pr1)
+	m1.Coinbase = common.Address{0}
+	m1.MType = types.TypeWorked
+	m1.Flag = types.StateUsedFlag
+	m2 := new(types.CommitteeMember)
+	m2.Publickey = GetPub(pr2)
+	m2.Coinbase = common.Address{0}
+	m2.MType = types.TypeWorked
+	m2.Flag = types.StateUsedFlag
+	m3 := new(types.CommitteeMember)
+	m3.Publickey = GetPub(pr3)
+	m3.Coinbase = common.Address{0}
+	m3.MType = types.TypeWorked
+	m3.Flag = types.StateUsedFlag
+	m4 := new(types.CommitteeMember)
+	m4.Publickey = GetPub(pr4)
+	m4.Coinbase = common.Address{0}
+	m4.MType = types.TypeWorked
+	m4.Flag = types.StateUsedFlag
+	c1.Members = append(c1.Members, m1, m2, m3, m4)
+	c1.StartHeight = common.Big1
+	c1.EndHeight = big.NewInt(11111)
+
+	n4.Start()
+	n4.PutCommittee(c1)
+	n4.Notify(c1.Id, Start)
+
+	cn := make([]*types.CommitteeNode, 0)
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28890, Port2: 28891, Coinbase: m1.Coinbase, Publickey: m1.Publickey})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28892, Port2: 28893, Coinbase: m2.Coinbase, Publickey: m2.Publickey})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28894, Port2: 28895, Coinbase: m3.Coinbase, Publickey: m3.Publickey})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28896, Port2: 28897, Coinbase: m4.Coinbase, Publickey: m4.Publickey})
+
+	n4.PutNodes(common.Big1, cn)
+
+	//for {
+	//	time.Sleep(time.Minute * 5)
+	//	c1.Members[3].Flag = types.StateRemovedFlag
+	//	c1.Members[3].MType = types.TypeWorked
+	//	c1.StartHeight = getIDForCache("Agent3")
+	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
+	//	n4.UpdateCommittee(c1)
+	//}
+	go CloseStart(start)
+	<-start
+}
+
 func TestAddVote(t *testing.T) {
 	IDCacheInit()
 	const privCount int = 4

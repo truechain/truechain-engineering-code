@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+//peer's msg
+
 // IPeerSet has a (immutable) subset of the methods of PeerSet.
 type IPeerSet interface {
 	Has(key ID) bool
