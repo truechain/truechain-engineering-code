@@ -6,11 +6,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	config "github.com/truechain/truechain-engineering-code/params"
 	"math"
 	"net"
-	"strings"
 	"sync"
 	"time"
 )
@@ -76,8 +74,6 @@ type Switch struct {
 	filterConnByAddr func(net.Addr) error
 	filterConnByID   func(ID) error
 	hasPeer          help.PeerInValidators
-
-	hm *types.HealthMgr //import health
 
 	mConfig conn.MConnConfig
 }
@@ -164,11 +160,6 @@ func (sw *Switch) AddReactor(name string, reactor Reactor) Reactor {
 // NOTE: Not goroutine safe.
 func (sw *Switch) Reactors() map[string]Reactor {
 	return sw.reactors
-}
-
-//SetHealthMgr sets peer  health
-func (sw *Switch) SetHealthMgr(h *types.HealthMgr) {
-	sw.hm = h
 }
 
 // Reactor returns the reactor with the given name.
@@ -715,23 +706,9 @@ func (sw *Switch) addPeer(pc peerConn) error {
 	// We start it first so that a peer in the list is safe to Stop.
 	// It should not err since we already checked peers.Has().
 	if err := sw.peers.Add(peer); err != nil {
-		if strings.HasPrefix(err.Error(), "Duplicate peer ID") && peer.persistent {
-			sw.checkPeerForDuplicate(*peer)
-		}
 		return err
 	}
 	return nil
-}
-
-func (sw *Switch) checkPeerForDuplicate(p peer) {
-	for {
-		time.Sleep(200 * time.Second)
-		if sw.hm.GetHealthTick(p.ID()) > 180 {
-			sw.StopPeerForError(&p, nil)
-		} else {
-			break
-		}
-	}
 }
 
 func (sw *Switch) startInitPeer(peer *peer) error {

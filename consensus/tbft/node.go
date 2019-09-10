@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -247,12 +248,29 @@ func (s *service) connTo(node *nodeInfo) {
 	if errDialErr != nil {
 		testlog.AddLog("errDialErr:", errDialErr.Error())
 		if strings.HasPrefix(errDialErr.Error(), "Duplicate peer ID") {
+			go s.checkPeerForDuplicate(node)
 			node.Enable = true
 		} else {
 			log.Debug("[connTo] dail peer " + errDialErr.Error())
 		}
 	} else {
 		node.Enable = true
+	}
+}
+
+func (s *service) checkPeerForDuplicate(node *nodeInfo) {
+	for {
+		time.Sleep(200 * time.Second)
+		if s.healthMgr.GetHealthTick(node.ID) > 180 {
+			p := s.sw.Peers().Get(node.ID)
+			if p.IsPersistent() {
+				s.sw.StopPeerForError(p, nil)
+			} else {
+				break
+			}
+		} else {
+			break
+		}
 	}
 }
 
