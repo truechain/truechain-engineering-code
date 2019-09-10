@@ -265,7 +265,7 @@ func (s *service) connTo(node *nodeInfo) {
 // it may confirm the other party's connection and close their own connection at the same time,
 // causing a pseudo connection.
 func (s *service) checkPeerForDuplicate(node *nodeInfo) {
-	testlog.AddLog("checkPeerForDuplicate", "in", "node", node.ID)
+	log.Warn("checkPeerForDuplicate", "node", node.ID)
 	cnt := 0
 	for {
 		if !s.sw.IsRunning() {
