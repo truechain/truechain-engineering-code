@@ -84,7 +84,7 @@ $ getrue --your-favourite-flags dumpconfig
 ```
 
 
-#### Running on the Truechain singlenode(singlenode) network
+### Running on the Truechain singlenode(singlenode) network
 
 To start a getrue instance for single node,  run it with these flags:
 
