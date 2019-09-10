@@ -225,6 +225,8 @@ func (s *service) updateNodes() {
 			testlog.AddLog("connToBegin", v.ID)
 			if s.canConn(v) {
 				testlog.AddLog("connTo", v.toString())
+				//Give each connection a time difference and reduce peer-to-peer connectivity issues
+				time.Sleep(time.Duration(help.RandInt31n(5)) * time.Second)
 				s.connTo(v)
 			}
 		}
@@ -258,14 +260,37 @@ func (s *service) connTo(node *nodeInfo) {
 	}
 }
 
+// Solve peer-to-peer connectivity issues
+// When two nodes are connected at the same time,
+// it may confirm the other party's connection and close their own connection at the same time,
+// causing a pseudo connection.
 func (s *service) checkPeerForDuplicate(node *nodeInfo) {
-	time.Sleep(time.Duration(185+help.RandInt31n(15)) * time.Second)
-	tick := s.healthMgr.GetHealthTick(node.ID)
-	if tick > 180 && tick < 1800 {
-		p := s.sw.Peers().Get(node.ID)
-		s.sw.StopPeerGracefully(p)
-		node.Enable = false
-		s.connTo(node)
+	cnt := 0
+	for {
+		if !s.sw.IsRunning() {
+			break
+		}
+		time.Sleep(time.Second)
+		cnt++
+		if cnt > 190 {
+			tick := s.healthMgr.GetHealthTick(node.ID)
+			if tick < 180 || tick > 1800 {
+				break
+			}
+			p := s.sw.Peers().Get(node.ID)
+			s.sw.StopPeerGracefully(p)
+			time.Sleep(time.Duration(help.RandInt31n(5)) * time.Second)
+			err := s.sw.DialPeerWithAddress(node.Adrress, true)
+			if err == nil {
+				break
+			}
+			if strings.HasPrefix(err.Error(), "Duplicate peer ID") {
+				cnt = 0
+			} else {
+				node.Enable = false
+				break
+			}
+		}
 	}
 }
 
