@@ -214,6 +214,27 @@ func (h *HealthMgr) PutBackHealth(he *Health) {
 	}
 }
 
+func (h *HealthMgr) GetHealthTick(pid tp2p.ID) int32 {
+	for _, v := range h.Work {
+		if v.ID == pid {
+			return atomic.LoadInt32(&v.Tick)
+		}
+	}
+
+	for _, v := range h.Back {
+		if v.ID == pid {
+			return atomic.LoadInt32(&v.Tick)
+		}
+	}
+
+	for _, v := range h.seed {
+		if v.ID == pid {
+			return atomic.LoadInt32(&v.Tick)
+		}
+	}
+	return 0
+}
+
 //UpdataHealthInfo update one health
 func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint32, pk []byte) {
 	enter := h.GetHealth(pk)
