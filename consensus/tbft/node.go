@@ -259,18 +259,13 @@ func (s *service) connTo(node *nodeInfo) {
 }
 
 func (s *service) checkPeerForDuplicate(node *nodeInfo) {
-	for {
-		time.Sleep(200 * time.Second)
-		if s.healthMgr.GetHealthTick(node.ID) > 180 {
-			p := s.sw.Peers().Get(node.ID)
-			if p.IsPersistent() {
-				s.sw.StopPeerForError(p, nil)
-			} else {
-				break
-			}
-		} else {
-			break
-		}
+	time.Sleep(time.Duration(185+help.RandInt31n(15)) * time.Second)
+	tick := s.healthMgr.GetHealthTick(node.ID)
+	if tick > 180 && tick < 1800 {
+		p := s.sw.Peers().Get(node.ID)
+		s.sw.StopPeerGracefully(p)
+		node.Enable = false
+		s.connTo(node)
 	}
 }
 
