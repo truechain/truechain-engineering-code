@@ -265,29 +265,39 @@ func (s *service) connTo(node *nodeInfo) {
 // it may confirm the other party's connection and close their own connection at the same time,
 // causing a pseudo connection.
 func (s *service) checkPeerForDuplicate(node *nodeInfo) {
+	testlog.AddLog("checkPeerForDuplicate", "in", "node", node.ID)
 	cnt := 0
 	for {
 		if !s.sw.IsRunning() {
+			testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID)
 			break
 		}
 		time.Sleep(time.Second)
 		cnt++
-		if cnt > 190 {
+		if cnt > 35 {
 			tick := s.healthMgr.GetHealthTick(node.ID)
-			if tick < 180 || tick > 1800 {
+			if tick < 30 || tick > 1800 {
+				testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID, "tick", tick)
 				break
 			}
 			p := s.sw.Peers().Get(node.ID)
+			if p == nil {
+				testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID, "peer", "nil")
+				break
+			}
 			s.sw.StopPeerGracefully(p)
 			time.Sleep(time.Duration(help.RandInt31n(5)) * time.Second)
 			err := s.sw.DialPeerWithAddress(node.Adrress, true)
 			if err == nil {
+				testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID, "DialPeerWithAddress", "ok")
 				break
 			}
 			if strings.HasPrefix(err.Error(), "Duplicate peer ID") {
 				cnt = 0
+				testlog.AddLog("checkPeerForDuplicate", "new round", "node", node.ID, "Duplicate peer", "again")
 			} else {
 				node.Enable = false
+				testlog.AddLog("checkPeerForDuplicate", "new round", "node", node.ID, "err", err.Error())
 				break
 			}
 		}
