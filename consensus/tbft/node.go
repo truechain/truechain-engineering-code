@@ -190,6 +190,11 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 				update = true
 			}
 		}
+
+		if !s.sw.Peers().Has(id) {
+			update = true
+		}
+
 		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
 	if update && s.nodesHaveSelf() { //} ((s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) || s.sa.Priv == nil) {
@@ -232,6 +237,9 @@ func (s *service) updateNodes() {
 //add self check
 func (s *service) canConn(v *nodeInfo) bool {
 	if !v.Enable && v.Flag == types.StateUsedFlag && v.Adrress != nil && v.ID != s.selfID {
+		return true
+	}
+	if !(s.sw.Peers().Has(v.ID)) {
 		return true
 	}
 	return false
