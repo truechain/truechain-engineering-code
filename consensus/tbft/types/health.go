@@ -232,7 +232,7 @@ func (h *HealthMgr) GetHealthTick(pid tp2p.ID) int32 {
 			return atomic.LoadInt32(&v.Tick)
 		}
 	}
-	return 0
+	return -1
 }
 
 //UpdataHealthInfo update one health
