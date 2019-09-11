@@ -23,6 +23,8 @@ var (
 	// that is unknown.
 	ErrUnknownAncestor = errors.New("unknown ancestor")
 
+	//ErrBlockOnChain is returned when validating a block but it is
+	//already on the fast chain.
 	ErrBlockOnChain = errors.New("block already insert fastchain")
 
 	// ErrForkFastBlock is returned when validating a block but the same number other
