@@ -343,14 +343,6 @@ func ReadCommitteeStates(db DatabaseReader, committee uint64) []*big.Int {
 	return changes
 }
 
-// HasCommitteeStates indicates whether committee changes stored
-func HasCommitteeStates(db DatabaseReader, committee uint64) bool {
-	if has, err := db.Has(committeeStateKey(committee)); !has || err != nil {
-		return false
-	}
-	return true
-}
-
 // WriteCommitteeStates store the all committee members sepecified with fastblock height
 func WriteCommitteeStates(db DatabaseWriter, committee uint64, changes []*big.Int) {
 	data, err := rlp.EncodeToBytes(changes)
