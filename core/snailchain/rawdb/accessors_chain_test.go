@@ -259,18 +259,15 @@ func TestHeadStorage(t *testing.T) {
 func TestCommitteeStates(t *testing.T) {
 	db := etruedb.NewMemDatabase()
 
-	stateNums := []int64{10, 12, 14}
-	updateNums := []int64{10, 12, 14, 20, 30}
-
 	states := []*big.Int{}
 	updated := []*big.Int{}
 
-	for n := range stateNums {
-		states = append(states, big.NewInt(int64(n)))
+	for i := 0; i < 5; i++ {
+		states = append(states, big.NewInt(int64(i)))
 	}
 
-	for n := range updateNums {
-		updated = append(updated, big.NewInt(int64(n)))
+	for i := 3; i < 10; i++ {
+		updated = append(updated, big.NewInt(int64(i)))
 	}
 
 	WriteCommitteeStates(db, 0, states)
