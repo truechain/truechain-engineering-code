@@ -17,10 +17,12 @@
 package les
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/common/prque"
@@ -291,8 +293,8 @@ func (sq *servingQueue) addTask(task *servingTask) {
 	sqServedGauge.Update(int64(sq.recentTime))
 	sqQueuedGauge.Update(int64(sq.queuedTime))
 	if sq.recentTime+sq.queuedTime > sq.burstLimit {
-		log.Info("addTask", "recentTime", sq.recentTime, "queuedTime", sq.queuedTime, "burstLimit", sq.burstLimit)
-		sq.freezePeers()
+		log.Info("addTask", "recentTime", common.PrettyDuration(time.Duration(sq.recentTime)), "queuedTime", common.PrettyDuration(time.Duration(sq.queuedTime)), "burstLimit", common.PrettyDuration(time.Duration(sq.burstLimit)))
+		//sq.freezePeers()
 	}
 }
 
