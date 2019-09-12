@@ -63,6 +63,7 @@ type servingTask struct {
 	biasAdded                                bool
 	token                                    runToken
 	tokenCh                                  chan runToken
+	msgCode                                  uint64
 }
 
 // runToken received by servingTask.start allows the task to run. Closing the
@@ -145,13 +146,14 @@ func newServingQueue(suspendBias int64, utilTarget float64) *servingQueue {
 }
 
 // newTask creates a new task with the given priority
-func (sq *servingQueue) newTask(peer *peer, maxTime uint64, priority int64) *servingTask {
+func (sq *servingQueue) newTask(peer *peer, maxTime uint64, priority int64, code uint64) *servingTask {
 	return &servingTask{
 		sq:       sq,
 		peer:     peer,
 		maxTime:  maxTime,
 		expTime:  maxTime,
 		priority: priority,
+		msgCode:  code,
 	}
 }
 
@@ -293,7 +295,7 @@ func (sq *servingQueue) addTask(task *servingTask) {
 	sqServedGauge.Update(int64(sq.recentTime))
 	sqQueuedGauge.Update(int64(sq.queuedTime))
 	if sq.recentTime+sq.queuedTime > sq.burstLimit {
-		log.Info("addTask", "recentTime", common.PrettyDuration(time.Duration(sq.recentTime)), "queuedTime", common.PrettyDuration(time.Duration(sq.queuedTime)), "burstLimit", common.PrettyDuration(time.Duration(sq.burstLimit)))
+		log.Info("addTask", "code", task.msgCode, "best", sq.best, "priority", task.priority, "recentTime", common.PrettyDuration(time.Duration(sq.recentTime)), "queuedTime", common.PrettyDuration(time.Duration(sq.queuedTime)), "burstLimit", common.PrettyDuration(time.Duration(sq.burstLimit)))
 		//sq.freezePeers()
 	}
 }

@@ -433,7 +433,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.fcClient.OneTimeCost(inSizeCost())
 			return false
 		} else {
-			task = pm.servingQueue.newTask(p, maxTime, servingPriority)
+			task = pm.servingQueue.newTask(p, maxTime, servingPriority, msg.Code)
 		}
 		if task.start() {
 			return true
