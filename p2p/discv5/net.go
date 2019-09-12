@@ -877,7 +877,15 @@ func init() {
 	unknown = &nodeState{
 		name: "unknown",
 		enter: func(net *Network, n *Node) {
-			//net.tab.delete(n)
+			find := false
+			for _, node := range net.nursery {
+				if node.ID == n.ID {
+					find = true
+				}
+			}
+			if !find {
+				net.tab.delete(n)
+			}
 			n.pingEcho = nil
 			// Abort active queries.
 			for _, q := range n.deferredQueries {
