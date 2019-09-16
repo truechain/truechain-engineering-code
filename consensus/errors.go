@@ -49,7 +49,7 @@ var (
 	// plus one.
 	ErrInvalidNumber = errors.New("invalid block number")
 
-	//If the number of returned committees and the results are inconsistent, return ErrInvalidSignsLength
+	//ErrInvalidSignsLength If the number of returned committees and the results are inconsistent, return ErrInvalidSignsLength
 	ErrInvalidSignsLength = errors.New("invalid signs length")
 
 	ErrValidSignsZero = errors.New("valid signs length equal zero in fruit")
