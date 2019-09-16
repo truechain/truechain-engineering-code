@@ -780,6 +780,11 @@ func setHTTP(ctx *cli.Context, cfg *node.Config) {
 		}
 	}
 
+	//when singlenode start, can point ipaddr
+	if ctx.GlobalBool(RPCListenAddrFlag.Name) && ctx.GlobalBool(SingleNodeFlag.Name) {
+		cfg.HTTPHost = ctx.GlobalString(RPCListenAddrFlag.Name)
+	}
+
 	if ctx.GlobalIsSet(RPCPortFlag.Name) {
 		cfg.HTTPPort = ctx.GlobalInt(RPCPortFlag.Name)
 	}
