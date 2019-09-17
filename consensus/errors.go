@@ -52,6 +52,7 @@ var (
 	//ErrInvalidSignsLength If the number of returned committees and the results are inconsistent, return ErrInvalidSignsLength
 	ErrInvalidSignsLength = errors.New("invalid signs length")
 
+	// ErrValidSignsZero is returned if a block's signs length is zero
 	ErrValidSignsZero = errors.New("valid signs length equal zero in fruit")
 
 	ErrInvalidBlock = errors.New("invalid snail block")
