@@ -283,6 +283,20 @@ func TestWatchFinishCount(t *testing.T) {
 	}
 	fmt.Println("finish test,cost time=", time.Now().Sub(begin).Seconds())
 }
+
+type Tmp struct {
+	A uint64
+	B string
+}
+
+func TestRlp(t *testing.T) {
+	var tt Tmp
+	tt.A = 1
+	tt.B = "ssssssssssss"
+	c, _ := rlp.EncodeToBytes(tt)
+	fmt.Println(c)
+}
+
 func TestAtomic(t *testing.T) {
 	single := int32(0)
 

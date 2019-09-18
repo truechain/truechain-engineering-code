@@ -281,11 +281,11 @@ func (s *service) checkPeerForDuplicate(node *nodeInfo) {
 				break
 			}
 			p := s.sw.Peers().Get(node.ID)
-			if p == nil {
-				testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID, "peer", "nil")
-				break
+			if p != nil {
+				testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID, "peer", "stop")
+				s.sw.StopPeerGracefully(p)
 			}
-			s.sw.StopPeerGracefully(p)
+
 			time.Sleep(time.Duration(help.RandInt31n(5)) * time.Second)
 			err := s.sw.DialPeerWithAddress(node.Adrress, true)
 			if err == nil {
