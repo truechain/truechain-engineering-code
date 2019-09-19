@@ -533,18 +533,39 @@ func (ec *Client) GetNonceAtBlockNumber(ctx context.Context, account Address, bl
 // Filters
 
 // FilterLogs executes a filter query.
-func (ec *Client) FilterLogs(ctx context.Context, q truechain.FilterQuery) ([]types.Log, error) {
+func (ec *Client) FilterLogs(ctx context.Context, q FilterQuery) ([]types.Log, error) {
 	var result []types.Log
 	err := ec.c.CallContext(ctx, &result, "etrue_getLogs", toFilterArg(q))
 	return result, err
 }
 
+// FilterQuery contains options for contract log filtering.
+type FilterQuery struct {
+	BlockHash *Hash     // used by eth_getLogs, return logs only from block with this hash
+	FromBlock *big.Int  // beginning of the queried range, nil means genesis block
+	ToBlock   *big.Int  // end of the range, nil means latest block
+	Addresses []Address // restricts matches to events created by specific contracts
+
+	// The Topic list restricts matches to particular event topics. Each event has a list
+	// of topics. Topics matches a prefix of that list. An empty element slice matches any
+	// topic. Non-empty elements represent an alternative that matches any of the
+	// contained topics.
+	//
+	// Examples:
+	// {} or nil          matches any topic list
+	// {{A}}              matches topic A in first position
+	// {{}, {B}}          matches any topic in first position, B in second position
+	// {{A}, {B}}         matches topic A in first position, B in second position
+	// {{A, B}}, {C, D}}  matches topic (A OR B) in first position, (C OR D) in second position
+	Topics [][]Hash
+}
+
 // SubscribeFilterLogs subscribes to the results of a streaming filter query.
-func (ec *Client) SubscribeFilterLogs(ctx context.Context, q truechain.FilterQuery, ch chan<- types.Log) (truechain.Subscription, error) {
+func (ec *Client) SubscribeFilterLogs(ctx context.Context, q FilterQuery, ch chan<- types.Log) (truechain.Subscription, error) {
 	return ec.c.EthSubscribe(ctx, ch, "logs", toFilterArg(q))
 }
 
-func toFilterArg(q truechain.FilterQuery) interface{} {
+func toFilterArg(q FilterQuery) interface{} {
 	arg := map[string]interface{}{
 		"fromBlock": toBlockNumArg(q.FromBlock),
 		"toBlock":   toBlockNumArg(q.ToBlock),
