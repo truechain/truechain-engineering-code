@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
 	"net"
 	"sync/atomic"
 	"time"
@@ -103,7 +104,6 @@ type peer struct {
 	Data *help.CMap
 }
 
-//add new peer
 func newPeer(
 	pc peerConn,
 	mConfig tmconn.MConnConfig,
@@ -143,9 +143,9 @@ func newOutboundPeerConn(
 		return peerConn{}, errors.New(fmt.Sprint(err, "dail Error creating peer"))
 	}
 
-	//add new peer for config
 	pc, err := newPeerConn(conn, config, true, persistent, ourNodePrivKey, addr)
 	if err != nil {
+		testlog.AddLog("newPeerConnError", err.Error())
 		if cerr := conn.Close(); cerr != nil {
 			return peerConn{}, errors.New(fmt.Sprint(err, cerr.Error()))
 		}

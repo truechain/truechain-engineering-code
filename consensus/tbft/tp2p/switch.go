@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
 	config "github.com/truechain/truechain-engineering-code/params"
 	"math"
@@ -532,13 +533,14 @@ func (sw *Switch) listenerRoutine(l Listener) {
 	for {
 		inConn, ok := <-l.Connections()
 		if !ok {
-			log.Debug("listenerRoutine not ok")
+			log.Info("listenerRoutine not ok")
 			break
 		}
 
 		// ignore connection if we already have enough
 		// leave room for MinNumOutboundPeers
 		maxPeers := sw.config.MaxNumPeers - DefaultMinNumOutboundPeers
+		testlog.AddLog("MaxNumPeers", sw.config.MaxNumPeers, "maxPeers", maxPeers)
 		if maxPeers <= sw.peers.Size() {
 			help.CheckAndPrintError(inConn.Close())
 			continue
@@ -547,9 +549,10 @@ func (sw *Switch) listenerRoutine(l Listener) {
 		// New inbound connection!
 		err := sw.addInboundPeerWithConfig(inConn, sw.config)
 		if err != nil {
-			log.Trace("Ignoring inbound connection: error while adding peer", "address", inConn.RemoteAddr().String(), "err", err)
+			log.Info("Ignoring inbound connection: error while adding peer", "address", inConn.RemoteAddr().String(), "err", err)
 			continue
 		}
+		testlog.AddLog("addInboundPeerWithConfig success", inConn.RemoteAddr().String())
 	}
 
 	// cleanup
@@ -560,13 +563,16 @@ func (sw *Switch) addInboundPeerWithConfig(
 	conn net.Conn,
 	config *config.P2PConfig,
 ) error {
+	testlog.AddLog("addPeer in", conn.RemoteAddr().String())
 	peerConn, err := newInboundPeerConn(conn, config, sw.nodeKey.PrivKey)
 	if err != nil {
+		testlog.AddLog("newPeerConnError", err.Error())
 		help.CheckAndPrintError(conn.Close()) // peer is nil
 		return err
 	}
 	log.Trace("add in bound peer")
 	if err = sw.addPeer(peerConn); err != nil {
+		testlog.AddLog("addPeer", conn.RemoteAddr().String(), "error", err.Error())
 		peerConn.CloseConn()
 		return err
 	}
@@ -584,13 +590,14 @@ func (sw *Switch) addOutboundPeerWithConfig(
 	config *config.P2PConfig,
 	persistent bool,
 ) error {
-	log.Info("Dialing peer", "address", addr)
+	log.Info("Dialing peer out", "address", addr)
 	peerConn, err := newOutboundPeerConn(
 		addr,
 		config,
 		persistent,
 		sw.nodeKey.PrivKey,
 	)
+	testlog.AddLog("newOutboundPeerConnError", err)
 	if err != nil {
 		if persistent {
 			go sw.reconnectToPeer(addr)
@@ -601,6 +608,7 @@ func (sw *Switch) addOutboundPeerWithConfig(
 	log.Trace("add out bound peer")
 	if err := sw.addPeer(peerConn); err != nil {
 		peerConn.CloseConn()
+		testlog.AddLog("addPeerError", err)
 		return err
 	}
 	return nil

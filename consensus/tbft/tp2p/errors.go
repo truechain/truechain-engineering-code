@@ -74,12 +74,3 @@ type ErrNetAddressLookup struct {
 func (e ErrNetAddressLookup) Error() string {
 	return fmt.Sprintf("Error looking up host (%s): %v", e.Addr, e.Err)
 }
-
-type ErrNetAddressLinking struct {
-	Addr string
-	Err  error
-}
-
-func (e ErrNetAddressLinking) Error() string {
-	return fmt.Sprintf("Error looking up host (%s): %v", e.Addr, e.Err)
-}
