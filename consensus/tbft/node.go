@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
 	"math/big"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -54,6 +56,10 @@ const (
 	//Switch is status for notify
 	Switch
 )
+
+func (n *nodeInfo) toString() string {
+	return fmt.Sprintf("%+v", n)
+}
 
 func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state *ttypes.StateAgentImpl,
 	store *ttypes.BlockStore, cid uint64) *service {
@@ -185,6 +191,7 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 				update = true
 			}
 		}
+
 		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
 	if update && s.nodesHaveSelf() { //} ((s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) || s.sa.Priv == nil) {
@@ -211,9 +218,15 @@ func (s *service) updateNodes() {
 	defer s.lock.Unlock()
 	defer atomic.StoreInt32(&s.singleCon, 0)
 
+	testlog.AddLog("nodeTableLen", len(s.nodeTable))
+
 	for _, v := range s.nodeTable {
 		if v != nil {
+			testlog.AddLog("connToBegin", v.ID)
 			if s.canConn(v) {
+				testlog.AddLog("connTo", v.toString())
+				//Give each connection a time difference and reduce peer-to-peer connectivity issues
+				time.Sleep(time.Duration(help.RandInt31n(5)) * time.Second)
 				s.connTo(v)
 			}
 		}
@@ -235,13 +248,59 @@ func (s *service) connTo(node *nodeInfo) {
 	log.Trace("[put nodes]connTo", "addr", node.Adrress)
 	errDialErr := s.sw.DialPeerWithAddress(node.Adrress, true)
 	if errDialErr != nil {
+		testlog.AddLog("errDialErr:", errDialErr.Error())
 		if strings.HasPrefix(errDialErr.Error(), "Duplicate peer ID") {
+			go s.checkPeerForDuplicate(node)
 			node.Enable = true
 		} else {
 			log.Debug("[connTo] dail peer " + errDialErr.Error())
 		}
 	} else {
 		node.Enable = true
+	}
+}
+
+// Solve peer-to-peer connectivity issues
+// When two nodes are connected at the same time,
+// it may confirm the other party's connection and close their own connection at the same time,
+// causing a pseudo connection.
+func (s *service) checkPeerForDuplicate(node *nodeInfo) {
+	log.Warn("checkPeerForDuplicate", "node", node.ID)
+	cnt := 0
+	for {
+		if !s.sw.IsRunning() {
+			testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID)
+			break
+		}
+		time.Sleep(time.Second)
+		cnt++
+		if cnt > 35 {
+			tick := s.healthMgr.GetHealthTick(node.ID)
+			if tick < 30 || tick > 1800 {
+				testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID, "tick", tick)
+				break
+			}
+			p := s.sw.Peers().Get(node.ID)
+			if p != nil {
+				testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID, "peer", "stop")
+				s.sw.StopPeerGracefully(p)
+			}
+
+			time.Sleep(time.Duration(help.RandInt31n(5)) * time.Second)
+			err := s.sw.DialPeerWithAddress(node.Adrress, true)
+			if err == nil {
+				testlog.AddLog("checkPeerForDuplicate", "stop", "node", node.ID, "DialPeerWithAddress", "ok")
+				break
+			}
+			if strings.HasPrefix(err.Error(), "Duplicate peer ID") {
+				cnt = 0
+				testlog.AddLog("checkPeerForDuplicate", "new round", "node", node.ID, "Duplicate peer", "again")
+			} else {
+				node.Enable = false
+				testlog.AddLog("checkPeerForDuplicate", "new round", "node", node.ID, "err", err.Error())
+				break
+			}
+		}
 	}
 }
 
