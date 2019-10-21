@@ -136,10 +136,10 @@
 			"tree": true
 		},
 		{
-			"checksumSHA1": "PU7MZJzDTLw/dSqhUOuRtERxss4=",
+			"checksumSHA1": "PWA6awyduJsdYP4T8EMZGeuVZfk=",
 			"path": "github.com/ethereum/go-ethereum/crypto",
-			"revision": "c942700427557e3ff6de3aaf6b916e2f056c1ec2",
-			"revisionTime": "2019-02-20T08:48:12Z",
+			"revision": "bd05968077f27f7eb083404dd8448157996a8788",
+			"revisionTime": "2019-10-03T09:29:20Z",
 			"tree": true
 		},
 		{
