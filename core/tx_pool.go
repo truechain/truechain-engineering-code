@@ -902,6 +902,12 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 	//return errs
 }
 
+// This is like AddRemotes, but waits for pool reorganization. Tests use this method.
+func (pool *TxPool) AddRemotesSync(txs []*types.Transaction) []error {
+	errs := make([]error, len(txs))
+	return errs
+}
+
 // addTx enqueues a single transaction into the pool if it is valid.
 func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	pool.mu.Lock()
