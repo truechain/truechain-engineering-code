@@ -339,7 +339,7 @@ func (b *TrueAPIBackend) BloomStatus() (uint64, uint64) {
 	sections, _, _ := b.etrue.bloomIndexer.Sections()
 	return params.BloomBitsBlocks, sections
 }
-
+// ServiceFilter make the Filter for the truechian
 func (b *TrueAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
 	for i := 0; i < bloomFilterThreads; i++ {
 		go session.Multiplex(bloomRetrievalBatch, bloomRetrievalWait, b.etrue.bloomRequests)
