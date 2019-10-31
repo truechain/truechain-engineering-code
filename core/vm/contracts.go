@@ -312,17 +312,7 @@ func (c *bn256Add) RequiredGas(input []byte) uint64 {
 }
 
 func (c *bn256Add) Run(input []byte) ([]byte, error) {
-	x, err := newCurvePoint(getData(input, 0, 64))
-	if err != nil {
-		return nil, err
-	}
-	y, err := newCurvePoint(getData(input, 64, 64))
-	if err != nil {
-		return nil, err
-	}
-	res := new(bn256.G1)
-	res.Add(x, y)
-	return res.Marshal(), nil
+	return runBn256Add(input)
 }
 
 // bn256Add implements a native elliptic curve point addition conforming to
