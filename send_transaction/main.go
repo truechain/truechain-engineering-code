@@ -16,7 +16,7 @@ import (
 var Count int64
 
 //Transaction from to account id
-var from, to, frequency = 0, 0, 1
+var from, to, frequency = 0, 1, 1
 
 //Two transmission intervals
 var interval = time.Millisecond * 0
@@ -187,8 +187,10 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 			continue
 		}
 
-		waitGroup.Add(1)
-		go sendTransaction(client, account[i], i, "", "0x2100", waitGroup)
+		for i := 0; i < to; i++ {
+			waitGroup.Add(1)
+			go sendTransaction(client, account[i], i, "", "0x2100", waitGroup)
+		}
 	}
 	waitGroup.Wait()
 	fmt.Println(" Complete ", Count, " time ", Time, " count ", count)
@@ -201,7 +203,7 @@ func sendTransaction(client *rpc.Client, from string, index int, son string, val
 	var address string
 
 	if son == "" {
-		if to == 1 {
+		if to%2 == 0 {
 			address = account[to]
 		} else {
 			address = genAddress()
