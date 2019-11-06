@@ -201,11 +201,10 @@ func sendTransaction(client *rpc.Client, from string, index int, son string, val
 	var address string
 
 	if son == "" {
-		address = genAddress()
 		if to == 1 {
-			if account[to] != "" {
-				address = account[to]
-			}
+			address = account[to]
+		} else {
+			address = genAddress()
 		}
 	} else {
 		address = son
