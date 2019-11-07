@@ -41,7 +41,7 @@ const SLEEPTX = 5
 
 // get par
 func main() {
-	if len(os.Args) < 4 {
+	if len(os.Args) < 4 { // 1000   1000000  1000 1 0
 		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [to] [\"port\"]\n", os.Args[0])
 		return
 	}
