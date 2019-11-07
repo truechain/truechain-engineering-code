@@ -779,7 +779,9 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		work := agent.current
 		pending, _ := agent.eth.TxPool().Pending()
 		if len(pending) != 0 {
-			log.Info("has transaction...")
+			log.Error("has transaction, ","address num=",len(pending))
+		}else{
+			log.Error("has transaction, address num=0")
 		}
 		txs := types.NewTransactionsByPriceAndNonce(work.signer, pending)
 		work.commitTransactions(agent.mux, txs, agent.fastChain, feeAmount)
@@ -797,6 +799,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 	if err != nil {
 		log.Error("generateBlock with sign error.", "err", err)
 	}
+	log.Error("FetchFastBlock","fastBlock.transactions.num =",len(fastBlock.Transactions()))
 	fastBlock.AppendSign(voteSign)
 	return fastBlock, err
 }
