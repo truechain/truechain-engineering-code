@@ -6,7 +6,7 @@
 ```
 git clone https://github.com/truechain/truechain-engineering-code.git
 ```
-分支：tps\_test\_v1.1.3
+切换到tps\_test\_v1.1.3 分支
 
 **2：go版本：**
 ```
@@ -18,7 +18,7 @@ go version go1.10.4 linux/amd6
 
 操作系统：Ubuntu  18.04 64位
 
-带宽：局域网内网传输
+带宽：阿里云局域网内网传输
 
 **4：节点数目**
 
@@ -34,7 +34,7 @@ make getrue
 ```
 **2：使用json文件**
 
-4个节点都使用同一个json文件进行初始化，请参tps\_test目录下的genesis.json文件
+4个节点都使用同一个json文件进行初始化，请参tps\_test目录下的[genesis.json](https://github.com/truechain/truechain-engineering-code/blob/tps_test_v1.1.3/tps_test/genesis.json)文件
 
 **3：初始化过程**
 
@@ -91,4 +91,5 @@ go build main.go 生成可执行文件 main
 进入console使用命令查看测试结果
 ```
 debug.metrics(false).etrue.pbftAgent
+![](https://github.com/truechain/truechain-engineering-code/blob/tps_test_v1.1.3/tps_test/test_result.png)
 ```
