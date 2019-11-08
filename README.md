@@ -144,4 +144,4 @@ Which will start sending transactions periodly to this node and mining fruits an
 
 #### TPS Test
 
-For the TPS test, refer to [True_TPS_Test](https://github.com/truechain/truechain-engineering-code/tps_test/True_TPS_Test.md) in the tps_test directory
+For the TPS test, refer to [True_TPS_Test](https://github.com/truechain/truechain-engineering-code/blob/tps_test_v1.1.3/tps_test/True_TPS_Test.md) in the tps_test directory
