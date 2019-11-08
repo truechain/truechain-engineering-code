@@ -21,10 +21,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/metrics"
 	"math/big"
 	"strings"
 	"time"
+
+	"github.com/truechain/truechain-engineering-code/metrics"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
@@ -813,6 +814,10 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	res, gas, failed, err := core.ApplyMessage(evm, msg, gp)
 	if err := vmError(); err != nil {
 		return nil, 0, false, err
+	}
+	// If the timer caused an abort, return an appropriate error message
+	if evm.Cancelled() {
+		return nil, 0, false, fmt.Errorf("execution aborted (timeout = %v)", timeout)
 	}
 	return res, gas, failed, err
 }
