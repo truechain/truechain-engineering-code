@@ -91,5 +91,5 @@ go build main.go 生成可执行文件 main
 进入console使用命令查看测试结果
 ```
 debug.metrics(false).etrue.pbftAgent
-![Image](https://raw.githubusercontent.com/truechain/truechain-engineering-code/tps_test_v1.1.3/tps_test/test_result.png)
 ```
+![Image](https://raw.githubusercontent.com/truechain/truechain-engineering-code/tps_test_v1.1.3/tps_test/test_result.png)
