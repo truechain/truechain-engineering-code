@@ -128,16 +128,16 @@ func (v *Validator) validate(msgs *ValidationMessages, txargs *SendTxArgs, metho
 		if len(data) == 0 {
 			if txargs.Value.ToInt().Cmp(big.NewInt(0)) > 0 {
 				// Sending ether into black hole
-				return errors.New("Tx will create contract with value but empty code!")
+				return errors.New("Transaction will create contract with empty code")
 			}
 			// No value submitted at least
 			msgs.crit("Tx will create contract with empty code!")
 		} else if len(data) < 40 { //Arbitrary limit
-			msgs.warn(fmt.Sprintf("Tx will will create contract, but payload is suspiciously small (%d b)", len(data)))
+			msgs.warn(fmt.Sprintf("Transaction will create contract, but payload is suspiciously small (%d b)", len(data)))
 		}
 		// methodSelector should be nil for contract creation
 		if methodSelector != nil {
-			msgs.warn("Tx will create contract, but method selector supplied; indicating intent to call a method.")
+			msgs.warn("Transaction will create contract, but method selector supplied; indicating intent to call a method.")
 		}
 
 	} else {
@@ -147,7 +147,7 @@ func (v *Validator) validate(msgs *ValidationMessages, txargs *SendTxArgs, metho
 		// Normal transaction
 		if bytes.Equal(txargs.To.Address().Bytes(), common.Address{}.Bytes()) {
 			// Sending to 0
-			msgs.crit("Tx destination is the zero address!")
+			msgs.crit("Transaction destination is the zero address!")
 		}
 		// Validate calldata
 		v.validateCallData(msgs, data, methodSelector)
