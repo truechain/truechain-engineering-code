@@ -340,24 +340,6 @@ func runBn256ScalarMul(input []byte) ([]byte, error) {
 	return res.Marshal(), nil
 }
 
-// bn256ScalarMul implements a native elliptic curve scalar multiplication.
-type bn256ScalarMul struct{}
-
-// RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bn256ScalarMul) RequiredGas(input []byte) uint64 {
-	return params.Bn256ScalarMulGas
-}
-
-func (c *bn256ScalarMul) Run(input []byte) ([]byte, error) {
-	p, err := newCurvePoint(getData(input, 0, 64))
-	if err != nil {
-		return nil, err
-	}
-	res := new(bn256.G1)
-	res.ScalarMult(p, new(big.Int).SetBytes(getData(input, 64, 32)))
-	return res.Marshal(), nil
-}
-
 // bn256ScalarMulIstanbul implements a native elliptic curve scalar
 // multiplication conforming to Istanbul consensus rules.
 type bn256ScalarMulIstanbul struct{}
@@ -368,6 +350,19 @@ func (c *bn256ScalarMulIstanbul) RequiredGas(input []byte) uint64 {
 }
 
 func (c *bn256ScalarMulIstanbul) Run(input []byte) ([]byte, error) {
+	return runBn256ScalarMul(input)
+}
+
+// bn256ScalarMul implements a native elliptic curve scalar multiplication.
+//  conforming to Byzantium consensus rules.
+type bn256ScalarMul struct{}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *bn256ScalarMul) RequiredGas(input []byte) uint64 {
+	return params.Bn256ScalarMulGas
+}
+
+func (c *bn256ScalarMul) Run(input []byte) ([]byte, error) {
 	return runBn256ScalarMul(input)
 }
 
