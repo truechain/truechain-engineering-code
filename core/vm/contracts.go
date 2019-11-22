@@ -409,6 +409,7 @@ func runBn256Pairing(input []byte) ([]byte, error) {
 }
 
 // bn256Pairing implements a pairing pre-compile for the bn256 curve
+// conforming to Byzantium consensus rules.
 type bn256Pairing struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
@@ -417,32 +418,7 @@ func (c *bn256Pairing) RequiredGas(input []byte) uint64 {
 }
 
 func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
-	// Handle some corner cases cheaply
-	if len(input)%192 > 0 {
-		return nil, errBadPairingInput
-	}
-	// Convert the input into a set of coordinates
-	var (
-		cs []*bn256.G1
-		ts []*bn256.G2
-	)
-	for i := 0; i < len(input); i += 192 {
-		c, err := newCurvePoint(input[i : i+64])
-		if err != nil {
-			return nil, err
-		}
-		t, err := newTwistPoint(input[i+64 : i+192])
-		if err != nil {
-			return nil, err
-		}
-		cs = append(cs, c)
-		ts = append(ts, t)
-	}
-	// Execute the pairing checks and return the results
-	if bn256.PairingCheck(cs, ts) {
-		return true32Byte, nil
-	}
-	return false32Byte, nil
+	return runBn256Pairing(input)
 }
 
 // bn256PairingIstanbul implements a pairing pre-compile for the bn256 curve
