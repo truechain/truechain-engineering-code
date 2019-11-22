@@ -296,7 +296,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				log.Info("New wallet appeared", "url", event.Wallet.URL(), "status", status)
 
 				if event.Wallet.URL().Scheme == "ledger" {
-					event.Wallet.SelfDerive(accounts.DefaultLedgerBaseDerivationPath, stateReader)
+					event.Wallet.SelfDerive(accounts.LegacyLedgerBaseDerivationPath, stateReader)
 				} else {
 					event.Wallet.SelfDerive(accounts.DefaultBaseDerivationPath, stateReader)
 				}
