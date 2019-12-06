@@ -434,7 +434,7 @@ func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {
 			backends = append(backends, trezorhub)
 		}
 	}
-	return accounts.NewManager(backends...), ephemeral, nil
+	return accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: false}, backends...), ephemeral, nil
 }
 
 func (c *Config) BftCommitteeKey() *ecdsa.PrivateKey {
