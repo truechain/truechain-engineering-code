@@ -31,22 +31,21 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/fdlimit"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/fdlimit"
 	"github.com/truechain/truechain-engineering-code/consensus"
 
 	//"github.com/truechain/truechain-engineering-code/consensus/clique"
 	"bytes"
 
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/dashboard"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
@@ -54,6 +53,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/etruestats"
 	"github.com/truechain/truechain-engineering-code/les"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/metrics/influxdb"
 	"github.com/truechain/truechain-engineering-code/node"
@@ -76,6 +76,17 @@ SUBCOMMANDS:
 {{range $categorized.Flags}}{{"\t"}}{{.}}
 {{end}}
 {{end}}{{end}}`
+
+	OriginCommandHelpTemplate = `{{.Name}}{{if .Subcommands}} command{{end}}{{if .Flags}} [command options]{{end}} [arguments...]
+{{if .Description}}{{.Description}}
+{{end}}{{if .Subcommands}}
+SUBCOMMANDS:
+	{{range .Subcommands}}{{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}
+	{{end}}{{end}}{{if .Flags}}
+OPTIONS:
+{{range $.Flags}}{{"\t"}}{{.}}
+{{end}}
+{{end}}`
 )
 
 func init() {
@@ -96,16 +107,12 @@ GLOBAL OPTIONS:
 }
 
 // NewApp creates an app with sane defaults.
-func NewApp(gitCommit, usage string) *cli.App {
+func NewApp(gitCommit, gitDate, usage string) *cli.App {
 	app := cli.NewApp()
 	app.Name = filepath.Base(os.Args[0])
 	app.Author = ""
-	//app.Authors = nil
 	app.Email = ""
-	app.Version = params.Version
-	if len(gitCommit) >= 8 {
-		app.Version += "-" + gitCommit[:8]
-	}
+	app.Version = params.VersionWithCommit(gitCommit, gitDate)
 	app.Usage = usage
 	return app
 }
@@ -824,7 +831,7 @@ func setWS(ctx *cli.Context, cfg *node.Config) {
 // setIPC creates an IPC path configuration from the set command line flags,
 // returning an empty string if IPC was explicitly disabled, or the set path.
 func setIPC(ctx *cli.Context, cfg *node.Config) {
-	checkExclusive(ctx, IPCDisabledFlag, IPCPathFlag)
+	CheckExclusive(ctx, IPCDisabledFlag, IPCPathFlag)
 	switch {
 	case ctx.GlobalBool(IPCDisabledFlag.Name):
 		cfg.IPCPath = ""
@@ -1059,10 +1066,10 @@ func setSnailPool(ctx *cli.Context, cfg *snailchain.SnailPoolConfig) {
 
 }
 
-// checkExclusive verifies that only a single instance of the provided flags was
+// CheckExclusive verifies that only a single instance of the provided flags was
 // set by the user. Each flag might optionally be followed by a string type to
 // specialize it further.
-func checkExclusive(ctx *cli.Context, args ...interface{}) {
+func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 	set := make([]string, 0, 1)
 	for i := 0; i < len(args); i++ {
 		// Make sure the next argument is a flag and skip if not set
@@ -1103,9 +1110,9 @@ func checkExclusive(ctx *cli.Context, args ...interface{}) {
 // SetTruechainConfig applies etrue-related command line flags to the config.
 func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	// Avoid conflicting network flags
-	checkExclusive(ctx, TestnetFlag, DevnetFlag, SingleNodeFlag)
-	//checkExclusive(ctx, LightServFlag, LightModeFlag)
-	checkExclusive(ctx, LightServFlag, SyncModeFlag, "light")
+	CheckExclusive(ctx, TestnetFlag, DevnetFlag, SingleNodeFlag)
+	//CheckExclusive(ctx, LightServFlag, LightModeFlag)
+	CheckExclusive(ctx, LightServFlag, SyncModeFlag, "light")
 
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 	setEtherbase(ctx, ks, cfg)
