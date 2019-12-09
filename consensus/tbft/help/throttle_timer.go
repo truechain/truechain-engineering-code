@@ -1,7 +1,7 @@
 package help
 
 import (
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"sync"
 	"time"
 )

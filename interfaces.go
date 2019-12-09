@@ -3,9 +3,10 @@ package truechain
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"math/big"
+
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // NotFound is returned by API methods if the requested item does not exist.

@@ -2,7 +2,7 @@ package tp2p
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"

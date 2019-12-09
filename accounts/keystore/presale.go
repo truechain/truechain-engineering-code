@@ -26,7 +26,7 @@ import (
 	"fmt"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/pborman/uuid"
 	"golang.org/x/crypto/pbkdf2"
 )

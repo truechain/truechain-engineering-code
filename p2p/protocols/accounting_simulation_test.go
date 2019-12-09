@@ -31,7 +31,7 @@ import (
 
 	"github.com/mattn/go-colorable"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rpc"
 
 	"github.com/truechain/truechain-engineering-code/node"
