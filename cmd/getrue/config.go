@@ -11,9 +11,9 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/naoina/toml"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/dashboard"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/node"
@@ -83,7 +83,7 @@ func loadConfig(file string, cfg *gethConfig) error {
 func defaultNodeConfig() node.Config {
 	cfg := node.DefaultConfig
 	cfg.Name = clientIdentifier
-	cfg.Version = params.VersionWithCommit(gitCommit)
+	cfg.Version = params.VersionWithCommit(gitCommit, gitDate)
 	cfg.HTTPModules = append(cfg.HTTPModules, "etrue", "eth", "shh")
 	cfg.WSModules = append(cfg.WSModules, "etrue")
 	cfg.IPCPath = "getrue.ipc"
@@ -105,7 +105,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 
 		//cfg.Etrue.MineFruit = true
 		cfg.Etrue.Mine = true
-		cfg.Etrue.Etherbase =crypto.PubkeyToAddress(prikey.PublicKey)
+		cfg.Etrue.Etherbase = crypto.PubkeyToAddress(prikey.PublicKey)
 		//cfg.Etrue.NetworkId =400
 		//set node config
 		cfg.Node.HTTPPort = 8888
