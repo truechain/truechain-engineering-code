@@ -62,20 +62,34 @@ func (e *EpochIDInfo) String() string {
 }
 
 /////////////////////////////////////////////////////////////////////////////////
+type PairstakingValue struct {
+	amount *big.Int
+	height *big.Int
+}
+
 type impawnUnit struct {
 	address common.Address
-	amount  *big.Int
-	height  *big.Int
+	value   []*PairstakingValue // sort by height
 	auto    bool
 	redeem  *big.Int
 }
 
 func (s *impawnUnit) getAllStaking(hh uint64) *big.Int {
-	return nil
+	all := big.NewInt(0)
+	for _, v := range s.value {
+		if v.height.Uint64() <= hh {
+			all = all.Add(all, v.amount)
+		} else {
+			break
+		}
+	}
+	return all
 }
 func (s *impawnUnit) GetRewardAddress() common.Address {
 	return common.Address{}
 }
+
+/////////////////////////////////////////////////////////////////////////////////
 
 type DelegationAccount struct {
 	deleAddress common.Address
@@ -86,7 +100,7 @@ func (d *DelegationAccount) update(da *DelegationAccount) {
 
 }
 func (s *DelegationAccount) getAllStaking(hh uint64) *big.Int {
-	return nil
+	return s.unit.getAllStaking(hh)
 }
 
 type StakingAccount struct {
@@ -103,7 +117,11 @@ func (s *StakingAccount) isInCommittee() bool {
 func (s *StakingAccount) update(sa *StakingAccount) {
 }
 func (s *StakingAccount) getAllStaking(hh uint64) *big.Int {
-	return nil
+	all := s.unit.getAllStaking(hh)
+	for _, v := range s.delegation {
+		all = all.Add(all, v.getAllStaking(hh))
+	}
+	return all
 }
 
 type SAImpawns []*StakingAccount
