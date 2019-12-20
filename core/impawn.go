@@ -333,13 +333,23 @@ func (i *impawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SAR
 	}
 
 	if len(ids) == 2 {
-		// a1 := new(big.Float).Quo(new(big.Float).SetFloat64(float64(allAmount.Int64())), fbaseUnit)
-		// tmp := new(big.Float).Mul(a1,new(big.Float).SetFloat64())
+		a1 := new(big.Float).Quo(new(big.Float).SetFloat64(float64(allAmount.Int64())), fbaseUnit)
+		r := float64(ids[0].EndHeight-ids[0].BeginHeight) / float64(end-begin)
+		tmp := new(big.Float).Mul(a1, new(big.Float).SetFloat64(r))
+		amount1, amount2 := toReward(tmp), toReward(new(big.Float).Quo(a1, tmp))
+		if items, err := i.calcReward(ids[0].EndHeight, amount1, ids[0]); err != nil {
+			return nil, err
+		} else {
+			if items1, err2 := i.calcReward(ids[1].EndHeight, amount2, ids[1]); err != nil {
+				return nil, err2
+			} else {
+				items = append(items, items1[:]...)
+			}
+			return items, nil
+		}
 	} else {
 		return i.calcReward(end, allAmount, ids[0])
 	}
-
-	return nil, nil
 }
 func toReward(val *big.Float) *big.Int {
 	val = val.Mul(val, fbaseUnit)
