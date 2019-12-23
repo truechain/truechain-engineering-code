@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -88,6 +89,9 @@ func (s *impawnUnit) getAllStaking(hh uint64) *big.Int {
 func (s *impawnUnit) GetRewardAddress() common.Address {
 	return common.Address{}
 }
+func (s *impawnUnit) sort() {
+	sort.Sort(valuesByHeight(s.value))
+}
 
 /////////////////////////////////////////////////////////////////////////////////
 
@@ -132,6 +136,16 @@ func (s *SAImpawns) getAllStaking(hh uint64) *big.Int {
 		all = all.Add(all, val.getAllStaking(hh))
 	}
 	return all
+}
+func (s *SAImpawns) sort(hh uint64) {
+	for _, v := range *s {
+		tmp := toDelegationByHeight(hh, v.delegation)
+		sort.Sort(tmp)
+		v.delegation, _ = fromDelegationByHeight(tmp)
+	}
+	tmp := toStakingByHeight(hh, *s)
+	sort.Sort(tmp)
+	*s, _ = fromStakingByHeight(tmp)
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -396,4 +410,95 @@ func (i *impawnImpl) Load() error {
 }
 func (i *impawnImpl) commit() error {
 	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+type valuesByHeight []*PairstakingValue
+
+func (vs valuesByHeight) Len() int {
+	return len(vs)
+}
+func (vs valuesByHeight) Less(i, j int) bool {
+	return vs[i].height.Cmp(vs[j].height) == -1
+}
+func (vs valuesByHeight) Swap(i, j int) {
+	it := vs[i]
+	vs[i] = vs[j]
+	vs[j] = it
+}
+
+type stakingItem struct {
+	item   *StakingAccount
+	height uint64
+}
+
+type stakingByHeight []*stakingItem
+
+func toStakingByHeight(hh uint64, items []*StakingAccount) stakingByHeight {
+	var tmp []*stakingItem
+	for _, v := range items {
+		tmp = append(tmp, &stakingItem{
+			item:   v,
+			height: hh,
+		})
+	}
+	return stakingByHeight(tmp)
+}
+func fromStakingByHeight(items stakingByHeight) ([]*StakingAccount, uint64) {
+	var tmp []*StakingAccount
+	var vv uint64
+	for _, v := range items {
+		tmp = append(tmp, v.item)
+		vv = v.height
+	}
+	return tmp, vv
+}
+func (vs stakingByHeight) Len() int {
+	return len(vs)
+}
+func (vs stakingByHeight) Less(i, j int) bool {
+	return vs[i].item.getAllStaking(vs[i].height).Cmp(vs[j].item.getAllStaking(vs[j].height)) == -1
+}
+func (vs stakingByHeight) Swap(i, j int) {
+	it := vs[i]
+	vs[i] = vs[j]
+	vs[j] = it
+}
+
+type delegationItem struct {
+	item   *DelegationAccount
+	height uint64
+}
+
+type delegationItemByHeight []*delegationItem
+
+func toDelegationByHeight(hh uint64, items []*DelegationAccount) delegationItemByHeight {
+	var tmp []*delegationItem
+	for _, v := range items {
+		tmp = append(tmp, &delegationItem{
+			item:   v,
+			height: hh,
+		})
+	}
+	return delegationItemByHeight(tmp)
+}
+func fromDelegationByHeight(items delegationItemByHeight) ([]*DelegationAccount, uint64) {
+	var tmp []*DelegationAccount
+	var vv uint64
+	for _, v := range items {
+		tmp = append(tmp, v.item)
+		vv = v.height
+	}
+	return tmp, vv
+}
+func (vs delegationItemByHeight) Len() int {
+	return len(vs)
+}
+func (vs delegationItemByHeight) Less(i, j int) bool {
+	return vs[i].item.getAllStaking(vs[i].height).Cmp(vs[j].item.getAllStaking(vs[j].height)) == -1
+}
+func (vs delegationItemByHeight) Swap(i, j int) {
+	it := vs[i]
+	vs[i] = vs[j]
+	vs[j] = it
 }
