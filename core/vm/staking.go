@@ -16,11 +16,11 @@
 package vm
 
 import (
-	"errors"
-	"bytes"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/accounts/abi"
 )
 
 // StakingAddress is defined as Address('truestaking')
@@ -30,23 +30,22 @@ var StakingAddress = common.BytesToAddress([]byte("truestaking"))
 type StakeContract struct {}
 
 func RunStaking(evm *EVM, input []byte) (ret []byte, err error) {
-	if len(input) < 4 {
-		return nil, errors.New("input data invalid")
+
+	abiStaking, err := abi.JSON(strings.NewReader(abiJSON))
+	if err != nil {
+		log.Error("Gen staking abi exception")
+		return nil, nil
 	}
 
-	var selector []byte = input[:4]
+	method, err := abiStaking.MethodById(input)
+	if err != nil {
+		log.Error("No method found")
+		return nil, nil
+	}
 
-	if bytes.Equal(selector, common.Hex2Bytes("d0e30db0")) {
-		log.Info("Call staking deposit")
-	} else if bytes.Equal(selector, common.Hex2Bytes("3ccfd60b")) {
-		log.Info("Call staking withdraw")
-	} else if bytes.Equal(selector, common.Hex2Bytes("f4607feb")) {
-		log.Info("Call staking get_deposit")
-		balance := evm.StateDB.GetBalance(common.BytesToAddress(input[4:36])).Bytes()
-		ret = make([]byte, 32)
-		copy(ret[32-len(balance):], balance)
-	} else {
-		log.Error("Call staking default")
+	if method.Name == "get_deposit" {
+		 log.Info("Call staking get_deposit")
+		 return getDeposit(evm, input[4:])
 	}
 	return ret, nil
 }
@@ -62,11 +61,31 @@ func withdraw(evm *EVM, input []byte) (ret []byte, err error) {
 
 // getDeposit MethodId 0xf4607feb
 func getDeposit(evm *EVM, input []byte) (ret []byte, err error) {
-	log.Info("Call staking get_deposit")
-	balance := evm.StateDB.GetBalance(common.BytesToAddress(input[4:36])).Bytes()
-	ret = make([]byte, 32)
-	copy(ret[32-len(balance):], balance)
-	return ret, nil
+	abiStaking, _ := abi.JSON(strings.NewReader(abiJSON))
+
+	method, ok := abiStaking.Methods["get_deposit"];
+	if !ok {
+		log.Info("Call get_deposit abi error")
+		return nil, nil
+	}
+
+	if len(input)%32 != 0 {
+		log.Error("Call get_deposit input error")
+		return nil, nil
+	}
+
+	// depositAddr := struct {Validator common.Address}{}
+	var depositAddr common.Address
+	err = method.Inputs.Unpack(&depositAddr, input)
+	if err != nil {
+		log.Error("Unpack get_deposit input error")
+		return nil, err
+	}
+
+	balance := evm.StateDB.GetBalance(depositAddr)
+	log.Info("Get staking get_deposit", "address", depositAddr, "balance", balance)
+	ret, err = method.Outputs.Pack(balance)
+	return ret, err
 }
 
 // Staking Contract json abi
