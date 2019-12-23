@@ -23,19 +23,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"os"
 	"reflect"
 
-	"github.com/truechain/truechain-engineering-code/accounts/scwallet"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/accounts/usbwallet"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 // ExternalAPI defines the external API through which signing requests are made.
@@ -96,65 +94,6 @@ type Metadata struct {
 	Remote string `json:"remote"`
 	Local  string `json:"local"`
 	Scheme string `json:"scheme"`
-}
-
-func StartClefAccountManager(ksLocation string, nousb, lightKDF bool, scpath string) *accounts.Manager {
-	var (
-		backends []accounts.Backend
-		n, p     = keystore.StandardScryptN, keystore.StandardScryptP
-	)
-	if lightKDF {
-		n, p = keystore.LightScryptN, keystore.LightScryptP
-	}
-	// support password based accounts
-	if len(ksLocation) > 0 {
-		backends = append(backends, keystore.NewKeyStore(ksLocation, n, p))
-	}
-	if !nousb {
-		// Start a USB hub for Ledger hardware wallets
-		if ledgerhub, err := usbwallet.NewLedgerHub(); err != nil {
-			log.Warn(fmt.Sprintf("Failed to start Ledger hub, disabling: %v", err))
-		} else {
-			backends = append(backends, ledgerhub)
-			log.Debug("Ledger support enabled")
-		}
-		// Start a USB hub for Trezor hardware wallets (HID version)
-		if trezorhub, err := usbwallet.NewTrezorHubWithHID(); err != nil {
-			log.Warn(fmt.Sprintf("Failed to start HID Trezor hub, disabling: %v", err))
-		} else {
-			backends = append(backends, trezorhub)
-			log.Debug("Trezor support enabled via HID")
-		}
-		// Start a USB hub for Trezor hardware wallets (WebUSB version)
-		if trezorhub, err := usbwallet.NewTrezorHubWithWebUSB(); err != nil {
-			log.Warn(fmt.Sprintf("Failed to start WebUSB Trezor hub, disabling: %v", err))
-		} else {
-			backends = append(backends, trezorhub)
-			log.Debug("Trezor support enabled via WebUSB")
-		}
-	}
-
-	// Start a smart card hub
-	if len(scpath) > 0 {
-		// Sanity check that the smartcard path is valid
-		fi, err := os.Stat(scpath)
-		if err != nil {
-			log.Info("Smartcard socket file missing, disabling", "err", err)
-		} else {
-			if fi.Mode()&os.ModeType != os.ModeSocket {
-				log.Error("Invalid smartcard socket file type", "path", scpath, "type", fi.Mode().String())
-			} else {
-				if schub, err := scwallet.NewHub(scpath, scwallet.Scheme, ksLocation); err != nil {
-					log.Warn(fmt.Sprintf("Failed to start smart card hub, disabling: %v", err))
-				} else {
-					backends = append(backends, schub)
-				}
-			}
-		}
-	}
-
-	// Clef doesn't allow insecure http account unlock.
-	return accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: false}, backends...)
 }
 
 // MetadataFromContext extracts Metadata from a given context.Context
@@ -283,7 +222,7 @@ func NewSignerAPI(chainID int64, ksLocation string, noUSB bool, ui SignerUI, abi
 			log.Debug("Trezor support enabled")
 		}
 	}
-	return &SignerAPI{big.NewInt(chainID), accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: false}, backends...), ui, NewValidator(abidb)}
+	return &SignerAPI{big.NewInt(chainID), accounts.NewManager(backends...), ui, NewValidator(abidb)}
 }
 
 // List returns the set of wallet this signer manages. Each wallet can contain

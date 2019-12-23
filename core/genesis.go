@@ -27,15 +27,15 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/common/math"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -177,10 +177,7 @@ func setupFastGenesisBlock(db etruedb.Database, genesis *Genesis) (*params.Chain
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.CommitFast(db)
-		if err != nil {
-			return genesis.Config, common.Hash{}, err
-		}
-		return genesis.Config, block.Hash(), nil
+		return genesis.Config, block.Hash(), err
 	}
 
 	// Check whether the genesis block is already written.
@@ -322,10 +319,7 @@ func setupSnailGenesisBlock(db etruedb.Database, genesis *Genesis) (*params.Chai
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.CommitSnail(db)
-		if err != nil {
-			return genesis.Config, common.Hash{}, err
-		}
-		return genesis.Config, block.Hash(), nil
+		return genesis.Config, block.Hash(), err
 	}
 
 	// Check whether the genesis block is already written.

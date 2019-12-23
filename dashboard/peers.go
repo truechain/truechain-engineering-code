@@ -436,15 +436,15 @@ func (db *Dashboard) collectPeerData() {
 		case event := <-peerCh:
 			now := time.Now()
 			switch event.Type {
-			case p2p.PeerHandshakeSucceeded:
+			case p2p.PeerConnected:
 				connected := now.Add(-event.Elapsed)
 				newPeerEvents = append(newPeerEvents, &peerEvent{
-					IP:        event.Addr,
-					ID:        event.Peer.String(),
+					IP:        event.IP.String(),
+					ID:        event.ID.String(),
 					Connected: &connected,
 				})
 			case p2p.PeerDisconnected:
-				ip, id := event.Addr, event.Peer.String()
+				ip, id := event.IP.String(), event.ID.String()
 				newPeerEvents = append(newPeerEvents, &peerEvent{
 					IP:           ip,
 					ID:           id,
@@ -461,7 +461,7 @@ func (db *Dashboard) collectPeerData() {
 			case p2p.PeerHandshakeFailed:
 				connected := now.Add(-event.Elapsed)
 				newPeerEvents = append(newPeerEvents, &peerEvent{
-					IP:           event.Addr,
+					IP:           event.IP.String(),
 					Connected:    &connected,
 					Disconnected: &now,
 				})

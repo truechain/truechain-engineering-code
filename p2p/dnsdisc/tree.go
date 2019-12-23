@@ -27,9 +27,9 @@ import (
 	"strings"
 
 	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/p2p/enr"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -49,7 +49,7 @@ func (t *Tree) Sign(key *ecdsa.PrivateKey, domain string) (url string, err error
 	root.sig = sig
 	t.root = &root
 	link := &linkEntry{domain, &key.PublicKey}
-	return link.String(), nil
+	return link.url(), nil
 }
 
 // SetSignature verifies the given signature and assigns it as the tree's current
@@ -96,7 +96,7 @@ func (t *Tree) Links() []string {
 	var links []string
 	for _, e := range t.entries {
 		if le, ok := e.(*linkEntry); ok {
-			links = append(links, le.String())
+			links = append(links, le.url())
 		}
 	}
 	return links
@@ -115,15 +115,15 @@ func (t *Tree) Nodes() []*enode.Node {
 
 const (
 	hashAbbrev    = 16
-	maxChildren   = 300 / hashAbbrev * (13 / 8)
+	maxChildren   = 300 / (hashAbbrev * (13 / 8))
 	minHashLength = 12
+	rootPrefix    = "enrtree-root=v1"
 )
 
 // MakeTree creates a tree containing the given nodes and links.
 func MakeTree(seq uint, nodes []*enode.Node, links []string) (*Tree, error) {
 	// Sort records by ID and ensure all nodes have a valid record.
 	records := make([]*enode.Node, len(nodes))
-
 	copy(records, nodes)
 	sortByID(records)
 	for _, n := range records {
@@ -139,7 +139,7 @@ func MakeTree(seq uint, nodes []*enode.Node, links []string) (*Tree, error) {
 	}
 	linkEntries := make([]entry, len(links))
 	for i, l := range links {
-		le, err := parseLink(l)
+		le, err := parseURL(l)
 		if err != nil {
 			return nil, err
 		}
@@ -166,7 +166,7 @@ func (t *Tree) build(entries []entry) entry {
 			hashes[i] = subdomain(e)
 			t.entries[hashes[i]] = e
 		}
-		return &branchEntry{hashes}
+		return &subtreeEntry{hashes}
 	}
 	var subtrees []entry
 	for len(entries) > 0 {
@@ -202,7 +202,7 @@ type (
 		seq   uint
 		sig   []byte
 	}
-	branchEntry struct {
+	subtreeEntry struct {
 		children []string
 	}
 	enrEntry struct {
@@ -218,14 +218,7 @@ type (
 
 var (
 	b32format = base32.StdEncoding.WithPadding(base32.NoPadding)
-	b64format = base64.RawURLEncoding
-)
-
-const (
-	rootPrefix   = "enrtree-root:v1"
-	linkPrefix   = "enrtree://"
-	branchPrefix = "enrtree-branch:"
-	enrPrefix    = "enr:"
+	b64format = base64.URLEncoding
 )
 
 func subdomain(e entry) string {
@@ -249,29 +242,37 @@ func (e *rootEntry) verifySignature(pubkey *ecdsa.PublicKey) bool {
 	return crypto.VerifySignature(crypto.FromECDSAPub(pubkey), e.sigHash(), sig)
 }
 
-func (e *branchEntry) String() string {
-	return branchPrefix + strings.Join(e.children, ",")
+func (e *subtreeEntry) String() string {
+	return "enrtree=" + strings.Join(e.children, ",")
 }
 
 func (e *enrEntry) String() string {
-	return e.node.String()
+	enc, _ := rlp.EncodeToBytes(e.node.Record())
+	return "enr=" + b64format.EncodeToString(enc)
 }
 
 func (e *linkEntry) String() string {
-	pubkey := b32format.EncodeToString(crypto.CompressPubkey(e.pubkey))
-	return fmt.Sprintf("%s%s@%s", linkPrefix, pubkey, e.domain)
+	return "enrtree-link=" + e.link()
+}
+
+func (e *linkEntry) url() string {
+	return "enrtree://" + e.link()
+}
+
+func (e *linkEntry) link() string {
+	return fmt.Sprintf("%s@%s", b32format.EncodeToString(crypto.CompressPubkey(e.pubkey)), e.domain)
 }
 
 // Entry Parsing
 
 func parseEntry(e string, validSchemes enr.IdentityScheme) (entry, error) {
 	switch {
-	case strings.HasPrefix(e, linkPrefix):
-		return parseLinkEntry(e)
-	case strings.HasPrefix(e, branchPrefix):
-		return parseBranch(e)
-	case strings.HasPrefix(e, enrPrefix):
-		return parseENR(e, validSchemes)
+	case strings.HasPrefix(e, "enrtree-link="):
+		return parseLink(e[13:])
+	case strings.HasPrefix(e, "enrtree="):
+		return parseSubtree(e[8:])
+	case strings.HasPrefix(e, "enr="):
+		return parseENR(e[4:], validSchemes)
 	default:
 		return nil, errUnknownEntry
 	}
@@ -293,19 +294,7 @@ func parseRoot(e string) (rootEntry, error) {
 	return rootEntry{eroot, lroot, seq, sigb}, nil
 }
 
-func parseLinkEntry(e string) (entry, error) {
-	le, err := parseLink(e)
-	if err != nil {
-		return nil, err
-	}
-	return le, nil
-}
-
-func parseLink(e string) (*linkEntry, error) {
-	if !strings.HasPrefix(e, linkPrefix) {
-		return nil, fmt.Errorf("wrong/missing scheme 'enrtree' in URL")
-	}
-	e = e[len(linkPrefix):]
+func parseLink(e string) (entry, error) {
 	pos := strings.IndexByte(e, '@')
 	if pos == -1 {
 		return nil, entryError{"link", errNoPubkey}
@@ -322,23 +311,21 @@ func parseLink(e string) (*linkEntry, error) {
 	return &linkEntry{domain, key}, nil
 }
 
-func parseBranch(e string) (entry, error) {
-	e = e[len(branchPrefix):]
+func parseSubtree(e string) (entry, error) {
 	if e == "" {
-		return &branchEntry{}, nil // empty entry is OK
+		return &subtreeEntry{}, nil // empty entry is OK
 	}
 	hashes := make([]string, 0, strings.Count(e, ","))
 	for _, c := range strings.Split(e, ",") {
 		if !isValidHash(c) {
-			return nil, entryError{"branch", errInvalidChild}
+			return nil, entryError{"subtree", errInvalidChild}
 		}
 		hashes = append(hashes, c)
 	}
-	return &branchEntry{hashes}, nil
+	return &subtreeEntry{hashes}, nil
 }
 
 func parseENR(e string, validSchemes enr.IdentityScheme) (entry, error) {
-	e = e[len(enrPrefix):]
 	enc, err := b64format.DecodeString(e)
 	if err != nil {
 		return nil, entryError{"enr", errInvalidENR}
@@ -377,9 +364,21 @@ func truncateHash(hash string) string {
 
 // ParseURL parses an enrtree:// URL and returns its components.
 func ParseURL(url string) (domain string, pubkey *ecdsa.PublicKey, err error) {
-	le, err := parseLink(url)
+	le, err := parseURL(url)
 	if err != nil {
 		return "", nil, err
 	}
 	return le.domain, le.pubkey, nil
+}
+
+func parseURL(url string) (*linkEntry, error) {
+	const scheme = "enrtree://"
+	if !strings.HasPrefix(url, scheme) {
+		return nil, fmt.Errorf("wrong/missing scheme 'enrtree' in URL")
+	}
+	le, err := parseLink(url[len(scheme):])
+	if err != nil {
+		return nil, err.(entryError).err
+	}
+	return le.(*linkEntry), nil
 }

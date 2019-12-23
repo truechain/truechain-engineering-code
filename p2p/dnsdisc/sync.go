@@ -120,7 +120,7 @@ func (ct *clientTree) syncNextRandomENR(ctx context.Context) (*enode.Node, error
 }
 
 func (ct *clientTree) String() string {
-	return ct.loc.String()
+	return ct.loc.url()
 }
 
 // removeHash removes the element at index from h.
@@ -209,7 +209,7 @@ func (ts *subtreeSync) resolveNext(ctx context.Context, hash string) (entry, err
 		if !ts.link {
 			return nil, errLinkInENRTree
 		}
-	case *branchEntry:
+	case *subtreeEntry:
 		ts.missing = append(ts.missing, e.children...)
 	}
 	return e, nil

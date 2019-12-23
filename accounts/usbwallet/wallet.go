@@ -25,12 +25,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/karalabe/hid"
 	ethereum "github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // Maximum time between wallet health checks to detect USB unplugs.
@@ -475,8 +475,7 @@ func (w *wallet) Derive(path accounts.DerivationPath, pin bool) (accounts.Accoun
 
 	if _, ok := w.paths[address]; !ok {
 		w.accounts = append(w.accounts, account)
-		w.paths[address] = make(accounts.DerivationPath, len(path))
-		copy(w.paths[address], path)
+		w.paths[address] = path
 	}
 	return account, nil
 }

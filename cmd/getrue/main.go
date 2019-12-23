@@ -173,7 +173,6 @@ func init() {
 		//makecacheCommand,
 		//makedagCommand,
 		versionCommand,
-		bugCommand,
 		licenseCommand,
 		// See config.go
 		dumpConfigCommand,
@@ -197,15 +196,11 @@ func init() {
 		}
 		// Cap the cache allowance and tune the garbage colelctor
 		var mem gosigar.Mem
-		// Workaround until OpenBSD support lands into gosigar
-		// Check https://github.com/elastic/gosigar#supported-platforms
-		if runtime.GOOS != "openbsd" {
-			if err := mem.Get(); err == nil {
-				allowance := int(mem.Total / 1024 / 1024 / 3)
-				if cache := ctx.GlobalInt(utils.CacheFlag.Name); cache > allowance {
-					log.Warn("Sanitizing cache to Go's GC limits", "provided", cache, "updated", allowance)
-					ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(allowance))
-				}
+		if err := mem.Get(); err == nil {
+			allowance := int(mem.Total / 1024 / 1024 / 3)
+			if cache := ctx.GlobalInt(utils.CacheFlag.Name); cache > allowance {
+				log.Warn("Sanitizing cache to Go's GC limits", "provided", cache, "updated", allowance)
+				ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(allowance))
 			}
 		}
 		// Ensure Go's GC ignores the database cache for trigger percentage
@@ -297,7 +292,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				log.Info("New wallet appeared", "url", event.Wallet.URL(), "status", status)
 
 				if event.Wallet.URL().Scheme == "ledger" {
-					event.Wallet.SelfDerive(accounts.LegacyLedgerBaseDerivationPath, stateReader)
+					event.Wallet.SelfDerive(accounts.DefaultLedgerBaseDerivationPath, stateReader)
 				} else {
 					event.Wallet.SelfDerive(accounts.DefaultBaseDerivationPath, stateReader)
 				}

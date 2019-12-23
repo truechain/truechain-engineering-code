@@ -25,12 +25,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/accounts/usbwallet"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
 )
@@ -434,7 +434,7 @@ func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {
 			backends = append(backends, trezorhub)
 		}
 	}
-	return accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: false}, backends...), ephemeral, nil
+	return accounts.NewManager(backends...), ephemeral, nil
 }
 
 func (c *Config) BftCommitteeKey() *ecdsa.PrivateKey {

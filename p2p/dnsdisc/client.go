@@ -25,10 +25,10 @@ import (
 	"strings"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/p2p/enr"
 )
@@ -107,7 +107,7 @@ func NewClient(cfg Config, urls ...string) (*Client, error) {
 // SyncTree downloads the entire node tree at the given URL. This doesn't add the tree for
 // later use, but any previously-synced entries are reused.
 func (c *Client) SyncTree(url string) (*Tree, error) {
-	le, err := parseLink(url)
+	le, err := parseURL(url)
 	if err != nil {
 		return nil, fmt.Errorf("invalid enrtree URL: %v", err)
 	}
@@ -122,7 +122,7 @@ func (c *Client) SyncTree(url string) (*Tree, error) {
 
 // AddTree adds a enrtree:// URL to crawl.
 func (c *Client) AddTree(url string) error {
-	le, err := parseLink(url)
+	le, err := parseURL(url)
 	if err != nil {
 		return fmt.Errorf("invalid enrtree URL: %v", err)
 	}

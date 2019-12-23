@@ -34,8 +34,6 @@ import (
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
@@ -46,9 +44,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/light"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
 
@@ -111,7 +111,6 @@ type BlockChain interface {
 
 type txPool interface {
 	AddRemotes(txs []*types.Transaction) []error
-	AddRemotesSync(txs []*types.Transaction) []error
 	Status(hashes []common.Hash) []core.TxStatus
 }
 
@@ -154,9 +153,6 @@ type ProtocolManager struct {
 	election *Election
 	// Callbacks
 	synced func() bool
-
-	// Testing fields
-	addTxsSync bool
 }
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -1179,6 +1175,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Gather state data until the fetch or network limits is reached
 		var (
 			lastBHash common.Hash
+			statedb   *state.StateDB
 			root      common.Hash
 		)
 		reqCnt := len(req.Reqs)
@@ -1225,7 +1222,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						continue
 					}
 					// Open the account or storage trie for the request
-					statedb, _ := pm.fblockchain.State()
+					statedb, _ = pm.fblockchain.State()
 
 					switch len(request.AccKey) {
 					case 0:
@@ -1404,12 +1401,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					hash := tx.Hash()
 					stats[i] = pm.txStatus(hash)
 					if stats[i].Status == core.TxStatusUnknown {
-						addFn := pm.txpool.AddRemotes
-						// Add txs synchronously for testing purpose
-						if pm.addTxsSync {
-							addFn = pm.txpool.AddRemotesSync
-						}
-						if errs := addFn([]*types.Transaction{tx}); errs[0] != nil {
+						if errs := pm.txpool.AddRemotes([]*types.Transaction{tx}); errs[0] != nil {
 							stats[i].Error = errs[0].Error()
 							continue
 						}

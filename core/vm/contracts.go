@@ -18,7 +18,6 @@ package vm
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 	"errors"
 	"math/big"
 
@@ -26,7 +25,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/bn256"
-	"github.com/truechain/truechain-engineering-code/crypto/blake2b"
 	"github.com/truechain/truechain-engineering-code/params"
 	"golang.org/x/crypto/ripemd160"
 )
@@ -59,20 +57,6 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{6}): &bn256Add{},
 	common.BytesToAddress([]byte{7}): &bn256ScalarMul{},
 	common.BytesToAddress([]byte{8}): &bn256Pairing{},
-}
-
-// PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
-// contracts used in the Istanbul release.
-var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
-	common.BytesToAddress([]byte{1}): &ecrecover{},
-	common.BytesToAddress([]byte{2}): &sha256hash{},
-	common.BytesToAddress([]byte{3}): &ripemd160hash{},
-	common.BytesToAddress([]byte{4}): &dataCopy{},
-	common.BytesToAddress([]byte{5}): &bigModExp{},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
-	common.BytesToAddress([]byte{9}): &blake2F{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -287,9 +271,15 @@ func newTwistPoint(blob []byte) (*bn256.G2, error) {
 	return p, nil
 }
 
-// runBn256Add implements the Bn256Add precompile, referenced by both
-// Byzantium and Istanbul operations.
-func runBn256Add(input []byte) ([]byte, error) {
+// bn256Add implements a native elliptic curve point addition.
+type bn256Add struct{}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *bn256Add) RequiredGas(input []byte) uint64 {
+	return params.Bn256AddGas
+}
+
+func (c *bn256Add) Run(input []byte) ([]byte, error) {
 	x, err := newCurvePoint(getData(input, 0, 64))
 	if err != nil {
 		return nil, err
@@ -303,58 +293,7 @@ func runBn256Add(input []byte) ([]byte, error) {
 	return res.Marshal(), nil
 }
 
-// bn256Add implements a native elliptic curve point addition.
-type bn256Add struct{}
-
-// RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bn256Add) RequiredGas(input []byte) uint64 {
-	return params.Bn256AddGas
-}
-
-func (c *bn256Add) Run(input []byte) ([]byte, error) {
-	return runBn256Add(input)
-}
-
-// bn256Add implements a native elliptic curve point addition conforming to
-// Istanbul consensus rules.
-type bn256AddIstanbul struct{}
-
-// RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bn256AddIstanbul) RequiredGas(input []byte) uint64 {
-	return params.Bn256AddGasIstanbul
-}
-
-func (c *bn256AddIstanbul) Run(input []byte) ([]byte, error) {
-	return runBn256Add(input)
-}
-
-// runBn256ScalarMul implements the Bn256ScalarMul precompile, referenced by
-// both Byzantium and Istanbul operations.
-func runBn256ScalarMul(input []byte) ([]byte, error) {
-	p, err := newCurvePoint(getData(input, 0, 64))
-	if err != nil {
-		return nil, err
-	}
-	res := new(bn256.G1)
-	res.ScalarMult(p, new(big.Int).SetBytes(getData(input, 64, 32)))
-	return res.Marshal(), nil
-}
-
-// bn256ScalarMulIstanbul implements a native elliptic curve scalar
-// multiplication conforming to Istanbul consensus rules.
-type bn256ScalarMulIstanbul struct{}
-
-// RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bn256ScalarMulIstanbul) RequiredGas(input []byte) uint64 {
-	return params.Bn256ScalarMulGasIstanbul
-}
-
-func (c *bn256ScalarMulIstanbul) Run(input []byte) ([]byte, error) {
-	return runBn256ScalarMul(input)
-}
-
 // bn256ScalarMul implements a native elliptic curve scalar multiplication.
-//  conforming to Byzantium consensus rules.
 type bn256ScalarMul struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
@@ -363,7 +302,13 @@ func (c *bn256ScalarMul) RequiredGas(input []byte) uint64 {
 }
 
 func (c *bn256ScalarMul) Run(input []byte) ([]byte, error) {
-	return runBn256ScalarMul(input)
+	p, err := newCurvePoint(getData(input, 0, 64))
+	if err != nil {
+		return nil, err
+	}
+	res := new(bn256.G1)
+	res.ScalarMult(p, new(big.Int).SetBytes(getData(input, 64, 32)))
+	return res.Marshal(), nil
 }
 
 var (
@@ -377,9 +322,15 @@ var (
 	errBadPairingInput = errors.New("bad elliptic curve pairing size")
 )
 
-// runBn256Pairing implements the Bn256Pairing precompile, referenced by both
-// Byzantium and Istanbul operations.
-func runBn256Pairing(input []byte) ([]byte, error) {
+// bn256Pairing implements a pairing pre-compile for the bn256 curve
+type bn256Pairing struct{}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *bn256Pairing) RequiredGas(input []byte) uint64 {
+	return params.Bn256PairingBaseGas + uint64(len(input)/192)*params.Bn256PairingPerPointGas
+}
+
+func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
 	// Handle some corner cases cheaply
 	if len(input)%192 > 0 {
 		return nil, errBadPairingInput
@@ -406,91 +357,4 @@ func runBn256Pairing(input []byte) ([]byte, error) {
 		return true32Byte, nil
 	}
 	return false32Byte, nil
-}
-
-// bn256Pairing implements a pairing pre-compile for the bn256 curve
-// conforming to Byzantium consensus rules.
-type bn256Pairing struct{}
-
-// RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bn256Pairing) RequiredGas(input []byte) uint64 {
-	return params.Bn256PairingBaseGas + uint64(len(input)/192)*params.Bn256PairingPerPointGas
-}
-
-func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
-	return runBn256Pairing(input)
-}
-
-// bn256PairingIstanbul implements a pairing pre-compile for the bn256 curve
-// conforming to Istanbul consensus rules.
-type bn256PairingIstanbul struct{}
-
-// RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bn256PairingIstanbul) RequiredGas(input []byte) uint64 {
-	return params.Bn256PairingBaseGasIstanbul + uint64(len(input)/192)*params.Bn256PairingPerPointGasIstanbul
-}
-
-func (c *bn256PairingIstanbul) Run(input []byte) ([]byte, error) {
-	return runBn256Pairing(input)
-}
-
-type blake2F struct{}
-
-const (
-	blake2FInputLength        = 213
-	blake2FFinalBlockBytes    = byte(1)
-	blake2FNonFinalBlockBytes = byte(0)
-)
-
-var (
-	errBlake2FInvalidInputLength = errors.New("invalid input length")
-	errBlake2FInvalidFinalFlag   = errors.New("invalid final flag")
-)
-
-func (c *blake2F) RequiredGas(input []byte) uint64 {
-	// If the input is malformed, we can't calculate the gas, return 0 and let the
-	// actual call choke and fault.
-	if len(input) != blake2FInputLength {
-		return 0
-	}
-	return uint64(binary.BigEndian.Uint32(input[0:4]))
-}
-
-func (c *blake2F) Run(input []byte) ([]byte, error) {
-	// Make sure the input is valid (correct lenth and final flag)
-	if len(input) != blake2FInputLength {
-		return nil, errBlake2FInvalidInputLength
-	}
-	if input[212] != blake2FNonFinalBlockBytes && input[212] != blake2FFinalBlockBytes {
-		return nil, errBlake2FInvalidFinalFlag
-	}
-	// Parse the input into the Blake2b call parameters
-	var (
-		rounds = binary.BigEndian.Uint32(input[0:4])
-		final  = (input[212] == blake2FFinalBlockBytes)
-
-		h [8]uint64
-		m [16]uint64
-		t [2]uint64
-	)
-	for i := 0; i < 8; i++ {
-		offset := 4 + i*8
-		h[i] = binary.LittleEndian.Uint64(input[offset : offset+8])
-	}
-	for i := 0; i < 16; i++ {
-		offset := 68 + i*8
-		m[i] = binary.LittleEndian.Uint64(input[offset : offset+8])
-	}
-	t[0] = binary.LittleEndian.Uint64(input[196:204])
-	t[1] = binary.LittleEndian.Uint64(input[204:212])
-
-	// Execute the compression function, extract and return the result
-	blake2b.F(&h, m, t, final, rounds)
-
-	output := make([]byte, 64)
-	for i := 0; i < 8; i++ {
-		offset := i * 8
-		binary.LittleEndian.PutUint64(output[offset:offset+8], h[i])
-	}
-	return output, nil
 }

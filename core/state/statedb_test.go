@@ -30,7 +30,7 @@ import (
 
 	"gopkg.in/check.v1"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 	ethdb "github.com/truechain/truechain-engineering-code/etruedb"
 )
 
