@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"math/big"
 	"os"
@@ -16,7 +16,7 @@ import (
 var Count int64
 
 //Transaction from to account id
-var from, to, frequency = 0, 0, 1
+var from, to, frequency = 0, 1, 1
 
 //Two transmission intervals
 var interval = time.Millisecond * 0
@@ -41,7 +41,7 @@ const SLEEPTX = 5
 
 // get par
 func main() {
-	if len(os.Args) < 4 {
+	if len(os.Args) < 4 { // 1000   1000000  1000 1 0
 		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [to] [\"port\"]\n", os.Args[0])
 		return
 	}
@@ -187,8 +187,10 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 			continue
 		}
 
-		waitGroup.Add(1)
-		go sendTransaction(client, account[i], i, "", "0x2100", waitGroup)
+		for i := 0; i < to; i++ {
+			waitGroup.Add(1)
+			go sendTransaction(client, account[i], i, "", "0x2100", waitGroup)
+		}
 	}
 	waitGroup.Wait()
 	fmt.Println(" Complete ", Count, " time ", Time, " count ", count)
@@ -201,11 +203,10 @@ func sendTransaction(client *rpc.Client, from string, index int, son string, val
 	var address string
 
 	if son == "" {
-		address = genAddress()
-		if to == 1 {
-			if account[to] != "" {
-				address = account[to]
-			}
+		if to%2 == 0 {
+			address = account[to]
+		} else {
+			address = genAddress()
 		}
 	} else {
 		address = son

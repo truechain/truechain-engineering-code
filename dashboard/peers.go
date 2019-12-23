@@ -23,7 +23,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/metrics"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 )
 
@@ -436,15 +436,15 @@ func (db *Dashboard) collectPeerData() {
 		case event := <-peerCh:
 			now := time.Now()
 			switch event.Type {
-			case p2p.PeerConnected:
+			case p2p.PeerHandshakeSucceeded:
 				connected := now.Add(-event.Elapsed)
 				newPeerEvents = append(newPeerEvents, &peerEvent{
-					IP:        event.IP.String(),
-					ID:        event.ID.String(),
+					IP:        event.Addr,
+					ID:        event.Peer.String(),
 					Connected: &connected,
 				})
 			case p2p.PeerDisconnected:
-				ip, id := event.IP.String(), event.ID.String()
+				ip, id := event.Addr, event.Peer.String()
 				newPeerEvents = append(newPeerEvents, &peerEvent{
 					IP:           ip,
 					ID:           id,
@@ -461,7 +461,7 @@ func (db *Dashboard) collectPeerData() {
 			case p2p.PeerHandshakeFailed:
 				connected := now.Add(-event.Elapsed)
 				newPeerEvents = append(newPeerEvents, &peerEvent{
-					IP:           event.IP.String(),
+					IP:           event.Addr,
 					Connected:    &connected,
 					Disconnected: &now,
 				})

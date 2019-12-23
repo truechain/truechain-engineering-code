@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"math/big"
 	"strings"

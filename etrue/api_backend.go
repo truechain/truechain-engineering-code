@@ -20,8 +20,8 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
@@ -308,32 +308,38 @@ func (b *TrueAPIBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 func (b *TrueAPIBackend) ChainDb() etruedb.Database {
 	return b.etrue.ChainDb()
 }
+
 // EventMux returns Event locker
 func (b *TrueAPIBackend) EventMux() *event.TypeMux {
 	return b.etrue.EventMux()
 }
+
 // AccountManager returns Account Manager
 func (b *TrueAPIBackend) AccountManager() *accounts.Manager {
 	return b.etrue.AccountManager()
 }
 
+// SnailPoolContent returns snail pool content
 func (b *TrueAPIBackend) SnailPoolContent() []*types.SnailBlock {
 	return b.etrue.SnailPool().Content()
 }
 
+// SnailPoolInspect returns snail pool Inspect
 func (b *TrueAPIBackend) SnailPoolInspect() []*types.SnailBlock {
 	return b.etrue.SnailPool().Inspect()
 }
 
+// SnailPoolStats returns snail pool Stats
 func (b *TrueAPIBackend) SnailPoolStats() (pending int, unVerified int) {
 	return b.etrue.SnailPool().Stats()
 }
 
+// BloomStatus returns Bloom Status
 func (b *TrueAPIBackend) BloomStatus() (uint64, uint64) {
 	sections, _, _ := b.etrue.bloomIndexer.Sections()
 	return params.BloomBitsBlocks, sections
 }
-
+// ServiceFilter make the Filter for the truechian
 func (b *TrueAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
 	for i := 0; i < bloomFilterThreads; i++ {
 		go session.Multiplex(bloomRetrievalBatch, bloomRetrievalWait, b.etrue.bloomRequests)

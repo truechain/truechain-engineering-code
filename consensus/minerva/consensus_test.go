@@ -18,14 +18,14 @@ package minerva
 
 import (
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
 	osMath "math"

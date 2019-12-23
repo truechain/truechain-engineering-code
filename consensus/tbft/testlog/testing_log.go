@@ -1,6 +1,6 @@
 package testlog
 
-import "github.com/ethereum/go-ethereum/log"
+import "github.com/truechain/truechain-engineering-code/log"
 
 var msg string = "P2P"
 

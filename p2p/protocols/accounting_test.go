@@ -19,7 +19,7 @@ package protocols
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/simulations/adapters"
 )

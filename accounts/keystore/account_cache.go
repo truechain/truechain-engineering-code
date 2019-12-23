@@ -29,8 +29,8 @@ import (
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/truechain/truechain-engineering-code/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // Minimum amount of time between cache reloads. This limit applies if the platform does

@@ -20,7 +20,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/light/fast"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/bitutil"
+	"github.com/truechain/truechain-engineering-code/common/bitutil"
 )
 
 const (

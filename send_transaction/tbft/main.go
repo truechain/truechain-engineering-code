@@ -42,7 +42,7 @@ var CheckAcc = false
 
 // get par
 func main() {
-	if len(os.Args) < 7 {
+	if len(os.Args) < 7 { // 1000   1000000  1000  100000  1 0
 		fmt.Printf("invalid args : %s [count] [frequency] [interval] [sleep] [from] [to]  [\"ip:port\"]\n", os.Args[0])
 		return
 	}
