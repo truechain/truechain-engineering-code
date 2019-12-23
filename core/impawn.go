@@ -62,6 +62,20 @@ func (e *EpochIDInfo) String() string {
 	return fmt.Sprintf("[id:%v,begin:%v,end:%v]", e.EpochID, e.BeginHeight, e.EndHeight)
 }
 
+func toReward(val *big.Float) *big.Int {
+	val = val.Mul(val, fbaseUnit)
+	ii, _ := val.Int64()
+	return big.NewInt(ii)
+}
+func fromBlock(block *types.SnailBlock) (begin, end uint64) {
+	begin, end = 0, 0
+	l := len(block.Fruits())
+	if l > 0 {
+		begin, end = block.Fruits()[0].NumberU64(), block.Fruits()[l-1].NumberU64()
+	}
+	return
+}
+
 /////////////////////////////////////////////////////////////////////////////////
 type PairstakingValue struct {
 	amount *big.Int
@@ -219,6 +233,45 @@ func (i *impawnImpl) getDAfromSA(sa *StakingAccount, addr common.Address) (*Dele
 	}
 	return nil, nil
 }
+func (i *impawnImpl) getElections(epochid uint64) []common.Address {
+	if accounts, ok := i.accounts[epochid]; !ok {
+		return nil
+	} else {
+		var addrs []common.Address
+		for _, v := range accounts {
+			if v.isInCommittee() {
+				addrs = append(addrs, v.unit.GetRewardAddress())
+			}
+		}
+		return addrs
+	}
+}
+func (i *impawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address) SAImpawns {
+	if len(addrs) == 0 {
+		return nil
+	}
+	if accounts, ok := i.accounts[epochid]; !ok {
+		return nil
+	} else {
+		find := func(addrs []common.Address, addr common.Address) bool {
+			for _, v := range addrs {
+				if bytes.Equal(v.Bytes(), addr.Bytes()) {
+					return true
+				}
+			}
+			return false
+		}
+		var items SAImpawns
+		for _, val := range accounts {
+			if val.isInCommittee() && find(addrs, val.unit.GetRewardAddress()) {
+				items = append(items, val)
+			}
+		}
+		return items
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////
 func (i *impawnImpl) InsertDAccount(epochID uint64, da *DelegationAccount) error {
 	if da == nil {
 		return errInvalidParam
@@ -262,43 +315,6 @@ func (i *impawnImpl) InsertSAccount(epochID uint64, sa *StakingAccount) error {
 		val = append(val, sa)
 	}
 	return nil
-}
-func (i *impawnImpl) getElections(epochid uint64) []common.Address {
-	if accounts, ok := i.accounts[epochid]; !ok {
-		return nil
-	} else {
-		var addrs []common.Address
-		for _, v := range accounts {
-			if v.isInCommittee() {
-				addrs = append(addrs, v.unit.GetRewardAddress())
-			}
-		}
-		return addrs
-	}
-}
-func (i *impawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address) SAImpawns {
-	if len(addrs) == 0 {
-		return nil
-	}
-	if accounts, ok := i.accounts[epochid]; !ok {
-		return nil
-	} else {
-		find := func(addrs []common.Address, addr common.Address) bool {
-			for _, v := range addrs {
-				if bytes.Equal(v.Bytes(), addr.Bytes()) {
-					return true
-				}
-			}
-			return false
-		}
-		var items SAImpawns
-		for _, val := range accounts {
-			if val.isInCommittee() && find(addrs, val.unit.GetRewardAddress()) {
-				items = append(items, val)
-			}
-		}
-		return items
-	}
 }
 func (i *impawnImpl) calcrewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Float, item *RewardItem) ([]*RewardItem, error) {
 	if sa == nil || allReward == nil || item == nil || allStaking == nil {
@@ -383,18 +399,10 @@ func (i *impawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SAR
 		return i.calcReward(end, allAmount, ids[0])
 	}
 }
-func toReward(val *big.Float) *big.Int {
-	val = val.Mul(val, fbaseUnit)
-	ii, _ := val.Int64()
-	return big.NewInt(ii)
-}
-func fromBlock(block *types.SnailBlock) (begin, end uint64) {
-	begin, end = 0, 0
-	l := len(block.Fruits())
-	if l > 0 {
-		begin, end = block.Fruits()[0].NumberU64(), block.Fruits()[l-1].NumberU64()
-	}
-	return
+
+/////////////////////////////////////////////////////////////////////////////////
+func (i *impawnImpl) DoElections(epochid, begin, end uint64) {
+
 }
 
 /////////////////////////////////////////////////////////////////////////////////
