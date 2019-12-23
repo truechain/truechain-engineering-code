@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"math/big"
 	"sort"
 	"sync"
@@ -410,10 +411,12 @@ func (i *impawnImpl) DoElections(epochid, begin, end uint64) {
 func (i *impawnImpl) GetRoot() common.Hash {
 	return common.Hash{}
 }
-func (i *impawnImpl) Save() error {
+func (i *impawnImpl) Save(state vm.StateDB, preAddress common.Address, key common.Hash, value []byte) error {
+	state.SetPOSState(preAddress, key, value)
 	return nil
 }
-func (i *impawnImpl) Load() error {
+func (i *impawnImpl) Load(state vm.StateDB, preAddress common.Address, key common.Hash) error {
+	state.GetPOSState(preAddress, key)
 	return nil
 }
 func (i *impawnImpl) commit() error {

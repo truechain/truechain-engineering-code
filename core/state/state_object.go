@@ -54,6 +54,25 @@ func (self Storage) Copy() Storage {
 	return cpy
 }
 
+type POSStorage map[common.Hash][]byte
+
+func (self POSStorage) String() (str string) {
+	for key, value := range self {
+		str += fmt.Sprintf("%X : %X\n", key, value)
+	}
+
+	return
+}
+
+func (self POSStorage) Copy() POSStorage {
+	cpy := make(POSStorage)
+	for key, value := range self {
+		cpy[key] = value
+	}
+
+	return cpy
+}
+
 // stateObject represents an Ethereum account which is being modified.
 //
 // The usage pattern is as follows:
@@ -79,6 +98,9 @@ type stateObject struct {
 
 	originStorage Storage // Storage cache of original entries to dedup rewrites
 	dirtyStorage  Storage // Storage entries that need to be flushed to disk
+
+	cachedPOSStorage POSStorage
+	dirtyPOSStorage  POSStorage
 
 	// Cache flags.
 	// When an object is marked suicided it will be delete from the trie
@@ -111,12 +133,14 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 		data.CodeHash = emptyCodeHash
 	}
 	return &stateObject{
-		db:            db,
-		address:       address,
-		addrHash:      crypto.Keccak256Hash(address[:]),
-		data:          data,
-		originStorage: make(Storage),
-		dirtyStorage:  make(Storage),
+		db:               db,
+		address:          address,
+		addrHash:         crypto.Keccak256Hash(address[:]),
+		data:             data,
+		originStorage:    make(Storage),
+		dirtyStorage:     make(Storage),
+		cachedPOSStorage: make(POSStorage),
+		dirtyPOSStorage:  make(POSStorage),
 	}
 }
 
@@ -194,6 +218,19 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 	return value
 }
 
+func (self *stateObject) GetPOSState(db Database, key common.Hash) []byte {
+	value, exists := self.cachedPOSStorage[key]
+	if exists {
+		return value
+	}
+	// Load from DB in case it is missing.
+	value, err := self.getTrie(db).TryGet(key[:])
+	if err == nil && len(value) != 0 {
+		self.cachedPOSStorage[key] = value
+	}
+	return value
+}
+
 // SetState updates a value in account storage.
 func (self *stateObject) SetState(db Database, key, value common.Hash) {
 	// If the new value is the same as old, don't set
@@ -212,6 +249,21 @@ func (self *stateObject) SetState(db Database, key, value common.Hash) {
 
 func (self *stateObject) setState(key, value common.Hash) {
 	self.dirtyStorage[key] = value
+}
+
+func (self *stateObject) SetPOSState(db Database, key common.Hash, value []byte) {
+	self.db.journal.append(posStorage{
+		account:  &self.address,
+		key:      key,
+		prevalue: self.GetPOSState(db, key),
+	})
+	self.setStateByteArray(key, value)
+
+}
+
+func (self *stateObject) setStateByteArray(key common.Hash, value []byte) {
+	self.cachedPOSStorage[key] = value
+	self.dirtyPOSStorage[key] = value
 }
 
 // updateTrie writes cached storage modifications into the object's storage trie.
@@ -233,6 +285,14 @@ func (self *stateObject) updateTrie(db Database) Trie {
 		// Encoding []byte cannot fail, ok to ignore the error.
 		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
 		self.setError(tr.TryUpdate(key[:], v))
+	}
+	for key, value := range self.dirtyPOSStorage {
+		delete(self.dirtyPOSStorage, key)
+		if len(value) == 0 {
+			self.setError(tr.TryDelete(key[:]))
+			continue
+		}
+		self.setError(tr.TryUpdate(key[:], value))
 	}
 	return tr
 }
@@ -304,6 +364,8 @@ func (self *stateObject) deepCopy(db *StateDB) *stateObject {
 	stateObject.code = self.code
 	stateObject.dirtyStorage = self.dirtyStorage.Copy()
 	stateObject.originStorage = self.originStorage.Copy()
+	stateObject.dirtyPOSStorage = self.dirtyPOSStorage.Copy()
+	stateObject.cachedPOSStorage = self.cachedPOSStorage.Copy()
 	stateObject.suicided = self.suicided
 	stateObject.dirtyCode = self.dirtyCode
 	stateObject.deleted = self.deleted
