@@ -111,7 +111,7 @@ type (
 		account       *common.Address
 		key, prevalue common.Hash
 	}
-	posStorage struct {
+	posStorageChange struct {
 		account  *common.Address
 		key      common.Hash
 		prevalue []byte
@@ -208,11 +208,11 @@ func (ch storageChange) dirtied() *common.Address {
 	return ch.account
 }
 
-func (ch posStorage) revert(s *StateDB) {
+func (ch posStorageChange) revert(s *StateDB) {
 	s.getStateObject(*ch.account).setStateByteArray(ch.key, ch.prevalue)
 }
 
-func (ch posStorage) dirtied() *common.Address {
+func (ch posStorageChange) dirtied() *common.Address {
 	return ch.account
 }
 

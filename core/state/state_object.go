@@ -252,7 +252,7 @@ func (self *stateObject) setState(key, value common.Hash) {
 }
 
 func (self *stateObject) SetPOSState(db Database, key common.Hash, value []byte) {
-	self.db.journal.append(posStorage{
+	self.db.journal.append(posStorageChange{
 		account:  &self.address,
 		key:      key,
 		prevalue: self.GetPOSState(db, key),
