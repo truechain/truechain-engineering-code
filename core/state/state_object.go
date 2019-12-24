@@ -251,6 +251,21 @@ func (self *stateObject) setState(key, value common.Hash) {
 	self.dirtyStorage[key] = value
 }
 
+func (self *stateObject) SetPOSState(db Database, key common.Hash, value []byte) {
+	self.db.journal.append(posStorageChange{
+		account:  &self.address,
+		key:      key,
+		prevalue: self.GetPOSState(db, key),
+	})
+	self.setStateByteArray(key, value)
+
+}
+
+func (self *stateObject) setStateByteArray(key common.Hash, value []byte) {
+	self.cachedPOSStorage[key] = value
+	self.dirtyPOSStorage[key] = value
+}
+
 // updateTrie writes cached storage modifications into the object's storage trie.
 func (self *stateObject) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
