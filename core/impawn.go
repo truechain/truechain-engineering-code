@@ -172,6 +172,25 @@ func (s *impawnUnit) isRedeemed() bool {
 	}
 	return false
 }
+func (s *impawnUnit) merge(hh uint64) {
+	all := big.NewInt(0)
+	redeem := false
+	state := uint8(0)
+	for _, v := range s.value {
+		all = all.Add(all, v.amount)
+		redeem = (v.state&StateStakingAuto != 0)
+	}
+	if redeem && all.Cmp(s.redeemInof.Amount) > 0 {
+		state |= StateStakingAuto
+	}
+	var val []*PairstakingValue
+	val = append(val, &PairstakingValue{
+		amount: all,
+		height: new(big.Int).SetUint64(hh),
+		state:  state,
+	})
+	s.value = val
+}
 func (s *impawnUnit) sort() {
 	sort.Sort(valuesByHeight(s.value))
 }
@@ -228,6 +247,9 @@ func (s *StakingAccount) getAllStaking(hh uint64) *big.Int {
 	}
 	return all
 }
+func (s *StakingAccount) merge(hh uint64) {
+
+}
 
 type SAImpawns []*StakingAccount
 
@@ -247,6 +269,23 @@ func (s *SAImpawns) sort(hh uint64) {
 	tmp := toStakingByHeight(hh, *s)
 	sort.Sort(tmp)
 	*s, _ = fromStakingByHeight(tmp)
+}
+func (s *SAImpawns) getSA(addr common.Address) *StakingAccount {
+	for _, val := range *s {
+		if bytes.Equal(val.unit.address.Bytes(), addr.Bytes()) {
+			return val
+		}
+	}
+	return nil
+}
+func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64) {
+	sa := s.getSA(sa1.unit.address)
+	if sa == nil {
+		*s = append(*s, sa1)
+		s.sort(hh)
+	} else {
+		sa.update(sa1)
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -388,8 +427,36 @@ func (i *impawnImpl) redeemByDa(da *DelegationAccount, height, epochEnd uint64) 
 		fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
 	}
 }
+
+/////////////////////////////////////////////////////////////////////////////////
 func (i *impawnImpl) shuffle() {
 
+	// for _, epoch := range i.epochInfo {
+	// 	if val, ok := i.accounts[epoch.EpochID]; ok {
+	// 		for _, v := range val {
+	// 			if epoch.EpochID < curEpoch.EpochID {
+	// 				for _, vv := range v.delegation {
+	// 					i.redeemByDa(vv, curHeight, epoch.EndHeight)
+	// 				}
+	// 				i.redeemBySa(v, curHeight, epoch.EndHeight)
+	// 			} else {
+	// 				if !v.isInCommittee() {
+	// 					i.redeemBySa(v, curHeight, epoch.EndHeight)
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
+}
+func (i *impawnImpl) move(prev, next uint64, nextEpoch *EpochIDInfo) error {
+	prevInfos, _ := i.accounts[prev]
+	nextInfos, _ := i.accounts[next]
+
+	for _, v := range prevInfos {
+		v.merge(nextEpoch.BeginHeight)
+		nextInfos.update(v, nextEpoch.BeginHeight)
+	}
+	return nil
 }
 
 /////////////////////////////////////////////////////////////////////////////////
