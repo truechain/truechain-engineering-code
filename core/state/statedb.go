@@ -25,10 +25,10 @@ import (
 	"sync"
 
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
 
@@ -264,6 +264,14 @@ func (self *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash
 	return common.Hash{}
 }
 
+func (self *StateDB) GetPOSState(a common.Address, b common.Hash) []byte {
+	stateObject := self.getStateObject(a)
+	if stateObject != nil {
+		return stateObject.GetPOSState(self.db, b)
+	}
+	return nil
+}
+
 // GetProof returns the MerkleProof for a given Account
 func (self *StateDB) GetProof(a common.Address) ([][]byte, error) {
 	var proof proofList
@@ -365,6 +373,13 @@ func (self *StateDB) SetCode(addr common.Address, code []byte) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetCode(crypto.Keccak256Hash(code), code)
+	}
+}
+
+func (self *StateDB) SetPOSState(addr common.Address, key common.Hash, value []byte) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetPOSState(self.db, key, value)
 	}
 }
 
@@ -486,6 +501,28 @@ func (self *StateDB) CreateAccount(addr common.Address) {
 	newObj, prev := self.createObject(addr)
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
+	}
+}
+
+// ForEachPOSStorage is callback function. cb return true indicating like to continue, return false indicating stop
+func (self *StateDB) ForEachPOSStorage(addr common.Address, cb func(key common.Hash, value []byte) bool) {
+	stateObject := self.getStateObject(addr)
+	if stateObject == nil {
+		return
+	}
+	it := trie.NewIterator(stateObject.getTrie(self.db).NodeIterator(nil))
+	for it.Next() {
+		// ignore cached values
+		key := common.BytesToHash(self.trie.GetKey(it.Key))
+		if value, dirty := stateObject.cachedPOSStorage[key]; dirty {
+			if !cb(key, value) {
+				return
+			}
+			continue
+		}
+		if !cb(key, it.Value) {
+			return
+		}
 	}
 }
 
