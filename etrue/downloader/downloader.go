@@ -27,14 +27,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	//"github.com/truechain/truechain-engineering-code/trie"
 )
@@ -99,25 +99,25 @@ var (
 )
 
 type Downloader struct {
-	mode SyncMode // Synchronisation mode defining the strategy used (per sync cycle)
+	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	checkpoint uint64         // Checkpoint block number to enforce head against (e.g. fast sync
 	genesis    uint64         // Genesis block number to limit sync to (e.g. light client CHT)
 	queue      *queue         // Scheduler for selecting the hashes to download
 	peers      *etrue.PeerSet // Set of active peers from which download can proceed
-	
-	stateDB    etruedb.Database
+
+	stateDB etruedb.Database
 	//stateBloom *trie.SyncBloom // Bloom filter for fast trie node existence checks
-	
+
 	rttEstimate   uint64 // Round trip time to target for download requests
 	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)
 
 	// Statistics
-	syncStatsChainOrigin uint64 // Origin block number where syncing started at
-	syncStatsChainHeight uint64 // Highest block number known when syncing started
-	syncStatsLock  sync.RWMutex // Lock protecting the sync stats fields
-	syncStatsState stateSyncStats
+	syncStatsChainOrigin uint64       // Origin block number where syncing started at
+	syncStatsChainHeight uint64       // Highest block number known when syncing started
+	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
+	syncStatsState       stateSyncStats
 
 	lightchain LightChain
 	blockchain BlockChain
@@ -1420,12 +1420,8 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 	}
 
 	for {
-		block := false
-		if d.mode == FullSync || d.mode == LightSync {
-			block = true
-		}
-		results := d.queue.Results(block)
-		if block && len(results) == 0 {
+		results := d.queue.Results(true)
+		if len(results) == 0 {
 			return nil
 		}
 
