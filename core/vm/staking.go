@@ -81,7 +81,20 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	pre := evm.StateDB.GetPOSState(StakingAddress, common.BytesToHash(from[:]))
 	balance := new(big.Int).SetBytes(pre)
 
+	if balance.Cmp(common.Big0) <= 0 {
+		log.Warn("Staking withdraw zero value", "address", contract.caller.Address())
+		return nil, nil
+	}
 	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", balance)
+
+	_, left, err := evm.Call(contract.self, from, nil, evm.callGasTemp, balance, nil)
+	if err != nil {
+		log.Info("Staking withdraw transfer failed", "err", err)
+		return nil, nil
+	}
+	log.Info("Staking withdraw", "gas", left)
+	evm.StateDB.SetPOSState(StakingAddress, common.BytesToHash(from[:]), nil)
+
 	return nil, nil
 }
 
