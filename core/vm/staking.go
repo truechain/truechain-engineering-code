@@ -17,6 +17,7 @@ package vm
 
 import (
 	"strings"
+	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -40,38 +41,55 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	}
 
 	method, err := abiStaking.MethodById(input)
+
 	if err != nil {
 		log.Error("No method found")
 		return nil, nil
 	}
 
 	if method.Name == "get_deposit" {
-		 log.Info("Call staking get_deposit")
-		 return getDeposit(evm, input[4:])
+		log.Info("Call staking get_deposit")
+		return getDeposit(evm, contract, input[4:])
+	} else if method.Name == "deposit" {
+		return deposit(evm, contract, input[4:])
+	} else if method.Name == "withdraw" {
+		return withdraw(evm, contract, input[4:])
+	} else {
+		log.Warn("Staking call fallback function")
 	}
 	return ret, nil
 }
 
 // deposit MethodId  0xd0e30db0
-func deposit(evm *EVM, input []byte) (ret []byte, err error) {
+func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	from := contract.caller.Address()
+
+	pre := evm.StateDB.GetPOSState(StakingAddress, common.BytesToHash(from[:]))
+	balance := new(big.Int).SetBytes(pre)
+	balance.Add(balance, contract.value)
+
+	evm.StateDB.SetPOSState(StakingAddress, common.BytesToHash(from[:]), balance.Bytes())
+	log.Info("Staking deposit", "address", contract.caller.Address(), "value", contract.value)
+
 	return nil, nil
 }
 
 // withdraw MethodId "0x3ccfd60b"
-func withdraw(evm *EVM, input []byte) (ret []byte, err error) {
+func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	from := contract.caller.Address()
+
+	pre := evm.StateDB.GetPOSState(StakingAddress, common.BytesToHash(from[:]))
+	balance := new(big.Int).SetBytes(pre)
+
+	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", balance)
 	return nil, nil
 }
 
 // getDeposit MethodId 0xf4607feb
-func getDeposit(evm *EVM, input []byte) (ret []byte, err error) {
+func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	abiStaking, _ := abi.JSON(strings.NewReader(abiJSON))
 
-	method, ok := abiStaking.Methods["get_deposit"];
-	if !ok {
-		log.Info("Call get_deposit abi error")
-		return nil, nil
-	}
-
+	method, _ := abiStaking.Methods["get_deposit"];
 	if len(input)%32 != 0 {
 		log.Error("Call get_deposit input error")
 		return nil, nil
@@ -85,8 +103,10 @@ func getDeposit(evm *EVM, input []byte) (ret []byte, err error) {
 		return nil, err
 	}
 
-	balance := evm.StateDB.GetBalance(depositAddr)
+	pre := evm.StateDB.GetPOSState(StakingAddress, common.BytesToHash(depositAddr[:]))
+	balance := new(big.Int).SetBytes(pre)
 	log.Info("Get staking get_deposit", "address", depositAddr, "balance", balance)
+
 	ret, err = method.Outputs.Pack(balance)
 	return ret, err
 }
