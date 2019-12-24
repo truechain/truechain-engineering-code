@@ -22,9 +22,9 @@ import (
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -293,6 +293,11 @@ func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.SnailB
 func WriteBlock(db DatabaseWriter, block *types.SnailBlock) {
 	WriteBody(db, block.Hash(), block.NumberU64(), block.Body())
 	WriteHeader(db, block.Header())
+	fruitsHead := block.Body().FruitsHeaders()
+	if len(fruitsHead) > 0 {
+		WriteFruitsHead(db, block.Hash(), block.NumberU64(), fruitsHead)
+		WriteFtHeadLookupEntries(db, block.Header(), fruitsHead)
+	}
 }
 
 // DeleteBlock removes all block data associated with a hash.
