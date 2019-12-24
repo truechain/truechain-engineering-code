@@ -36,6 +36,7 @@ var (
 
 const (
 	StateStakingAuto uint8 = 1 << iota
+	StateRedeem
 	StateRedeeming
 	StateRedeemed
 )
@@ -90,7 +91,11 @@ type RewardItem struct {
 	Amount *big.Int
 	Height *big.Int
 }
-type RedeemItem RewardItem
+type RedeemItem struct {
+	Amount *big.Int
+	Height *big.Int
+	State  uint8
+}
 
 type impawnUnit struct {
 	address    common.Address
@@ -118,6 +123,7 @@ func (s *impawnUnit) insertRedeemInfo(amount, lastHeight *big.Int) {
 		s.redeemInof = &RedeemItem{
 			Amount: new(big.Int).Set(amount),
 			Height: new(big.Int).Set(lastHeight),
+			State:  StateRedeem,
 		}
 	} else {
 		s.redeemInof.Amount = new(big.Int).Add(s.redeemInof.Amount, amount)
@@ -158,6 +164,13 @@ func (s *impawnUnit) clearRedeemed(all *big.Int) {
 		panic("redeem all amount exception")
 	}
 	s.redeemInof.Amount = new(big.Int).Sub(s.redeemInof.Amount, all)
+	s.redeemInof.State |= StateRedeemed
+}
+func (s *impawnUnit) isRedeemed() bool {
+	if s.redeemInof != nil {
+		return s.redeemInof.State&StateRedeem != 0
+	}
+	return false
 }
 func (s *impawnUnit) sort() {
 	sort.Sort(valuesByHeight(s.value))
@@ -374,6 +387,9 @@ func (i *impawnImpl) redeemByDa(da *DelegationAccount, height, epochEnd uint64) 
 		}
 		fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
 	}
+}
+func (i *impawnImpl) shuffle() {
+
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -611,7 +627,7 @@ func (i *impawnImpl) DoRedeem(curHeight uint64) error {
 			}
 		}
 	}
-
+	i.shuffle()
 	return nil
 }
 func (i *impawnImpl) Shift(epochid uint64) error {
