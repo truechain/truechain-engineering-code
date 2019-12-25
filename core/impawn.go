@@ -335,7 +335,7 @@ func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64) {
 /////////////////////////////////////////////////////////////////////////////////
 
 // be thread-safe for caller locked
-type impawnImpl struct {
+type ImpawnImpl struct {
 	lock      sync.RWMutex
 	epochInfo []*EpochIDInfo // sort by epoch id
 	accounts  map[uint64]SAImpawns
@@ -343,14 +343,14 @@ type impawnImpl struct {
 
 /////////////////////////////////////////////////////////////////////////////////
 ///////////  auxiliary function ////////////////////////////////////////////
-func (i *impawnImpl) getCurrentEpoch() uint64 {
+func (i *ImpawnImpl) getCurrentEpoch() uint64 {
 	pos := len(i.epochInfo)
 	if pos > 0 {
 		return i.epochInfo[pos].EpochID
 	}
 	return 0
 }
-func (i *impawnImpl) getEpochInfo(epochid uint64) (*EpochIDInfo, error) {
+func (i *ImpawnImpl) getEpochInfo(epochid uint64) (*EpochIDInfo, error) {
 	for _, v := range i.epochInfo {
 		if v.EpochID == epochid {
 			return v, nil
@@ -358,7 +358,7 @@ func (i *impawnImpl) getEpochInfo(epochid uint64) (*EpochIDInfo, error) {
 	}
 	return nil, errOverEpochID
 }
-func (i *impawnImpl) getEpochFromHeight(hh uint64) *EpochIDInfo {
+func (i *ImpawnImpl) getEpochFromHeight(hh uint64) *EpochIDInfo {
 	for _, v := range i.epochInfo {
 		if v.BeginHeight <= hh && hh <= v.EndHeight {
 			return v
@@ -366,7 +366,7 @@ func (i *impawnImpl) getEpochFromHeight(hh uint64) *EpochIDInfo {
 	}
 	return nil
 }
-func (i *impawnImpl) getEpochIDFromHeight(b, e uint64) []*EpochIDInfo {
+func (i *ImpawnImpl) getEpochIDFromHeight(b, e uint64) []*EpochIDInfo {
 	var ids []*EpochIDInfo
 	if e == 0 || b > e {
 		return ids
@@ -383,7 +383,7 @@ func (i *impawnImpl) getEpochIDFromHeight(b, e uint64) []*EpochIDInfo {
 	}
 	return ids
 }
-func (i *impawnImpl) getStakingAccount(epochid uint64, addr common.Address) (*StakingAccount, error) {
+func (i *ImpawnImpl) getStakingAccount(epochid uint64, addr common.Address) (*StakingAccount, error) {
 	if v, ok := i.accounts[epochid]; !ok {
 		return nil, errInvalidStaking
 	} else {
@@ -395,7 +395,7 @@ func (i *impawnImpl) getStakingAccount(epochid uint64, addr common.Address) (*St
 	}
 	return nil, errInvalidStaking
 }
-func (i *impawnImpl) getDAfromSA(sa *StakingAccount, addr common.Address) (*DelegationAccount, error) {
+func (i *ImpawnImpl) getDAfromSA(sa *StakingAccount, addr common.Address) (*DelegationAccount, error) {
 	for _, ii := range sa.delegation {
 		if bytes.Equal(ii.unit.address.Bytes(), addr.Bytes()) {
 			return ii, nil
@@ -403,7 +403,7 @@ func (i *impawnImpl) getDAfromSA(sa *StakingAccount, addr common.Address) (*Dele
 	}
 	return nil, nil
 }
-func (i *impawnImpl) getElections(epochid uint64) []common.Address {
+func (i *ImpawnImpl) getElections(epochid uint64) []common.Address {
 	if accounts, ok := i.accounts[epochid]; !ok {
 		return nil
 	} else {
@@ -416,7 +416,7 @@ func (i *impawnImpl) getElections(epochid uint64) []common.Address {
 		return addrs
 	}
 }
-func (i *impawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address) SAImpawns {
+func (i *ImpawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address) SAImpawns {
 	if len(addrs) == 0 {
 		return nil
 	}
@@ -440,7 +440,7 @@ func (i *impawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address
 		return items
 	}
 }
-func (i *impawnImpl) redeemBySa(sa *StakingAccount, height, epochEnd uint64) {
+func (i *ImpawnImpl) redeemBySa(sa *StakingAccount, height, epochEnd uint64) {
 	// can be redeem in the SA
 	if height > epochEnd+uint64(MaxRedeemHeight) {
 		addr, all := sa.redeeming()
@@ -451,7 +451,7 @@ func (i *impawnImpl) redeemBySa(sa *StakingAccount, height, epochEnd uint64) {
 		fmt.Println("SA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
 	}
 }
-func (i *impawnImpl) redeemByDa2(sa *StakingAccount, addr common.Address, height, epochEnd uint64) {
+func (i *ImpawnImpl) redeemByDa2(sa *StakingAccount, addr common.Address, height, epochEnd uint64) {
 	// can be redeem in the DA
 	da, err := i.getDAfromSA(sa, addr)
 	if err == nil && height > epochEnd+uint64(MaxRedeemHeight) {
@@ -463,7 +463,7 @@ func (i *impawnImpl) redeemByDa2(sa *StakingAccount, addr common.Address, height
 		fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
 	}
 }
-func (i *impawnImpl) redeemByDa(da *DelegationAccount, height, epochEnd uint64) {
+func (i *ImpawnImpl) redeemByDa(da *DelegationAccount, height, epochEnd uint64) {
 	// can be redeem in the DA
 	if height > epochEnd+uint64(MaxRedeemHeight) {
 		addr, all := da.redeeming()
@@ -474,7 +474,7 @@ func (i *impawnImpl) redeemByDa(da *DelegationAccount, height, epochEnd uint64) 
 		fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
 	}
 }
-func (i *impawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Float, item *RewardInfo) ([]*RewardInfo, error) {
+func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Float, item *RewardInfo) ([]*RewardInfo, error) {
 	if sa == nil || allReward == nil || item == nil || allStaking == nil {
 		return nil, errInvalidParam
 	}
@@ -494,7 +494,7 @@ func (i *impawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 	item.Amount = toReward(f2)
 	return items, nil
 }
-func (i *impawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochIDInfo) ([]*SARewardInfos, error) {
+func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochIDInfo) ([]*SARewardInfos, error) {
 	if _, ok := i.accounts[einfo.EpochID]; !ok {
 		return nil, errInvalidParam
 	} else {
@@ -537,7 +537,7 @@ func (i *impawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochI
 /////////////////////////////////////////////////////////////////////////////////
 // 1. keep the minimum epoch count
 // 2. release the item of redeemed
-func (i *impawnImpl) shuffle() {
+func (i *ImpawnImpl) shuffle() {
 	min, max := i.epochInfo[0].EpochID, i.epochInfo[len(i.epochInfo)-1].EpochID
 	if max-min < uint64(mixEpochCount) {
 		return
@@ -548,7 +548,7 @@ func (i *impawnImpl) shuffle() {
 		}
 	}
 }
-func (i *impawnImpl) move(prev, next uint64) error {
+func (i *ImpawnImpl) move(prev, next uint64) error {
 	nextEpoch, err := i.getEpochInfo(next)
 	if err != nil {
 		return err
@@ -567,14 +567,14 @@ func (i *impawnImpl) move(prev, next uint64) error {
 	}
 	return nil
 }
-func (i *impawnImpl) redeemPrincipal(addr common.Address, amount *big.Int) error {
+func (i *ImpawnImpl) redeemPrincipal(addr common.Address, amount *big.Int) error {
 	return nil
 }
 
 /////////////////////////////////////////////////////////////////////////////////
 ////////////// external function //////////////////////////////////////////
 // Keep the epoch info is sequential
-func (i *impawnImpl) SetEpochID(info *EpochIDInfo) error {
+func (i *ImpawnImpl) SetEpochID(info *EpochIDInfo) error {
 	if info == nil {
 		return errInvalidParam
 	}
@@ -596,7 +596,9 @@ func (i *impawnImpl) SetEpochID(info *EpochIDInfo) error {
 	i.epochInfo = append(i.epochInfo, info)
 	return nil
 }
-func (i *impawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount, error) {
+
+// DoElections called by consensus
+func (i *ImpawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount, error) {
 	if err := i.SetEpochID(&EpochIDInfo{
 		EpochID:     epochid,
 		BeginHeight: begin,
@@ -620,11 +622,11 @@ func (i *impawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount,
 		return nil, err
 	}
 }
-func (i *impawnImpl) Shift(epochid uint64) error {
+func (i *ImpawnImpl) Shift(epochid uint64) error {
 	return nil
 }
 
-func (i *impawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amount *big.Int) error {
+func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amount *big.Int) error {
 	curEpoch := i.getEpochFromHeight(curHeight)
 	if curEpoch == nil {
 		return errInvalidParam
@@ -637,7 +639,7 @@ func (i *impawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amoun
 	fmt.Println("[SA]insert a redeem,address:[", addr.String(), "],amount:[", amount.String(), "],height:", curHeight)
 	return nil
 }
-func (i *impawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Address, amount *big.Int) error {
+func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Address, amount *big.Int) error {
 	curEpoch := i.getEpochFromHeight(curHeight)
 	if curEpoch == nil {
 		return errInvalidParam
@@ -654,7 +656,7 @@ func (i *impawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	fmt.Println("[DA]insert a redeem,address:[", addrSA.String(), "],DA address:[", addrDA.String(), "],amount:[", amount.String(), "],height:", curHeight)
 	return nil
 }
-func (i *impawnImpl) InsertDAccount(epochID uint64, da *DelegationAccount) error {
+func (i *ImpawnImpl) InsertDAccount(epochID uint64, da *DelegationAccount) error {
 	if da == nil {
 		return errInvalidParam
 	}
@@ -676,7 +678,7 @@ func (i *impawnImpl) InsertDAccount(epochID uint64, da *DelegationAccount) error
 	}
 	return nil
 }
-func (i *impawnImpl) InsertSAccount(epochID uint64, sa *StakingAccount) error {
+func (i *ImpawnImpl) InsertSAccount(epochID uint64, sa *StakingAccount) error {
 	if sa == nil {
 		return errInvalidParam
 	}
@@ -704,7 +706,7 @@ func (i *impawnImpl) InsertSAccount(epochID uint64, sa *StakingAccount) error {
 // 2. set auto=false when the redeem amount is equal or greater than staking amount in the account
 // 3. judge the block height
 // 4. all redeem for the staking in last epoch will be done
-func (i *impawnImpl) DoRedeem(curHeight uint64) error {
+func (i *ImpawnImpl) DoRedeem(curHeight uint64) error {
 	curEpoch := i.getEpochFromHeight(curHeight)
 	if curEpoch == nil {
 		return errInvalidParam
@@ -730,7 +732,7 @@ func (i *impawnImpl) DoRedeem(curHeight uint64) error {
 	return nil
 }
 
-func (i *impawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SARewardInfos, error) {
+func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SARewardInfos, error) {
 	begin, end := fromBlock(block)
 	ids := i.getEpochIDFromHeight(begin, end)
 	if len(ids) == 0 || len(ids) > 2 {
@@ -759,18 +761,18 @@ func (i *impawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SAR
 
 /////////////////////////////////////////////////////////////////////////////////
 // storage layer
-func (i *impawnImpl) GetRoot() common.Hash {
+func (i *ImpawnImpl) GetRoot() common.Hash {
 	return common.Hash{}
 }
-func (i *impawnImpl) Save(state vm.StateDB, preAddress common.Address, key common.Hash, value []byte) error {
+func (i *ImpawnImpl) Save(state vm.StateDB, preAddress common.Address, key common.Hash, value []byte) error {
 	state.SetPOSState(preAddress, key, value)
 	return nil
 }
-func (i *impawnImpl) Load(state vm.StateDB, preAddress common.Address, key common.Hash) error {
+func (i *ImpawnImpl) Load(state vm.StateDB, preAddress common.Address, key common.Hash) error {
 	state.GetPOSState(preAddress, key)
 	return nil
 }
-func (i *impawnImpl) commit() error {
+func (i *ImpawnImpl) commit() error {
 	return nil
 }
 
