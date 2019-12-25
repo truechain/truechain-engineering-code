@@ -26,41 +26,44 @@ import (
 )
 
 // StakingAddress is defined as Address('truestaking')
-// 0x000000000000000000747275657374616b696E67
+// i.e. contractAddress = 0x000000000000000000747275657374616b696E67
 var StakingAddress = common.BytesToAddress([]byte("truestaking"))
+
+// Staking contract ABI
+var abiStaking abi.ABI
 
 type StakeContract struct{}
 
-// RunStaking execute truechain staking contract
-func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
-
-	abiStaking, err := abi.JSON(strings.NewReader(abiJSON))
-	if err != nil {
-		log.Error("Gen staking abi exception")
-		return nil, nil
-	}
-
-	method, err := abiStaking.MethodById(input)
-
-	if err != nil {
-		log.Error("No method found")
-		return nil, nil
-	}
-
-	if method.Name == "get_deposit" {
-		log.Info("Call staking get_deposit")
-		return getDeposit(evm, contract, input[4:])
-	} else if method.Name == "deposit" {
-		return deposit(evm, contract, input[4:])
-	} else if method.Name == "withdraw" {
-		return withdraw(evm, contract, input[4:])
-	} else {
-		log.Warn("Staking call fallback function")
-	}
-	return ret, nil
+func init() {
+    abiStaking, _ = abi.JSON(strings.NewReader(abiJSON))
 }
 
-// deposit MethodId  0xd0e30db0
+// RunStaking execute truechain staking contract
+func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	method, err := abiStaking.MethodById(input)
+	if err != nil {
+		log.Error("No method found")
+		return nil, ErrStakingInvalidInput
+	}
+
+	data := input[4:]
+
+	switch method.Name {
+	case "getDeposit":
+		ret, err = getDeposit(evm, contract, data)
+	case "deposit":
+		ret, err = deposit(evm, contract, data)
+	case "withdraw":
+		ret, err = withdraw(evm, contract, data)
+	default:
+		log.Warn("Staking call fallback function")
+		err = ErrStakingInvalidInput
+	}
+
+	return ret, err
+}
+
+// deposit
 func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	from := contract.caller.Address()
 
@@ -74,7 +77,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	return nil, nil
 }
 
-// withdraw MethodId "0x3ccfd60b"
+// withdraw
 func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	from := contract.caller.Address()
 
@@ -83,7 +86,7 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 
 	if balance.Cmp(common.Big0) <= 0 {
 		log.Warn("Staking withdraw zero value", "address", contract.caller.Address())
-		return nil, nil
+		return nil, ErrStakingInvalidInput
 	}
 	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", balance)
 
@@ -98,22 +101,21 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	return nil, nil
 }
 
-// getDeposit MethodId 0xf4607feb
+// getDeposit
 func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
-	abiStaking, _ := abi.JSON(strings.NewReader(abiJSON))
-
-	method, _ := abiStaking.Methods["get_deposit"];
 	if len(input)%32 != 0 {
 		log.Error("Call get_deposit input error")
-		return nil, nil
+		return nil, ErrStakingInvalidInput
 	}
 
-	// depositAddr := struct {Validator common.Address}{}
 	var depositAddr common.Address
+	method, _ := abiStaking.Methods["getDeposit"];
+
+	// depositAddr := struct {Validator common.Address}{}
 	err = method.Inputs.Unpack(&depositAddr, input)
 	if err != nil {
 		log.Error("Unpack get_deposit input error")
-		return nil, err
+		return nil, ErrStakingInvalidInput
 	}
 
 	pre := evm.StateDB.GetPOSState(StakingAddress, common.BytesToHash(depositAddr[:]))
@@ -125,16 +127,19 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 }
 
 // Staking Contract json abi
-const abiJSON = `[
+const abiJSON = `
+[
   {
+    "name": "deposit",
     "outputs": [],
     "inputs": [],
     "constant": false,
-    "payable": false,
-    "type": "constructor"
+    "payable": true,
+    "type": "function",
+    "gas": 216
   },
   {
-    "name": "get_deposit",
+    "name": "getDeposit",
     "outputs": [
       {
         "type": "uint256",
@@ -145,13 +150,13 @@ const abiJSON = `[
     "inputs": [
       {
         "type": "address",
-        "name": "validator"
+        "name": "owner"
       }
     ],
     "constant": true,
     "payable": false,
     "type": "function",
-    "gas": 855
+    "gas": 420
   },
   {
     "name": "withdraw",
@@ -160,108 +165,7 @@ const abiJSON = `[
     "constant": false,
     "payable": false,
     "type": "function",
-    "gas": 75939
-  },
-  {
-    "name": "deposit",
-    "outputs": [],
-    "inputs": [],
-    "constant": false,
-    "payable": true,
-    "type": "function",
-    "gas": 106877
-  },
-  {
-    "name": "MIN_DEPOSIT_AMOUNT",
-    "outputs": [
-      {
-        "type": "uint256",
-        "unit": "wei",
-        "name": "out"
-      }
-    ],
-    "inputs": [],
-    "constant": true,
-    "payable": false,
-    "type": "function",
-    "gas": 821
-  },
-  {
-    "name": "deposits",
-    "outputs": [
-      {
-        "type": "uint256",
-        "unit": "wei",
-        "name": "out"
-      }
-    ],
-    "inputs": [
-      {
-        "type": "address",
-        "name": "arg0"
-      }
-    ],
-    "constant": true,
-    "payable": false,
-    "type": "function",
-    "gas": 1005
-  },
-  {
-    "name": "staking",
-    "outputs": [
-      {
-        "type": "uint256",
-        "unit": "wei",
-        "name": "out"
-      }
-    ],
-    "inputs": [
-      {
-        "type": "address",
-        "name": "arg0"
-      }
-    ],
-    "constant": true,
-    "payable": false,
-    "type": "function",
-    "gas": 1035
-  },
-  {
-    "name": "start_epoch",
-    "outputs": [
-      {
-        "type": "uint256",
-        "name": "out"
-      }
-    ],
-    "inputs": [
-      {
-        "type": "address",
-        "name": "arg0"
-      }
-    ],
-    "constant": true,
-    "payable": false,
-    "type": "function",
-    "gas": 1065
-  },
-  {
-    "name": "validators",
-    "outputs": [
-      {
-        "type": "address",
-        "name": "out"
-      }
-    ],
-    "inputs": [
-      {
-        "type": "int128",
-        "name": "arg0"
-      }
-    ],
-    "constant": true,
-    "payable": false,
-    "type": "function",
-    "gas": 1140
+    "gas": 366
   }
-]`
+]
+`
