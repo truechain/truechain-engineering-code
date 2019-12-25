@@ -10,7 +10,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/core/vm"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
@@ -194,7 +194,16 @@ func (s *impawnUnit) merge(hh uint64) {
 	s.value = val
 }
 func (s *impawnUnit) update(unit *impawnUnit) {
-
+	sorter := valuesByHeight(s.value)
+	for _, v := range unit.value {
+		sorter.update(v)
+	}
+	if s.redeemInof != nil {
+		s.redeemInof.Amount = new(big.Int).Add(s.redeemInof.Amount, unit.redeemInof.Amount)
+		s.redeemInof.State |= unit.redeemInof.State
+	} else {
+		s.redeemInof = unit.redeemInof
+	}
 }
 func (s *impawnUnit) sort() {
 	sort.Sort(valuesByHeight(s.value))
@@ -208,7 +217,7 @@ type DelegationAccount struct {
 }
 
 func (d *DelegationAccount) update(da *DelegationAccount) {
-
+	d.unit.update(da.unit)
 }
 func (s *DelegationAccount) getAllStaking(hh uint64) *big.Int {
 	return s.unit.getAllStaking(hh)
@@ -237,7 +246,23 @@ type StakingAccount struct {
 func (s *StakingAccount) isInCommittee() bool {
 	return s.committee
 }
-func (s *StakingAccount) update(sa *StakingAccount) {
+func (s *StakingAccount) update(sa *StakingAccount, hh uint64) {
+	s.unit.update(sa.unit)
+	dirty := false
+	for _, v := range sa.delegation {
+		da := s.getDA(v.unit.GetRewardAddress())
+		if da == nil {
+			s.delegation = append(s.delegation, v)
+			dirty = true
+		} else {
+			da.update(v)
+		}
+	}
+	if dirty && hh != 0 {
+		tmp := toDelegationByHeight(hh, s.delegation)
+		sort.Sort(tmp)
+		s.delegation, _ = fromDelegationByHeight(tmp)
+	}
 }
 func (s *StakingAccount) insertRedeemInfo(amount, lastHeight *big.Int) {
 	s.unit.insertRedeemInfo(amount, lastHeight)
@@ -260,6 +285,14 @@ func (s *StakingAccount) merge(hh uint64) {
 	for _, v := range s.delegation {
 		v.merge(hh)
 	}
+}
+func (s *StakingAccount) getDA(addr common.Address) *DelegationAccount {
+	for _, v := range s.delegation {
+		if bytes.Equal(v.unit.address.Bytes(), addr.Bytes()) {
+			return v
+		}
+	}
+	return nil
 }
 
 type SAImpawns []*StakingAccount
@@ -295,7 +328,7 @@ func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64) {
 		*s = append(*s, sa1)
 		s.sort(hh)
 	} else {
-		sa.update(sa1)
+		sa.update(sa1, hh)
 	}
 }
 
@@ -517,7 +550,7 @@ func (i *impawnImpl) InsertSAccount(epochID uint64, sa *StakingAccount) error {
 	} else {
 		for _, ii := range val {
 			if bytes.Equal(ii.unit.address.Bytes(), sa.unit.address.Bytes()) {
-				ii.update(sa)
+				ii.update(sa, uint64(0))
 				return nil
 			}
 		}
@@ -525,7 +558,7 @@ func (i *impawnImpl) InsertSAccount(epochID uint64, sa *StakingAccount) error {
 	}
 	return nil
 }
-func (i *impawnImpl) calcrewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Float, item *RewardInfo) ([]*RewardInfo, error) {
+func (i *impawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Float, item *RewardInfo) ([]*RewardInfo, error) {
 	if sa == nil || allReward == nil || item == nil || allStaking == nil {
 		return nil, errInvalidParam
 	}
@@ -571,7 +604,7 @@ func (i *impawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochI
 			if index == len(impawns)-1 {
 				v1 = v1.Sub(amount, left)
 			}
-			if ii, err := i.calcrewardInSa(target, v, v1, f1, &item); err != nil {
+			if ii, err := i.calcRewardInSa(target, v, v1, f1, &item); err != nil {
 				return nil, err
 			} else {
 				info.items = append(info.items, &item)
