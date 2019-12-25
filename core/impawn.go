@@ -8,9 +8,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 var (
@@ -192,6 +193,9 @@ func (s *impawnUnit) merge(hh uint64) {
 	})
 	s.value = val
 }
+func (s *impawnUnit) update(unit *impawnUnit) {
+
+}
 func (s *impawnUnit) sort() {
 	sort.Sort(valuesByHeight(s.value))
 }
@@ -217,6 +221,9 @@ func (s *DelegationAccount) redeeming() (common.Address, *big.Int) {
 }
 func (s *DelegationAccount) clearRedeemed(all *big.Int) {
 	s.unit.clearRedeemed(all)
+}
+func (s *DelegationAccount) merge(hh uint64) {
+	s.unit.merge(hh)
 }
 
 type StakingAccount struct {
@@ -249,7 +256,10 @@ func (s *StakingAccount) getAllStaking(hh uint64) *big.Int {
 	return all
 }
 func (s *StakingAccount) merge(hh uint64) {
-
+	s.unit.merge(hh)
+	for _, v := range s.delegation {
+		v.merge(hh)
+	}
 }
 
 type SAImpawns []*StakingAccount
@@ -742,6 +752,31 @@ func (vs valuesByHeight) Swap(i, j int) {
 	it := vs[i]
 	vs[i] = vs[j]
 	vs[j] = it
+}
+func (vs valuesByHeight) find(hh uint64) (*PairstakingValue, int) {
+	low, height := 0, len(vs)-1
+	mid := 0
+	for low <= height {
+		mid = low + (height-low)/2
+		if hh == vs[mid].height.Uint64() {
+			return vs[mid], mid
+		} else if hh > vs[mid].height.Uint64() {
+			height = mid - 1
+		} else {
+			low = mid + 1
+		}
+	}
+	return nil, mid
+}
+func (vs valuesByHeight) update(val *PairstakingValue) {
+	item, pos := vs.find(val.height.Uint64())
+	if item != nil {
+		item.amount = new(big.Int).Add(item.amount, val.amount)
+		item.state |= val.state
+	} else {
+		rear := append([]*PairstakingValue{}, vs[pos:]...)
+		vs = append(append(vs[:pos], val), rear...)
+	}
 }
 
 type stakingItem struct {
