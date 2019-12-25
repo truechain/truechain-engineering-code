@@ -20,6 +20,7 @@ var (
 	mixImpawn       = new(big.Int).Mul(big.NewInt(1000), baseUnit)
 	CountInEpoch    = 31
 	MaxRedeemHeight = 1000
+	mixEpochCount   = 2
 )
 
 var (
@@ -32,6 +33,7 @@ var (
 	errMatchEpochID      = errors.New("wrong match epoch id in a reward block")
 	errNotStaking        = errors.New("Not match the staking account")
 	errNotDelegation     = errors.New("Not match the delegation account")
+	errNotMatchEpochInfo = errors.New("the epoch info is not match with accounts")
 )
 
 const (
@@ -304,7 +306,14 @@ func (i *impawnImpl) getCurrentEpoch() uint64 {
 	}
 	return 0
 }
-
+func (i *impawnImpl) getEpochInfo(epochid uint64) (*EpochIDInfo, error) {
+	for _, v := range i.epochInfo {
+		if v.EpochID == epochid {
+			return v, nil
+		}
+	}
+	return nil, errOverEpochID
+}
 func (i *impawnImpl) getEpochFromHeight(hh uint64) *EpochIDInfo {
 	for _, v := range i.epochInfo {
 		if v.BeginHeight <= hh && hh <= v.EndHeight {
@@ -429,29 +438,32 @@ func (i *impawnImpl) redeemByDa(da *DelegationAccount, height, epochEnd uint64) 
 }
 
 /////////////////////////////////////////////////////////////////////////////////
+// 1. keep the minimum epoch count
+// 2. release the item of redeemed
 func (i *impawnImpl) shuffle() {
-
-	// for _, epoch := range i.epochInfo {
-	// 	if val, ok := i.accounts[epoch.EpochID]; ok {
-	// 		for _, v := range val {
-	// 			if epoch.EpochID < curEpoch.EpochID {
-	// 				for _, vv := range v.delegation {
-	// 					i.redeemByDa(vv, curHeight, epoch.EndHeight)
-	// 				}
-	// 				i.redeemBySa(v, curHeight, epoch.EndHeight)
-	// 			} else {
-	// 				if !v.isInCommittee() {
-	// 					i.redeemBySa(v, curHeight, epoch.EndHeight)
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
+	min, max := i.epochInfo[0].EpochID, i.epochInfo[len(i.epochInfo)-1].EpochID
+	if max-min < uint64(mixEpochCount) {
+		return
+	}
+	for _, epoch := range i.epochInfo {
+		if max-epoch.EpochID > uint64(mixEpochCount) && mixEpochCount >= 2 {
+			i.move(epoch.EpochID, epoch.EpochID+1)
+		}
+	}
 }
-func (i *impawnImpl) move(prev, next uint64, nextEpoch *EpochIDInfo) error {
-	prevInfos, _ := i.accounts[prev]
-	nextInfos, _ := i.accounts[next]
-
+func (i *impawnImpl) move(prev, next uint64) error {
+	nextEpoch, err := i.getEpochInfo(next)
+	if err != nil {
+		return err
+	}
+	prevInfos, ok := i.accounts[prev]
+	nextInfos, ok2 := i.accounts[next]
+	if !ok {
+		return errors.New(fmt.Sprintln("the epoch is nil", prev, "err:", errNotMatchEpochInfo))
+	}
+	if !ok2 {
+		return errors.New(fmt.Sprintln("the epoch is nil", next, "err:", errNotMatchEpochInfo))
+	}
 	for _, v := range prevInfos {
 		v.merge(nextEpoch.BeginHeight)
 		nextInfos.update(v, nextEpoch.BeginHeight)
