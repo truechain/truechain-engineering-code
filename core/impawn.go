@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
+	"io"
 	"math/big"
 	"sort"
 	"sync"
@@ -345,6 +348,38 @@ type ImpawnImpl struct {
 	lock      sync.RWMutex
 	epochInfo []*EpochIDInfo // sort by epoch id
 	accounts  map[uint64]SAImpawns
+}
+
+// "external" ImpawnImpl encoding. used for pos staking.
+type extImpawnImpl struct {
+	EpochInfo []*EpochIDInfo // sort by epoch id
+	Accounts  []*SAImpawns
+}
+
+func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
+	var ei extImpawnImpl
+	if err := s.Decode(&ei); err != nil {
+		return err
+	}
+	accounts := make(map[uint64]SAImpawns)
+	for i, account := range ei.Accounts {
+		accounts[uint64(i)] = *account
+	}
+
+	i.epochInfo, i.accounts = ei.EpochInfo, accounts
+	return nil
+}
+
+// EncodeRLP serializes b into the truechain RLP ImpawnImpl format.
+func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
+	accounts := make([]*SAImpawns, len(i.epochInfo))
+	for i, account := range i.accounts {
+		accounts[i] = &account
+	}
+	return rlp.Encode(w, extImpawnImpl{
+		EpochInfo: i.epochInfo,
+		Accounts:  accounts,
+	})
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -771,12 +806,34 @@ func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SAR
 func (i *ImpawnImpl) GetRoot() common.Hash {
 	return common.Hash{}
 }
-func (i *ImpawnImpl) Save(state vm.StateDB, preAddress common.Address, key common.Hash, value []byte) error {
-	state.SetPOSState(preAddress, key, value)
+func (i *ImpawnImpl) Save(state vm.StateDB, preAddress common.Address) error {
+	key := common.BytesToHash(preAddress[:])
+	data, err := rlp.EncodeToBytes(i)
+	if err != nil {
+		log.Crit("Failed to RLP encode ImpawnImpl", "err", err)
+	}
+	state.SetPOSState(preAddress, key, data)
 	return nil
 }
-func (i *ImpawnImpl) Load(state vm.StateDB, preAddress common.Address, key common.Hash) error {
-	state.GetPOSState(preAddress, key)
+func (i *ImpawnImpl) Load(state vm.StateDB, preAddress common.Address) error {
+	key := common.BytesToHash(preAddress[:])
+	data := state.GetPOSState(preAddress, key)
+	//var temp *ImpawnImpl
+	if err := rlp.DecodeBytes(data, &i); err != nil {
+		log.Error("Invalid fruit lookup entry RLP", "err", err)
+		return errors.New(fmt.Sprintf("Invalid fruit lookup entry RLP %s %s", err.Error()))
+	}
+	//count := len(temp.epochInfo)
+	//if count != 0 {
+	//	i.epochInfo = make([]*EpochIDInfo, len(temp.epochInfo))
+	//	copy(i.epochInfo, temp.epochInfo)
+	//}
+	//if count != 0 {
+	//	i.accounts = make(map[uint64]SAImpawns)
+	//	for index, account := range temp.accounts {
+	//		i.accounts[index] = account
+	//	}
+	//}
 	return nil
 }
 func (i *ImpawnImpl) commit() error {
