@@ -663,7 +663,29 @@ func (i *ImpawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount,
 		return nil, err
 	}
 }
+
+// Shift will move the staking account to the next epoch
 func (i *ImpawnImpl) Shift(epochid uint64) error {
+	if epochid != i.getCurrentEpoch() || epochid > 0 {
+		return errOverEpochID
+	}
+	nextEpoch, err := i.getEpochInfo(epochid)
+	if err != nil {
+		return err
+	}
+	prev := nextEpoch.EpochID - 1
+	prevInfos, ok := i.accounts[prev]
+	nextInfos, ok2 := i.accounts[nextEpoch.EpochID]
+	if !ok {
+		return errors.New(fmt.Sprintln("the epoch is nil", prev, "err:", errNotMatchEpochInfo))
+	}
+	if !ok2 {
+		nextInfos = SAImpawns{}
+	}
+	for _, v := range prevInfos {
+		v.merge(nextEpoch.BeginHeight)
+		nextInfos.update(v, nextEpoch.BeginHeight)
+	}
 	return nil
 }
 
