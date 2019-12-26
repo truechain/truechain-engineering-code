@@ -15,12 +15,13 @@ import (
 )
 
 var (
-	baseUnit        = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	fbaseUnit       = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
-	mixImpawn       = new(big.Int).Mul(big.NewInt(1000), baseUnit)
-	CountInEpoch    = 31
-	MaxRedeemHeight = 1000
-	mixEpochCount   = 2
+	baseUnit           = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	fbaseUnit          = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
+	mixImpawn          = new(big.Int).Mul(big.NewInt(1000), baseUnit)
+	CountInEpoch       = 31
+	MaxRedeemHeight    = 1000
+	mixEpochCount      = 2
+	EpochElectionPoint = 500
 )
 
 var (
@@ -241,6 +242,11 @@ type StakingAccount struct {
 	fee        *big.Float
 	committee  bool
 	delegation []*DelegationAccount
+	modify     *AlterableInfo
+}
+type AlterableInfo struct {
+	fee        *big.Float
+	votePubkey []byte
 }
 
 func (s *StakingAccount) isInCommittee() bool {
@@ -532,7 +538,7 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochI
 	}
 }
 
-///////////  auxiliary function ////////////////////////////////////////////
+///////////auxiliary function ////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////////
 // 1. keep the minimum epoch count
@@ -597,7 +603,7 @@ func (i *ImpawnImpl) SetEpochID(info *EpochIDInfo) error {
 	return nil
 }
 
-// DoElections called by consensus
+// DoElections called by consensus while it closer the end of epoch,have 500~1000 fast block
 func (i *ImpawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount, error) {
 	if err := i.SetEpochID(&EpochIDInfo{
 		EpochID:     epochid,
@@ -678,17 +684,18 @@ func (i *ImpawnImpl) InsertDAccount(epochID uint64, da *DelegationAccount) error
 	}
 	return nil
 }
-func (i *ImpawnImpl) InsertSAccount(epochID uint64, sa *StakingAccount) error {
+func (i *ImpawnImpl) InsertSAccount(height uint64, sa *StakingAccount) error {
 	if sa == nil {
 		return errInvalidParam
 	}
-	if epochID > i.getCurrentEpoch() {
+	epochInfo := i.getEpochFromHeight(height)
+	if epochInfo == nil || epochInfo.EpochID > i.getCurrentEpoch() {
 		return errOverEpochID
 	}
-	if val, ok := i.accounts[epochID]; !ok {
+	if val, ok := i.accounts[epochInfo.EpochID]; !ok {
 		var accounts []*StakingAccount
 		accounts = append(accounts, sa)
-		i.accounts[epochID] = SAImpawns(accounts)
+		i.accounts[epochInfo.EpochID] = SAImpawns(accounts)
 	} else {
 		for _, ii := range val {
 			if bytes.Equal(ii.unit.address.Bytes(), sa.unit.address.Bytes()) {
@@ -701,7 +708,7 @@ func (i *ImpawnImpl) InsertSAccount(epochID uint64, sa *StakingAccount) error {
 	return nil
 }
 
-// doing in every fast block produced by consensus
+// doing in every 200 fast block produced by consensus
 // 1. redeem while not be in committee
 // 2. set auto=false when the redeem amount is equal or greater than staking amount in the account
 // 3. judge the block height
