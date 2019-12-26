@@ -782,8 +782,24 @@ func (i *ImpawnImpl) InsertSAccount(height uint64, sa *StakingAccount) error {
 	}
 	return nil
 }
-func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, fee big.Float, auot bool) error {
-	return nil
+func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Float, auto bool) error {
+	state := uint8(0)
+	if auto {
+		state |= StateStakingAuto
+	}
+	sa := &StakingAccount{
+		votepubkey: pk,
+		fee:        new(big.Float).Set(fee),
+		unit: &impawnUnit{
+			address: addr,
+			value: []*PairstakingValue{&PairstakingValue{
+				amount: new(big.Int).Set(val),
+				height: new(big.Int).SetUint64(height),
+				state:  state,
+			}},
+		},
+	}
+	return i.InsertSAccount(height, sa)
 }
 
 // doing in every 200 fast block produced by consensus
