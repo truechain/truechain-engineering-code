@@ -65,6 +65,15 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 
 // deposit
 func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	var pubkey []byte
+	method, _ := abiStaking.Methods["deposit"];
+
+	err = method.Inputs.Unpack(&pubkey, input)
+	if err != nil {
+		log.Error("Unpack deposit pubkey error", "err", err)
+		return nil, ErrStakingInvalidInput
+	}
+
 	from := contract.caller.Address()
 
 	pre := evm.StateDB.GetPOSState(StakingAddress, common.BytesToHash(from[:]))
@@ -132,11 +141,16 @@ const abiJSON = `
   {
     "name": "deposit",
     "outputs": [],
-    "inputs": [],
+    "inputs": [
+      {
+        "type": "bytes",
+        "name": "pubkey"
+      }
+    ],
     "constant": false,
     "payable": true,
     "type": "function",
-    "gas": 216
+    "gas": 371
   },
   {
     "name": "getDeposit",
