@@ -9,10 +9,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 var (
@@ -780,6 +780,9 @@ func (i *ImpawnImpl) InsertSAccount(height uint64, sa *StakingAccount) error {
 		}
 		val = append(val, sa)
 	}
+	return nil
+}
+func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, fee big.Float, auot bool) error {
 	return nil
 }
 
