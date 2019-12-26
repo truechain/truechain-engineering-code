@@ -1,4 +1,4 @@
-package core
+package vm
 
 import (
 	"bytes"
@@ -11,9 +11,6 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
-
-	"github.com/truechain/truechain-engineering-code/core/vm"
-
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
@@ -849,7 +846,7 @@ func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SAR
 func (i *ImpawnImpl) GetRoot() common.Hash {
 	return common.Hash{}
 }
-func (i *ImpawnImpl) Save(state vm.StateDB, preAddress common.Address) error {
+func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 	key := common.BytesToHash(preAddress[:])
 	data, err := rlp.EncodeToBytes(i)
 	if err != nil {
@@ -858,7 +855,7 @@ func (i *ImpawnImpl) Save(state vm.StateDB, preAddress common.Address) error {
 	state.SetPOSState(preAddress, key, data)
 	return nil
 }
-func (i *ImpawnImpl) Load(state vm.StateDB, preAddress common.Address) error {
+func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	key := common.BytesToHash(preAddress[:])
 	data := state.GetPOSState(preAddress, key)
 	//var temp *ImpawnImpl

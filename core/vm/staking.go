@@ -117,6 +117,9 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		return nil, ErrStakingInvalidInput
 	}
 
+	impawn := new(ImpawnImpl)
+	impawn.Load(evm.StateDB, StakingAddress)
+
 	var depositAddr common.Address
 	method, _ := abiStaking.Methods["getDeposit"];
 
