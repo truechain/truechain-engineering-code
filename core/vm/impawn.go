@@ -21,7 +21,7 @@ var (
 	mixImpawn          = new(big.Int).Mul(big.NewInt(1000), baseUnit)
 	CountInEpoch       = 31
 	MaxRedeemHeight    = 1000
-	mixEpochCount      = 2
+	MixEpochCount      = 2
 	EpochElectionPoint = 500
 )
 
@@ -598,11 +598,11 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochI
 // 2. release the item of redeemed
 func (i *ImpawnImpl) shuffle() {
 	min, max := i.epochInfo[0].EpochID, i.epochInfo[len(i.epochInfo)-1].EpochID
-	if max-min < uint64(mixEpochCount) {
+	if max-min < uint64(MixEpochCount) {
 		return
 	}
 	for _, epoch := range i.epochInfo {
-		if max-epoch.EpochID > uint64(mixEpochCount) && mixEpochCount >= 2 {
+		if max-epoch.EpochID > uint64(MixEpochCount) && MixEpochCount >= 2 {
 			i.move(epoch.EpochID, epoch.EpochID+1)
 		}
 	}
@@ -880,7 +880,7 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	//var temp *ImpawnImpl
 	if err := rlp.DecodeBytes(data, &i); err != nil {
 		log.Error("Invalid fruit lookup entry RLP", "err", err)
-		return errors.New(fmt.Sprintf("Invalid fruit lookup entry RLP %s %s", err.Error()))
+		return errors.New(fmt.Sprintf("Invalid fruit lookup entry RLP %s", err.Error()))
 	}
 	//count := len(temp.epochInfo)
 	//if count != 0 {
