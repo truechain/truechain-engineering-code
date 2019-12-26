@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"io"
 	"math/big"
 	"sort"
 	"sync"
+
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 
 	"github.com/truechain/truechain-engineering-code/core/vm"
 
@@ -255,7 +256,7 @@ type AlterableInfo struct {
 func (s *StakingAccount) isInCommittee() bool {
 	return s.committee
 }
-func (s *StakingAccount) update(sa *StakingAccount, hh uint64) {
+func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next bool) {
 	s.unit.update(sa.unit)
 	dirty := false
 	for _, v := range sa.delegation {
@@ -266,6 +267,12 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64) {
 		} else {
 			da.update(v)
 		}
+	}
+	if hh > s.getMaxHeight() {
+		s.modify = sa.modify
+	}
+	if next {
+		s.changeAlterableInfo()
 	}
 	if dirty && hh != 0 {
 		tmp := toDelegationByHeight(hh, s.delegation)
@@ -303,6 +310,20 @@ func (s *StakingAccount) getDA(addr common.Address) *DelegationAccount {
 	}
 	return nil
 }
+func (s *StakingAccount) getMaxHeight() uint64 {
+	l := len(s.unit.value)
+	return s.unit.value[l-1].height.Uint64()
+}
+func (s *StakingAccount) changeAlterableInfo() {
+	if s.modify != nil {
+		if s.modify.fee != nil {
+			s.fee = s.modify.fee
+		}
+		if s.modify.votePubkey != nil {
+			s.votepubkey = s.modify.votePubkey
+		}
+	}
+}
 
 type SAImpawns []*StakingAccount
 
@@ -331,13 +352,13 @@ func (s *SAImpawns) getSA(addr common.Address) *StakingAccount {
 	}
 	return nil
 }
-func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64) {
+func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next bool) {
 	sa := s.getSA(sa1.unit.address)
 	if sa == nil {
 		*s = append(*s, sa1)
 		s.sort(hh)
 	} else {
-		sa.update(sa1, hh)
+		sa.update(sa1, hh, next)
 	}
 }
 
@@ -604,7 +625,7 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 	}
 	for _, v := range prevInfos {
 		v.merge(nextEpoch.BeginHeight)
-		nextInfos.update(v, nextEpoch.BeginHeight)
+		nextInfos.update(v, nextEpoch.BeginHeight, true)
 	}
 	return nil
 }
@@ -684,7 +705,7 @@ func (i *ImpawnImpl) Shift(epochid uint64) error {
 	}
 	for _, v := range prevInfos {
 		v.merge(nextEpoch.BeginHeight)
-		nextInfos.update(v, nextEpoch.BeginHeight)
+		nextInfos.update(v, nextEpoch.BeginHeight, true)
 	}
 	return nil
 }
@@ -756,7 +777,7 @@ func (i *ImpawnImpl) InsertSAccount(height uint64, sa *StakingAccount) error {
 	} else {
 		for _, ii := range val {
 			if bytes.Equal(ii.unit.address.Bytes(), sa.unit.address.Bytes()) {
-				ii.update(sa, uint64(0))
+				ii.update(sa, height, false)
 				return nil
 			}
 		}
