@@ -76,12 +76,12 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 
 	from := contract.caller.Address()
 
-	pre := evm.StateDB.GetPOSState(StakingAddress, common.BytesToHash(from[:]))
-	balance := new(big.Int).SetBytes(pre)
-	balance.Add(balance, contract.value)
-
-	evm.StateDB.SetPOSState(StakingAddress, common.BytesToHash(from[:]), balance.Bytes())
 	log.Info("Staking deposit", "address", contract.caller.Address(), "value", contract.value)
+	impawn := new(ImpawnImpl)
+	impawn.Load(evm.StateDB, StakingAddress)
+
+	impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, pubkey, contract.value, big.NewFloat(0), true)
+	impawn.Save(evm.StateDB, StakingAddress)
 
 	return nil, nil
 }
@@ -117,9 +117,6 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		return nil, ErrStakingInvalidInput
 	}
 
-	impawn := new(ImpawnImpl)
-	impawn.Load(evm.StateDB, StakingAddress)
-
 	var depositAddr common.Address
 	method, _ := abiStaking.Methods["getDeposit"];
 
@@ -130,8 +127,18 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		return nil, ErrStakingInvalidInput
 	}
 
-	pre := evm.StateDB.GetPOSState(StakingAddress, common.BytesToHash(depositAddr[:]))
-	balance := new(big.Int).SetBytes(pre)
+	impawn := new(ImpawnImpl)
+	impawn.Load(evm.StateDB, StakingAddress)
+	account, err := impawn.GetStakingAccount(evm.Context.BlockNumber.Uint64(), depositAddr)
+	if err != nil {
+		log.Error("Staking fetch account error", "error", err)
+		return ret, err
+	}
+
+	balance := new(big.Int)
+	for _, u := range account.unit.value {
+		balance.Add(balance, u.amount)
+	}
 	log.Info("Get staking get_deposit", "address", depositAddr, "balance", balance)
 
 	ret, err = method.Outputs.Pack(balance)

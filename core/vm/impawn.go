@@ -442,7 +442,7 @@ func (i *ImpawnImpl) getEpochIDFromHeight(b, e uint64) []*EpochIDInfo {
 	}
 	return ids
 }
-func (i *ImpawnImpl) getStakingAccount(epochid uint64, addr common.Address) (*StakingAccount, error) {
+func (i *ImpawnImpl) GetStakingAccount(epochid uint64, addr common.Address) (*StakingAccount, error) {
 	if v, ok := i.accounts[epochid]; !ok {
 		return nil, errInvalidStaking
 	} else {
@@ -712,7 +712,7 @@ func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amoun
 	if curEpoch == nil {
 		return errInvalidParam
 	}
-	sa, err := i.getStakingAccount(curEpoch.EpochID, addr)
+	sa, err := i.GetStakingAccount(curEpoch.EpochID, addr)
 	if err != nil {
 		return err
 	}
@@ -725,7 +725,7 @@ func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	if curEpoch == nil {
 		return errInvalidParam
 	}
-	sa, err := i.getStakingAccount(curEpoch.EpochID, addrSA)
+	sa, err := i.GetStakingAccount(curEpoch.EpochID, addrSA)
 	if err != nil {
 		return err
 	}
@@ -744,7 +744,7 @@ func (i *ImpawnImpl) InsertDAccount(epochID uint64, da *DelegationAccount) error
 	if epochID > i.getCurrentEpoch() {
 		return errOverEpochID
 	}
-	sa, err := i.getStakingAccount(epochID, da.deleAddress)
+	sa, err := i.GetStakingAccount(epochID, da.deleAddress)
 	if err != nil {
 		return err
 	}
