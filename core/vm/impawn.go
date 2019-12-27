@@ -911,22 +911,12 @@ func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	key := common.BytesToHash(preAddress[:])
 	data := state.GetPOSState(preAddress, key)
-	//var temp *ImpawnImpl
-	if err := rlp.DecodeBytes(data, &i); err != nil {
-		log.Error("Invalid fruit lookup entry RLP", "err", err)
-		return errors.New(fmt.Sprintf("Invalid fruit lookup entry RLP %s", err.Error()))
+	var temp ImpawnImpl
+	if err := rlp.DecodeBytes(data, &temp); err != nil {
+		log.Error("Invalid ImpawnImpl entry RLP", "err", err)
+		return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
 	}
-	//count := len(temp.epochInfo)
-	//if count != 0 {
-	//	i.epochInfo = make([]*EpochIDInfo, len(temp.epochInfo))
-	//	copy(i.epochInfo, temp.epochInfo)
-	//}
-	//if count != 0 {
-	//	i.accounts = make(map[uint64]SAImpawns)
-	//	for index, account := range temp.accounts {
-	//		i.accounts[index] = account
-	//	}
-	//}
+	i.curEpochID, i.accounts = temp.curEpochID, temp.accounts
 	return nil
 }
 func (i *ImpawnImpl) commit() error {
