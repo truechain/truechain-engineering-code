@@ -23,6 +23,7 @@ var (
 	MaxRedeemHeight    = 1000
 	MixEpochCount      = 2
 	EpochElectionPoint = 500
+	base               = new(big.Float).SetFloat64(10000)
 )
 
 var (
@@ -240,13 +241,13 @@ func (s *DelegationAccount) merge(hh uint64) {
 type StakingAccount struct {
 	unit       *impawnUnit
 	votepubkey []byte
-	fee        *big.Float
+	fee        *big.Int
 	committee  bool
 	delegation []*DelegationAccount
 	modify     *AlterableInfo
 }
 type AlterableInfo struct {
-	fee        *big.Float
+	fee        *big.Int
 	votePubkey []byte
 }
 
@@ -314,6 +315,7 @@ func (s *StakingAccount) getMaxHeight() uint64 {
 func (s *StakingAccount) changeAlterableInfo() {
 	if s.modify != nil {
 		if s.modify.fee != nil {
+			// s.fee = new(big.Int).Set(s.modify.fee)
 			s.fee = s.modify.fee
 		}
 		if s.modify.votePubkey != nil {
@@ -538,7 +540,8 @@ func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 		return nil, errInvalidParam
 	}
 	var items []*RewardInfo
-	fee := new(big.Float).Mul(allReward, sa.fee)
+	saFee := new(big.Float).Quo(new(big.Float).SetFloat64(float64(sa.fee.Uint64())), base)
+	fee := new(big.Float).Mul(allReward, saFee)
 	all, left := new(big.Float).Sub(allReward, fee), big.NewFloat(0)
 	for _, v := range sa.delegation {
 		daAll := new(big.Float).Quo(new(big.Float).SetFloat64(float64(v.getAllStaking(target).Int64())), fbaseUnit)
@@ -782,14 +785,14 @@ func (i *ImpawnImpl) InsertSAccount(height uint64, sa *StakingAccount) error {
 	}
 	return nil
 }
-func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Float, auto bool) error {
+func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Int, auto bool) error {
 	state := uint8(0)
 	if auto {
 		state |= StateStakingAuto
 	}
 	sa := &StakingAccount{
-		votepubkey: pk,
-		fee:        new(big.Float).Set(fee),
+		votepubkey: append([]byte{}, pk...),
+		fee:        new(big.Int).Set(fee),
 		unit: &impawnUnit{
 			address: addr,
 			value: []*PairstakingValue{&PairstakingValue{
@@ -943,7 +946,6 @@ type stakingItem struct {
 	item   *StakingAccount
 	height uint64
 }
-
 type stakingByHeight []*stakingItem
 
 func toStakingByHeight(hh uint64, items []*StakingAccount) stakingByHeight {
@@ -982,7 +984,6 @@ type delegationItem struct {
 	item   *DelegationAccount
 	height uint64
 }
-
 type delegationItemByHeight []*delegationItem
 
 func toDelegationByHeight(hh uint64, items []*DelegationAccount) delegationItemByHeight {
