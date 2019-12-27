@@ -23,22 +23,23 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/hashicorp/golang-lru/simplelru"
-	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/etruedb"
-	"github.com/truechain/truechain-engineering-code/metrics"
-	"github.com/truechain/truechain-engineering-code/rpc"
-	"golang.org/x/crypto/sha3"
 	"math/big"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/metrics"
+	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/rpc"
+	"golang.org/x/crypto/sha3"
 )
 
 // ErrInvalidDumpMagic errorinfo
@@ -49,7 +50,7 @@ var (
 	maxUint128 = new(big.Int).Exp(big.NewInt(2), big.NewInt(128), big.NewInt(0))
 
 	// sharedMinerva is a full instance that can be shared between multiple users.
-	sharedMinerva = New(Config{"", 3, 0, "", 1, 0, ModeNormal})
+	sharedMinerva = New(Config{"", 3, 0, "", 1, 0, ModeNormal, 0})
 
 	//SnailBlockRewardsBase Snail block rewards base value is 115.555555555555 * 10^12
 	SnailBlockRewardsBase = 115555555555555
@@ -199,7 +200,7 @@ type Config struct {
 	DatasetsInMem  int
 	DatasetsOnDisk int
 	PowMode        Mode
-	Tip9		   uint64
+	Tip9           uint64
 }
 
 // Minerva consensus
@@ -225,7 +226,7 @@ type Minerva struct {
 	sbc      consensus.SnailChainReader
 	election consensus.CommitteeElection
 	chainDB  etruedb.Database
-	fixedDS *Dataset
+	fixedDS  *Dataset
 }
 
 //var MinervaLocal *Minerva
@@ -249,12 +250,12 @@ func New(config Config) *Minerva {
 		datasets: newlru("dataset", config.DatasetsInMem, NewDataset),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
-		fixedDS:	NewDataset(0).(*Dataset),
+		fixedDS:  NewDataset(0).(*Dataset),
 	}
 
 	//MinervaLocal.CheckDataSetState(1)
 	minerva.getDataset(1)
-	minerva.fixedDS.Generate(0,nil)
+	minerva.fixedDS.Generate(0, nil)
 	return minerva
 }
 
