@@ -205,8 +205,8 @@ func (s *impawnUnit) insertRedeemInfo(amount, lastHeight *big.Int) {
 	for _, v := range s.value {
 		redeem = redeem.Add(redeem, v.amount)
 		res := redeem.Cmp(s.redeemInof.Amount)
-		v.state &= (^StateStakingAuto)
-		if res <= 0 {
+		v.state &= ^StateStakingAuto
+		if res >= 0 {
 			break
 		}
 	}
@@ -222,9 +222,8 @@ func (s *impawnUnit) redeeming() (common.Address, *big.Int) {
 			pos = i
 		} else if res > 0 {
 			pos, v.amount = i, new(big.Int).Sub(all, s.redeemInof.Amount)
-			if pos > 0 {
-				pos--
-			}
+			all.Set(s.redeemInof.Amount)
+			break
 		}
 	}
 	s.value = s.value[pos:]
@@ -249,7 +248,7 @@ func (s *impawnUnit) merge(hh uint64) {
 	state := uint8(0)
 	for _, v := range s.value {
 		all = all.Add(all, v.amount)
-		redeem = (v.state&StateStakingAuto != 0)
+		redeem = v.state&StateStakingAuto != 0
 	}
 	if redeem && all.Cmp(s.redeemInof.Amount) > 0 {
 		state |= StateStakingAuto
@@ -914,6 +913,9 @@ func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	key := common.BytesToHash(preAddress[:])
 	data := state.GetPOSState(preAddress, key)
+	if len(data) == 0 {
+		return errors.New("Load data = 0")
+	}
 	var temp ImpawnImpl
 	if err := rlp.DecodeBytes(data, &temp); err != nil {
 		log.Error("Invalid ImpawnImpl entry RLP", "err", err)

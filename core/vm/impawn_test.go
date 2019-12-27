@@ -33,8 +33,8 @@ func TestImpawnUnit(t *testing.T) {
 		value:      value,
 		rewardInfo: Reward,
 		redeemInof: &RedeemItem{
-			Amount: new(big.Int).SetUint64(10),
-			Height: new(big.Int).SetUint64(10),
+			Amount: new(big.Int).SetUint64(15),
+			Height: new(big.Int).SetUint64(45),
 			State:  StateRedeem,
 		},
 	}
@@ -47,21 +47,14 @@ func TestImpawnUnit(t *testing.T) {
 			state:  StateRedeem,
 		}),
 		rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
-			Amount: new(big.Int).SetUint64(10),
+			Amount: new(big.Int).SetUint64(15),
 			Height: new(big.Int).SetUint64(15),
 		}),
 		redeemInof: &RedeemItem{
-			Amount: new(big.Int).SetUint64(10),
-			Height: new(big.Int).SetUint64(15),
+			Amount: new(big.Int).SetUint64(15),
+			Height: new(big.Int).SetUint64(45),
 			State:  StateRedeem,
 		},
-	}
-
-	for i, value := range iMunit.value {
-		fmt.Printf("%d %d %d \n", i, value.height, value.amount)
-	}
-	for i, value := range iMunit.rewardInfo {
-		fmt.Printf("rewardInfo %d %v \n", i, value)
 	}
 
 	iMunit.update(iunit)
@@ -70,6 +63,45 @@ func TestImpawnUnit(t *testing.T) {
 	}
 	for i, value := range iMunit.rewardInfo {
 		fmt.Printf("rewardInfo %d %v \n", i, value)
+	}
+	fmt.Printf("redeemInof %d %v  %s \n", iMunit.redeemInof.Amount, iMunit.redeemInof, coinbase.String())
+
+	fmt.Println(iMunit.getAllStaking(30))
+	fmt.Println(iMunit.GetRewardAddress().String())
+
+	pv := &PairstakingValue{
+		amount: new(big.Int).SetUint64(25),
+		height: new(big.Int).SetUint64(25),
+		state:  StateRedeem,
+	}
+	iMunit.value = append(iMunit.value, pv)
+	iMunit.sort()
+
+	for i, value := range iMunit.value {
+		fmt.Printf("%d %d %d \n", i, value.height, value.amount)
+	}
+
+	fmt.Println("isRedeemed ", iMunit.isRedeemed())
+	iMunit.insertRedeemInfo(new(big.Int).SetInt64(30), new(big.Int).SetInt64(35))
+	for i, value := range iMunit.value {
+		fmt.Printf("%d %d %d %d \n", i, value.amount, value.height, value.state)
+	}
+	fmt.Printf("insertRedeemInfo redeemInof %d %v \n", iMunit.redeemInof.Amount, iMunit.redeemInof)
+
+	_, value1 := iMunit.redeeming()
+
+	for i, value := range iMunit.value {
+		fmt.Printf("%d %d %d %d \n", i, value.height, value.amount, value.state)
+	}
+	fmt.Printf("insertRedeemInfo redeemInof %d %v   %d \n", iMunit.redeemInof.Amount, iMunit.redeemInof, value1)
+
+	iMunit.clearRedeemed(value1)
+
+	fmt.Printf("clearRedeemed redeemInof %d %v  \n", iMunit.redeemInof.Amount, iMunit.redeemInof)
+
+	iMunit.merge(15)
+	for i, value := range iMunit.value {
+		fmt.Printf("merge %d %d %d  %d \n", i, value.height, value.amount, value.state)
 	}
 }
 
@@ -90,7 +122,7 @@ func TestRlpImpawnImpl(t *testing.T) {
 
 	for m, sas := range tmp.accounts {
 		for n, account := range sas {
-			fmt.Printf("account %d %d %v %f \n", m, n, account, account.fee)
+			fmt.Printf("account %d %d %v %d \n", m, n, account, account.fee)
 		}
 	}
 	fmt.Printf("%v \n", tmp.curEpochID)
