@@ -19,11 +19,14 @@ var (
 	baseUnit           = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 	fbaseUnit          = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
 	mixImpawn          = new(big.Int).Mul(big.NewInt(1000), baseUnit)
+	base               = new(big.Float).SetFloat64(10000)
 	CountInEpoch       = 31
 	MaxRedeemHeight    = 1000
 	MixEpochCount      = 2
 	EpochElectionPoint = 500
-	base               = new(big.Float).SetFloat64(10000)
+	DposForkPoint      = uint64(20)
+	PreselectionPeriod = uint64(2000)
+	EpochLength        = uint64(10000)
 )
 
 var (
@@ -63,6 +66,9 @@ func (e *EpochIDInfo) IsValid() bool {
 	if e.EpochID < 0 {
 		return false
 	}
+	if e.EpochID == 0 && DposForkPoint+1 != e.BeginHeight {
+		return false
+	}
 	if e.BeginHeight < 0 || e.EndHeight <= 0 || e.EndHeight <= e.BeginHeight {
 		return false
 	}
@@ -84,6 +90,39 @@ func fromBlock(block *types.SnailBlock) (begin, end uint64) {
 		begin, end = block.Fruits()[0].NumberU64(), block.Fruits()[l-1].NumberU64()
 	}
 	return
+}
+func getfirstEpoch() *EpochIDInfo {
+	return &EpochIDInfo{
+		EpochID:     0,
+		BeginHeight: DposForkPoint + 1,
+		EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
+	}
+}
+func GetEpochFromHeight(hh uint64) *EpochIDInfo {
+	if hh <= DposForkPoint {
+		return nil
+	}
+	first := getfirstEpoch()
+	if hh <= first.EndHeight {
+		return first
+	}
+	eid := (hh-first.EndHeight)/EpochLength + 1
+	return &EpochIDInfo{
+		EpochID:     eid,
+		BeginHeight: first.EndHeight + (eid-1)*EpochLength + 1,
+		EndHeight:   first.EndHeight + eid*EpochLength,
+	}
+}
+func GetRangeFromEpoch(eid uint64) *EpochIDInfo {
+	first := getfirstEpoch()
+	if first.EpochID == 0 {
+		return first
+	}
+	return &EpochIDInfo{
+		EpochID:     eid,
+		BeginHeight: first.EndHeight + (eid-1)*EpochLength + 1,
+		EndHeight:   first.EndHeight + eid*EpochLength,
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -924,9 +963,9 @@ func (vs valuesByHeight) find(hh uint64) (*PairstakingValue, int) {
 		if hh == vs[mid].height.Uint64() {
 			return vs[mid], mid
 		} else if hh > vs[mid].height.Uint64() {
-			height = mid - 1
-		} else {
 			low = mid + 1
+		} else {
+			height = mid - 1
 		}
 	}
 	return nil, mid

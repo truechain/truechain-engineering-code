@@ -16,13 +16,12 @@
 package vm
 
 import (
-	"strings"
 	"math/big"
+	"strings"
 
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/log"
-
 )
 
 // StakingAddress is defined as Address('truestaking')
@@ -35,7 +34,7 @@ var abiStaking abi.ABI
 type StakeContract struct{}
 
 func init() {
-    abiStaking, _ = abi.JSON(strings.NewReader(abiJSON))
+	abiStaking, _ = abi.JSON(strings.NewReader(abiJSON))
 }
 
 // RunStaking execute truechain staking contract
@@ -66,7 +65,7 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 // deposit
 func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	var pubkey []byte
-	method, _ := abiStaking.Methods["deposit"];
+	method, _ := abiStaking.Methods["deposit"]
 
 	err = method.Inputs.Unpack(&pubkey, input)
 	if err != nil {
@@ -118,7 +117,7 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	}
 
 	var depositAddr common.Address
-	method, _ := abiStaking.Methods["getDeposit"];
+	method, _ := abiStaking.Methods["getDeposit"]
 
 	// depositAddr := struct {Validator common.Address}{}
 	err = method.Inputs.Unpack(&depositAddr, input)
