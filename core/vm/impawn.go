@@ -438,6 +438,13 @@ type ImpawnImpl struct {
 	curEpochID uint64
 }
 
+func NewImpawnImpl() *ImpawnImpl {
+	return &ImpawnImpl{
+		curEpochID: 0,
+		accounts:   make(map[uint64]SAImpawns),
+	}
+}
+
 // "external" ImpawnImpl encoding. used for pos staking.
 type extImpawnImpl struct {
 	Accounts   []*SAImpawns
