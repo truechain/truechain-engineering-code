@@ -265,8 +265,10 @@ func (s *impawnUnit) merge(hh uint64) {
 func (s *impawnUnit) update(unit *impawnUnit) {
 	sorter := valuesByHeight(s.value)
 	for _, v := range unit.value {
-		sorter.update(v)
+		sorter = sorter.update(v)
 	}
+	s.value = sorter
+
 	if s.redeemInof != nil {
 		s.redeemInof.Amount = new(big.Int).Add(s.redeemInof.Amount, unit.redeemInof.Amount)
 		s.redeemInof.State |= unit.redeemInof.State
@@ -942,18 +944,21 @@ func (vs valuesByHeight) find(hh uint64) (*PairstakingValue, int) {
 	low, height := 0, len(vs)-1
 	mid := 0
 	for low <= height {
-		mid = low + (height-low)/2
+		mid = (height + low) / 2
 		if hh == vs[mid].height.Uint64() {
 			return vs[mid], mid
 		} else if hh > vs[mid].height.Uint64() {
 			low = mid + 1
+			if low > height {
+				return nil, low
+			}
 		} else {
 			height = mid - 1
 		}
 	}
 	return nil, mid
 }
-func (vs valuesByHeight) update(val *PairstakingValue) {
+func (vs valuesByHeight) update(val *PairstakingValue) valuesByHeight {
 	item, pos := vs.find(val.height.Uint64())
 	if item != nil {
 		item.amount = new(big.Int).Add(item.amount, val.amount)
@@ -962,6 +967,7 @@ func (vs valuesByHeight) update(val *PairstakingValue) {
 		rear := append([]*PairstakingValue{}, vs[pos:]...)
 		vs = append(append(vs[:pos], val), rear...)
 	}
+	return vs
 }
 
 type stakingItem struct {
