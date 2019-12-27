@@ -76,7 +76,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	from := contract.caller.Address()
 
 	log.Info("Staking deposit", "address", contract.caller.Address(), "value", contract.value)
-	impawn := new(ImpawnImpl)
+	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 
 	impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, pubkey, contract.value, big.NewInt(0), true)
@@ -126,11 +126,12 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		return nil, ErrStakingInvalidInput
 	}
 
-	impawn := new(ImpawnImpl)
+	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 	account, err := impawn.GetStakingAccount(evm.Context.BlockNumber.Uint64(), depositAddr)
 	if err != nil {
 		log.Error("Staking fetch account error", "error", err)
+		ret, _ = method.Outputs.Pack(big.NewInt(0))
 		return ret, err
 	}
 
