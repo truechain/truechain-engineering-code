@@ -113,7 +113,7 @@ func GetEpochFromHeight(hh uint64) *EpochIDInfo {
 		EndHeight:   first.EndHeight + eid*EpochLength,
 	}
 }
-func GetRangeFromEpoch(eid uint64) *EpochIDInfo {
+func GetEpochFromID(eid uint64) *EpochIDInfo {
 	first := getfirstEpoch()
 	if first.EpochID == 0 {
 		return first
@@ -123,6 +123,33 @@ func GetRangeFromEpoch(eid uint64) *EpochIDInfo {
 		BeginHeight: first.EndHeight + (eid-1)*EpochLength + 1,
 		EndHeight:   first.EndHeight + eid*EpochLength,
 	}
+}
+func GetEpochFromRange(begin, end uint64) []*EpochIDInfo {
+	if end == 0 || begin > end || (begin < DposForkPoint && end < DposForkPoint) {
+		return nil
+	}
+	var ids []*EpochIDInfo
+	e1 := GetEpochFromHeight(begin)
+	e := uint64(0)
+
+	if e1 != nil {
+		ids = append(ids, e1)
+		e = e1.EndHeight
+	} else {
+		e = DposForkPoint
+	}
+	for e < end {
+		e2 := GetEpochFromHeight(e + 1)
+		if e1.EpochID != e2.EpochID {
+			ids = append(ids, e2)
+		}
+		e = e2.EndHeight
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+	return ids
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -404,15 +431,15 @@ func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next bool) {
 
 // be thread-safe for caller locked
 type ImpawnImpl struct {
-	lock      sync.RWMutex
-	epochInfo []*EpochIDInfo // sort by epoch id
-	accounts  map[uint64]SAImpawns
+	lock       sync.RWMutex
+	accounts   map[uint64]SAImpawns
+	curEpochID uint64
 }
 
 // "external" ImpawnImpl encoding. used for pos staking.
 type extImpawnImpl struct {
-	EpochInfo []*EpochIDInfo // sort by epoch id
-	Accounts  []*SAImpawns
+	Accounts   []*SAImpawns
+	curEpochID uint64
 }
 
 func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
@@ -425,63 +452,44 @@ func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
 		accounts[uint64(i)] = *account
 	}
 
-	i.epochInfo, i.accounts = ei.EpochInfo, accounts
+	i.curEpochID, i.accounts = ei.curEpochID, accounts
 	return nil
 }
 
 // EncodeRLP serializes b into the truechain RLP ImpawnImpl format.
 func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
-	accounts := make([]*SAImpawns, len(i.epochInfo))
-	for i, account := range i.accounts {
-		accounts[i] = &account
+	var accounts []*SAImpawns
+	for _, account := range i.accounts {
+		accounts = append(accounts, &account)
 	}
 	return rlp.Encode(w, extImpawnImpl{
-		EpochInfo: i.epochInfo,
-		Accounts:  accounts,
+		curEpochID: i.curEpochID,
+		Accounts:   accounts,
 	})
 }
 
 /////////////////////////////////////////////////////////////////////////////////
 ///////////  auxiliary function ////////////////////////////////////////////
 func (i *ImpawnImpl) getCurrentEpoch() uint64 {
-	pos := len(i.epochInfo)
-	if pos > 0 {
-		return i.epochInfo[pos].EpochID
-	}
-	return 0
+	return i.curEpochID
 }
-func (i *ImpawnImpl) getEpochInfo(epochid uint64) (*EpochIDInfo, error) {
-	for _, v := range i.epochInfo {
-		if v.EpochID == epochid {
-			return v, nil
+func (i *ImpawnImpl) setCurrentEpoch(eid uint64) {
+	i.curEpochID = eid
+}
+func (i *ImpawnImpl) getCurrentEpochInfo() []*EpochIDInfo {
+	var epochs []*EpochIDInfo
+	var eids []float64
+	for k, _ := range i.accounts {
+		eids = append(eids, float64(k))
+	}
+	sort.Float64s(eids)
+	for _, v := range eids {
+		e := GetEpochFromID(uint64(v))
+		if e != nil {
+			epochs = append(epochs, e)
 		}
 	}
-	return nil, errOverEpochID
-}
-func (i *ImpawnImpl) getEpochFromHeight(hh uint64) *EpochIDInfo {
-	for _, v := range i.epochInfo {
-		if v.BeginHeight <= hh && hh <= v.EndHeight {
-			return v
-		}
-	}
-	return nil
-}
-func (i *ImpawnImpl) getEpochIDFromHeight(b, e uint64) []*EpochIDInfo {
-	var ids []*EpochIDInfo
-	if e == 0 || b > e {
-		return ids
-	}
-	for _, v := range i.epochInfo {
-		if b >= v.BeginHeight {
-			if e <= v.EndHeight {
-				ids = append(ids, v)
-				break
-			} else {
-				b = v.EndHeight
-			}
-		}
-	}
-	return ids
+	return epochs
 }
 func (i *ImpawnImpl) GetStakingAccount(epochid uint64, addr common.Address) (*StakingAccount, error) {
 	if v, ok := i.accounts[epochid]; !ok {
@@ -639,20 +647,24 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochI
 // 1. keep the minimum epoch count
 // 2. release the item of redeemed
 func (i *ImpawnImpl) shuffle() {
-	min, max := i.epochInfo[0].EpochID, i.epochInfo[len(i.epochInfo)-1].EpochID
+	epochs := i.getCurrentEpochInfo()
+	if len(epochs) == 0 {
+		return
+	}
+	min, max := epochs[0].EpochID, epochs[len(epochs)-1].EpochID
 	if max-min < uint64(MixEpochCount) {
 		return
 	}
-	for _, epoch := range i.epochInfo {
+	for _, epoch := range epochs {
 		if max-epoch.EpochID > uint64(MixEpochCount) && MixEpochCount >= 2 {
 			i.move(epoch.EpochID, epoch.EpochID+1)
 		}
 	}
 }
 func (i *ImpawnImpl) move(prev, next uint64) error {
-	nextEpoch, err := i.getEpochInfo(next)
-	if err != nil {
-		return err
+	nextEpoch := GetEpochFromID(next)
+	if nextEpoch == nil {
+		return errOverEpochID
 	}
 	prevInfos, ok := i.accounts[prev]
 	nextInfos, ok2 := i.accounts[next]
@@ -674,64 +686,37 @@ func (i *ImpawnImpl) redeemPrincipal(addr common.Address, amount *big.Int) error
 
 /////////////////////////////////////////////////////////////////////////////////
 ////////////// external function //////////////////////////////////////////
-// Keep the epoch info is sequential
-func (i *ImpawnImpl) SetEpochID(info *EpochIDInfo) error {
-	if info == nil {
-		return errInvalidParam
-	}
-	if !info.IsValid() {
-		return errInvalidEpochInfo
-	}
-	for _, v := range i.epochInfo {
-		if info.EpochID == v.EpochID {
-			return nil
-		}
-	}
-	pos := len(i.epochInfo)
-	if pos > 0 {
-		prev := i.epochInfo[pos-0]
-		if !(prev.EpochID+1 == info.EpochID && prev.EndHeight+1 == info.BeginHeight) {
-			return errNotSequential
-		}
-	}
-	i.epochInfo = append(i.epochInfo, info)
-	return nil
-}
 
 // DoElections called by consensus while it closer the end of epoch,have 500~1000 fast block
 func (i *ImpawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount, error) {
-	if err := i.SetEpochID(&EpochIDInfo{
-		EpochID:     epochid,
-		BeginHeight: begin,
-		EndHeight:   end,
-	}); err == nil {
-		if val, ok := i.accounts[epochid]; ok {
-			val.sort(end)
-			var ee []*StakingAccount
-			for i, v := range val {
-				v.committee = true
-				ee = append(ee, v)
-				if i == CountInEpoch-1 {
-					break
-				}
+	if epochid != i.getCurrentEpoch()+1 {
+		return nil, errOverEpochID
+	}
+	if val, ok := i.accounts[epochid]; ok {
+		val.sort(end)
+		var ee []*StakingAccount
+		for i, v := range val {
+			v.committee = true
+			ee = append(ee, v)
+			if i == CountInEpoch-1 {
+				break
 			}
-			return ee, nil
-		} else {
-			return nil, errMatchEpochID
 		}
+		return ee, nil
 	} else {
-		return nil, err
+		return nil, errMatchEpochID
 	}
 }
 
 // Shift will move the staking account to the next epoch
 func (i *ImpawnImpl) Shift(epochid uint64) error {
-	if epochid != i.getCurrentEpoch() || epochid > 0 {
+	if epochid != i.getCurrentEpoch()+1 {
 		return errOverEpochID
 	}
-	nextEpoch, err := i.getEpochInfo(epochid)
-	if err != nil {
-		return err
+	i.setCurrentEpoch(epochid)
+	nextEpoch := GetEpochFromID(epochid)
+	if nextEpoch == nil {
+		return errOverEpochID
 	}
 	prev := nextEpoch.EpochID - 1
 	prevInfos, ok := i.accounts[prev]
@@ -750,7 +735,7 @@ func (i *ImpawnImpl) Shift(epochid uint64) error {
 }
 
 func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amount *big.Int) error {
-	curEpoch := i.getEpochFromHeight(curHeight)
+	curEpoch := GetEpochFromHeight(curHeight)
 	if curEpoch == nil {
 		return errInvalidParam
 	}
@@ -763,7 +748,7 @@ func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amoun
 	return nil
 }
 func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Address, amount *big.Int) error {
-	curEpoch := i.getEpochFromHeight(curHeight)
+	curEpoch := GetEpochFromHeight(curHeight)
 	if curEpoch == nil {
 		return errInvalidParam
 	}
@@ -805,7 +790,7 @@ func (i *ImpawnImpl) InsertSAccount(height uint64, sa *StakingAccount) error {
 	if sa == nil {
 		return errInvalidParam
 	}
-	epochInfo := i.getEpochFromHeight(height)
+	epochInfo := GetEpochFromHeight(height)
 	if epochInfo == nil || epochInfo.EpochID > i.getCurrentEpoch() {
 		return errOverEpochID
 	}
@@ -850,15 +835,13 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 // 3. judge the block height
 // 4. all redeem for the staking in last epoch will be done
 func (i *ImpawnImpl) DoRedeem(curHeight uint64) error {
-	curEpoch := i.getEpochFromHeight(curHeight)
-	if curEpoch == nil {
-		return errInvalidParam
-	}
+	curEID := i.getCurrentEpoch()
+	epochs := i.getCurrentEpochInfo()
 	// make sure the epochInfo sort by EpochID
-	for _, epoch := range i.epochInfo {
+	for _, epoch := range epochs {
 		if val, ok := i.accounts[epoch.EpochID]; ok {
 			for _, v := range val {
-				if epoch.EpochID < curEpoch.EpochID {
+				if epoch.EpochID < curEID {
 					for _, vv := range v.delegation {
 						i.redeemByDa(vv, curHeight, epoch.EndHeight)
 					}
@@ -877,8 +860,8 @@ func (i *ImpawnImpl) DoRedeem(curHeight uint64) error {
 
 func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SARewardInfos, error) {
 	begin, end := fromBlock(block)
-	ids := i.getEpochIDFromHeight(begin, end)
-	if len(ids) == 0 || len(ids) > 2 {
+	ids := GetEpochFromRange(begin, end)
+	if ids == nil || len(ids) > 2 {
 		return nil, errMatchEpochID
 	}
 
