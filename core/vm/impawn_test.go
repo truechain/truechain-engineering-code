@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+//RLP
+/////////////////////////////////////////////////////////////////////
 func TestRlpImpawnImpl(t *testing.T) {
 	impl := makeImpawnImpl()
 	bzs, err := rlp.EncodeToBytes(impl)
@@ -16,11 +18,17 @@ func TestRlpImpawnImpl(t *testing.T) {
 	}
 
 	var tmp ImpawnImpl
-
 	err = rlp.DecodeBytes(bzs, &tmp)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
+
+	for m, sas := range tmp.accounts {
+		for n, account := range sas {
+			fmt.Printf("account %d %d %v %f \n", m, n, account, account.fee)
+		}
+	}
+	fmt.Printf("%v \n", tmp.epochInfo)
 }
 
 func makeImpawnImpl() *ImpawnImpl {
@@ -49,6 +57,15 @@ func makeImpawnImpl() *ImpawnImpl {
 					height: new(big.Int).SetUint64(epochInfos[i].BeginHeight),
 					state:  StateRedeem,
 				}),
+				rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
+					Amount: new(big.Int).SetUint64(1000),
+					Height: new(big.Int).SetUint64(epochInfos[i].BeginHeight),
+				}),
+				redeemInof: &RedeemItem{
+					Amount: new(big.Int).SetUint64(1000),
+					Height: new(big.Int).SetUint64(epochInfos[i].BeginHeight),
+					State:  StateRedeem,
+				},
 			}
 			das := []*DelegationAccount{}
 			for k := 0; k < 3; k++ {
@@ -81,3 +98,157 @@ func makeImpawnImpl() *ImpawnImpl {
 	}
 	return impl
 }
+
+func TestRlpDelegationAccount(t *testing.T) {
+
+	mint := makeDelegationAccount()
+	bzs, err := rlp.EncodeToBytes(mint)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	var tmp DelegationAccount
+	err = rlp.DecodeBytes(bzs, &tmp)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}
+
+func makeDelegationAccount() *DelegationAccount {
+	priKey, _ := crypto.GenerateKey()
+	coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
+	iMunit := &impawnUnit{
+		address: coinbase,
+		value: append(make([]*PairstakingValue, 0), &PairstakingValue{
+			amount: new(big.Int).SetUint64(1000),
+			height: new(big.Int).SetUint64(101),
+			state:  StateRedeem,
+		}),
+		rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
+			Amount: new(big.Int).SetUint64(1000),
+			Height: new(big.Int).SetUint64(101),
+		}),
+		redeemInof: &RedeemItem{
+			Amount: new(big.Int).SetUint64(1000),
+			Height: new(big.Int).SetUint64(101),
+			State:  StateRedeem,
+		},
+	}
+	da := &DelegationAccount{
+		deleAddress: coinbase,
+		unit:        iMunit,
+	}
+	return da
+}
+
+type SAccount struct {
+	Fee    *big.Float
+	Amount *big.Int
+}
+
+type DAccount struct {
+	fee    *big.Float
+	Amount *big.Int
+}
+
+type sAccount struct {
+	Fee    *big.Float
+	Amount *big.Int
+}
+
+func TestRlpAccount(t *testing.T) {
+	SA := &SAccount{
+		Fee:    new(big.Float).SetFloat64(101.1),
+		Amount: new(big.Int).SetUint64(1000),
+	}
+	bzs, err := rlp.EncodeToBytes(SA)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	var tmp SAccount
+	err = rlp.DecodeBytes(bzs, &tmp)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	fmt.Println("11 ", tmp.Fee, " ", tmp.Amount)
+
+	DA := &DAccount{
+		fee:    new(big.Float).SetFloat64(101.1),
+		Amount: new(big.Int).SetUint64(1000),
+	}
+	dzs, err := rlp.EncodeToBytes(DA)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	var dmp DAccount
+	err = rlp.DecodeBytes(dzs, &dmp)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	fmt.Println("22 ", dmp.fee, " ", dmp.Amount)
+
+	sA := &sAccount{
+		Fee:    new(big.Float).SetFloat64(101.1),
+		Amount: new(big.Int).SetUint64(1000),
+	}
+	szs, err := rlp.EncodeToBytes(sA)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	var smp sAccount
+	err = rlp.DecodeBytes(szs, &smp)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	fmt.Println("33 ", tmp.Fee, " ", smp.Amount)
+}
+
+func TestRlpimpawnUnit(t *testing.T) {
+
+	mint := makeUnit()
+	bzs, err := rlp.EncodeToBytes(mint)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	var tmp impawnUnit
+	err = rlp.DecodeBytes(bzs, &tmp)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	for i, ri := range tmp.rewardInfo {
+		fmt.Printf("account %d %v \n", i, ri)
+	}
+	for i, ri := range tmp.value {
+		fmt.Printf("account %d %v \n", i, ri)
+	}
+}
+
+func makeUnit() *impawnUnit {
+	priKey, _ := crypto.GenerateKey()
+	coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
+	iMunit := &impawnUnit{
+		address: coinbase,
+		value: append(make([]*PairstakingValue, 0), &PairstakingValue{
+			amount: new(big.Int).SetUint64(1000),
+			height: new(big.Int).SetUint64(101),
+			state:  StateRedeem,
+		}),
+		rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
+			Amount: new(big.Int).SetUint64(1000),
+			Height: new(big.Int).SetUint64(101),
+		}),
+		redeemInof: &RedeemItem{
+			Amount: new(big.Int).SetUint64(1000),
+			Height: new(big.Int).SetUint64(101),
+			State:  StateRedeem,
+		},
+	}
+	return iMunit
+}
+
+/////////////////////////////////////////////////////////////////////
