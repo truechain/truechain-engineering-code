@@ -8,6 +8,71 @@ import (
 	"testing"
 )
 
+/////////////////////////////////////////////////////////////////////
+
+func TestImpawnUnit(t *testing.T) {
+	priKey, _ := crypto.GenerateKey()
+	coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
+	value := make([]*PairstakingValue, 0)
+	Reward := make([]*RewardItem, 0)
+	for i := 0; i < 3; i++ {
+		pv := &PairstakingValue{
+			amount: new(big.Int).SetUint64(10*uint64(i) + 10),
+			height: new(big.Int).SetUint64(10*uint64(i) + 10),
+			state:  StateRedeem,
+		}
+		value = append(value, pv)
+		ri := &RewardItem{
+			Amount: new(big.Int).SetUint64(10*uint64(i) + 10),
+			Height: new(big.Int).SetUint64(10*uint64(i) + 10),
+		}
+		Reward = append(Reward, ri)
+	}
+	iMunit := &impawnUnit{
+		address:    coinbase,
+		value:      value,
+		rewardInfo: Reward,
+		redeemInof: &RedeemItem{
+			Amount: new(big.Int).SetUint64(10),
+			Height: new(big.Int).SetUint64(10),
+			State:  StateRedeem,
+		},
+	}
+
+	iunit := &impawnUnit{
+		address: coinbase,
+		value: append(make([]*PairstakingValue, 0), &PairstakingValue{
+			amount: new(big.Int).SetUint64(15),
+			height: new(big.Int).SetUint64(15),
+			state:  StateRedeem,
+		}),
+		rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
+			Amount: new(big.Int).SetUint64(10),
+			Height: new(big.Int).SetUint64(15),
+		}),
+		redeemInof: &RedeemItem{
+			Amount: new(big.Int).SetUint64(10),
+			Height: new(big.Int).SetUint64(15),
+			State:  StateRedeem,
+		},
+	}
+
+	for i, value := range iMunit.value {
+		fmt.Printf("%d %d %d \n", i, value.height, value.amount)
+	}
+	for i, value := range iMunit.rewardInfo {
+		fmt.Printf("rewardInfo %d %v \n", i, value)
+	}
+
+	iMunit.update(iunit)
+	for i, value := range iMunit.value {
+		fmt.Printf("%d %d %d \n", i, value.height, value.amount)
+	}
+	for i, value := range iMunit.rewardInfo {
+		fmt.Printf("rewardInfo %d %v \n", i, value)
+	}
+}
+
 //RLP
 /////////////////////////////////////////////////////////////////////
 func TestRlpImpawnImpl(t *testing.T) {
@@ -28,19 +93,11 @@ func TestRlpImpawnImpl(t *testing.T) {
 			fmt.Printf("account %d %d %v %f \n", m, n, account, account.fee)
 		}
 	}
-	fmt.Printf("%v \n", tmp.epochInfo)
+	fmt.Printf("%v \n", tmp.curEpochID)
 }
 
 func makeImpawnImpl() *ImpawnImpl {
-	epochInfos := make([]*EpochIDInfo, MixEpochCount)
 	accounts := make(map[uint64]SAImpawns)
-	for i := range epochInfos {
-		epochInfos[i] = &EpochIDInfo{
-			EpochID:     uint64(i),
-			BeginHeight: uint64(i*60 + 1),
-			EndHeight:   uint64(i*60 + 60),
-		}
-	}
 
 	priKey, _ := crypto.GenerateKey()
 	coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
@@ -54,16 +111,16 @@ func makeImpawnImpl() *ImpawnImpl {
 				address: coinbase,
 				value: append(make([]*PairstakingValue, 0), &PairstakingValue{
 					amount: new(big.Int).SetUint64(1000),
-					height: new(big.Int).SetUint64(epochInfos[i].BeginHeight),
+					height: new(big.Int).SetUint64(1000),
 					state:  StateRedeem,
 				}),
 				rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
 					Amount: new(big.Int).SetUint64(1000),
-					Height: new(big.Int).SetUint64(epochInfos[i].BeginHeight),
+					Height: new(big.Int).SetUint64(1000),
 				}),
 				redeemInof: &RedeemItem{
 					Amount: new(big.Int).SetUint64(1000),
-					Height: new(big.Int).SetUint64(epochInfos[i].BeginHeight),
+					Height: new(big.Int).SetUint64(1000),
 					State:  StateRedeem,
 				},
 			}
@@ -79,11 +136,11 @@ func makeImpawnImpl() *ImpawnImpl {
 			saccount := &StakingAccount{
 				unit:       unit,
 				votepubkey: crypto.FromECDSAPub(&priKey.PublicKey),
-				fee:        new(big.Float).SetFloat64(float64(baseUnit.Int64())),
+				fee:        new(big.Int).SetUint64(1000),
 				committee:  true,
 				delegation: das,
 				modify: &AlterableInfo{
-					fee:        new(big.Float).SetFloat64(float64(baseUnit.Int64())),
+					fee:        new(big.Int).SetUint64(1000),
 					votePubkey: crypto.FromECDSAPub(&priKey.PublicKey),
 				},
 			}
@@ -93,8 +150,8 @@ func makeImpawnImpl() *ImpawnImpl {
 	}
 
 	impl := &ImpawnImpl{
-		epochInfo: epochInfos,
-		accounts:  accounts,
+		curEpochID: 1000,
+		accounts:   accounts,
 	}
 	return impl
 }
