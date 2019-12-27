@@ -568,18 +568,6 @@ func (i *ImpawnImpl) redeemBySa(sa *StakingAccount, height, epochEnd uint64) {
 		fmt.Println("SA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
 	}
 }
-func (i *ImpawnImpl) redeemByDa2(sa *StakingAccount, addr common.Address, height, epochEnd uint64) {
-	// can be redeem in the DA
-	da, err := i.getDAfromSA(sa, addr)
-	if err == nil && height > epochEnd+uint64(MaxRedeemHeight) {
-		addr, all := da.redeeming()
-		err := i.redeemPrincipal(addr, all)
-		if err == nil {
-			da.clearRedeemed(all)
-		}
-		fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
-	}
-}
 func (i *ImpawnImpl) redeemByDa(da *DelegationAccount, height, epochEnd uint64) {
 	// can be redeem in the DA
 	if height > epochEnd+uint64(MaxRedeemHeight) {
@@ -773,7 +761,7 @@ func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	fmt.Println("[DA]insert a redeem,address:[", addrSA.String(), "],DA address:[", addrDA.String(), "],amount:[", amount.String(), "],height:", curHeight)
 	return nil
 }
-func (i *ImpawnImpl) InsertDAccount(epochID uint64, da *DelegationAccount) error {
+func (i *ImpawnImpl) insertDAccount(epochID uint64, da *DelegationAccount) error {
 	if da == nil {
 		return errInvalidParam
 	}
@@ -795,7 +783,22 @@ func (i *ImpawnImpl) InsertDAccount(epochID uint64, da *DelegationAccount) error
 	}
 	return nil
 }
-func (i *ImpawnImpl) InsertSAccount(height uint64, sa *StakingAccount) error {
+func (i *ImpawnImpl) InsertDAccount2(height uint64, addr, deleAddr common.Address, val *big.Int) error {
+
+	da := &DelegationAccount{
+		deleAddress: deleAddr,
+		unit: &impawnUnit{
+			address: addr,
+			value: []*PairstakingValue{&PairstakingValue{
+				amount: new(big.Int).Set(val),
+				height: new(big.Int).SetUint64(height),
+				state:  0,
+			}},
+		},
+	}
+	return i.insertDAccount(height, da)
+}
+func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 	if sa == nil {
 		return errInvalidParam
 	}
@@ -835,7 +838,7 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 			}},
 		},
 	}
-	return i.InsertSAccount(height, sa)
+	return i.insertSAccount(height, sa)
 }
 
 // doing in every 200 fast block produced by consensus
