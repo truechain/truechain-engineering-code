@@ -199,6 +199,7 @@ type Config struct {
 	DatasetsInMem  int
 	DatasetsOnDisk int
 	PowMode        Mode
+	Tip9		   uint64
 }
 
 // Minerva consensus
@@ -224,6 +225,7 @@ type Minerva struct {
 	sbc      consensus.SnailChainReader
 	election consensus.CommitteeElection
 	chainDB  etruedb.Database
+	fixedDS *Dataset
 }
 
 //var MinervaLocal *Minerva
@@ -247,11 +249,12 @@ func New(config Config) *Minerva {
 		datasets: newlru("dataset", config.DatasetsInMem, NewDataset),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
+		fixedDS:	NewDataset(0).(*Dataset),
 	}
 
 	//MinervaLocal.CheckDataSetState(1)
 	minerva.getDataset(1)
-
+	minerva.fixedDS.Generate(0,nil)
 	return minerva
 }
 
@@ -262,6 +265,9 @@ func (m *Minerva) NewTestData(block uint64) {
 
 // dataset tries to retrieve a mining dataset for the specified block number
 func (m *Minerva) getDataset(block uint64) *Dataset {
+	if m.config.Tip9 < block {
+		return m.fixedDS
+	}
 
 	var headerHash [STARTUPDATENUM][]byte
 	// Retrieve the requested ethash dataset
