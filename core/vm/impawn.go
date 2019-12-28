@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"sort"
 	"sync"
@@ -442,38 +441,6 @@ func NewImpawnImpl() *ImpawnImpl {
 		curEpochID: 0,
 		accounts:   make(map[uint64]SAImpawns),
 	}
-}
-
-// "external" ImpawnImpl encoding. used for pos staking.
-type extImpawnImpl struct {
-	Accounts   []*SAImpawns
-	curEpochID uint64
-}
-
-func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
-	var ei extImpawnImpl
-	if err := s.Decode(&ei); err != nil {
-		return err
-	}
-	accounts := make(map[uint64]SAImpawns)
-	for i, account := range ei.Accounts {
-		accounts[uint64(i)] = *account
-	}
-
-	i.curEpochID, i.accounts = ei.curEpochID, accounts
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP ImpawnImpl format.
-func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
-	var accounts []*SAImpawns
-	for _, account := range i.accounts {
-		accounts = append(accounts, &account)
-	}
-	return rlp.Encode(w, extImpawnImpl{
-		curEpochID: i.curEpochID,
-		Accounts:   accounts,
-	})
 }
 
 /////////////////////////////////////////////////////////////////////////////////
