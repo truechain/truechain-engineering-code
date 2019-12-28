@@ -18,7 +18,7 @@ var (
 	baseUnit           = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 	fbaseUnit          = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
 	mixImpawn          = new(big.Int).Mul(big.NewInt(1000), baseUnit)
-	base               = new(big.Float).SetFloat64(10000)
+	base               = new(big.Int).SetUint64(10000)
 	CountInEpoch       = 31
 	MaxRedeemHeight    = 1000
 	MixEpochCount      = 2
@@ -545,25 +545,22 @@ func (i *ImpawnImpl) redeemByDa(da *DelegationAccount, height, epochEnd uint64) 
 		fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
 	}
 }
-func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Float, item *RewardInfo) ([]*RewardInfo, error) {
+func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Int, item *RewardInfo) ([]*RewardInfo, error) {
 	if sa == nil || allReward == nil || item == nil || allStaking == nil {
 		return nil, errInvalidParam
 	}
 	var items []*RewardInfo
-	saFee := new(big.Float).Quo(new(big.Float).SetFloat64(float64(sa.fee.Uint64())), base)
-	fee := new(big.Float).Mul(allReward, saFee)
-	all, left := new(big.Float).Sub(allReward, fee), big.NewFloat(0)
+	fee := new(big.Int).Quo(new(big.Int).Mul(allReward, sa.fee), base)
+	all, left := new(big.Int).Sub(allReward, fee), big.NewInt(0)
 	for _, v := range sa.delegation {
-		daAll := new(big.Float).Quo(new(big.Float).SetFloat64(float64(v.getAllStaking(target).Int64())), fbaseUnit)
-		rate := new(big.Float).Quo(daAll, allStaking)
-		f1 := new(big.Float).Mul(all, rate)
-		left = left.Add(left, f1)
+		daAll := v.getAllStaking(target)
+		v1 := new(big.Int).Quo(new(big.Int).Mul(all, daAll), allStaking)
+		left = left.Add(left, v1)
 		var ii RewardInfo
-		ii.Address, ii.Amount = v.unit.GetRewardAddress(), toReward(f1)
+		ii.Address, ii.Amount = v.unit.GetRewardAddress(), new(big.Int).Set(v1)
 		items = append(items, &ii)
 	}
-	f2 := new(big.Float).Add(fee, new(big.Float).Sub(all, left))
-	item.Amount = toReward(f2)
+	item.Amount = new(big.Int).Add(new(big.Int).Sub(all, left), fee)
 	return items, nil
 }
 func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochIDInfo) ([]*SARewardInfos, error) {
@@ -576,23 +573,17 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochI
 			return nil, errNullImpawnInEpoch
 		}
 		var res []*SARewardInfos
-		all := impawns.getAllStaking(target)
-		allf := new(big.Float).Quo(new(big.Float).SetFloat64(float64(all.Int64())), fbaseUnit)
-		amount := new(big.Float).Quo(new(big.Float).SetFloat64(float64(allAmount.Int64())), fbaseUnit)
-		left := big.NewFloat(0)
-		for index, v := range impawns {
+		allValidatorStaking := impawns.getAllStaking(target)
+
+		for _, v := range impawns {
 			var info SARewardInfos
 			var item RewardInfo
 			item.Address = v.unit.GetRewardAddress()
 			allStaking := v.getAllStaking(target)
-			f1 := new(big.Float).Quo(new(big.Float).SetFloat64(float64(allStaking.Int64())), fbaseUnit)
-			rate := new(big.Float).Quo(f1, allf)
-			v1 := new(big.Float).Mul(amount, rate)
-			left = left.Add(left, v1)
-			if index == len(impawns)-1 {
-				v1 = v1.Sub(amount, left)
-			}
-			if ii, err := i.calcRewardInSa(target, v, v1, f1, &item); err != nil {
+
+			v2 := new(big.Int).Quo(new(big.Int).Mul(allStaking, allAmount), allValidatorStaking)
+
+			if ii, err := i.calcRewardInSa(target, v, v2, allStaking, &item); err != nil {
 				return nil, err
 			} else {
 				info.items = append(info.items, &item)
@@ -844,10 +835,8 @@ func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SAR
 	}
 
 	if len(ids) == 2 {
-		a1 := new(big.Float).Quo(new(big.Float).SetFloat64(float64(allAmount.Int64())), fbaseUnit)
-		r := float64(ids[0].EndHeight-ids[0].BeginHeight) / float64(end-begin)
-		tmp := new(big.Float).Mul(a1, new(big.Float).SetFloat64(r))
-		amount1, amount2 := toReward(tmp), toReward(new(big.Float).Quo(a1, tmp))
+		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-ids[0].BeginHeight)), new(big.Int).SetUint64(end-begin))
+		amount1, amount2 := tmp, new(big.Int).Sub(allAmount, tmp)
 		if items, err := i.calcReward(ids[0].EndHeight, amount1, ids[0]); err != nil {
 			return nil, err
 		} else {
