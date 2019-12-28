@@ -308,6 +308,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 			DatasetDir:     config.DatasetDir,
 			DatasetsInMem:  config.DatasetsInMem,
 			DatasetsOnDisk: config.DatasetsOnDisk,
+			Tip9: 			chainConfig.TIP9.SnailNumber.Uint64(),
 		})
 		engine.SetThreads(-1) // Disable CPU mining
 		return engine
