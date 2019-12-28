@@ -367,7 +367,7 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next bool) {
 		s.changeAlterableInfo()
 	}
 	if dirty && hh != 0 {
-		tmp := toDelegationByHeight(hh, s.delegation)
+		tmp := toDelegationByHeight(hh, false, s.delegation)
 		sort.Sort(tmp)
 		s.delegation, _ = fromDelegationByHeight(tmp)
 	}
@@ -434,13 +434,20 @@ func (s *SAImpawns) getAllStaking(hh uint64) *big.Int {
 	}
 	return all
 }
-func (s *SAImpawns) sort(hh uint64) {
+func (s *SAImpawns) getValidStaking(hh uint64) *big.Int {
+	all := big.NewInt(0)
+	for _, val := range *s {
+		all = all.Add(all, val.getValidStaking(hh))
+	}
+	return all
+}
+func (s *SAImpawns) sort(hh uint64, valid bool) {
 	for _, v := range *s {
-		tmp := toDelegationByHeight(hh, v.delegation)
+		tmp := toDelegationByHeight(hh, valid, v.delegation)
 		sort.Sort(tmp)
 		v.delegation, _ = fromDelegationByHeight(tmp)
 	}
-	tmp := toStakingByHeight(hh, *s)
+	tmp := toStakingByHeight(hh, valid, *s)
 	sort.Sort(tmp)
 	*s, _ = fromStakingByHeight(tmp)
 }
@@ -456,7 +463,7 @@ func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next bool) {
 	sa := s.getSA(sa1.unit.address)
 	if sa == nil {
 		*s = append(*s, sa1)
-		s.sort(hh)
+		s.sort(hh, false)
 	} else {
 		sa.update(sa1, hh, next)
 	}
@@ -682,7 +689,7 @@ func (i *ImpawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount,
 		return nil, errOverEpochID
 	}
 	if val, ok := i.accounts[epochid-1]; ok {
-		val.sort(end)
+		val.sort(end, true)
 		var ee []*StakingAccount
 		for i, v := range val {
 			v.committee = true
@@ -966,16 +973,27 @@ func (vs valuesByHeight) update(val *PairstakingValue) valuesByHeight {
 type stakingItem struct {
 	item   *StakingAccount
 	height uint64
+	valid  bool
 }
+
+func (s *stakingItem) getAll() *big.Int {
+	if s.valid {
+		return s.item.getValidStaking(s.height)
+	} else {
+		return s.item.getAllStaking(s.height)
+	}
+}
+
 type stakingByHeight []*stakingItem
 
-func toStakingByHeight(hh uint64, items []*StakingAccount) stakingByHeight {
+func toStakingByHeight(hh uint64, valid bool, items []*StakingAccount) stakingByHeight {
 	var tmp []*stakingItem
 	for _, v := range items {
 		v.unit.sort()
 		tmp = append(tmp, &stakingItem{
 			item:   v,
 			height: hh,
+			valid:  valid,
 		})
 	}
 	return stakingByHeight(tmp)
@@ -993,7 +1011,7 @@ func (vs stakingByHeight) Len() int {
 	return len(vs)
 }
 func (vs stakingByHeight) Less(i, j int) bool {
-	return vs[i].item.getAllStaking(vs[i].height).Cmp(vs[j].item.getAllStaking(vs[j].height)) == -1
+	return vs[i].getAll().Cmp(vs[j].getAll()) == -1
 }
 func (vs stakingByHeight) Swap(i, j int) {
 	it := vs[i]
@@ -1004,16 +1022,27 @@ func (vs stakingByHeight) Swap(i, j int) {
 type delegationItem struct {
 	item   *DelegationAccount
 	height uint64
+	valid  bool
 }
+
+func (d *delegationItem) getAll() *big.Int {
+	if d.valid {
+		return d.item.getValidStaking(d.height)
+	} else {
+		return d.item.getAllStaking(d.height)
+	}
+}
+
 type delegationItemByHeight []*delegationItem
 
-func toDelegationByHeight(hh uint64, items []*DelegationAccount) delegationItemByHeight {
+func toDelegationByHeight(hh uint64, valid bool, items []*DelegationAccount) delegationItemByHeight {
 	var tmp []*delegationItem
 	for _, v := range items {
 		v.unit.sort()
 		tmp = append(tmp, &delegationItem{
 			item:   v,
 			height: hh,
+			valid:  valid,
 		})
 	}
 	return delegationItemByHeight(tmp)
@@ -1031,7 +1060,7 @@ func (vs delegationItemByHeight) Len() int {
 	return len(vs)
 }
 func (vs delegationItemByHeight) Less(i, j int) bool {
-	return vs[i].item.getAllStaking(vs[i].height).Cmp(vs[j].item.getAllStaking(vs[j].height)) == -1
+	return vs[i].getAll().Cmp(vs[j].getAll()) == -1
 }
 func (vs delegationItemByHeight) Swap(i, j int) {
 	it := vs[i]
