@@ -42,7 +42,8 @@ var (
 )
 
 const (
-	StateStakingAuto uint8 = 1 << iota
+	StateStakingOnce uint8 = 1 << iota
+	StateStakingAuto
 	StateRedeem
 	StateRedeeming
 	StateRedeemed
@@ -157,6 +158,11 @@ type PairstakingValue struct {
 	height *big.Int
 	state  uint8
 }
+
+func (v *PairstakingValue) isElection() bool {
+	return v.state&StateStakingOnce != 0 || v.state&StateStakingAuto != 0
+}
+
 type RewardItem struct {
 	Amount *big.Int
 	Height *big.Int
@@ -185,6 +191,19 @@ func (s *impawnUnit) getAllStaking(hh uint64) *big.Int {
 	}
 	return all
 }
+func (s *impawnUnit) getValidStaking(hh uint64) *big.Int {
+	all := big.NewInt(0)
+	for _, v := range s.value {
+		if v.height.Uint64() <= hh {
+			if v.isElection() {
+				all = all.Add(all, v.amount)
+			}
+		} else {
+			break
+		}
+	}
+	return all
+}
 func (s *impawnUnit) GetRewardAddress() common.Address {
 	return s.address
 }
@@ -204,9 +223,15 @@ func (s *impawnUnit) insertRedeemInfo(amount, lastHeight *big.Int) {
 	for _, v := range s.value {
 		redeem = redeem.Add(redeem, v.amount)
 		res := redeem.Cmp(s.redeemInof.Amount)
-		v.state &= ^StateStakingAuto
-		if res >= 0 {
+
+		if res == 0 {
+			v.state &= ^StateStakingOnce
 			break
+		} else if res > 0 {
+			v.state &= ^StateStakingAuto
+			break
+		} else {
+			v.state &= ^(StateStakingAuto | StateStakingOnce)
 		}
 	}
 }
@@ -291,6 +316,9 @@ func (d *DelegationAccount) update(da *DelegationAccount) {
 func (s *DelegationAccount) getAllStaking(hh uint64) *big.Int {
 	return s.unit.getAllStaking(hh)
 }
+func (s *DelegationAccount) getValidStaking(hh uint64) *big.Int {
+	return s.unit.getValidStaking(hh)
+}
 func (s *DelegationAccount) insertRedeemInfo(amount, lastHeight *big.Int) {
 	s.unit.insertRedeemInfo(amount, lastHeight)
 }
@@ -357,6 +385,13 @@ func (s *StakingAccount) getAllStaking(hh uint64) *big.Int {
 	all := s.unit.getAllStaking(hh)
 	for _, v := range s.delegation {
 		all = all.Add(all, v.getAllStaking(hh))
+	}
+	return all
+}
+func (s *StakingAccount) getValidStaking(hh uint64) *big.Int {
+	all := s.unit.getValidStaking(hh)
+	for _, v := range s.delegation {
+		all = all.Add(all, v.getValidStaking(hh))
 	}
 	return all
 }
@@ -646,7 +681,7 @@ func (i *ImpawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount,
 	if epochid != i.getCurrentEpoch()+1 {
 		return nil, errOverEpochID
 	}
-	if val, ok := i.accounts[epochid]; ok {
+	if val, ok := i.accounts[epochid-1]; ok {
 		val.sort(end)
 		var ee []*StakingAccount
 		for i, v := range val {
