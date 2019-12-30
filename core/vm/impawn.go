@@ -360,7 +360,7 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next bool) {
 			da.update(v)
 		}
 	}
-	fmt.Println(len(s.delegation))
+
 	if hh > s.getMaxHeight() {
 		s.modify = sa.modify
 	}
@@ -963,7 +963,7 @@ func (vs valuesByHeight) find(hh uint64) (*PairstakingValue, int) {
 func (vs valuesByHeight) update(val *PairstakingValue) valuesByHeight {
 	item, pos := vs.find(val.height.Uint64())
 	if item != nil {
-		item.amount = new(big.Int).Add(item.amount, val.amount)
+		item.amount = item.amount.Add(item.amount, val.amount)
 		item.state |= val.state
 	} else {
 		rear := append([]*PairstakingValue{}, vs[pos:]...)
