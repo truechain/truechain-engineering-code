@@ -740,7 +740,7 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 		return errors.New(fmt.Sprintln("the epoch is nil", prev, "err:", errNotMatchEpochInfo))
 	}
 	if !ok2 {
-		return errors.New(fmt.Sprintln("the epoch is nil", next, "err:", errNotMatchEpochInfo))
+		nextInfos = SAImpawns{}
 	}
 	for _, v := range prevInfos {
 		vv := v.clone()
@@ -777,30 +777,14 @@ func (i *ImpawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount,
 	}
 }
 
-// Shift will move the staking account to the next epoch
+// Shift will move the staking account which has election flag to the next epoch
 func (i *ImpawnImpl) Shift(epochid uint64) error {
 	if epochid != i.getCurrentEpoch()+1 {
 		return errOverEpochID
 	}
 	i.setCurrentEpoch(epochid)
-	nextEpoch := GetEpochFromID(epochid)
-	if nextEpoch == nil {
-		return errOverEpochID
-	}
-	prev := nextEpoch.EpochID - 1
-	prevInfos, ok := i.accounts[prev]
-	nextInfos, ok2 := i.accounts[nextEpoch.EpochID]
-	if !ok {
-		return errors.New(fmt.Sprintln("the epoch is nil", prev, "err:", errNotMatchEpochInfo))
-	}
-	if !ok2 {
-		nextInfos = SAImpawns{}
-	}
-	for _, v := range prevInfos {
-		v.merge(nextEpoch.BeginHeight)
-		nextInfos.update(v, nextEpoch.BeginHeight, true, true)
-	}
-	return nil
+	prev := epochid - 1
+	return i.move(prev, epochid)
 }
 
 // RedeemSAccount redeem amount of asset for staking account,it will be done in next epoch
