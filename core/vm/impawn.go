@@ -278,9 +278,9 @@ func (s *impawnUnit) isRedeemed() bool {
 	return false
 }
 
-// merge for move from prev to next epoch,move the staking who was to be voted
-// merge all staking to one staking with the new height(the beginning of next epoch)
-// called by move function
+// merge for move from prev to next epoch,move the staking who was to be voted.
+// merge all staking to one staking with the new height(the beginning of next epoch).
+// called by move function.
 func (s *impawnUnit) merge(hh uint64) {
 	all := big.NewInt(0)
 	redeem := false
@@ -332,7 +332,6 @@ func (s *impawnUnit) update(unit *impawnUnit, move bool) {
 			s.redeemInof.Last = append(s.redeemInof.Last, unit.redeemInof.Last...)
 		}
 	}
-
 }
 func (s *impawnUnit) clone() *impawnUnit {
 	return nil
@@ -563,6 +562,9 @@ func (i *ImpawnImpl) getCurrentEpoch() uint64 {
 func (i *ImpawnImpl) setCurrentEpoch(eid uint64) {
 	i.curEpochID = eid
 }
+func (i *ImpawnImpl) isInCurrentEpoch(hh uint64) bool {
+	return i.curEpochID == GetEpochFromHeight(hh).EpochID
+}
 func (i *ImpawnImpl) getCurrentEpochInfo() []*EpochIDInfo {
 	var epochs []*EpochIDInfo
 	var eids []float64
@@ -609,6 +611,19 @@ func (i *ImpawnImpl) getElections(epochid uint64) []common.Address {
 			}
 		}
 		return addrs
+	}
+}
+func (i *ImpawnImpl) getElections2(epochid uint64) []*StakingAccount {
+	if accounts, ok := i.accounts[epochid]; !ok {
+		return nil
+	} else {
+		var sas []*StakingAccount
+		for _, v := range accounts {
+			if v.isInCommittee() {
+				sas = append(sas, v)
+			}
+		}
+		return sas
 	}
 }
 func (i *ImpawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address) SAImpawns {
@@ -987,10 +1002,19 @@ func (i *ImpawnImpl) commit() error {
 	return nil
 }
 
-func GetValidators(state StateDB) []*types.CommitteeMember{
+func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 	i := NewImpawnImpl()
 	i.Load(state, StakingAddress)
-	return nil
+	eid := i.getCurrentEpoch()
+	accs := i.getElections2(eid)
+	var vv []*types.CommitteeMember
+	for _, v := range accs {
+		vv = append(vv, &types.CommitteeMember{
+			Coinbase:  v.unit.GetRewardAddress(),
+			Publickey: copyVotePk(v.votepubkey),
+		})
+	}
+	return vv
 }
 
 /////////////////////////////////////////////////////////////////////////////////
