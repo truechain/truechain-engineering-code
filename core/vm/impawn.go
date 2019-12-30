@@ -987,6 +987,12 @@ func (i *ImpawnImpl) commit() error {
 	return nil
 }
 
+func GetValidators(state StateDB) []*types.CommitteeMember{
+	i := NewImpawnImpl()
+	i.Load(state, StakingAddress)
+	return nil
+}
+
 /////////////////////////////////////////////////////////////////////////////////
 type valuesByHeight []*PairstakingValue
 

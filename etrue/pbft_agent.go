@@ -480,12 +480,61 @@ func (agent *PbftAgent) loop() {
 			}
 
 		case ch := <-agent.chainHeadCh:
-			var posFork uint64 = 22
 			go agent.putCacheInsertChain(ch.Block)
+			var posFork uint64 = 22
 			num := ch.Block.Number()
-			if num.Uint64() >= posFork {
-				epoch := vm.GetEpochFromHeight(num.Uint64())
+			next := num.Uint64() + 1
+			if next >= posFork {
+				epoch := vm.GetEpochFromHeight(next)
 				log.Info("epoch id", "id", epoch.EpochID)
+
+				if next == epoch.BeginHeight {
+					// Start New Epoch
+					committee := &types.CommitteeInfo{
+						Id:          new(big.Int).SetUint64(epoch.EpochID),
+						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
+						EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
+					}
+
+					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
+					validators := vm.GetValidators(stateDb)
+					committee.Members = validators
+
+					// Switch to new epoch
+					agent.setCommitteeInfo(nextCommittee, committee)
+					if agent.IsUsedOrUnusedMember(committee, agent.committeeNode.Publickey) {
+						agent.startSend(committee, true)
+						help.CheckAndPrintError(agent.server.PutCommittee(committee))
+						help.CheckAndPrintError(agent.server.PutNodes(committee.Id, []*types.CommitteeNode{agent.committeeNode}))
+					} else {
+						agent.startSend(committee, false)
+					}
+
+					// Set new bft and start committee
+					if !agent.verifyCommitteeID(types.CommitteeStart, committee.Id) {
+						continue
+					}
+					agent.setCommitteeInfo(currentCommittee, types.CopyCommitteeInfo(agent.nextCommitteeInfo))
+					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+						agent.isCurrentCommitteeMember = true
+						go help.CheckAndPrintError(agent.server.Notify(committee.Id, int(types.CommitteeStart)))
+					} else {
+						agent.isCurrentCommitteeMember = false
+					}
+				}
+
+				if num.Uint64() == epoch.EndHeight {
+					// Stop epoch and bft
+					epoch := vm.GetEpochFromHeight(num.Uint64())
+					committeeID := new(big.Int).SetUint64(epoch.EpochID)
+					if !agent.verifyCommitteeID(types.CommitteeStop, committeeID) {
+						continue
+					}
+					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+						go help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
+					}
+					agent.stopSend()
+				}
 			}
 		}
 	}
