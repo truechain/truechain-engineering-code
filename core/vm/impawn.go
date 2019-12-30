@@ -360,6 +360,7 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next bool) {
 			da.update(v)
 		}
 	}
+	fmt.Println(len(s.delegation))
 	if hh > s.getMaxHeight() {
 		s.modify = sa.modify
 	}
@@ -836,6 +837,7 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 				state:  state,
 			}},
 		},
+		modify: &AlterableInfo{},
 	}
 	return i.insertSAccount(height, sa)
 }
