@@ -128,7 +128,9 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
-	account, err := impawn.GetStakingAccount(evm.Context.BlockNumber.Uint64(), depositAddr)
+
+	epoch := GetEpochFromHeight(evm.Context.BlockNumber.Uint64())
+	account, err := impawn.GetStakingAccount(epoch.EpochID, depositAddr)
 	if err != nil {
 		log.Error("Staking fetch account error", "error", err)
 		ret, _ = method.Outputs.Pack(big.NewInt(0))

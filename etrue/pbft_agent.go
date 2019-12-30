@@ -480,7 +480,13 @@ func (agent *PbftAgent) loop() {
 			}
 
 		case ch := <-agent.chainHeadCh:
+			var posFork uint64 = 22
 			go agent.putCacheInsertChain(ch.Block)
+			num := ch.Block.Number()
+			if num.Uint64() >= posFork {
+				epoch := vm.GetEpochFromHeight(num.Uint64())
+				log.Info("epoch id", "id", epoch.EpochID)
+			}
 		}
 	}
 }
