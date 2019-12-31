@@ -99,7 +99,7 @@ func fromBlock(block *types.SnailBlock) (begin, end uint64) {
 }
 func getfirstEpoch() *EpochIDInfo {
 	return &EpochIDInfo{
-		EpochID:     0,
+		EpochID:     1,
 		BeginHeight: DposForkPoint + 1,
 		EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
 	}
@@ -112,22 +112,23 @@ func GetEpochFromHeight(hh uint64) *EpochIDInfo {
 	if hh <= first.EndHeight {
 		return first
 	}
-	eid := (hh-first.EndHeight)/EpochLength + 1
-	return &EpochIDInfo{
-		EpochID:     eid,
-		BeginHeight: first.EndHeight + (eid-1)*EpochLength + 1,
-		EndHeight:   first.EndHeight + eid*EpochLength,
+	var eid uint64
+	if (hh-first.EndHeight)%EpochLength == 0 {
+		eid = (hh-first.EndHeight)/EpochLength + first.EpochID
+	} else {
+		eid = (hh-first.EndHeight)/EpochLength + first.EpochID + 1
 	}
+	return GetEpochFromID(eid)
 }
 func GetEpochFromID(eid uint64) *EpochIDInfo {
 	first := getfirstEpoch()
-	if first.EpochID == 0 {
+	if first.EpochID == eid {
 		return first
 	}
 	return &EpochIDInfo{
 		EpochID:     eid,
-		BeginHeight: first.EndHeight + (eid-1)*EpochLength + 1,
-		EndHeight:   first.EndHeight + eid*EpochLength,
+		BeginHeight: first.EndHeight + (eid-first.EpochID-1)*EpochLength + 1,
+		EndHeight:   first.EndHeight + (eid-first.EpochID)*EpochLength,
 	}
 }
 func GetEpochFromRange(begin, end uint64) []*EpochIDInfo {
@@ -579,7 +580,7 @@ type ImpawnImpl struct {
 
 func NewImpawnImpl() *ImpawnImpl {
 	return &ImpawnImpl{
-		curEpochID: 0,
+		curEpochID: 1,
 		lastReward: 0,
 		accounts:   make(map[uint64]SAImpawns),
 	}
@@ -889,13 +890,13 @@ func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error 
 	if err != nil {
 		return err
 	}
-	if da, err := i.getDAfromSA(sa, da.unit.address); err != nil {
+	if ds, err := i.getDAfromSA(sa, da.unit.address); err != nil {
 		return err
 	} else {
-		if da == nil {
+		if ds == nil {
 			sa.delegation = append(sa.delegation, da)
 		} else {
-			da.update(da, false)
+			ds.update(da, false)
 		}
 	}
 	return nil
@@ -933,7 +934,7 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 				return nil
 			}
 		}
-		val = append(val, sa)
+		i.accounts[epochInfo.EpochID] = append(val, sa)
 	}
 	return nil
 }
