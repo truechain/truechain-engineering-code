@@ -481,11 +481,11 @@ func (agent *PbftAgent) loop() {
 
 		case ch := <-agent.chainHeadCh:
 			go agent.putCacheInsertChain(ch.Block)
-			var posFork uint64 = 22
+
 			num := ch.Block.Number()
-			next := num.Uint64() + 1
-			if next >= posFork {
-				epoch := vm.GetEpochFromHeight(next)
+			if agent.config.IsTIP8(new(big.Int).Add(num, common.Big1)) {
+				next := num.Uint64() + 1
+				epoch := types.GetEpochFromHeight(next)
 				log.Info("epoch id", "id", epoch.EpochID)
 
 				if next == epoch.BeginHeight {
@@ -525,7 +525,7 @@ func (agent *PbftAgent) loop() {
 
 				if num.Uint64() == epoch.EndHeight {
 					// Stop epoch and bft
-					epoch := vm.GetEpochFromHeight(num.Uint64())
+					epoch := types.GetEpochFromHeight(num.Uint64())
 					committeeID := new(big.Int).SetUint64(epoch.EpochID)
 					if !agent.verifyCommitteeID(types.CommitteeStop, committeeID) {
 						continue

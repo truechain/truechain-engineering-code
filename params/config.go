@@ -128,7 +128,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(100)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(0)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
 
@@ -231,6 +231,8 @@ type ChainConfig struct {
 	TIP5 *BlockConfig `json:"tip5"`
 	TIP8 *BlockConfig `json:"tip8"`
 	TIP9 *BlockConfig `json:"tip9"`
+
+	TIPStake *BlockConfig `json:"tipstake"`
 }
 
 type BlockConfig struct {
@@ -431,7 +433,7 @@ func (err *ConfigCompatError) Error() string {
 // phases.
 type Rules struct {
 	ChainID *big.Int
-	IsTIP3  bool
+	IsTIP3, IsTIP8 bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -443,6 +445,7 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	return Rules{
 		ChainID: new(big.Int).Set(chainID),
 		IsTIP3:  c.IsTIP3(num),
+		IsTIP8: c.IsTIP8(num),
 	}
 }
 
@@ -461,12 +464,14 @@ func (c *ChainConfig) IsTIP5(num *big.Int) bool {
 	}
 	return isForked(c.TIP5.SnailNumber, num)
 }
+
 func (c *ChainConfig) IsTIP8(num *big.Int) bool {
 	if c.TIP8 == nil {
 		return false
 	}
 	return isForked(c.TIP8.FastNumber, num)
 }
+
 func (c *ChainConfig) IsTIP9(num *big.Int) bool {
 	if c.TIP9 == nil {
 		return false

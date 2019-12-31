@@ -31,6 +31,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -120,6 +122,8 @@ func (c *committee) setMemberState(pubkey []byte, flag uint32) {
 }
 
 type Election struct {
+	chainConfig *params.ChainConfig
+
 	genesisCommittee []*types.CommitteeMember
 	defaultMembers   []*types.CommitteeMember
 
@@ -137,8 +141,9 @@ type Election struct {
 	electionFeed event.Feed
 	scope        event.SubscriptionScope
 
-	prepare    bool
-	switchNext chan struct{}
+	prepare      bool
+	disabled     bool
+	switchNext   chan struct{}
 
 	snailChainEventCh  chan types.SnailChainEvent
 	snailChainEventSub event.Subscription
@@ -153,6 +158,8 @@ type BlockChain interface {
 	CurrentHeader() *types.Header
 
 	GetBlockByNumber(number uint64) *types.Block
+
+	StateAt(root common.Hash) (*state.StateDB, error)
 }
 
 // SnailLightChain encapsulates functions required to synchronise a light chain.
@@ -470,6 +477,15 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 	return members
 }
 
+func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
+
+	block := e.fastchain.GetBlockByNumber(fastNumber.Uint64())
+	stateDb, _ := e.fastchain.StateAt(block.Root())
+	validators := vm.GetCurrentValidators(stateDb)
+
+	return validators
+}
+
 // getCommittee returns the committee members who propose this fast block
 func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *committee {
 	log.Debug("get committee ..", "fastnumber", fastNumber, "snailnumber", snailNumber)
@@ -621,6 +637,11 @@ func (e *Election) electedCommittee(fastNumber *big.Int) *committee {
 // GetCommittee gets committee members propose this fast block
 func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	var members []*types.CommitteeMember
+
+	if e.chainConfig.IsTIP8(fastNumber) {
+		// Apply validators at stake from contract and blockchain
+		return e.getValidators(fastNumber)
+	}
 
 	committee := e.electedCommittee(fastNumber)
 	if committee == nil {
@@ -1166,6 +1187,10 @@ func (e *Election) FinalizeCommittee(block *types.Block) error {
 		log.Error("Finalize committee get nil block")
 		return nil
 	}
+	if e.chainConfig.IsTIP8(new(big.Int).Add(block.Number(), common.Big0)) {
+		// No need to do retrieve election from PoW
+		return nil
+	}
 
 	info := block.SwitchInfos()
 	if len(info) > 0 {
@@ -1185,6 +1210,13 @@ func (e *Election) Start() error {
 	// get current committee info
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
+
+	if e.chainConfig.IsTIP8(fastHeadNumber) {
+		// No need to do retrieve committee from PoW and do election
+		log.Info("Election enable stake at launch")
+		e.disabled = true
+		return nil
+	}
 
 	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if currentCommittee == nil {
