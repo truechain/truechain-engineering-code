@@ -58,7 +58,6 @@ func (r *RedeemItem) isRedeem(target uint64) bool {
 type impawnUnit struct {
 	address    common.Address
 	value      []*PairstakingValue // sort by height
-	rewardInfo []*RewardItem
 	redeemInof []*RedeemItem
 }
 
@@ -201,7 +200,26 @@ func (s *impawnUnit) update(unit *impawnUnit, move bool) {
 	}
 }
 func (s *impawnUnit) clone() *impawnUnit {
-	return nil
+	tmp := &impawnUnit{
+		address:    s.address,
+		value:      make([]*PairstakingValue, 0),
+		redeemInof: make([]*RedeemItem, 0),
+	}
+	for _, v := range s.value {
+		tmp.value = append(tmp.value, &PairstakingValue{
+			amount: new(big.Int).Set(v.amount),
+			height: new(big.Int).Set(v.height),
+			state:  v.state,
+		})
+	}
+	for _, v := range s.redeemInof {
+		tmp.redeemInof = append(tmp.redeemInof, &RedeemItem{
+			Amount:  new(big.Int).Set(v.Amount),
+			EpochID: v.EpochID,
+			State:   v.State,
+		})
+	}
+	return tmp
 }
 func (s *impawnUnit) sort() {
 	sort.Sort(valuesByHeight(s.value))

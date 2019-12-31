@@ -37,7 +37,6 @@ func (p *PairstakingValue) EncodeRLP(w io.Writer) error {
 type extImpawnUnit struct {
 	Address    common.Address
 	Value      []*PairstakingValue // sort by height
-	RewardInfo []*RewardItem
 	RedeemInof []*RedeemItem
 }
 
@@ -46,7 +45,7 @@ func (i *impawnUnit) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&ei); err != nil {
 		return err
 	}
-	i.address, i.value, i.rewardInfo, i.redeemInof = ei.Address, ei.Value, ei.RewardInfo, ei.RedeemInof
+	i.address, i.value, i.redeemInof = ei.Address, ei.Value, ei.RedeemInof
 	return nil
 }
 
@@ -55,7 +54,6 @@ func (i *impawnUnit) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extImpawnUnit{
 		Address:    i.address,
 		Value:      i.value,
-		RewardInfo: i.rewardInfo,
 		RedeemInof: i.redeemInof,
 	})
 }
