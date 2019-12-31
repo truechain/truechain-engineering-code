@@ -175,6 +175,46 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		markNodeMu:           new(sync.Mutex),
 		broadcastNodeTag:     utils.NewOrderedMap(),
 	}
+
+	current := agent.fastChain.CurrentBlock()
+
+	if agent.config.IsTIP8(current.Number()) {
+		epoch := types.GetEpochFromHeight(current.Number().Uint64())
+		if current.Number().Uint64() >= epoch.BeginHeight {
+			log.Info("Epoch id at launch", "id", epoch.EpochID)
+			committee := &types.CommitteeInfo{
+				Id:          new(big.Int).SetUint64(epoch.EpochID),
+				StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
+				EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
+			}
+
+			stateDb, _ := agent.fastChain.StateAt(current.Root())
+			validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID + 1)
+			committee.Members = validators
+
+			// Switch to new epoch
+			agent.setCommitteeInfo(nextCommittee, committee)
+			if agent.IsUsedOrUnusedMember(committee, agent.committeeNode.Publickey) {
+				agent.startSend(committee, true)
+				help.CheckAndPrintError(agent.server.PutCommittee(committee))
+				help.CheckAndPrintError(agent.server.PutNodes(committee.Id, []*types.CommitteeNode{agent.committeeNode}))
+			} else {
+				agent.startSend(committee, false)
+			}
+
+			// Set new bft and start committee
+			if agent.verifyCommitteeID(types.CommitteeStart, committee.Id) {
+				agent.setCommitteeInfo(currentCommittee, types.CopyCommitteeInfo(agent.nextCommitteeInfo))
+				if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+					agent.isCurrentCommitteeMember = true
+					go help.CheckAndPrintError(agent.server.Notify(committee.Id, int(types.CommitteeStart)))
+				} else {
+					agent.isCurrentCommitteeMember = false
+				}
+			}
+		}
+	}
+
 	agent.initNodeInfo(etrue)
 	if !agent.singleNode {
 		agent.subScribeEvent()
