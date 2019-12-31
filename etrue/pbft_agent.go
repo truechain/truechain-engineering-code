@@ -486,10 +486,10 @@ func (agent *PbftAgent) loop() {
 			if agent.config.IsTIP8(new(big.Int).Add(num, common.Big1)) {
 				next := num.Uint64() + 1
 				epoch := types.GetEpochFromHeight(next)
-				log.Info("epoch id", "id", epoch.EpochID)
 
 				if next == epoch.BeginHeight {
 					// Start New Epoch
+					log.Info("epoch id", "id", epoch.EpochID)
 					committee := &types.CommitteeInfo{
 						Id:          new(big.Int).SetUint64(epoch.EpochID),
 						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
@@ -497,7 +497,7 @@ func (agent *PbftAgent) loop() {
 					}
 
 					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
-					validators := vm.GetCurrentValidators(stateDb)
+					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID + 1)
 					committee.Members = validators
 
 					// Switch to new epoch

@@ -867,6 +867,20 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 	return vv
 }
 
+func GetValidatorsByEpoch(state StateDB, eid uint64) []*types.CommitteeMember {
+	i := NewImpawnImpl()
+	i.Load(state, StakingAddress)
+	accs := i.getElections2(eid)
+	var vv []*types.CommitteeMember
+	for _, v := range accs {
+		vv = append(vv, &types.CommitteeMember{
+			Coinbase:  v.unit.GetRewardAddress(),
+			Publickey: types.CopyVotePk(v.votepubkey),
+		})
+	}
+	return vv
+}
+
 /////////////////////////////////////////////////////////////////////////////////
 type valuesByHeight []*PairstakingValue
 
