@@ -26,6 +26,7 @@ var (
 	DposForkPoint      = uint64(20)
 	PreselectionPeriod = uint64(2000)
 	EpochLength        = uint64(10000)
+	ElectionPoint      = uint64(300)
 )
 
 var (
@@ -39,6 +40,7 @@ var (
 	errNotStaking        = errors.New("Not match the staking account")
 	errNotDelegation     = errors.New("Not match the delegation account")
 	errNotMatchEpochInfo = errors.New("the epoch info is not match with accounts")
+	errNotElectionTime   = errors.New("not time to election the next committee")
 )
 
 const (
@@ -49,8 +51,6 @@ const (
 	StateStakingCancel
 	// StateRedeem can be redeem real time (after MaxRedeemHeight block)
 	StateRedeem
-	// StateRedeeming flag the asset which is staking in the height is redeeming
-	StateRedeeming
 	// StateRedeemed flag the asset which is staking in the height is redeemed
 	StateRedeemed
 )
@@ -262,24 +262,6 @@ func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) {
 	} else {
 		r.update(tmp)
 	}
-	// can be optimize
-	// redeem := big.NewInt(0)
-	// for _, v := range s.value {
-	// 	redeem = redeem.Add(redeem, v.amount)
-	// 	res := redeem.Cmp(s.redeemInof.Amount)
-
-	// 	if res <= 0 {
-	// 		v.state &= ^(StateStakingAuto | StateStakingOnce)
-	// 		v.state &= StateStakingCancel
-	// 		if res == 0 {
-	// 			break
-	// 		}
-	// 	} else if res > 0 {
-	// 		v.state &= ^StateStakingAuto // election on current epoch and cancel in next epoch
-	// 		v.state &= StateStakingCancel
-	// 		break
-	// 	}
-	// }
 }
 func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
 	allAmount := big.NewInt(0)
@@ -317,7 +299,11 @@ func (s *impawnUnit) finishRedeemed() {
 			pos = i
 		}
 	}
-	s.redeemInof = s.redeemInof[pos:]
+	if len(s.redeemInof)-1 == pos {
+		s.redeemInof = s.redeemInof[0:0]
+	} else {
+		s.redeemInof = s.redeemInof[pos+1:]
+	}
 }
 
 // sort the redeemInof by asc with epochid
@@ -564,11 +550,6 @@ func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next, move bool) {
 	}
 }
 
-type SimpleElectionInfo struct {
-	Eid     uint64
-	Address []common.Address
-}
-
 /////////////////////////////////////////////////////////////////////////////////
 // be thread-safe for caller locked
 type ImpawnImpl struct {
@@ -722,11 +703,11 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochI
 	if _, ok := i.accounts[einfo.EpochID]; !ok {
 		return nil, errInvalidParam
 	} else {
-		addrs := i.getElections(einfo.EpochID)
-		impawns := i.fetchAccountsInEpoch(einfo.EpochID, addrs)
-		if impawns == nil || len(addrs) == 0 {
+		das := i.getElections2(einfo.EpochID - 1)
+		if das == nil {
 			return nil, errNullImpawnInEpoch
 		}
+		impawns := SAImpawns(das)
 		var res []*SARewardInfos
 		allValidatorStaking := impawns.getAllStaking(target)
 
@@ -782,12 +763,17 @@ func (i *ImpawnImpl) redeemPrincipal(addr common.Address, amount *big.Int) error
 ////////////// external function //////////////////////////////////////////
 
 // DoElections called by consensus while it closer the end of epoch,have 500~1000 fast block
-func (i *ImpawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount, error) {
+func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, error) {
 	if epochid != i.getCurrentEpoch()+1 {
 		return nil, errOverEpochID
 	}
+	cur := GetEpochFromID(i.curEpochID)
+	if cur.EndHeight != height+ElectionPoint {
+		return nil, errNotElectionTime
+	}
+	e := GetEpochFromID(epochid)
 	if val, ok := i.accounts[epochid-1]; ok {
-		val.sort(end, true)
+		val.sort(e.EndHeight, true)
 		var ee []*StakingAccount
 		for i, v := range val {
 			v.committee = true
