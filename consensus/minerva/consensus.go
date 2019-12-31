@@ -28,10 +28,11 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -864,10 +865,18 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, types.ErrSnailHeightNotYet
 		}
-		err := accumulateRewardsFast(m.election, state, sBlock)
-		if err != nil {
-			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
-			return nil, err
+		if chain.Config().IsTIP8(header.Number) {
+			err := accumulateRewardsFast2(state, sBlock)
+			if err != nil {
+				log.Error("Finalize Error", "accumulateRewardsFast2", err.Error())
+				return nil, err
+			}
+		} else {
+			err := accumulateRewardsFast(m.election, state, sBlock)
+			if err != nil {
+				log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
+				return nil, err
+			}
 		}
 	}
 
@@ -950,6 +959,47 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 		err := rewardFruitCommitteeMember(stateDB, election, fruit, committeeCoinFruit, failAddr)
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) error {
+	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
+	if e != nil {
+		return e
+	}
+	impawn := vm.NewImpawnImpl()
+	impawn.Load(stateDB, vm.StakingAddress)
+	defer impawn.Save(stateDB, vm.StakingAddress)
+
+	var (
+		blockFruits    = sBlock.Body().Fruits
+		blockFruitsLen = big.NewInt(int64(len(blockFruits)))
+	)
+	if blockFruitsLen.Uint64() == 0 {
+		return consensus.ErrInvalidBlock
+	}
+	var (
+		//fruit award amount
+		minerFruitCoinOne = new(big.Int).Div(minerFruitCoin, blockFruitsLen)
+	)
+	//miner's award
+	stateDB.AddBalance(sBlock.Coinbase(), minerCoin)
+	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
+
+	for _, fruit := range blockFruits {
+		stateDB.AddBalance(fruit.Coinbase(), minerFruitCoinOne)
+		LogPrint("minerFruit", fruit.Coinbase(), minerFruitCoinOne)
+	}
+	//committee reward
+	infos, err := impawn.Reward(sBlock, committeeCoin)
+	if err != nil {
+		return err
+	}
+	for _, v := range infos {
+		for _, vv := range v.Items {
+			stateDB.AddBalance(vv.Address, vv.Amount)
+			LogPrint("committee:", vv.Address, vv.Amount)
 		}
 	}
 	return nil
