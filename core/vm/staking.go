@@ -21,6 +21,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
@@ -129,7 +130,7 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 
-	epoch := GetEpochFromHeight(evm.Context.BlockNumber.Uint64())
+	epoch := types.GetEpochFromHeight(evm.Context.BlockNumber.Uint64())
 	account, err := impawn.GetStakingAccount(epoch.EpochID, depositAddr)
 	if err != nil {
 		log.Error("Staking fetch account error", "error", err)
