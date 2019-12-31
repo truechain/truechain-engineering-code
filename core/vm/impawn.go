@@ -321,7 +321,7 @@ func (s *impawnUnit) finishRedeemed() {
 
 // sort the redeemInof by asc with epochid
 func (s *impawnUnit) sortRedeemItems() {
-
+	sort.Sort(redeemByID(s.redeemInof))
 }
 
 // merge for move from prev to next epoch,move the staking who was to be voted.
@@ -877,14 +877,15 @@ func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	i.redeemByDa(da, curHeight, amount)
 	return nil
 }
-func (i *ImpawnImpl) insertDAccount(epochID uint64, da *DelegationAccount) error {
+func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error {
 	if da == nil {
 		return errInvalidParam
 	}
-	if epochID > i.getCurrentEpoch() {
+	epochInfo := GetEpochFromHeight(height)
+	if epochInfo == nil || epochInfo.EpochID > i.getCurrentEpoch() {
 		return errOverEpochID
 	}
-	sa, err := i.GetStakingAccount(epochID, da.deleAddress)
+	sa, err := i.GetStakingAccount(epochInfo.EpochID, da.deleAddress)
 	if err != nil {
 		return err
 	}
@@ -1071,6 +1072,20 @@ func (vs valuesByHeight) update(val *PairstakingValue) valuesByHeight {
 		vs = append(append(vs[:pos], val), rear...)
 	}
 	return vs
+}
+
+type redeemByID []*RedeemItem
+
+func (vs redeemByID) Len() int {
+	return len(vs)
+}
+func (vs redeemByID) Less(i, j int) bool {
+	return vs[i].EpochID < vs[j].EpochID
+}
+func (vs redeemByID) Swap(i, j int) {
+	it := vs[i]
+	vs[i] = vs[j]
+	vs[j] = it
 }
 
 type stakingItem struct {
