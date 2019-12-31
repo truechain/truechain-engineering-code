@@ -497,7 +497,7 @@ func (agent *PbftAgent) loop() {
 					}
 
 					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
-					validators := vm.GetValidators(stateDb)
+					validators := vm.GetCurrentValidators(stateDb)
 					committee.Members = validators
 
 					// Switch to new epoch

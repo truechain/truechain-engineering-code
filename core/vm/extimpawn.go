@@ -1,10 +1,11 @@
 package vm
 
 import (
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"io"
 	"math/big"
+
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 // "external" PairstakingValue encoding. used for pos staking.
@@ -37,7 +38,7 @@ type extImpawnUnit struct {
 	Address    common.Address
 	Value      []*PairstakingValue // sort by height
 	RewardInfo []*RewardItem
-	RedeemInof *RedeemItem
+	RedeemInof []*RedeemItem
 }
 
 func (i *impawnUnit) DecodeRLP(s *rlp.Stream) error {

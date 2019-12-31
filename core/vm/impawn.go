@@ -20,7 +20,7 @@ var (
 	mixImpawn          = new(big.Int).Mul(big.NewInt(1000), baseUnit)
 	base               = new(big.Int).SetUint64(10000)
 	CountInEpoch       = 31
-	MaxRedeemHeight    = 1000
+	MaxRedeemHeight    = uint64(1000)
 	MixEpochCount      = 2
 	EpochElectionPoint = 500
 	DposForkPoint      = uint64(20)
@@ -46,6 +46,7 @@ const (
 	StateStakingOnce uint8 = 1 << iota
 	// StateStakingAuto can be election in every epoch
 	StateStakingAuto
+	StateStakingCancel
 	// StateRedeem can be redeem real time (after MaxRedeemHeight block)
 	StateRedeem
 	// StateRedeeming flag the asset which is staking in the height is redeeming
@@ -170,7 +171,7 @@ type PairstakingValue struct {
 }
 
 func (v *PairstakingValue) isElection() bool {
-	return v.state&StateStakingOnce != 0 || v.state&StateStakingAuto != 0
+	return v.state&StateStakingCancel == 0 && (v.state&StateStakingOnce != 0 || v.state&StateStakingAuto != 0)
 }
 
 type RewardItem struct {
@@ -178,17 +179,36 @@ type RewardItem struct {
 	Height *big.Int
 }
 type RedeemItem struct {
-	Amount *big.Int
-	Height *big.Int
-	State  uint8
-	Last   []*PairstakingValue // the redeem info of the epochs before current epoch
+	Amount  *big.Int
+	EpochID uint64
+	State   uint8
+}
+
+func (r *RedeemItem) toHeight() *big.Int {
+	e := GetEpochFromID(r.EpochID + 1)
+	return new(big.Int).SetUint64(e.BeginHeight)
+}
+func (r *RedeemItem) fromHeight(hh *big.Int) {
+	e := GetEpochFromHeight(hh.Uint64())
+	if e != nil {
+		r.EpochID = e.EpochID
+	}
+}
+func (r *RedeemItem) update(o *RedeemItem) {
+	if r.EpochID == o.EpochID {
+		r.Amount = r.Amount.Add(r.Amount, o.Amount)
+	}
+}
+func (r *RedeemItem) isRedeem(target uint64) bool {
+	hh := r.toHeight().Uint64()
+	return target > hh+MaxRedeemHeight
 }
 
 type impawnUnit struct {
 	address    common.Address
 	value      []*PairstakingValue // sort by height
 	rewardInfo []*RewardItem
-	redeemInof *RedeemItem
+	redeemInof []*RedeemItem
 }
 
 func (s *impawnUnit) getAllStaking(hh uint64) *big.Int {
@@ -218,87 +238,112 @@ func (s *impawnUnit) getValidStaking(hh uint64) *big.Int {
 func (s *impawnUnit) GetRewardAddress() common.Address {
 	return s.address
 }
-func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) {
-	if s.redeemInof == nil {
-		s.redeemInof = &RedeemItem{
-			Amount: new(big.Int).Set(amount),
-			Height: new(big.Int).Set(lastHeight),
-			State:  StateRedeem,
+func (s *impawnUnit) getRedeemItem(epochID uint64) *RedeemItem {
+	for _, v := range s.redeemInof {
+		if v.EpochID == epochID {
+			return v
 		}
+	}
+	return nil
+}
+func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) {
+	e := GetEpochFromHeight(lastHeight.Uint64())
+	if e == nil {
+		return
+	}
+	r := s.getRedeemItem(e.EpochID)
+	tmp := &RedeemItem{
+		Amount: new(big.Int).Set(amount),
+		State:  StateRedeem,
+	}
+	if r == nil {
+		s.redeemInof = append(s.redeemInof, tmp)
 	} else {
-		s.redeemInof.Amount = new(big.Int).Add(s.redeemInof.Amount, amount)
-		s.redeemInof.Height = new(big.Int).Set(lastHeight)
+		r.update(tmp)
 	}
 	// can be optimize
-	redeem := big.NewInt(0)
-	for _, v := range s.value {
-		redeem = redeem.Add(redeem, v.amount)
-		res := redeem.Cmp(s.redeemInof.Amount)
+	// redeem := big.NewInt(0)
+	// for _, v := range s.value {
+	// 	redeem = redeem.Add(redeem, v.amount)
+	// 	res := redeem.Cmp(s.redeemInof.Amount)
 
-		if res == 0 {
-			v.state &= ^(StateStakingAuto | StateStakingOnce)
-			break
-		} else if res > 0 {
-			v.state &= ^StateStakingAuto // election on current epoch and cancel in next epoch
-			break
-		} else {
-			v.state &= ^(StateStakingAuto | StateStakingOnce)
+	// 	if res <= 0 {
+	// 		v.state &= ^(StateStakingAuto | StateStakingOnce)
+	// 		v.state &= StateStakingCancel
+	// 		if res == 0 {
+	// 			break
+	// 		}
+	// 	} else if res > 0 {
+	// 		v.state &= ^StateStakingAuto // election on current epoch and cancel in next epoch
+	// 		v.state &= StateStakingCancel
+	// 		break
+	// 	}
+	// }
+}
+func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
+	allAmount := big.NewInt(0)
+	// sort the redeemInof by asc with epochid
+	s.sortRedeemItems()
+	for _, v := range s.redeemInof {
+		if v.isRedeem(hh) {
+			allAmount = allAmount.Add(allAmount, v.Amount)
+			res := allAmount.Cmp(amount)
+			if res <= 0 {
+				v.Amount, v.State = v.Amount.Sub(v.Amount, v.Amount), StateRedeemed
+				if res == 0 {
+					break
+				}
+			} else {
+				v.State = StateRedeemed
+				v.Amount.Set(new(big.Int).Sub(allAmount, amount))
+				break
+			}
 		}
 	}
+	res := allAmount.Cmp(amount)
+	if res >= 0 {
+		return s.address, amount
+	} else {
+		return s.address, allAmount
+	}
 }
-func (s *impawnUnit) redeeming() (common.Address, *big.Int) {
-	all := big.NewInt(0)
+
+// called by user input and it will be execute without wait for the staking be rewarded
+func (s *impawnUnit) finishRedeemed() {
 	pos := 0
-	for i, v := range s.value {
-		all = all.Add(all, v.amount)
-		v.state |= StateRedeeming
-		res := all.Cmp(s.redeemInof.Amount)
-		if res == 0 {
+	for i, v := range s.redeemInof {
+		if v.Amount.Sign() == 0 && v.State == StateRedeemed {
 			pos = i
-		} else if res > 0 {
-			pos, v.amount = i, new(big.Int).Sub(all, s.redeemInof.Amount)
-			all.Set(s.redeemInof.Amount)
-			break
 		}
 	}
-	s.value = s.value[pos:]
-	return s.address, all
+	s.redeemInof = s.redeemInof[pos:]
 }
-func (s *impawnUnit) clearRedeemed(all *big.Int) {
-	if s.redeemInof.Amount.Cmp(all) < 0 {
-		panic("redeem all amount exception")
-	}
-	s.redeemInof.Amount = new(big.Int).Sub(s.redeemInof.Amount, all)
-	s.redeemInof.State |= StateRedeemed
-}
-func (s *impawnUnit) isRedeemed() bool {
-	if s.redeemInof != nil {
-		return s.redeemInof.State&StateRedeem != 0
-	}
-	return false
+
+// sort the redeemInof by asc with epochid
+func (s *impawnUnit) sortRedeemItems() {
+
 }
 
 // merge for move from prev to next epoch,move the staking who was to be voted.
 // merge all staking to one staking with the new height(the beginning of next epoch).
+// it will remove the staking which was canceled in the prev epoch
 // called by move function.
-func (s *impawnUnit) merge(hh uint64) {
+func (s *impawnUnit) merge(epochid, hh uint64) {
+	redeem := s.getRedeemItem(epochid)
+	if redeem == nil {
+		return
+	}
 	all := big.NewInt(0)
-	redeem := false
-	state := uint8(0)
 	for _, v := range s.value {
 		all = all.Add(all, v.amount)
-		redeem = v.state&StateStakingAuto != 0 // the last flag
-	}
-	if redeem && all.Cmp(s.redeemInof.Amount) > 0 {
-		state |= StateStakingAuto
 	}
 	var val []*PairstakingValue
-	left := all.Sub(all, s.redeemInof.Amount)
+	left := all.Sub(all, redeem.Amount)
 	if left.Sign() > 0 {
 		val = append(val, &PairstakingValue{
 			amount: left,
 			height: new(big.Int).SetUint64(hh),
-			state:  state,
+			state:  StateStakingAuto,
 		})
 	}
 	s.value = val
@@ -311,26 +356,11 @@ func (s *impawnUnit) update(unit *impawnUnit, move bool) {
 	s.value = sorter
 
 	if s.redeemInof == nil {
-		s.redeemInof = &RedeemItem{
-			Amount: big.NewInt(0),
-			Height: big.NewInt(0),
-			State:  0,
-			Last:   make([]*PairstakingValue, 0, 0),
-		}
+		s.redeemInof = make([]*RedeemItem, 0)
 	}
 	if move {
-		tmp := &PairstakingValue{
-			amount: unit.redeemInof.Amount,
-			height: unit.redeemInof.Height,
-			state:  unit.redeemInof.State,
-		}
-		s.redeemInof.Last = append(s.redeemInof.Last, tmp)
-	} else {
-		s.redeemInof.Amount = new(big.Int).Add(s.redeemInof.Amount, unit.redeemInof.Amount)
-		s.redeemInof.State |= unit.redeemInof.State
-		if len(unit.redeemInof.Last) != 0 {
-			s.redeemInof.Last = append(s.redeemInof.Last, unit.redeemInof.Last...)
-		}
+		var tmp []*RedeemItem
+		s.redeemInof = append(append(tmp, unit.redeemInof...), s.redeemInof...)
 	}
 }
 func (s *impawnUnit) clone() *impawnUnit {
@@ -338,6 +368,7 @@ func (s *impawnUnit) clone() *impawnUnit {
 }
 func (s *impawnUnit) sort() {
 	sort.Sort(valuesByHeight(s.value))
+	s.sortRedeemItems()
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -359,14 +390,14 @@ func (s *DelegationAccount) getValidStaking(hh uint64) *big.Int {
 func (s *DelegationAccount) stopStakingInfo(amount, lastHeight *big.Int) {
 	s.unit.stopStakingInfo(amount, lastHeight)
 }
-func (s *DelegationAccount) redeeming() (common.Address, *big.Int) {
-	return s.unit.redeeming()
+func (s *DelegationAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
+	return s.unit.redeeming(hh, amount)
 }
-func (s *DelegationAccount) clearRedeemed(all *big.Int) {
-	s.unit.clearRedeemed(all)
+func (s *DelegationAccount) finishRedeemed() {
+	s.unit.finishRedeemed()
 }
-func (s *DelegationAccount) merge(hh uint64) {
-	s.unit.merge(hh)
+func (s *DelegationAccount) merge(epochid, hh uint64) {
+	s.unit.merge(epochid, hh)
 }
 func (s *DelegationAccount) clone() *DelegationAccount {
 	return &DelegationAccount{
@@ -419,11 +450,11 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) 
 func (s *StakingAccount) stopStakingInfo(amount, lastHeight *big.Int) {
 	s.unit.stopStakingInfo(amount, lastHeight)
 }
-func (s *StakingAccount) redeeming() (common.Address, *big.Int) {
-	return s.unit.redeeming()
+func (s *StakingAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
+	return s.unit.redeeming(hh, amount)
 }
-func (s *StakingAccount) clearRedeemed(all *big.Int) {
-	s.unit.clearRedeemed(all)
+func (s *StakingAccount) finishRedeemed() {
+	s.unit.finishRedeemed()
 }
 func (s *StakingAccount) getAllStaking(hh uint64) *big.Int {
 	all := s.unit.getAllStaking(hh)
@@ -439,10 +470,10 @@ func (s *StakingAccount) getValidStaking(hh uint64) *big.Int {
 	}
 	return all
 }
-func (s *StakingAccount) merge(hh uint64) {
-	s.unit.merge(hh)
+func (s *StakingAccount) merge(epochid, hh uint64) {
+	s.unit.merge(epochid, hh)
 	for _, v := range s.delegation {
-		v.merge(hh)
+		v.merge(epochid, hh)
 	}
 }
 func (s *StakingAccount) getDA(addr common.Address) *DelegationAccount {
@@ -650,27 +681,23 @@ func (i *ImpawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address
 		return items
 	}
 }
-func (i *ImpawnImpl) redeemBySa(sa *StakingAccount, height, epochEnd uint64) {
+func (i *ImpawnImpl) redeemBySa(sa *StakingAccount, height uint64, amount *big.Int) {
 	// can be redeem in the SA
-	if height > epochEnd+uint64(MaxRedeemHeight) {
-		addr, all := sa.redeeming()
-		err := i.redeemPrincipal(addr, all)
-		if err == nil {
-			sa.clearRedeemed(all)
-		}
-		fmt.Println("SA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
+	addr, all := sa.redeeming(height, amount)
+	err := i.redeemPrincipal(addr, all)
+	if err == nil {
+		sa.finishRedeemed()
 	}
+	fmt.Println("SA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
 }
-func (i *ImpawnImpl) redeemByDa(da *DelegationAccount, height, epochEnd uint64) {
+func (i *ImpawnImpl) redeemByDa(da *DelegationAccount, height uint64, amount *big.Int) {
 	// can be redeem in the DA
-	if height > epochEnd+uint64(MaxRedeemHeight) {
-		addr, all := da.redeeming()
-		err := i.redeemPrincipal(addr, all)
-		if err == nil {
-			da.clearRedeemed(all)
-		}
-		fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
+	addr, all := da.redeeming(height, amount)
+	err := i.redeemPrincipal(addr, all)
+	if err == nil {
+		da.finishRedeemed()
 	}
+	fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
 }
 func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Int, item *RewardInfo) ([]*RewardInfo, error) {
 	if sa == nil || allReward == nil || item == nil || allStaking == nil {
@@ -725,24 +752,6 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *EpochI
 ///////////auxiliary function ////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////////
-// 1. keep the minimum epoch count
-// 2. release the item of redeemed
-func (i *ImpawnImpl) shuffle() {
-	epochs := i.getCurrentEpochInfo()
-	if len(epochs) == 0 {
-		return
-	}
-	min, max := epochs[0].EpochID, epochs[len(epochs)-1].EpochID
-	if max-min < uint64(MixEpochCount) {
-		return
-	}
-	for _, epoch := range epochs {
-		if max-epoch.EpochID > uint64(MixEpochCount) && MixEpochCount >= 2 {
-			i.move(epoch.EpochID, epoch.EpochID+1)
-		}
-	}
-}
-
 // move the accounts from prev to next epoch and keeps the prev account still here
 func (i *ImpawnImpl) move(prev, next uint64) error {
 	nextEpoch := GetEpochFromID(next)
@@ -759,7 +768,7 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 	}
 	for _, v := range prevInfos {
 		vv := v.clone()
-		vv.merge(nextEpoch.BeginHeight)
+		vv.merge(prev, nextEpoch.BeginHeight)
 		nextInfos.update(vv, nextEpoch.BeginHeight, true, true)
 	}
 	return nil
@@ -793,6 +802,7 @@ func (i *ImpawnImpl) DoElections(epochid, begin, end uint64) ([]*StakingAccount,
 }
 
 // Shift will move the staking account which has election flag to the next epoch
+// it will be save the whole state in the current epoch end block after it called by consensus
 func (i *ImpawnImpl) Shift(epochid uint64) error {
 	if epochid != i.getCurrentEpoch()+1 {
 		return errOverEpochID
@@ -802,10 +812,10 @@ func (i *ImpawnImpl) Shift(epochid uint64) error {
 	return i.move(prev, epochid)
 }
 
-// RedeemSAccount redeem amount of asset for staking account,it will be done in next epoch
-func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amount *big.Int) error {
+// CancelSAccount cancel amount of asset for staking account,it will be work in next epoch
+func (i *ImpawnImpl) CancelSAccount(curHeight uint64, addr common.Address, amount *big.Int) error {
 	curEpoch := GetEpochFromHeight(curHeight)
-	if curEpoch == nil {
+	if curEpoch == nil || curEpoch.EpochID != i.curEpochID {
 		return errInvalidParam
 	}
 	sa, err := i.GetStakingAccount(curEpoch.EpochID, addr)
@@ -817,10 +827,10 @@ func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amoun
 	return nil
 }
 
-// RedeemDAccount redeem amount of asset for delegation account,it will be done in next epoch
-func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Address, amount *big.Int) error {
+// CancelDAccount cancel amount of asset for delegation account,it will be work in next epoch
+func (i *ImpawnImpl) CancelDAccount(curHeight uint64, addrSA, addrDA common.Address, amount *big.Int) error {
 	curEpoch := GetEpochFromHeight(curHeight)
-	if curEpoch == nil {
+	if curEpoch == nil || curEpoch.EpochID != i.curEpochID {
 		return errInvalidParam
 	}
 	sa, err := i.GetStakingAccount(curEpoch.EpochID, addrSA)
@@ -833,6 +843,38 @@ func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	}
 	da.stopStakingInfo(amount, new(big.Int).SetUint64(curHeight))
 	fmt.Println("[DA]insert a redeem,address:[", addrSA.String(), "],DA address:[", addrDA.String(), "],amount:[", amount.String(), "],height:", curHeight)
+	return nil
+}
+
+// RedeemSAccount redeem amount of asset for staking account,it will locked for a certain time
+func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amount *big.Int) error {
+	curEpoch := GetEpochFromHeight(curHeight)
+	if curEpoch == nil || curEpoch.EpochID != i.curEpochID {
+		return errInvalidParam
+	}
+	sa, err := i.GetStakingAccount(curEpoch.EpochID, addr)
+	if err != nil {
+		return err
+	}
+	i.redeemBySa(sa, curHeight, amount)
+	return nil
+}
+
+// RedeemDAccount redeem amount of asset for delegation account,it will locked for a certain time
+func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Address, amount *big.Int) error {
+	curEpoch := GetEpochFromHeight(curHeight)
+	if curEpoch == nil || curEpoch.EpochID != i.curEpochID {
+		return errInvalidParam
+	}
+	sa, err := i.GetStakingAccount(curEpoch.EpochID, addrSA)
+	if err != nil {
+		return err
+	}
+	da, err2 := i.getDAfromSA(sa, addrDA)
+	if err2 != nil {
+		return err
+	}
+	i.redeemByDa(da, curHeight, amount)
 	return nil
 }
 func (i *ImpawnImpl) insertDAccount(epochID uint64, da *DelegationAccount) error {
@@ -858,7 +900,6 @@ func (i *ImpawnImpl) insertDAccount(epochID uint64, da *DelegationAccount) error
 	return nil
 }
 func (i *ImpawnImpl) InsertDAccount2(height uint64, addr, deleAddr common.Address, val *big.Int) error {
-
 	da := &DelegationAccount{
 		deleAddress: deleAddr,
 		unit: &impawnUnit{
@@ -914,35 +955,6 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 		modify: &AlterableInfo{},
 	}
 	return i.insertSAccount(height, sa)
-}
-
-// doing in every 200 fast block produced by consensus
-// 1. redeem while not be in committee
-// 2. set auto=false when the redeem amount is equal or greater than staking amount in the account
-// 3. judge the block height
-// 4. all redeem for the staking in last epoch will be done
-func (i *ImpawnImpl) DoRedeem(curHeight uint64) error {
-	curEID := i.getCurrentEpoch()
-	epochs := i.getCurrentEpochInfo()
-	// make sure the epochInfo sort by EpochID
-	for _, epoch := range epochs {
-		if val, ok := i.accounts[epoch.EpochID]; ok {
-			for _, v := range val {
-				if epoch.EpochID < curEID {
-					for _, vv := range v.delegation {
-						i.redeemByDa(vv, curHeight, epoch.EndHeight)
-					}
-					i.redeemBySa(v, curHeight, epoch.EndHeight)
-				} else {
-					if !v.isInCommittee() {
-						i.redeemBySa(v, curHeight, epoch.EndHeight)
-					}
-				}
-			}
-		}
-	}
-	i.shuffle()
-	return nil
 }
 
 func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*SARewardInfos, error) {
