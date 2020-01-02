@@ -464,7 +464,7 @@ func (i *ImpawnImpl) setCurrentEpoch(eid uint64) {
 	i.curEpochID = eid
 }
 func (i *ImpawnImpl) getMinEpochID() uint64 {
-	eid := uint64(0)
+	eid := i.curEpochID
 	for k, _ := range i.accounts {
 		if eid > k {
 			eid = k
