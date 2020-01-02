@@ -28,13 +28,14 @@ var (
 	ErrOverEpochID       = errors.New("Over epoch id")
 	ErrNotSequential     = errors.New("epoch id not sequential")
 	ErrInvalidEpochInfo  = errors.New("Invalid epoch info")
-	ErrNullImpawnInEpoch = errors.New("null impawn in the epoch")
+	ErrNotFoundEpoch     = errors.New("cann't found the epoch info")
 	ErrInvalidStaking    = errors.New("Invalid staking account")
 	ErrMatchEpochID      = errors.New("wrong match epoch id in a reward block")
 	ErrNotStaking        = errors.New("Not match the staking account")
 	ErrNotDelegation     = errors.New("Not match the delegation account")
 	ErrNotMatchEpochInfo = errors.New("the epoch info is not match with accounts")
 	ErrNotElectionTime   = errors.New("not time to election the next committee")
+	ErrAmountOver        = errors.New("the amount more than staking amount")
 )
 
 const (

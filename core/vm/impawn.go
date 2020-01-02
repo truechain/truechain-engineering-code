@@ -96,10 +96,14 @@ func (s *impawnUnit) getRedeemItem(epochID uint64) *RedeemItem {
 	}
 	return nil
 }
-func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) {
+func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) error {
+	all := s.getValidStaking(lastHeight.Uint64())
+	if all.Cmp(amount) < 0 {
+		return types.ErrAmountOver
+	}
 	e := types.GetEpochFromHeight(lastHeight.Uint64())
 	if e == nil {
-		return
+		return types.ErrNotFoundEpoch
 	}
 	r := s.getRedeemItem(e.EpochID)
 	tmp := &RedeemItem{
@@ -112,6 +116,7 @@ func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) {
 	} else {
 		r.update(tmp)
 	}
+	return nil
 }
 func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
 	allAmount := big.NewInt(0)
@@ -244,8 +249,8 @@ func (s *DelegationAccount) getAllStaking(hh uint64) *big.Int {
 func (s *DelegationAccount) getValidStaking(hh uint64) *big.Int {
 	return s.unit.getValidStaking(hh)
 }
-func (s *DelegationAccount) stopStakingInfo(amount, lastHeight *big.Int) {
-	s.unit.stopStakingInfo(amount, lastHeight)
+func (s *DelegationAccount) stopStakingInfo(amount, lastHeight *big.Int) error {
+	return s.unit.stopStakingInfo(amount, lastHeight)
 }
 func (s *DelegationAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
 	return s.unit.redeeming(hh, amount)
@@ -304,8 +309,8 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) 
 		s.delegation, _ = fromDelegationByHeight(tmp)
 	}
 }
-func (s *StakingAccount) stopStakingInfo(amount, lastHeight *big.Int) {
-	s.unit.stopStakingInfo(amount, lastHeight)
+func (s *StakingAccount) stopStakingInfo(amount, lastHeight *big.Int) error {
+	return s.unit.stopStakingInfo(amount, lastHeight)
 }
 func (s *StakingAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
 	return s.unit.redeeming(hh, amount)
@@ -584,7 +589,7 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 	} else {
 		das := i.getElections2(einfo.EpochID - 1)
 		if das == nil {
-			return nil, types.ErrNullImpawnInEpoch
+			return nil, types.ErrMatchEpochID
 		}
 		impawns := SAImpawns(das)
 		var res []*types.SARewardInfos
@@ -695,9 +700,9 @@ func (i *ImpawnImpl) CancelSAccount(curHeight uint64, addr common.Address, amoun
 	if err != nil {
 		return err
 	}
-	sa.stopStakingInfo(amount, new(big.Int).SetUint64(curHeight))
-	fmt.Println("[SA]insert a redeem,address:[", addr.String(), "],amount:[", amount.String(), "],height:", curHeight)
-	return nil
+	err2 := sa.stopStakingInfo(amount, new(big.Int).SetUint64(curHeight))
+	fmt.Println("[SA]insert a redeem,address:[", addr.String(), "],amount:[", amount.String(), "],height:", curHeight, "]err:", err2)
+	return err2
 }
 
 // CancelDAccount cancel amount of asset for delegation account,it will be work in next epoch
@@ -714,9 +719,9 @@ func (i *ImpawnImpl) CancelDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	if err2 != nil {
 		return err
 	}
-	da.stopStakingInfo(amount, new(big.Int).SetUint64(curHeight))
-	fmt.Println("[DA]insert a redeem,address:[", addrSA.String(), "],DA address:[", addrDA.String(), "],amount:[", amount.String(), "],height:", curHeight)
-	return nil
+	err3 := da.stopStakingInfo(amount, new(big.Int).SetUint64(curHeight))
+	fmt.Println("[DA]insert a redeem,address:[", addrSA.String(), "],DA address:[", addrDA.String(), "],amount:[", amount.String(), "],height:", curHeight, "]err:", err3)
+	return err3
 }
 
 // RedeemSAccount redeem amount of asset for staking account,it will locked for a certain time
