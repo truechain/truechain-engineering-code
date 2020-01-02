@@ -164,6 +164,13 @@ func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
 		arr = append(arr, i)
 		accounts = append(accounts, &account)
 	}
+	for m := 0; m < len(i.accounts)-1; m++ {
+		for n := 0; n < len(i.accounts)-1-m; n++ {
+			if arr[n] > arr[n+1] {
+				arr[n], arr[n+1] = arr[n+1], arr[n]
+			}
+		}
+	}
 	return rlp.Encode(w, extImpawnImpl{
 		CurEpochID: i.curEpochID,
 		Accounts:   accounts,
