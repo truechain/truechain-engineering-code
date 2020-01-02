@@ -139,6 +139,7 @@ func (a *AlterableInfo) EncodeRLP(w io.Writer) error {
 type extImpawnImpl struct {
 	Accounts   []*SAImpawns
 	CurEpochID uint64
+	Array      []uint64
 }
 
 func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
@@ -148,7 +149,7 @@ func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
 	}
 	accounts := make(map[uint64]SAImpawns)
 	for i, account := range ei.Accounts {
-		accounts[uint64(i)] = *account
+		accounts[ei.Array[i]] = *account
 	}
 
 	i.curEpochID, i.accounts = ei.CurEpochID, accounts
@@ -158,11 +159,14 @@ func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
 // EncodeRLP serializes b into the truechain RLP ImpawnImpl format.
 func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
 	var accounts []*SAImpawns
-	for _, account := range i.accounts {
+	var arr []uint64
+	for i, account := range i.accounts {
+		arr = append(arr, i)
 		accounts = append(accounts, &account)
 	}
 	return rlp.Encode(w, extImpawnImpl{
 		CurEpochID: i.curEpochID,
 		Accounts:   accounts,
+		Array:      arr,
 	})
 }

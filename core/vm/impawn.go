@@ -815,6 +815,8 @@ func (i *ImpawnImpl) InsertDAccount2(height uint64, addr, deleAddr common.Addres
 	if val.Sign() <= 0 || height <= 0 {
 		return types.ErrInvalidParam
 	}
+	state := uint8(0)
+	state |= types.StateStakingAuto
 	da := &DelegationAccount{
 		deleAddress: deleAddr,
 		unit: &impawnUnit{
@@ -822,7 +824,7 @@ func (i *ImpawnImpl) InsertDAccount2(height uint64, addr, deleAddr common.Addres
 			value: []*PairstakingValue{&PairstakingValue{
 				amount: new(big.Int).Set(val),
 				height: new(big.Int).SetUint64(height),
-				state:  0,
+				state:  state,
 			}},
 			redeemInof: make([]*RedeemItem, 0),
 		},
