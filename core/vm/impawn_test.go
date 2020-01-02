@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"math/big"
@@ -11,7 +12,99 @@ import (
 )
 
 /////////////////////////////////////////////////////////////////////
+
+func TestImpawnImpl(t *testing.T) {
+	types.PreselectionPeriod = 2
+	types.EpochLength = 5
+	types.MaxRedeemHeight = 0
+	fmt.Println(" epoch 1 ", types.GetEpochFromID(1))
+	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
+	impl := NewImpawnImpl()
+	for i := uint64(0); i < types.PreselectionPeriod+types.EpochLength+1; i++ {
+		value := big.NewInt(100)
+		priKey, _ := crypto.GenerateKey()
+		from := crypto.PubkeyToAddress(priKey.PublicKey)
+		pub := crypto.FromECDSAPub(&priKey.PublicKey)
+		fmt.Println(" ", from.String())
+		impl.InsertSAccount2(20+i, from, pub, new(big.Int).Sub(value, big.NewInt(int64(10*i))), big.NewInt(0), true)
+		priKeyDA, _ := crypto.GenerateKey()
+		daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
+		impl.InsertDAccount2(20+i, daAddress, from, new(big.Int).Sub(value, big.NewInt(int64(10*i))))
+	}
+
+	for i := uint64(0); i < types.EpochLength; i++ {
+		value := big.NewInt(100)
+		priKey, _ := crypto.GenerateKey()
+		from := crypto.PubkeyToAddress(priKey.PublicKey)
+		pub := crypto.FromECDSAPub(&priKey.PublicKey)
+		impl.InsertSAccount2(28+i, from, pub, value, big.NewInt(0), true)
+		priKeyDA, _ := crypto.GenerateKey()
+		daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
+		impl.InsertDAccount2(28+i, daAddress, from, value)
+	}
+
+	impl.DoElections(2, 28)
+	fmt.Println(impl.getCurrentEpochInfo())
+	fmt.Println(impl.getElections(2))
+	fmt.Println(impl.getCurrentEpoch())
+
+	//impl.Shift()
+	//impl.Reward()
+	//impl.CancelDAccount()
+	//impl.CancelSAccount()
+	//impl.RedeemSAccount()
+	//impl.RedeemDAccount()
+
+	for i := uint64(0); i < types.EpochLength; i++ {
+		value := big.NewInt(100)
+		priKey, _ := crypto.GenerateKey()
+		from := crypto.PubkeyToAddress(priKey.PublicKey)
+		pub := crypto.FromECDSAPub(&priKey.PublicKey)
+		impl.InsertSAccount2(21+i, from, pub, value, big.NewInt(0), true)
+		priKeyDA, _ := crypto.GenerateKey()
+		daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
+		impl.InsertDAccount2(21+i, daAddress, from, value)
+		if i == types.EpochLength-3 {
+			impl.DoElections(3, 28)
+		}
+	}
+
+	fmt.Println(impl.getCurrentEpochInfo())
+	fmt.Println(impl.getElections(2))
+	fmt.Println(impl.getCurrentEpoch())
+
+}
+
+func TestEpoch(t *testing.T) {
+	types.DposForkPoint = 20
+	fmt.Println(" first  ", types.GetFirstEpoch())
+	fmt.Println(" epoch 2 ", types.GetEpochFromID(1))
+	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
+	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
+	fmt.Println(" epoch 3 ", types.GetEpochFromID(3))
+	fmt.Println(" epoch 4 ", types.GetEpochFromID(4))
+	fmt.Println(types.GetEpochFromHeight(0))
+	fmt.Println(types.GetEpochFromHeight(12000))
+	fmt.Println(types.GetEpochFromHeight(12021))
+	fmt.Println(types.GetEpochFromHeight(22021))
+	fmt.Println(types.GetEpochFromHeight(32020))
+	fmt.Println(types.GetEpochFromHeight(32021))
+	fmt.Println(types.GetEpochFromHeight(42020))
+	fmt.Println("GetEpochFromRange ", types.GetEpochFromRange(21, 12020))
+	fmt.Println("GetEpochFromRange ", types.GetEpochFromRange(21, 12021))
+	fmt.Println("GetEpochFromRange ", types.GetEpochFromRange(21, 22020))
+	fmt.Println("GetEpochFromRange ", types.GetEpochFromRange(21, 22021))
+}
+
+// Underlying data structure
+/////////////////////////////////////////////////////////////////////
 func TestImpawnUnit(t *testing.T) {
+	types.DposForkPoint = 1
+	types.PreselectionPeriod = 0
+	types.EpochLength = 50
+	types.MaxRedeemHeight = 0
+	fmt.Println(" epoch 1 ", types.GetEpochFromID(1))
+	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
 	priKey, _ := crypto.GenerateKey()
 	fmt.Printf("%x \n", crypto.FromECDSAPub(&priKey.PublicKey))
 	coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
@@ -20,8 +113,8 @@ func TestImpawnUnit(t *testing.T) {
 	for i := 3; i > 0; i-- {
 		pv := &PairstakingValue{
 			amount: new(big.Int).SetUint64(10*uint64(i) + 10),
-			height: new(big.Int).SetUint64(10*uint64(i) + 10),
-			state:  StateStakingAuto,
+			height: new(big.Int).SetUint64(10*uint64(i) + 60),
+			state:  types.StateStakingAuto,
 		}
 		value = append(value, pv)
 		ri := &RewardItem{
@@ -31,50 +124,41 @@ func TestImpawnUnit(t *testing.T) {
 		Reward = append(Reward, ri)
 	}
 	iMunit := &impawnUnit{
-		address:    coinbase,
-		value:      value,
-		rewardInfo: Reward,
-		redeemInof: &RedeemItem{
-			Amount: new(big.Int).SetUint64(15),
-			Height: new(big.Int).SetUint64(45),
-			State:  StateStakingAuto,
-		},
+		address: coinbase,
+		value:   value,
+		redeemInof: append(make([]*RedeemItem, 0), &RedeemItem{
+			Amount:  new(big.Int).SetUint64(15),
+			EpochID: 1,
+			State:   types.StateStakingAuto,
+		}),
 	}
 
 	iunit := &impawnUnit{
 		address: coinbase,
 		value: append(make([]*PairstakingValue, 0), &PairstakingValue{
 			amount: new(big.Int).SetUint64(15),
-			height: new(big.Int).SetUint64(15),
-			state:  StateStakingAuto,
+			height: new(big.Int).SetUint64(65),
+			state:  types.StateStakingAuto,
 		}),
-		rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
-			Amount: new(big.Int).SetUint64(15),
-			Height: new(big.Int).SetUint64(15),
+		redeemInof: append(make([]*RedeemItem, 0), &RedeemItem{
+			Amount:  new(big.Int).SetUint64(15),
+			EpochID: 1,
+			State:   types.StateStakingAuto,
 		}),
-		redeemInof: &RedeemItem{
-			Amount: new(big.Int).SetUint64(15),
-			Height: new(big.Int).SetUint64(45),
-			State:  StateStakingAuto,
-		},
 	}
 
-	iMunit.update(iunit)
+	iMunit.update(iunit, true)
 	for i, value := range iMunit.value {
 		fmt.Printf("%d %d %d %d \n", i, value.height, value.amount, value.state)
 	}
-	for i, value := range iMunit.rewardInfo {
-		fmt.Printf("rewardInfo %d %v \n", i, value)
-	}
-	fmt.Printf("redeemInof %d %v  %s \n", iMunit.redeemInof.Amount, iMunit.redeemInof, coinbase.String())
 
-	fmt.Println(iMunit.getAllStaking(30))
+	fmt.Println(iMunit.getAllStaking(90))
 	fmt.Println(iMunit.GetRewardAddress().String())
 
 	pv := &PairstakingValue{
 		amount: new(big.Int).SetUint64(25),
-		height: new(big.Int).SetUint64(25),
-		state:  StateStakingAuto,
+		height: new(big.Int).SetUint64(60),
+		state:  types.StateStakingAuto,
 	}
 	iMunit.value = append(iMunit.value, pv)
 	iMunit.sort()
@@ -83,59 +167,26 @@ func TestImpawnUnit(t *testing.T) {
 		fmt.Printf("%d %d %d %d \n", i, value.height, value.amount, value.state)
 	}
 
-	fmt.Println("isRedeemed ", iMunit.isRedeemed())
-	iMunit.insertRedeemInfo(new(big.Int).SetInt64(30), new(big.Int).SetInt64(35))
-	for i, value := range iMunit.value {
-		fmt.Printf("%d %d %d %d \n", i, value.amount, value.height, value.state)
-	}
-	fmt.Printf("insertRedeemInfo redeemInof %d %v \n", iMunit.redeemInof.Amount, iMunit.redeemInof)
+	iMunit.stopStakingInfo(new(big.Int).SetInt64(30), new(big.Int).SetInt64(35))
 
-	_, value1 := iMunit.redeeming()
+	iMunit.merge(1, 100)
+
+	_, value1, _ := iMunit.redeeming(90, new(big.Int).SetInt64(60))
 
 	for i, value := range iMunit.value {
 		fmt.Printf("%d %d %d %d \n", i, value.height, value.amount, value.state)
 	}
-	fmt.Printf("insertRedeemInfo redeemInof %d %v %d \n", iMunit.redeemInof.Amount, iMunit.redeemInof, value1)
+	fmt.Printf("insertRedeemInfo redeemInof %d %v %d \n", iMunit.redeemInof[0].Amount, iMunit.redeemInof, value1)
 
-	iMunit.clearRedeemed(value1)
+	iMunit.finishRedeemed()
 
-	fmt.Printf("clearRedeemed redeemInof %d %v  \n", iMunit.redeemInof.Amount, iMunit.redeemInof)
-
-	iMunit.merge(15)
 	for i, value := range iMunit.value {
 		fmt.Printf("merge %d %d %d  %d \n", i, value.height, value.amount, value.state)
 	}
 }
 
-func TestStakingAccount(t *testing.T) {
-
-	priKey, _ := crypto.GenerateKey()
-	saAddress := crypto.PubkeyToAddress(priKey.PublicKey)
-	priKeyDA, _ := crypto.GenerateKey()
-	daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
-	saccount := initialStakingAccount(3, 3, 100, saAddress, daAddress, priKey, priKeyDA)
-
-	fmt.Println(saccount.getAllStaking(300), " ", saccount.getDA(daAddress).getAllStaking(300), " ", saccount.unit.getAllStaking(300))
-
-	priKey1, _ := crypto.GenerateKey()
-	saAddress1 := crypto.PubkeyToAddress(priKey1.PublicKey)
-	priKeyDA1, _ := crypto.GenerateKey()
-	daAddress1 := crypto.PubkeyToAddress(priKeyDA1.PublicKey)
-	saccount1 := initialStakingAccount(3, 3, 100, saAddress1, daAddress1, priKey1, priKeyDA1)
-
-	saccount.update(saccount1, 300, false)
-	fmt.Println("Committee ", saccount.isInCommittee())
-	saccount.insertRedeemInfo(new(big.Int).SetInt64(1000), new(big.Int).SetInt64(300))
-
-	_, value1 := saccount.redeeming()
-
-	saccount.clearRedeemed(value1)
-
-	saccount.merge(300)
-}
-
 func initialStakingAccount(n int, m int, stride int, SAaddress common.Address, DAaddress common.Address, priKey *ecdsa.PrivateKey, priKeyDA *ecdsa.PrivateKey) *StakingAccount {
-	das := []*DelegationAccount{}
+	var das []*DelegationAccount
 	for k := 0; k < n; k++ {
 		da := &DelegationAccount{
 			deleAddress: SAaddress,
@@ -146,7 +197,7 @@ func initialStakingAccount(n int, m int, stride int, SAaddress common.Address, D
 
 	da := &DelegationAccount{
 		deleAddress: SAaddress,
-		unit:        initialImpawnUnit(m, stride-1, DAaddress),
+		unit:        initialImpawnUnit(m, stride-5, DAaddress),
 	}
 	das = append(das, da)
 
@@ -171,7 +222,7 @@ func initialImpawnUnit(n int, stride int, address common.Address) *impawnUnit {
 		pv := &PairstakingValue{
 			amount: new(big.Int).SetUint64(uint64(stride*i + stride)),
 			height: new(big.Int).SetUint64(uint64(stride*i + stride)),
-			state:  StateStakingAuto,
+			state:  types.StateStakingAuto,
 		}
 		value = append(value, pv)
 		ri := &RewardItem{
@@ -181,19 +232,102 @@ func initialImpawnUnit(n int, stride int, address common.Address) *impawnUnit {
 		Reward = append(Reward, ri)
 	}
 	iMunit := &impawnUnit{
-		address:    address,
-		value:      value,
-		rewardInfo: Reward,
-		redeemInof: &RedeemItem{
-			Amount: new(big.Int).SetUint64(uint64(stride + 5)),
-			Height: new(big.Int).SetUint64(uint64(stride + 35)),
-			State:  StateStakingAuto,
-		},
+		address: address,
+		value:   value,
+		redeemInof: append(make([]*RedeemItem, 0), &RedeemItem{
+			Amount:  new(big.Int).SetUint64(1000),
+			EpochID: 2,
+			State:   types.StateRedeem,
+		}),
 	}
 	return iMunit
 }
 
-//RLP
+func TestDelegationAccount(t *testing.T) {
+
+	priKey, _ := crypto.GenerateKey()
+	saAddress := crypto.PubkeyToAddress(priKey.PublicKey)
+	priKeyDA, _ := crypto.GenerateKey()
+	daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
+	da := &DelegationAccount{
+		deleAddress: saAddress,
+		unit:        initialImpawnUnit(3, 5, daAddress),
+	}
+
+	priKey1, _ := crypto.GenerateKey()
+	saAddress1 := crypto.PubkeyToAddress(priKey1.PublicKey)
+	priKeyDA1, _ := crypto.GenerateKey()
+	daAddress1 := crypto.PubkeyToAddress(priKeyDA1.PublicKey)
+	da1 := &DelegationAccount{
+		deleAddress: saAddress1,
+		unit:        initialImpawnUnit(3, 4, daAddress1),
+	}
+	da.update(da1, false)
+	da.stopStakingInfo(new(big.Int).SetInt64(30), new(big.Int).SetInt64(15))
+
+	da.redeeming(90, new(big.Int).SetInt64(60))
+
+	da.finishRedeemed()
+
+	da.merge(1, 100)
+}
+
+func TestStakingAccount(t *testing.T) {
+
+	priKey, _ := crypto.GenerateKey()
+	saAddress := crypto.PubkeyToAddress(priKey.PublicKey)
+	priKeyDA, _ := crypto.GenerateKey()
+	daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
+	saccount := initialStakingAccount(3, 1, 100, saAddress, daAddress, priKey, priKeyDA)
+
+	fmt.Println(saccount.getAllStaking(300), " ", saccount.getDA(daAddress).getAllStaking(300), " ", saccount.unit.getAllStaking(300))
+
+	priKey1, _ := crypto.GenerateKey()
+	saAddress1 := crypto.PubkeyToAddress(priKey1.PublicKey)
+	priKeyDA1, _ := crypto.GenerateKey()
+	daAddress1 := crypto.PubkeyToAddress(priKeyDA1.PublicKey)
+	saccount1 := initialStakingAccount(3, 1, 50, saAddress1, daAddress1, priKey1, priKeyDA1)
+
+	saccount.update(saccount1, 300, false, false)
+	fmt.Println("Committee ", saccount.isInCommittee())
+	saccount.stopStakingInfo(new(big.Int).SetInt64(1000), new(big.Int).SetInt64(300))
+
+	saccount.redeeming(90, new(big.Int).SetInt64(60))
+
+	saccount.finishRedeemed()
+
+	saccount.merge(1, 300)
+}
+
+func TestSAImpawns(t *testing.T) {
+	var sas []*StakingAccount
+
+	sa := common.Address{}
+
+	for i := 0; i < 3; i++ {
+		priKey, _ := crypto.GenerateKey()
+		saAddress := crypto.PubkeyToAddress(priKey.PublicKey)
+		priKeyDA, _ := crypto.GenerateKey()
+		daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
+		saccount := initialStakingAccount(1, 1, 10, saAddress, daAddress, priKey, priKeyDA)
+		sas = append(sas, saccount)
+		sa = saAddress
+	}
+	SAIs := SAImpawns(sas)
+	fmt.Println(" sa ", SAIs.getValidStaking(15), " all ", SAIs.getAllStaking(15), " da ", SAIs.getSA(sa))
+	priKey, _ := crypto.GenerateKey()
+	saAddress := crypto.PubkeyToAddress(priKey.PublicKey)
+	priKeyDA, _ := crypto.GenerateKey()
+	daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
+	saccount := initialStakingAccount(1, 1, 9, saAddress, daAddress, priKey, priKeyDA)
+	SAIs.update(saccount, 30, false, false)
+	saccount = initialStakingAccount(1, 1, 15, saAddress, daAddress, priKey, priKeyDA)
+	SAIs.update(saccount, 30, false, false)
+
+	SAIs.sort(15, false)
+}
+
+// RLP
 /////////////////////////////////////////////////////////////////////
 func TestRlpImpawnImpl(t *testing.T) {
 	impl := makeImpawnImpl()
@@ -222,27 +356,23 @@ func makeImpawnImpl() *ImpawnImpl {
 	priKey, _ := crypto.GenerateKey()
 	coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
 
-	for i := 0; i < MixEpochCount; i++ {
+	for i := 0; i < types.MixEpochCount; i++ {
 
 		accounts[uint64(i)] = make(SAImpawns, 3)
-		sas := []*StakingAccount{}
+		var sas []*StakingAccount
 		for j := 0; j < 3; j++ {
 			unit := &impawnUnit{
 				address: coinbase,
 				value: append(make([]*PairstakingValue, 0), &PairstakingValue{
 					amount: new(big.Int).SetUint64(1000),
 					height: new(big.Int).SetUint64(1000),
-					state:  StateRedeem,
+					state:  types.StateRedeem,
 				}),
-				rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
-					Amount: new(big.Int).SetUint64(1000),
-					Height: new(big.Int).SetUint64(1000),
+				redeemInof: append(make([]*RedeemItem, 0), &RedeemItem{
+					Amount:  new(big.Int).SetUint64(1000),
+					EpochID: 2,
+					State:   types.StateRedeem,
 				}),
-				redeemInof: &RedeemItem{
-					Amount: new(big.Int).SetUint64(1000),
-					Height: new(big.Int).SetUint64(1000),
-					State:  StateRedeem,
-				},
 			}
 			das := []*DelegationAccount{}
 			for k := 0; k < 3; k++ {
@@ -299,17 +429,13 @@ func makeDelegationAccount() *DelegationAccount {
 		value: append(make([]*PairstakingValue, 0), &PairstakingValue{
 			amount: new(big.Int).SetUint64(1000),
 			height: new(big.Int).SetUint64(101),
-			state:  StateRedeem,
+			state:  types.StateRedeem,
 		}),
-		rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
-			Amount: new(big.Int).SetUint64(1000),
-			Height: new(big.Int).SetUint64(101),
+		redeemInof: append(make([]*RedeemItem, 0), &RedeemItem{
+			Amount:  new(big.Int).SetUint64(1000),
+			EpochID: 2,
+			State:   types.StateRedeem,
 		}),
-		redeemInof: &RedeemItem{
-			Amount: new(big.Int).SetUint64(1000),
-			Height: new(big.Int).SetUint64(101),
-			State:  StateRedeem,
-		},
 	}
 	da := &DelegationAccount{
 		deleAddress: coinbase,
@@ -397,9 +523,6 @@ func TestRlpimpawnUnit(t *testing.T) {
 		fmt.Println(err.Error())
 	}
 
-	for i, ri := range tmp.rewardInfo {
-		fmt.Printf("account %d %v \n", i, ri)
-	}
 	for i, ri := range tmp.value {
 		fmt.Printf("account %d %v \n", i, ri)
 	}
@@ -413,17 +536,13 @@ func makeUnit() *impawnUnit {
 		value: append(make([]*PairstakingValue, 0), &PairstakingValue{
 			amount: new(big.Int).SetUint64(1000),
 			height: new(big.Int).SetUint64(101),
-			state:  StateRedeem,
+			state:  types.StateRedeem,
 		}),
-		rewardInfo: append(make([]*RewardItem, 0), &RewardItem{
-			Amount: new(big.Int).SetUint64(1000),
-			Height: new(big.Int).SetUint64(101),
+		redeemInof: append(make([]*RedeemItem, 0), &RedeemItem{
+			Amount:  new(big.Int).SetUint64(1000),
+			EpochID: 2,
+			State:   types.StateRedeem,
 		}),
-		redeemInof: &RedeemItem{
-			Amount: new(big.Int).SetUint64(1000),
-			Height: new(big.Int).SetUint64(101),
-			State:  StateRedeem,
-		},
 	}
 	return iMunit
 }
@@ -446,11 +565,11 @@ func TestRlpAlterableInfo(t *testing.T) {
 }
 
 func makeAlterableInfo() *AlterableInfo {
-	//priKey, _ := crypto.GenerateKey()
+	priKey, _ := crypto.GenerateKey()
 
 	modify := &AlterableInfo{
 		fee:        nil,
-		votePubkey: nil,
+		votePubkey: crypto.FromECDSAPub(&priKey.PublicKey),
 	}
 	return modify
 }

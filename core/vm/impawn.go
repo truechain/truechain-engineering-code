@@ -105,6 +105,8 @@ func (s *impawnUnit) getRedeemItem(epochID uint64) *RedeemItem {
 	}
 	return nil
 }
+
+// stopStakingInfo redeem delay in next epoch + MaxRedeemHeight
 func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) error {
 	all := s.getValidStaking(lastHeight.Uint64())
 	if all.Cmp(amount) < 0 {
@@ -159,7 +161,7 @@ func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big
 
 // called by user input and it will be execute without wait for the staking be rewarded
 func (s *impawnUnit) finishRedeemed() {
-	pos := 0
+	pos := -1
 	for i, v := range s.redeemInof {
 		if v.Amount.Sign() == 0 && v.State == types.StateRedeemed {
 			pos = i
