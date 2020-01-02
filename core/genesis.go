@@ -264,7 +264,11 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 				log.Error("ToFastBlock InsertSAccount Error")
 			}
 		}
-		err := impl.Save(statedb, vm.StakingAddress)
+		_, err := impl.DoElections(1, 0)
+		if err != nil {
+			log.Error("ToFastBlock DoElections error")
+		}
+		err = impl.Save(statedb, vm.StakingAddress)
 		if err != nil {
 			log.Error("ToFastBlock IMPL Save Error")
 		}

@@ -672,9 +672,11 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 	if epochid != i.getCurrentEpoch()+1 {
 		return nil, types.ErrOverEpochID
 	}
-	cur := types.GetEpochFromID(i.curEpochID)
-	if cur.EndHeight != height+types.ElectionPoint {
-		return nil, types.ErrNotElectionTime
+	if types.DposForkPoint != 0 {
+		cur := types.GetEpochFromID(i.curEpochID)
+		if cur.EndHeight != height+types.ElectionPoint {
+			return nil, types.ErrNotElectionTime
+		}
 	}
 	e := types.GetEpochFromID(epochid)
 	if val, ok := i.accounts[epochid-1]; ok {
@@ -851,7 +853,7 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 	return nil
 }
 func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Int, auto bool) error {
-	if val.Sign() <= 0 || height <= 0 {
+	if val.Sign() <= 0 {
 		return types.ErrInvalidParam
 	}
 	state := uint8(0)
