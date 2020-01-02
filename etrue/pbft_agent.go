@@ -189,7 +189,7 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 			}
 
 			stateDb, _ := agent.fastChain.StateAt(current.Root())
-			validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID + 1)
+			validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID)
 			committee.Members = validators
 
 			// Switch to new epoch

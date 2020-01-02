@@ -17,7 +17,7 @@ var (
 	MaxRedeemHeight    = uint64(1000)
 	MixEpochCount      = 2
 	EpochElectionPoint = 500
-	DposForkPoint      = uint64(20)
+	DposForkPoint      = uint64(0)
 	PreselectionPeriod = uint64(2000)
 	EpochLength        = uint64(10000)
 	ElectionPoint      = uint64(300)
