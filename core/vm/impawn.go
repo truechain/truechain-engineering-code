@@ -317,9 +317,9 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) 
 		s.changeAlterableInfo()
 	}
 	if dirty && hh != 0 {
-		tmp := toDelegationByHeight(hh, false, s.delegation)
+		tmp := toDelegationByAmount(hh, false, s.delegation)
 		sort.Sort(tmp)
-		s.delegation, _ = fromDelegationByHeight(tmp)
+		s.delegation, _ = fromDelegationByAmount(tmp)
 	}
 }
 func (s *StakingAccount) stopStakingInfo(amount, lastHeight *big.Int) error {
@@ -412,13 +412,13 @@ func (s *SAImpawns) getValidStaking(hh uint64) *big.Int {
 }
 func (s *SAImpawns) sort(hh uint64, valid bool) {
 	for _, v := range *s {
-		tmp := toDelegationByHeight(hh, valid, v.delegation)
+		tmp := toDelegationByAmount(hh, valid, v.delegation)
 		sort.Sort(tmp)
-		v.delegation, _ = fromDelegationByHeight(tmp)
+		v.delegation, _ = fromDelegationByAmount(tmp)
 	}
-	tmp := toStakingByHeight(hh, valid, *s)
+	tmp := toStakingByAmount(hh, valid, *s)
 	sort.Sort(tmp)
-	*s, _ = fromStakingByHeight(tmp)
+	*s, _ = fromStakingByAmount(tmp)
 }
 func (s *SAImpawns) getSA(addr common.Address) *StakingAccount {
 	for _, val := range *s {
@@ -672,7 +672,7 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 	if epochid != i.getCurrentEpoch()+1 {
 		return nil, types.ErrOverEpochID
 	}
-	if types.DposForkPoint != 0 {
+	if types.DposForkPoint != 0 || height > 0 {
 		cur := types.GetEpochFromID(i.curEpochID)
 		if cur.EndHeight != height+types.ElectionPoint {
 			return nil, types.ErrNotElectionTime
@@ -1035,9 +1035,9 @@ func (s *stakingItem) getAll() *big.Int {
 	}
 }
 
-type stakingByHeight []*stakingItem
+type stakingByAmount []*stakingItem
 
-func toStakingByHeight(hh uint64, valid bool, items []*StakingAccount) stakingByHeight {
+func toStakingByAmount(hh uint64, valid bool, items []*StakingAccount) stakingByAmount {
 	var tmp []*stakingItem
 	for _, v := range items {
 		v.unit.sort()
@@ -1047,9 +1047,9 @@ func toStakingByHeight(hh uint64, valid bool, items []*StakingAccount) stakingBy
 			valid:  valid,
 		})
 	}
-	return stakingByHeight(tmp)
+	return stakingByAmount(tmp)
 }
-func fromStakingByHeight(items stakingByHeight) ([]*StakingAccount, uint64) {
+func fromStakingByAmount(items stakingByAmount) ([]*StakingAccount, uint64) {
 	var tmp []*StakingAccount
 	var vv uint64
 	for _, v := range items {
@@ -1058,13 +1058,13 @@ func fromStakingByHeight(items stakingByHeight) ([]*StakingAccount, uint64) {
 	}
 	return tmp, vv
 }
-func (vs stakingByHeight) Len() int {
+func (vs stakingByAmount) Len() int {
 	return len(vs)
 }
-func (vs stakingByHeight) Less(i, j int) bool {
-	return vs[i].getAll().Cmp(vs[j].getAll()) == -1
+func (vs stakingByAmount) Less(i, j int) bool {
+	return vs[i].getAll().Cmp(vs[j].getAll()) > 0
 }
-func (vs stakingByHeight) Swap(i, j int) {
+func (vs stakingByAmount) Swap(i, j int) {
 	it := vs[i]
 	vs[i] = vs[j]
 	vs[j] = it
@@ -1084,9 +1084,9 @@ func (d *delegationItem) getAll() *big.Int {
 	}
 }
 
-type delegationItemByHeight []*delegationItem
+type delegationItemByAmount []*delegationItem
 
-func toDelegationByHeight(hh uint64, valid bool, items []*DelegationAccount) delegationItemByHeight {
+func toDelegationByAmount(hh uint64, valid bool, items []*DelegationAccount) delegationItemByAmount {
 	var tmp []*delegationItem
 	for _, v := range items {
 		v.unit.sort()
@@ -1096,9 +1096,9 @@ func toDelegationByHeight(hh uint64, valid bool, items []*DelegationAccount) del
 			valid:  valid,
 		})
 	}
-	return delegationItemByHeight(tmp)
+	return delegationItemByAmount(tmp)
 }
-func fromDelegationByHeight(items delegationItemByHeight) ([]*DelegationAccount, uint64) {
+func fromDelegationByAmount(items delegationItemByAmount) ([]*DelegationAccount, uint64) {
 	var tmp []*DelegationAccount
 	var vv uint64
 	for _, v := range items {
@@ -1107,13 +1107,13 @@ func fromDelegationByHeight(items delegationItemByHeight) ([]*DelegationAccount,
 	}
 	return tmp, vv
 }
-func (vs delegationItemByHeight) Len() int {
+func (vs delegationItemByAmount) Len() int {
 	return len(vs)
 }
-func (vs delegationItemByHeight) Less(i, j int) bool {
-	return vs[i].getAll().Cmp(vs[j].getAll()) == -1
+func (vs delegationItemByAmount) Less(i, j int) bool {
+	return vs[i].getAll().Cmp(vs[j].getAll()) > 0
 }
-func (vs delegationItemByHeight) Swap(i, j int) {
+func (vs delegationItemByAmount) Swap(i, j int) {
 	it := vs[i]
 	vs[i] = vs[j]
 	vs[j] = it
