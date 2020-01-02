@@ -443,6 +443,15 @@ func (i *ImpawnImpl) getCurrentEpoch() uint64 {
 func (i *ImpawnImpl) setCurrentEpoch(eid uint64) {
 	i.curEpochID = eid
 }
+func (i *ImpawnImpl) getMinEpochID() uint64 {
+	eid := uint64(0)
+	for k, _ := range i.accounts {
+		if eid > k {
+			eid = k
+		}
+	}
+	return eid
+}
 func (i *ImpawnImpl) isInCurrentEpoch(hh uint64) bool {
 	return i.curEpochID == types.GetEpochFromHeight(hh).EpochID
 }
@@ -659,6 +668,13 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 // Shift will move the staking account which has election flag to the next epoch
 // it will be save the whole state in the current epoch end block after it called by consensus
 func (i *ImpawnImpl) Shift(epochid uint64) error {
+	minEpoch := types.GetEpochFromHeight(i.lastReward)
+	min := i.getMinEpochID()
+	if minEpoch != nil && min > 0 && minEpoch.EpochID-1 > min {
+		for ii := min; ii < minEpoch.EpochID-1; ii++ {
+			delete(i.accounts, ii)
+		}
+	}
 	if epochid != i.getCurrentEpoch()+1 {
 		return types.ErrOverEpochID
 	}
