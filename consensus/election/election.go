@@ -24,17 +24,17 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/hashicorp/golang-lru"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -141,9 +141,9 @@ type Election struct {
 	electionFeed event.Feed
 	scope        event.SubscriptionScope
 
-	prepare      bool
-	disabled     bool
-	switchNext   chan struct{}
+	prepare    bool
+	disabled   bool
+	switchNext chan struct{}
 
 	snailChainEventCh  chan types.SnailChainEvent
 	snailChainEventSub event.Subscription
@@ -190,9 +190,10 @@ type Config interface {
 }
 
 // NewElection create election processor and load genesis committee
-func NewElection(fastBlockChain BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
+func NewElection(chainConfig *params.ChainConfig, fastBlockChain BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
 	// init
 	election := &Election{
+		chainConfig:       chainConfig,
 		fastchain:         fastBlockChain,
 		snailchain:        snailBlockChain,
 		snailChainEventCh: make(chan types.SnailChainEvent, snailchainHeadSize),
@@ -233,9 +234,9 @@ func NewElection(fastBlockChain BlockChain, snailBlockChain SnailBlockChain, con
 func NewLightElection(fastBlockChain BlockChain, snailBlockChain SnailBlockChain) *Election {
 	// init
 	election := &Election{
-		fastchain:         fastBlockChain,
-		snailchain:        snailBlockChain,
-		electionMode:      ElectModeEtrue,
+		fastchain:    fastBlockChain,
+		snailchain:   snailBlockChain,
+		electionMode: ElectModeEtrue,
 	}
 	return election
 }
