@@ -85,6 +85,15 @@ func (s *impawnUnit) getValidStaking(hh uint64) *big.Int {
 	}
 	return all
 }
+func (s *impawnUnit) getValidRedeem(hh uint64) *big.Int {
+	all := big.NewInt(0)
+	for _, v := range s.redeemInof {
+		if v.isRedeem(hh) {
+			all = all.Add(all, v.Amount)
+		}
+	}
+	return all
+}
 func (s *impawnUnit) GetRewardAddress() common.Address {
 	return s.address
 }
@@ -118,9 +127,11 @@ func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) error {
 	}
 	return nil
 }
-func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
+func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int, error) {
+	if amount.Cmp(s.getValidRedeem(hh)) < 0 {
+		return common.Address{}, nil, types.ErrAmountOver
+	}
 	allAmount := big.NewInt(0)
-	// sort the redeemInof by asc with epochid
 	s.sortRedeemItems()
 	for _, v := range s.redeemInof {
 		if v.isRedeem(hh) {
@@ -140,9 +151,9 @@ func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big
 	}
 	res := allAmount.Cmp(amount)
 	if res >= 0 {
-		return s.address, amount
+		return s.address, amount, nil
 	} else {
-		return s.address, allAmount
+		return s.address, allAmount, nil
 	}
 }
 
@@ -252,7 +263,7 @@ func (s *DelegationAccount) getValidStaking(hh uint64) *big.Int {
 func (s *DelegationAccount) stopStakingInfo(amount, lastHeight *big.Int) error {
 	return s.unit.stopStakingInfo(amount, lastHeight)
 }
-func (s *DelegationAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
+func (s *DelegationAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int, error) {
 	return s.unit.redeeming(hh, amount)
 }
 func (s *DelegationAccount) finishRedeemed() {
@@ -312,7 +323,7 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) 
 func (s *StakingAccount) stopStakingInfo(amount, lastHeight *big.Int) error {
 	return s.unit.stopStakingInfo(amount, lastHeight)
 }
-func (s *StakingAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int) {
+func (s *StakingAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int, error) {
 	return s.unit.redeeming(hh, amount)
 }
 func (s *StakingAccount) finishRedeemed() {
@@ -547,23 +558,31 @@ func (i *ImpawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address
 		return items
 	}
 }
-func (i *ImpawnImpl) redeemBySa(sa *StakingAccount, height uint64, amount *big.Int) {
+func (i *ImpawnImpl) redeemBySa(sa *StakingAccount, height uint64, amount *big.Int) error {
 	// can be redeem in the SA
-	addr, all := sa.redeeming(height, amount)
+	addr, all, err1 := sa.redeeming(height, amount)
+	if err1 != nil {
+		return err1
+	}
 	err := i.redeemPrincipal(addr, all)
 	if err == nil {
 		sa.finishRedeemed()
 	}
 	fmt.Println("SA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
+	return err
 }
-func (i *ImpawnImpl) redeemByDa(da *DelegationAccount, height uint64, amount *big.Int) {
+func (i *ImpawnImpl) redeemByDa(da *DelegationAccount, height uint64, amount *big.Int) error {
 	// can be redeem in the DA
-	addr, all := da.redeeming(height, amount)
+	addr, all, err1 := da.redeeming(height, amount)
+	if err1 != nil {
+		return err1
+	}
 	err := i.redeemPrincipal(addr, all)
 	if err == nil {
 		da.finishRedeemed()
 	}
 	fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
+	return err
 }
 func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Int, item *types.RewardInfo) ([]*types.RewardInfo, error) {
 	if sa == nil || allReward == nil || item == nil || allStaking == nil {
@@ -734,8 +753,7 @@ func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amoun
 	if err != nil {
 		return err
 	}
-	i.redeemBySa(sa, curHeight, amount)
-	return nil
+	return i.redeemBySa(sa, curHeight, amount)
 }
 
 // RedeemDAccount redeem amount of asset for delegation account,it will locked for a certain time
@@ -752,8 +770,7 @@ func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	if err2 != nil {
 		return err
 	}
-	i.redeemByDa(da, curHeight, amount)
-	return nil
+	return i.redeemByDa(da, curHeight, amount)
 }
 func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error {
 	if da == nil {
