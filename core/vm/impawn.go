@@ -765,6 +765,7 @@ func (i *ImpawnImpl) InsertDAccount2(height uint64, addr, deleAddr common.Addres
 				height: new(big.Int).SetUint64(height),
 				state:  0,
 			}},
+			redeemInof: make([]*RedeemItem, 0),
 		},
 	}
 	return i.insertDAccount(height, da)
@@ -807,6 +808,7 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 				height: new(big.Int).SetUint64(height),
 				state:  state,
 			}},
+			redeemInof: make([]*RedeemItem, 0),
 		},
 		modify: &AlterableInfo{},
 	}
@@ -819,7 +821,7 @@ func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*typ
 	if ids == nil || len(ids) > 2 {
 		return nil, types.ErrMatchEpochID
 	}
-
+	defer func() { i.lastReward = end }()
 	if len(ids) == 2 {
 		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-ids[0].BeginHeight)), new(big.Int).SetUint64(end-begin))
 		amount1, amount2 := tmp, new(big.Int).Sub(allAmount, tmp)
