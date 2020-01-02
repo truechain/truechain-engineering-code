@@ -932,7 +932,16 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 		if fastNumber.Uint64() == epoch.EndHeight + types.EpochLength - types.PreselectionPeriod {
 			i := vm.NewImpawnImpl()
 			i.Load(state, vm.StakingAddress)
-			if _, err := i.DoElections(epoch.EpochID, fastNumber.Uint64()); err != nil {
+			if _, err := i.DoElections(epoch.EpochID + 1, fastNumber.Uint64()); err != nil {
+				return err
+			}
+			i.Save(state, vm.StakingAddress)
+		}
+
+		if fastNumber.Uint64() == epoch.EndHeight {
+			i := vm.NewImpawnImpl()
+			i.Load(state, vm.StakingAddress)
+			if err := i.Shift(epoch.EpochID + 1); err != nil {
 				return err
 			}
 			i.Save(state, vm.StakingAddress)
