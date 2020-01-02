@@ -10,10 +10,10 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -256,8 +256,8 @@ func (h *HealthMgr) ChanTo() chan *SwitchValidator {
 
 //OnStart mgr start
 func (h *HealthMgr) OnStart() error {
-	EnableHealthMgr = true
-	if h.healthTick == nil {
+	EnableHealthMgr = false
+	if h.healthTick == nil && EnableHealthMgr {
 		h.healthTick = time.NewTicker(1 * time.Second)
 		go h.healthGoroutine()
 	}
