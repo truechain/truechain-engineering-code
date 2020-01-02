@@ -711,6 +711,9 @@ func (i *ImpawnImpl) Shift(epochid uint64) error {
 
 // CancelSAccount cancel amount of asset for staking account,it will be work in next epoch
 func (i *ImpawnImpl) CancelSAccount(curHeight uint64, addr common.Address, amount *big.Int) error {
+	if amount.Sign() <= 0 || curHeight <= 0 {
+		return types.ErrInvalidParam
+	}
 	curEpoch := types.GetEpochFromHeight(curHeight)
 	if curEpoch == nil || curEpoch.EpochID != i.curEpochID {
 		return types.ErrInvalidParam
@@ -726,6 +729,9 @@ func (i *ImpawnImpl) CancelSAccount(curHeight uint64, addr common.Address, amoun
 
 // CancelDAccount cancel amount of asset for delegation account,it will be work in next epoch
 func (i *ImpawnImpl) CancelDAccount(curHeight uint64, addrSA, addrDA common.Address, amount *big.Int) error {
+	if amount.Sign() <= 0 || curHeight <= 0 {
+		return types.ErrInvalidParam
+	}
 	curEpoch := types.GetEpochFromHeight(curHeight)
 	if curEpoch == nil || curEpoch.EpochID != i.curEpochID {
 		return types.ErrInvalidParam
@@ -745,6 +751,9 @@ func (i *ImpawnImpl) CancelDAccount(curHeight uint64, addrSA, addrDA common.Addr
 
 // RedeemSAccount redeem amount of asset for staking account,it will locked for a certain time
 func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amount *big.Int) error {
+	if amount.Sign() <= 0 || curHeight <= 0 {
+		return types.ErrInvalidParam
+	}
 	curEpoch := types.GetEpochFromHeight(curHeight)
 	if curEpoch == nil || curEpoch.EpochID != i.curEpochID {
 		return types.ErrInvalidParam
@@ -758,6 +767,9 @@ func (i *ImpawnImpl) RedeemSAccount(curHeight uint64, addr common.Address, amoun
 
 // RedeemDAccount redeem amount of asset for delegation account,it will locked for a certain time
 func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Address, amount *big.Int) error {
+	if amount.Sign() <= 0 || curHeight <= 0 {
+		return types.ErrInvalidParam
+	}
 	curEpoch := types.GetEpochFromHeight(curHeight)
 	if curEpoch == nil || curEpoch.EpochID != i.curEpochID {
 		return types.ErrInvalidParam
@@ -796,6 +808,9 @@ func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error 
 	return nil
 }
 func (i *ImpawnImpl) InsertDAccount2(height uint64, addr, deleAddr common.Address, val *big.Int) error {
+	if val.Sign() <= 0 || height <= 0 {
+		return types.ErrInvalidParam
+	}
 	da := &DelegationAccount{
 		deleAddress: deleAddr,
 		unit: &impawnUnit{
@@ -834,6 +849,9 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 	return nil
 }
 func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Int, auto bool) error {
+	if val.Sign() <= 0 || height <= 0 {
+		return types.ErrInvalidParam
+	}
 	state := uint8(0)
 	if auto {
 		state |= types.StateStakingAuto
