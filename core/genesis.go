@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"math/big"
 	"strings"
 
@@ -254,6 +255,15 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			statedb.SetState(addr, key, value)
 		}
 	}
+
+	if g.Config.IsTIP8(new(big.Int).SetUint64(g.Number)) {
+		impl := vm.NewImpawnImpl()
+		for _, member := range g.Committee {
+			impl.InsertSAccount2(g.Number, member.Coinbase, member.Publickey, big.NewInt(100000), big.NewInt(100), true)
+		}
+		impl.Save(statedb, vm.StakingAddress)
+	}
+
 	root := statedb.IntermediateRoot(false)
 
 	head := &types.Header{

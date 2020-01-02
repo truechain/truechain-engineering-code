@@ -91,18 +91,26 @@ func FromBlock(block *SnailBlock) (begin, end uint64) {
 	}
 	return
 }
-func getfirstEpoch() *EpochIDInfo {
-	return &EpochIDInfo{
-		EpochID:     1,
-		BeginHeight: DposForkPoint + 1,
-		EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
+func GetFirstEpoch() *EpochIDInfo {
+	if DposForkPoint == 0 {
+		return &EpochIDInfo{
+			EpochID:     0,
+			BeginHeight: 0,
+			EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
+		}
+	} else {
+		return &EpochIDInfo{
+			EpochID:     1,
+			BeginHeight: DposForkPoint + 1,
+			EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
+		}
 	}
 }
 func GetEpochFromHeight(hh uint64) *EpochIDInfo {
-	if hh <= DposForkPoint {
-		return nil
+	if DposForkPoint == 0 && hh == DposForkPoint {
+		return GetFirstEpoch()
 	}
-	first := getfirstEpoch()
+	first := GetFirstEpoch()
 	if hh <= first.EndHeight {
 		return first
 	}
@@ -115,7 +123,7 @@ func GetEpochFromHeight(hh uint64) *EpochIDInfo {
 	return GetEpochFromID(eid)
 }
 func GetEpochFromID(eid uint64) *EpochIDInfo {
-	first := getfirstEpoch()
+	first := GetFirstEpoch()
 	if first.EpochID == eid {
 		return first
 	}

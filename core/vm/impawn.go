@@ -103,8 +103,9 @@ func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) {
 	}
 	r := s.getRedeemItem(e.EpochID)
 	tmp := &RedeemItem{
-		Amount: new(big.Int).Set(amount),
-		State:  types.StateRedeem,
+		Amount:  new(big.Int).Set(amount),
+		EpochID: e.EpochID,
+		State:   types.StateRedeem,
 	}
 	if r == nil {
 		s.redeemInof = append(s.redeemInof, tmp)
@@ -186,6 +187,7 @@ func (s *impawnUnit) merge(epochid, hh uint64) {
 }
 func (s *impawnUnit) update(unit *impawnUnit, move bool) {
 	sorter := valuesByHeight(s.value)
+	sort.Sort(sorter)
 	for _, v := range unit.value {
 		sorter = sorter.update(v)
 	}
@@ -429,7 +431,7 @@ type ImpawnImpl struct {
 
 func NewImpawnImpl() *ImpawnImpl {
 	return &ImpawnImpl{
-		curEpochID: 1,
+		curEpochID: types.GetFirstEpoch().EpochID,
 		lastReward: 0,
 		accounts:   make(map[uint64]SAImpawns),
 	}
