@@ -883,6 +883,11 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
 		return nil, err
 	}
+
+	if err := m.finalizeValidators(chain, state, header.Number); err != nil {
+		return nil, err
+	}
+
 	header.Root = state.IntermediateRoot(true)
 	return types.NewBlock(header, txs, receipts, nil, nil), nil
 }
@@ -916,6 +921,22 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
 		LogPrint("committee's gas award", v.Coinbase, committeeGas)
+	}
+	return nil
+}
+
+// gas allocation
+func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.StateDB, fastNumber *big.Int) error {
+	if chain.Config().IsTIP8(fastNumber) {
+		epoch := types.GetEpochFromHeight(fastNumber.Uint64())
+		if fastNumber.Uint64() == epoch.EndHeight + types.EpochLength - types.PreselectionPeriod {
+			i := vm.NewImpawnImpl()
+			i.Load(state, vm.StakingAddress)
+			if _, err := i.DoElections(epoch.EpochID, fastNumber.Uint64()); err != nil {
+				return err
+			}
+			i.Save(state, vm.StakingAddress)
+		}
 	}
 	return nil
 }
