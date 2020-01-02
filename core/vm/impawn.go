@@ -944,6 +944,8 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 		vv = append(vv, &types.CommitteeMember{
 			Coinbase:  v.unit.GetRewardAddress(),
 			Publickey: types.CopyVotePk(v.votepubkey),
+			Flag:      types.StateUsedFlag,
+			MType:     types.TypeWorked,
 		})
 	}
 	return vv
@@ -958,6 +960,8 @@ func GetValidatorsByEpoch(state StateDB, eid uint64) []*types.CommitteeMember {
 		vv = append(vv, &types.CommitteeMember{
 			Coinbase:  v.unit.GetRewardAddress(),
 			Publickey: types.CopyVotePk(v.votepubkey),
+			Flag:      types.StateUsedFlag,
+			MType:     types.TypeWorked,
 		})
 	}
 	return vv

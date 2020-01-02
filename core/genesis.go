@@ -549,9 +549,9 @@ func DefaultDevGenesisBlock() *Genesis {
 			{Coinbase: common.HexToAddress("0x2cdac3658f85b5da3b70223cc3ad3b2dfe7c1930"), Publickey: key2},
 			{Coinbase: common.HexToAddress("0x41acde8dd7611338c2a30e90149e682566716e9d"), Publickey: key3},
 			{Coinbase: common.HexToAddress("0x0ffd116a3bf97a7112ff8779cc770b13ea3c66a5"), Publickey: key4},
-			{Coinbase: common.HexToAddress("0x2cdac3658f85b5da3b70223cc3ad3b2dfe7c1930"), Publickey: key5},
-			{Coinbase: common.HexToAddress("0x41acde8dd7611338c2a30e90149e682566716e9d"), Publickey: key6},
-			{Coinbase: common.HexToAddress("0x0ffd116a3bf97a7112ff8779cc770b13ea3c66a5"), Publickey: key7},
+			{Coinbase: common.HexToAddress("0x0f4fd48A768b78f227983b6F1A42bdB2b3d58f2D"), Publickey: key5},
+			{Coinbase: common.HexToAddress("0x899F9c9622351718a19Cb1Ed22B0948dDB8a3555"), Publickey: key6},
+			{Coinbase: common.HexToAddress("0x91E1ECBc4d692A334eBE073BD7F7494B95FD03d2"), Publickey: key7},
 		},
 	}
 }
