@@ -21,6 +21,7 @@ var (
 	PreselectionPeriod = uint64(2000)
 	EpochLength        = uint64(10000)
 	ElectionPoint      = uint64(300)
+	FirstEpochID       = uint64(1)
 )
 
 var (
@@ -95,13 +96,13 @@ func FromBlock(block *SnailBlock) (begin, end uint64) {
 func GetFirstEpoch() *EpochIDInfo {
 	if DposForkPoint == 0 {
 		return &EpochIDInfo{
-			EpochID:     0,
+			EpochID:     FirstEpochID,
 			BeginHeight: 0,
 			EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
 		}
 	} else {
 		return &EpochIDInfo{
-			EpochID:     1,
+			EpochID:     FirstEpochID,
 			BeginHeight: DposForkPoint + 1,
 			EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
 		}

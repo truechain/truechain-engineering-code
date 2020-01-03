@@ -951,7 +951,7 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 	i := NewImpawnImpl()
 	i.Load(state, StakingAddress)
 	eid := i.getCurrentEpoch()
-	accs := i.getElections2(eid)
+	accs := i.getElections3(eid)
 	var vv []*types.CommitteeMember
 	for _, v := range accs {
 		vv = append(vv, &types.CommitteeMember{
@@ -967,7 +967,7 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 func GetValidatorsByEpoch(state StateDB, eid uint64) []*types.CommitteeMember {
 	i := NewImpawnImpl()
 	i.Load(state, StakingAddress)
-	accs := i.getElections2(eid)
+	accs := i.getElections3(eid)
 	var vv []*types.CommitteeMember
 	for _, v := range accs {
 		vv = append(vv, &types.CommitteeMember{
