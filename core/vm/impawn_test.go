@@ -6,6 +6,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"math/big"
 	"testing"
@@ -17,9 +18,12 @@ func TestImpawnImpl(t *testing.T) {
 	types.PreselectionPeriod = 2
 	types.EpochLength = 5
 	types.MaxRedeemHeight = 0
+	types.ElectionPoint = 10
+	types.DposForkPoint = 20
 	fmt.Println(" epoch 1 ", types.GetEpochFromID(1))
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
 	impl := NewImpawnImpl()
+
 	for i := uint64(0); i < types.PreselectionPeriod+types.EpochLength+1; i++ {
 		value := big.NewInt(100)
 		priKey, _ := crypto.GenerateKey()
@@ -32,6 +36,40 @@ func TestImpawnImpl(t *testing.T) {
 		impl.InsertDAccount2(20+i, daAddress, from, new(big.Int).Sub(value, big.NewInt(int64(10*i))))
 	}
 
+	committee, _ := impl.DoElections(1, 17)
+	fmt.Println(impl.getCurrentEpochInfo(), " ", len(committee))
+
+	impl.CancelDAccount(23, impl.accounts[1][3].unit.address, impl.accounts[1][3].delegation[0].unit.address, big.NewInt(int64(70)))
+	impl.CancelSAccount(23, impl.accounts[1][3].unit.address, big.NewInt(int64(70)))
+
+	fruits := make([]*types.SnailBlock, 0)
+	for i := uint64(0); i < types.EpochLength; i++ {
+		sh := &types.SnailHeader{
+			Number: big.NewInt(int64(28 + i)),
+		}
+		fruits = append(fruits, types.NewSnailBlockWithHeader(sh))
+	}
+	sh := &types.SnailHeader{
+		Number: big.NewInt(int64(21)),
+	}
+	sblock := types.NewSnailBlock(
+		sh,
+		fruits,
+		nil,
+		nil,
+		params.TestChainConfig,
+	)
+
+	impl.Shift(2)
+
+	impl.Reward(sblock, big.NewInt(int64(70)))
+
+	impl.RedeemSAccount(29, impl.accounts[1][3].unit.address, big.NewInt(int64(70)))
+	impl.RedeemDAccount(29, impl.accounts[1][3].unit.address, impl.accounts[1][3].delegation[0].unit.address, big.NewInt(int64(70)))
+
+	fmt.Println(" 1 ", len(impl.getElections3(1)), " 2 ", len(impl.getElections3(2)))
+	fmt.Println(impl.getCurrentEpoch())
+
 	for i := uint64(0); i < types.EpochLength; i++ {
 		value := big.NewInt(100)
 		priKey, _ := crypto.GenerateKey()
@@ -41,32 +79,6 @@ func TestImpawnImpl(t *testing.T) {
 		priKeyDA, _ := crypto.GenerateKey()
 		daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
 		impl.InsertDAccount2(28+i, daAddress, from, value)
-	}
-
-	impl.DoElections(2, 28)
-	fmt.Println(impl.getCurrentEpochInfo())
-	fmt.Println(impl.getElections(2))
-	fmt.Println(impl.getCurrentEpoch())
-
-	//impl.Shift()
-	//impl.Reward()
-	//impl.CancelDAccount()
-	//impl.CancelSAccount()
-	//impl.RedeemSAccount()
-	//impl.RedeemDAccount()
-
-	for i := uint64(0); i < types.EpochLength; i++ {
-		value := big.NewInt(100)
-		priKey, _ := crypto.GenerateKey()
-		from := crypto.PubkeyToAddress(priKey.PublicKey)
-		pub := crypto.FromECDSAPub(&priKey.PublicKey)
-		impl.InsertSAccount2(21+i, from, pub, value, big.NewInt(0), true)
-		priKeyDA, _ := crypto.GenerateKey()
-		daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
-		impl.InsertDAccount2(21+i, daAddress, from, value)
-		if i == types.EpochLength-3 {
-			impl.DoElections(3, 28)
-		}
 	}
 
 	fmt.Println(impl.getCurrentEpochInfo())
