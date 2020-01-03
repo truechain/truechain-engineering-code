@@ -94,23 +94,35 @@ func FromBlock(block *SnailBlock) (begin, end uint64) {
 	return
 }
 func GetFirstEpoch() *EpochIDInfo {
-	if DposForkPoint == 0 {
-		return &EpochIDInfo{
-			EpochID:     FirstEpochID,
-			BeginHeight: 0,
-			EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
-		}
-	} else {
-		return &EpochIDInfo{
-			EpochID:     FirstEpochID,
-			BeginHeight: DposForkPoint + 1,
-			EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
-		}
+	// if DposForkPoint == 0 {
+	// 	return &EpochIDInfo{
+	// 		EpochID:     FirstEpochID,
+	// 		BeginHeight: 0,
+	// 		EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
+	// 	}
+	// } else {
+	// 	return &EpochIDInfo{
+	// 		EpochID:     FirstEpochID,
+	// 		BeginHeight: DposForkPoint + 1,
+	// 		EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
+	// 	}
+	// }
+	return &EpochIDInfo{
+		EpochID:     FirstEpochID,
+		BeginHeight: DposForkPoint + PreselectionPeriod + 1,
+		EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
+	}
+}
+func GetPreFirstEpoch() *EpochIDInfo {
+	return &EpochIDInfo{
+		EpochID:     FirstEpochID - 1,
+		BeginHeight: 0,
+		EndHeight:   DposForkPoint + PreselectionPeriod,
 	}
 }
 func GetEpochFromHeight(hh uint64) *EpochIDInfo {
-	if DposForkPoint == 0 && hh == DposForkPoint {
-		return GetFirstEpoch()
+	if hh <= DposForkPoint+PreselectionPeriod {
+		return GetPreFirstEpoch()
 	}
 	first := GetFirstEpoch()
 	if hh <= first.EndHeight {
@@ -125,6 +137,10 @@ func GetEpochFromHeight(hh uint64) *EpochIDInfo {
 	return GetEpochFromID(eid)
 }
 func GetEpochFromID(eid uint64) *EpochIDInfo {
+	preFirst := GetPreFirstEpoch()
+	if preFirst.EpochID == eid {
+		return preFirst
+	}
 	first := GetFirstEpoch()
 	if first.EpochID >= eid {
 		return first
