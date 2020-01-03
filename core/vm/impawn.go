@@ -8,6 +8,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
@@ -985,11 +986,13 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 	accs := i.getElections3(eid)
 	var vv []*types.CommitteeMember
 	for _, v := range accs {
+		pubkey, _ := crypto.UnmarshalPubkey(v.votepubkey)
 		vv = append(vv, &types.CommitteeMember{
-			Coinbase:  v.unit.GetRewardAddress(),
-			Publickey: types.CopyVotePk(v.votepubkey),
-			Flag:      types.StateUsedFlag,
-			MType:     types.TypeWorked,
+			CommitteeBase: crypto.PubkeyToAddress(*pubkey),
+			Coinbase:      v.unit.GetRewardAddress(),
+			Publickey:     types.CopyVotePk(v.votepubkey),
+			Flag:          types.StateUsedFlag,
+			MType:         types.TypeWorked,
 		})
 	}
 	return vv
@@ -1001,11 +1004,13 @@ func GetValidatorsByEpoch(state StateDB, eid uint64) []*types.CommitteeMember {
 	accs := i.getElections3(eid)
 	var vv []*types.CommitteeMember
 	for _, v := range accs {
+		pubkey, _ := crypto.UnmarshalPubkey(v.votepubkey)
 		vv = append(vv, &types.CommitteeMember{
-			Coinbase:  v.unit.GetRewardAddress(),
-			Publickey: types.CopyVotePk(v.votepubkey),
-			Flag:      types.StateUsedFlag,
-			MType:     types.TypeWorked,
+			CommitteeBase: crypto.PubkeyToAddress(*pubkey),
+			Coinbase:      v.unit.GetRewardAddress(),
+			Publickey:     types.CopyVotePk(v.votepubkey),
+			Flag:          types.StateUsedFlag,
+			MType:         types.TypeWorked,
 		})
 	}
 	return vv
