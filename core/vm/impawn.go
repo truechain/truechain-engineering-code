@@ -245,6 +245,19 @@ func (s *impawnUnit) sort() {
 	sort.Sort(valuesByHeight(s.value))
 	s.sortRedeemItems()
 }
+func (s *impawnUnit) isValid() bool {
+	for _, v := range s.value {
+		if v.amount.Sign() > 0 {
+			return true
+		}
+	}
+	for _, v := range s.redeemInof {
+		if v.Amount.Sign() > 0 {
+			return true
+		}
+	}
+	return false
+}
 
 /////////////////////////////////////////////////////////////////////////////////
 
@@ -279,6 +292,9 @@ func (s *DelegationAccount) clone() *DelegationAccount {
 		deleAddress: s.deleAddress,
 		unit:        s.unit.clone(),
 	}
+}
+func (s *DelegationAccount) isValid() bool {
+	return s.unit.isValid()
 }
 
 type StakingAccount struct {
@@ -395,6 +411,14 @@ func (s *StakingAccount) clone() *StakingAccount {
 		}
 	}
 	return ss
+}
+func (s *StakingAccount) isvalid() bool {
+	for _, v := range s.delegation {
+		if v.isValid() {
+			return true
+		}
+	}
+	return s.unit.isValid()
 }
 
 type SAImpawns []*StakingAccount
@@ -667,7 +691,9 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 	for _, v := range prevInfos {
 		vv := v.clone()
 		vv.merge(prev, nextEpoch.BeginHeight)
-		nextInfos.update(vv, nextEpoch.BeginHeight, true, true)
+		if vv.isvalid() {
+			nextInfos.update(vv, nextEpoch.BeginHeight, true, true)
+		}
 	}
 	return nil
 }
