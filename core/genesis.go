@@ -259,19 +259,16 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 
 	if g.Config.IsTIP8(new(big.Int).SetUint64(g.Number)) {
 		impl := vm.NewImpawnImpl()
-		impl.SetCurrentEpoch(1)
 		for _, member := range g.Committee {
 			err := impl.InsertSAccount2(g.Number, member.Coinbase, member.Publickey, big.NewInt(100000), big.NewInt(100), true)
 			if err != nil {
 				log.Error("ToFastBlock InsertSAccount Error")
 			}
 		}
-		impl.SetCurrentEpoch(0)
 		_, err := impl.DoElections(1, 0)
 		if err != nil {
 			log.Error("ToFastBlock DoElections error")
 		}
-		impl.SetCurrentEpoch(1)
 		err = impl.Save(statedb, vm.StakingAddress)
 		if err != nil {
 			log.Error("ToFastBlock IMPL Save Error")

@@ -476,7 +476,7 @@ type ImpawnImpl struct {
 
 func NewImpawnImpl() *ImpawnImpl {
 	return &ImpawnImpl{
-		curEpochID: 0,
+		curEpochID: types.FirstEpochID,
 		lastReward: 0,
 		accounts:   make(map[uint64]SAImpawns),
 	}
