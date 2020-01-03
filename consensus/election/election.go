@@ -402,6 +402,9 @@ func (e *Election) VerifySwitchInfo(fastNumber *big.Int, info []*types.Committee
 	if e.singleNode == true {
 		return nil
 	}
+	if e.chainConfig.IsTIP8(fastNumber) {
+		return nil
+	}
 	committee := e.electedCommittee(fastNumber)
 	if committee == nil {
 		log.Error("Failed to fetch elected committee", "fast", fastNumber)
@@ -480,7 +483,7 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 
 func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
 	epoch := types.GetEpochFromHeight(fastNumber.Uint64())
-	block := e.fastchain.GetBlockByNumber(fastNumber.Uint64())
+	block := e.fastchain.GetBlockByNumber(fastNumber.Uint64() - 1)
 	stateDb, err := e.fastchain.StateAt(block.Root())
 	if err != nil {
 		// Retrieve committee from block body
