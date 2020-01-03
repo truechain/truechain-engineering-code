@@ -487,7 +487,7 @@ func NewImpawnImpl() *ImpawnImpl {
 func (i *ImpawnImpl) getCurrentEpoch() uint64 {
 	return i.curEpochID
 }
-func (i *ImpawnImpl) setCurrentEpoch(eid uint64) {
+func (i *ImpawnImpl) SetCurrentEpoch(eid uint64) {
 	i.curEpochID = eid
 }
 func (i *ImpawnImpl) getMinEpochID() uint64 {
@@ -745,7 +745,7 @@ func (i *ImpawnImpl) Shift(epochid uint64) error {
 	if epochid != i.getCurrentEpoch()+1 {
 		return types.ErrOverEpochID
 	}
-	i.setCurrentEpoch(epochid)
+	i.SetCurrentEpoch(epochid)
 	prev := epochid - 1
 	return i.move(prev, epochid)
 }

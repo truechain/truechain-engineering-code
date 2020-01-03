@@ -21,9 +21,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/core/vm"
 	"math/big"
 	"strings"
+
+	"github.com/truechain/truechain-engineering-code/core/vm"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
@@ -268,6 +269,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		if err != nil {
 			log.Error("ToFastBlock DoElections error")
 		}
+		impl.SetCurrentEpoch(1)
 		err = impl.Save(statedb, vm.StakingAddress)
 		if err != nil {
 			log.Error("ToFastBlock IMPL Save Error")
