@@ -706,7 +706,7 @@ func (i *ImpawnImpl) redeemPrincipal(addr common.Address, amount *big.Int) error
 
 // DoElections called by consensus while it closer the end of epoch,have 500~1000 fast block
 func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, error) {
-	if epochid != i.getCurrentEpoch()+1 {
+	if epochid != types.FirstEpochID && epochid != i.getCurrentEpoch()+1 {
 		return nil, types.ErrOverEpochID
 	}
 	if types.DposForkPoint != 0 || height > 0 {
@@ -716,7 +716,11 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 		}
 	}
 	e := types.GetEpochFromID(epochid)
-	if val, ok := i.accounts[epochid-1]; ok {
+	eid := epochid
+	if eid != types.FirstEpochID {
+		eid = eid - 1
+	}
+	if val, ok := i.accounts[eid]; ok {
 		val.sort(e.EndHeight, true)
 		var ee []*StakingAccount
 		for i, v := range val {
