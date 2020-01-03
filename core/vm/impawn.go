@@ -539,6 +539,13 @@ func (i *ImpawnImpl) getElections2(epochid uint64) []*StakingAccount {
 		return sas
 	}
 }
+func (i *ImpawnImpl) getElections3(epochid uint64) []*StakingAccount {
+	eid := epochid
+	if eid > types.FirstEpochID {
+		eid = eid - 1
+	}
+	return i.getElections2(eid)
+}
 func (i *ImpawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address) SAImpawns {
 	if len(addrs) == 0 {
 		return nil
@@ -611,7 +618,7 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 	if _, ok := i.accounts[einfo.EpochID]; !ok {
 		return nil, types.ErrInvalidParam
 	} else {
-		das := i.getElections2(einfo.EpochID - 1)
+		das := i.getElections3(einfo.EpochID)
 		if das == nil {
 			return nil, types.ErrMatchEpochID
 		}
