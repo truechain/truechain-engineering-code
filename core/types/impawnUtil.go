@@ -126,7 +126,7 @@ func GetEpochFromHeight(hh uint64) *EpochIDInfo {
 }
 func GetEpochFromID(eid uint64) *EpochIDInfo {
 	first := GetFirstEpoch()
-	if first.EpochID == eid {
+	if first.EpochID >= eid {
 		return first
 	}
 	return &EpochIDInfo{

@@ -262,16 +262,16 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		for _, member := range g.Committee {
 			err := impl.InsertSAccount2(g.Number, member.Coinbase, member.Publickey, big.NewInt(100000), big.NewInt(100), true)
 			if err != nil {
-				log.Error("ToFastBlock InsertSAccount Error")
+				log.Error("ToFastBlock InsertSAccount", "error", err)
 			}
 		}
 		_, err := impl.DoElections(1, 0)
 		if err != nil {
-			log.Error("ToFastBlock DoElections error")
+			log.Error("ToFastBlock DoElections", "error", err)
 		}
 		err = impl.Save(statedb, vm.StakingAddress)
 		if err != nil {
-			log.Error("ToFastBlock IMPL Save Error")
+			log.Error("ToFastBlock IMPL Save", "error", err)
 		}
 	}
 

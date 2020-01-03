@@ -686,15 +686,16 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 	}
 	if !ok2 {
 		nextInfos = SAImpawns{}
-		i.accounts[next] = nextInfos
 	}
 	for _, v := range prevInfos {
 		vv := v.clone()
 		vv.merge(prev, nextEpoch.BeginHeight)
 		if vv.isvalid() {
+			vv.committee = false
 			nextInfos.update(vv, nextEpoch.BeginHeight, true, true)
 		}
 	}
+	i.accounts[next] = nextInfos
 	return nil
 }
 func (i *ImpawnImpl) redeemPrincipal(addr common.Address, amount *big.Int) error {
