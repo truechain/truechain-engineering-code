@@ -381,14 +381,17 @@ func (s *StakingAccount) clone() *StakingAccount {
 		fee:        new(big.Int).Set(s.fee),
 		committee:  s.committee,
 		delegation: make([]*DelegationAccount, 0),
+		modify:     &AlterableInfo{},
 	}
 	for _, v := range s.delegation {
 		ss.delegation = append(ss.delegation, v.clone())
 	}
 	if s.modify != nil {
-		ss.modify = &AlterableInfo{
-			fee:        new(big.Int).Set(s.modify.fee),
-			votePubkey: types.CopyVotePk(s.modify.votePubkey),
+		if s.modify.fee != nil {
+			ss.modify.fee = new(big.Int).Set(s.modify.fee)
+		}
+		if s.modify.votePubkey != nil {
+			ss.modify.votePubkey = types.CopyVotePk(s.modify.votePubkey)
 		}
 	}
 	return ss
@@ -652,6 +655,7 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 	}
 	if !ok2 {
 		nextInfos = SAImpawns{}
+		i.accounts[next] = nextInfos
 	}
 	for _, v := range prevInfos {
 		vv := v.clone()
