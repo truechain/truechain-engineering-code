@@ -137,7 +137,7 @@ func (a *AlterableInfo) EncodeRLP(w io.Writer) error {
 
 // "external" ImpawnImpl encoding. used for pos staking.
 type extImpawnImpl struct {
-	Accounts   []*SAImpawns
+	Accounts   []SAImpawns
 	CurEpochID uint64
 	Array      []uint64
 }
@@ -149,7 +149,7 @@ func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
 	}
 	accounts := make(map[uint64]SAImpawns)
 	for i, account := range ei.Accounts {
-		accounts[ei.Array[i]] = *account
+		accounts[ei.Array[i]] = account
 	}
 
 	i.curEpochID, i.accounts = ei.CurEpochID, accounts
@@ -158,22 +158,24 @@ func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
 
 // EncodeRLP serializes b into the truechain RLP ImpawnImpl format.
 func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
-	var accounts []*SAImpawns
-	var arr []uint64
-	for i, account := range i.accounts {
-		arr = append(arr, i)
-		accounts = append(accounts, &account)
+	var accounts []SAImpawns
+	var order []uint64
+	for i, _ := range i.accounts {
+		order = append(order, i)
 	}
-	for m := 0; m < len(i.accounts)-1; m++ {
-		for n := 0; n < len(i.accounts)-1-m; n++ {
-			if arr[n] > arr[n+1] {
-				arr[n], arr[n+1] = arr[n+1], arr[n]
+	for m := 0; m < len(order)-1; m++ {
+		for n := 0; n < len(order)-1-m; n++ {
+			if order[n] > order[n+1] {
+				order[n], order[n+1] = order[n+1], order[n]
 			}
 		}
+	}
+	for _, epoch := range order {
+		accounts = append(accounts, i.accounts[epoch])
 	}
 	return rlp.Encode(w, extImpawnImpl{
 		CurEpochID: i.curEpochID,
 		Accounts:   accounts,
-		Array:      arr,
+		Array:      order,
 	})
 }
