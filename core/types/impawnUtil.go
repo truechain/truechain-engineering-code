@@ -18,9 +18,9 @@ var (
 	MixEpochCount      = 2
 	EpochElectionPoint = 500
 	DposForkPoint      = uint64(0)
-	PreselectionPeriod = uint64(2000)
-	EpochLength        = uint64(10000)
-	ElectionPoint      = uint64(300)
+	PreselectionPeriod = uint64(0)
+	EpochLength        = uint64(500)
+	ElectionPoint      = uint64(100)
 	FirstEpochID       = uint64(1)
 )
 
