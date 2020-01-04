@@ -929,10 +929,10 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.StateDB, fastNumber *big.Int) error {
 	if chain.Config().IsTIP8(fastNumber) {
 		epoch := types.GetEpochFromHeight(fastNumber.Uint64())
-		if fastNumber.Uint64() == epoch.EndHeight + types.EpochLength - types.PreselectionPeriod {
+		if fastNumber.Uint64() == epoch.EndHeight-types.ElectionPoint {
 			i := vm.NewImpawnImpl()
 			i.Load(state, vm.StakingAddress)
-			if _, err := i.DoElections(epoch.EpochID + 1, fastNumber.Uint64()); err != nil {
+			if _, err := i.DoElections(epoch.EpochID+1, fastNumber.Uint64()); err != nil {
 				return err
 			}
 			i.Save(state, vm.StakingAddress)
@@ -1013,6 +1013,7 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) er
 		//fruit award amount
 		minerFruitCoinOne = new(big.Int).Div(minerFruitCoin, blockFruitsLen)
 	)
+	log.Info("[Consensus AddBalance]", "info", "TIP8 Reward", "CoinBase:", sBlock.Coinbase().String(), "amount", minerCoin)
 	//miner's award
 	stateDB.AddBalance(sBlock.Coinbase(), minerCoin)
 	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
