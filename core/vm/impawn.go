@@ -8,9 +8,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
 )
@@ -477,7 +477,7 @@ type ImpawnImpl struct {
 
 func NewImpawnImpl() *ImpawnImpl {
 	return &ImpawnImpl{
-		curEpochID: types.FirstEpochID,
+		curEpochID: types.FirstEpochID - 1,
 		lastReward: 0,
 		accounts:   make(map[uint64]SAImpawns),
 	}
@@ -566,7 +566,7 @@ func (i *ImpawnImpl) getElections2(epochid uint64) []*StakingAccount {
 }
 func (i *ImpawnImpl) getElections3(epochid uint64) []*StakingAccount {
 	eid := epochid
-	if eid > types.FirstEpochID {
+	if eid >= types.FirstEpochID {
 		eid = eid - 1
 	}
 	return i.getElections2(eid)
@@ -708,7 +708,7 @@ func (i *ImpawnImpl) redeemPrincipal(addr common.Address, amount *big.Int) error
 
 // DoElections called by consensus while it closer the end of epoch,have 500~1000 fast block
 func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, error) {
-	if epochid != types.FirstEpochID && epochid != i.getCurrentEpoch()+1 {
+	if epochid < types.FirstEpochID && epochid != i.getCurrentEpoch()+1 {
 		return nil, types.ErrOverEpochID
 	}
 	if types.DposForkPoint != 0 || height > 0 {
@@ -719,7 +719,7 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 	}
 	e := types.GetEpochFromID(epochid)
 	eid := epochid
-	if eid != types.FirstEpochID {
+	if eid >= types.FirstEpochID {
 		eid = eid - 1
 	}
 	if val, ok := i.accounts[eid]; ok {
@@ -973,9 +973,6 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 		return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
 	}
 	i.curEpochID, i.accounts = temp.curEpochID, temp.accounts
-	return nil
-}
-func (i *ImpawnImpl) commit() error {
 	return nil
 }
 
