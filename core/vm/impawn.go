@@ -995,10 +995,14 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 	return vv
 }
 
-func GetValidatorsByEpoch(state StateDB, eid uint64) []*types.CommitteeMember {
+func GetValidatorsByEpoch(state StateDB, eid, hh uint64) []*types.CommitteeMember {
 	i := NewImpawnImpl()
 	i.Load(state, StakingAddress)
 	accs := i.getElections3(eid)
+	first := types.GetFirstEpoch()
+	if hh == first.EndHeight-types.ElectionPoint {
+		fmt.Println("****** accounts len:", len(i.accounts), "election:", len(accs))
+	}
 	var vv []*types.CommitteeMember
 	for _, v := range accs {
 		pubkey, _ := crypto.UnmarshalPubkey(v.votepubkey)

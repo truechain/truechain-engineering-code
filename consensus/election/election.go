@@ -24,7 +24,7 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
@@ -490,7 +490,7 @@ func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
 		log.Info("Fetch committee from body")
 		return nil
 	}
-	validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID)
+	validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, fastNumber.Uint64())
 
 	return validators
 }

@@ -21,18 +21,16 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/truechain/truechain-engineering-code/utils"
 	"math/big"
 	"sync"
 	"time"
 
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/utils"
+
 	"fmt"
+
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/crypto/ecies"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	elect "github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -40,9 +38,13 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 const (
@@ -367,7 +369,7 @@ func (agent *PbftAgent) loop() {
 			}
 
 			stateDb, _ := agent.fastChain.StateAt(current.Root())
-			validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID)
+			validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, current.Number().Uint64())
 			committee.Members = validators
 
 			// Switch to new epoch
@@ -538,7 +540,7 @@ func (agent *PbftAgent) loop() {
 					}
 
 					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
-					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID + 1)
+					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID+1, num)
 					committee.Members = validators
 
 					// Switch to new epoch
