@@ -960,7 +960,7 @@ func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 		log.Crit("Failed to RLP encode ImpawnImpl", "err", err)
 	}
 	state.SetPOSState(preAddress, key, data)
-	return nil
+	return err
 }
 func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	key := common.BytesToHash(preAddress[:])
@@ -999,11 +999,11 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 
 func GetValidatorsByEpoch(state StateDB, eid, hh uint64) []*types.CommitteeMember {
 	i := NewImpawnImpl()
-	i.Load(state, StakingAddress)
+	err := i.Load(state, StakingAddress)
 	accs := i.getElections3(eid)
 	first := types.GetFirstEpoch()
 	if hh == first.EndHeight-types.ElectionPoint {
-		fmt.Println("****** accounts len:", len(i.accounts), "election:", len(accs))
+		fmt.Println("****** accounts len:", len(i.accounts), "election:", len(accs), " err ", err)
 	}
 	var vv []*types.CommitteeMember
 	for _, v := range accs {
