@@ -932,9 +932,11 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 		if fastNumber.Uint64() == epoch.EndHeight-types.ElectionPoint {
 			i := vm.NewImpawnImpl()
 			i.Load(state, vm.StakingAddress)
-			log.Info("Do validators election", "height", fastNumber)
-			if _, err := i.DoElections(epoch.EpochID+1, fastNumber.Uint64()); err != nil {
+
+			if es, err := i.DoElections(epoch.EpochID+1, fastNumber.Uint64()); err != nil {
 				return err
+			} else {
+				log.Info("Do validators election", "height", fastNumber, "epoch:", epoch.EpochID+1, "len:", len(es))
 			}
 			i.Save(state, vm.StakingAddress)
 		}
