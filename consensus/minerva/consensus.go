@@ -889,7 +889,6 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 	}
 
 	header.Root = state.IntermediateRoot(true)
-	log.Info("Finalize", "root", header.Root.String(), "number", header.Number)
 	return types.NewBlock(header, txs, receipts, nil, nil), nil
 }
 

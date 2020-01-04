@@ -19,7 +19,6 @@ package state
 import (
 	"bytes"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
 	"io"
 	"math/big"
 
@@ -293,7 +292,6 @@ func (self *stateObject) updateTrie(db Database) Trie {
 			self.setError(tr.TryDelete(key[:]))
 			continue
 		}
-		log.Info("updateTrie POSStorage", "key", key.String(), "value", len(value))
 		self.setError(tr.TryUpdate(key[:], value))
 	}
 	return tr
