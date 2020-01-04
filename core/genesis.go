@@ -268,7 +268,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			if err != nil {
 				log.Error("ToFastBlock InsertSAccount", "error", err)
 			}
-			statedb.AddBalance(member.Coinbase, big.NewInt(100000))
+			statedb.AddBalance(vm.StakingAddress, big.NewInt(100000))
 		}
 		_, err := impl.DoElections(1, 0)
 		if err != nil {
