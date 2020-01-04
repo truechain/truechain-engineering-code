@@ -1000,6 +1000,7 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 func GetValidatorsByEpoch(state StateDB, eid, hh uint64) []*types.CommitteeMember {
 	i := NewImpawnImpl()
 	err := i.Load(state, StakingAddress)
+	log.Warn("Validator accounts", "len", len(i.accounts), "height", hh)
 	accs := i.getElections3(eid)
 	first := types.GetFirstEpoch()
 	if hh == first.EndHeight-types.ElectionPoint {
