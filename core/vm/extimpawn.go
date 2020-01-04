@@ -140,6 +140,7 @@ type extImpawnImpl struct {
 	Accounts   []SAImpawns
 	CurEpochID uint64
 	Array      []uint64
+	LastReward uint64
 }
 
 func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
@@ -152,7 +153,7 @@ func (i *ImpawnImpl) DecodeRLP(s *rlp.Stream) error {
 		accounts[ei.Array[i]] = account
 	}
 
-	i.curEpochID, i.accounts = ei.CurEpochID, accounts
+	i.curEpochID, i.accounts, i.lastReward = ei.CurEpochID, accounts, ei.LastReward
 	return nil
 }
 
@@ -177,5 +178,6 @@ func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
 		CurEpochID: i.curEpochID,
 		Accounts:   accounts,
 		Array:      order,
+		LastReward: i.lastReward,
 	})
 }
