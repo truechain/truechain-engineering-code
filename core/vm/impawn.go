@@ -953,6 +953,7 @@ func (i *ImpawnImpl) GetRoot() common.Hash {
 	return common.Hash{}
 }
 func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
+	log.Info("Save", "accounts", len(i.accounts))
 	key := common.BytesToHash(preAddress[:])
 	data, err := rlp.EncodeToBytes(i)
 	if err != nil {
@@ -972,6 +973,7 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 		log.Error("Invalid ImpawnImpl entry RLP", "err", err)
 		return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
 	}
+	log.Info("Load", "accounts", len(i.accounts))
 	i.curEpochID, i.accounts = temp.curEpochID, temp.accounts
 	return nil
 }
