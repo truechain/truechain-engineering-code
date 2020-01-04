@@ -514,7 +514,7 @@ func (self *StateDB) ForEachPOSStorage(addr common.Address, cb func(key common.H
 	for it.Next() {
 		// ignore cached values
 		key := common.BytesToHash(self.trie.GetKey(it.Key))
-		if value, dirty := stateObject.cachedPOSStorage[key]; dirty {
+		if value, dirty := stateObject.originPOSStorage[key]; dirty {
 			if !cb(key, value) {
 				return
 			}

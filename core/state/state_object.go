@@ -100,7 +100,7 @@ type stateObject struct {
 	originStorage Storage // Storage cache of original entries to dedup rewrites
 	dirtyStorage  Storage // Storage entries that need to be flushed to disk
 
-	cachedPOSStorage POSStorage
+	originPOSStorage POSStorage
 	dirtyPOSStorage  POSStorage
 
 	// Cache flags.
@@ -113,7 +113,7 @@ type stateObject struct {
 
 // empty returns whether the account is considered empty.
 func (s *stateObject) empty() bool {
-	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash)
+	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash) && len(s.dirtyPOSStorage) == 0
 }
 
 // Account is the Ethereum consensus representation of accounts.
@@ -140,7 +140,7 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 		data:             data,
 		originStorage:    make(Storage),
 		dirtyStorage:     make(Storage),
-		cachedPOSStorage: make(POSStorage),
+		originPOSStorage: make(POSStorage),
 		dirtyPOSStorage:  make(POSStorage),
 	}
 }
@@ -220,14 +220,14 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 }
 
 func (self *stateObject) GetPOSState(db Database, key common.Hash) []byte {
-	value, exists := self.cachedPOSStorage[key]
+	value, exists := self.originPOSStorage[key]
 	if exists {
 		return value
 	}
 	// Load from DB in case it is missing.
 	value, err := self.getTrie(db).TryGet(key[:])
 	if err == nil && len(value) != 0 {
-		self.cachedPOSStorage[key] = value
+		self.originPOSStorage[key] = value
 	}
 	log.Info("GetPOSState POSStorage", "key", key.String(), "value", len(value))
 	return value
@@ -264,7 +264,7 @@ func (self *stateObject) SetPOSState(db Database, key common.Hash, value []byte)
 }
 
 func (self *stateObject) setStateByteArray(key common.Hash, value []byte) {
-	self.cachedPOSStorage[key] = value
+	self.originPOSStorage[key] = value
 	self.dirtyPOSStorage[key] = value
 }
 
@@ -368,7 +368,7 @@ func (self *stateObject) deepCopy(db *StateDB) *stateObject {
 	stateObject.dirtyStorage = self.dirtyStorage.Copy()
 	stateObject.originStorage = self.originStorage.Copy()
 	stateObject.dirtyPOSStorage = self.dirtyPOSStorage.Copy()
-	stateObject.cachedPOSStorage = self.cachedPOSStorage.Copy()
+	stateObject.originPOSStorage = self.originPOSStorage.Copy()
 	stateObject.suicided = self.suicided
 	stateObject.dirtyCode = self.dirtyCode
 	stateObject.deleted = self.deleted
