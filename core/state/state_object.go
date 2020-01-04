@@ -229,7 +229,6 @@ func (self *stateObject) GetPOSState(db Database, key common.Hash) []byte {
 	if err == nil && len(value) != 0 {
 		self.originPOSStorage[key] = value
 	}
-	log.Info("GetPOSState POSStorage", "key", key.String(), "value", len(value))
 	return value
 }
 
