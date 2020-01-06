@@ -16,7 +16,6 @@ var (
 	CountInEpoch       = 31
 	MaxRedeemHeight    = uint64(1000)
 	MixEpochCount      = 2
-	EpochElectionPoint = 500
 	DposForkPoint      = uint64(0)
 	PreselectionPeriod = uint64(0)
 	EpochLength        = uint64(500)
@@ -55,9 +54,23 @@ type RewardInfo struct {
 	Address common.Address
 	Amount  *big.Int
 }
+
+func (e *RewardInfo) String() string {
+	return fmt.Sprintf("[Address:%v,Amount:%v\n]", e.Address, toTrue(e.Amount))
+}
+
 type SARewardInfos struct {
 	Items []*RewardInfo
 }
+
+func (s *SARewardInfos) String() string {
+	var ss string
+	for _, v := range s.Items {
+		ss += v.String()
+	}
+	return ss
+}
+
 type EpochIDInfo struct {
 	EpochID     uint64
 	BeginHeight uint64
@@ -84,6 +97,9 @@ func toReward(val *big.Float) *big.Int {
 	val = val.Mul(val, fbaseUnit)
 	ii, _ := val.Int64()
 	return big.NewInt(ii)
+}
+func toTrue(val *big.Int) *big.Float {
+	return new(big.Float).Quo(new(big.Float).SetInt(val), fbaseUnit)
 }
 func FromBlock(block *SnailBlock) (begin, end uint64) {
 	begin, end = 0, 0
