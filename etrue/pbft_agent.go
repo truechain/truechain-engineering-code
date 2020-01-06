@@ -537,7 +537,7 @@ func (agent *PbftAgent) loop() {
 				next := num.Uint64() + 1
 				epoch := types.GetEpochFromHeight(next)
 
-				if next == epoch.EndHeight - types.ElectionPoint + 1 {
+				if next == epoch.EndHeight-types.ElectionPoint+1 {
 					epoch := types.GetEpochFromHeight(next + types.EpochLength)
 					log.Info("Prepare new epoch", "id", epoch.EpochID, "block", num)
 					committee := &types.CommitteeInfo{
@@ -546,7 +546,10 @@ func (agent *PbftAgent) loop() {
 						EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
 					}
 					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
-					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, num.Uint64())
+					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID+1, num.Uint64())
+					if len(validators) == 0 {
+						log.Error("Prepare new epoch wrong,the validators was empty", "id", epoch.EpochID+1, "block", num)
+					}
 					committee.Members = validators
 					// Switch to new epoch
 					agent.setCommitteeInfo(nextCommittee, committee)
@@ -584,6 +587,9 @@ func (agent *PbftAgent) loop() {
 
 					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
 					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID+1, num.Uint64())
+					if len(validators) == 0 {
+						log.Error("Start new epoch wrong,the validators was empty", "id", epoch.EpochID+1, "block", num)
+					}
 					committee.Members = validators
 
 					// Set new bft and start committee
