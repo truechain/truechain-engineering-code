@@ -506,7 +506,7 @@ func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
 	block := e.fastchain.GetBlockByNumber(fastNumber.Uint64() - 1)
 	stateDb, err := e.fastchain.StateAt(block.Root())
 	if err != nil {
-		log.Warn("Fetch committee from state failed", "number", fastNumber)
+		log.Warn("Fetch committee from state failed", "number", fastNumber, "err", err)
 		return nil
 	}
 	validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, fastNumber.Uint64())
