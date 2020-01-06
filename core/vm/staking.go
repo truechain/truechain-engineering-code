@@ -85,26 +85,61 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	return nil, nil
 }
 
+// cancel
+func cancel(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	from := contract.caller.Address()
+	amount := new(big.Int)
+
+	method, _ := abiStaking.Methods["cancel"]
+	err = method.Inputs.Unpack(&amount, input)
+	if err != nil {
+		log.Error("Unpack cancel input error")
+		return nil, ErrStakingInvalidInput
+	}
+
+	impawn := NewImpawnImpl()
+	impawn.Load(evm.StateDB, StakingAddress)
+	err = impawn.CancelSAccount(evm.Context.BlockNumber.Uint64(), from, amount)
+	if err != nil {
+		log.Error("Staking cancel input error", "address", from, "value", amount)
+		return nil, err
+	}
+
+	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", amount)
+	impawn.Save(evm.StateDB, StakingAddress)
+
+	return nil, nil
+}
+
 // withdraw
 func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	from := contract.caller.Address()
+	amount := new(big.Int)
 
-	pre := evm.StateDB.GetPOSState(StakingAddress, common.BytesToHash(from[:]))
-	balance := new(big.Int).SetBytes(pre)
-
-	if balance.Cmp(common.Big0) <= 0 {
-		log.Warn("Staking withdraw zero value", "address", contract.caller.Address())
+	method, _ := abiStaking.Methods["withdraw"]
+	err = method.Inputs.Unpack(&amount, input)
+	if err != nil {
+		log.Error("Unpack withdraw input error")
 		return nil, ErrStakingInvalidInput
 	}
-	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", balance)
 
-	_, left, err := evm.Call(contract.self, from, nil, evm.callGasTemp, balance, nil)
+	impawn := NewImpawnImpl()
+	impawn.Load(evm.StateDB, StakingAddress)
+
+	err = impawn.RedeemSAccount(evm.Context.BlockNumber.Uint64(), from, amount)
+	if err != nil {
+		log.Error("Staking withdraw input error", "address", from, "value", amount)
+		return nil, err
+	}
+
+	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", amount)
+	_, left, err := evm.Call(contract.self, from, nil, evm.callGasTemp, amount, nil)
 	if err != nil {
 		log.Info("Staking withdraw transfer failed", "err", err)
 		return nil, nil
 	}
 	log.Info("Staking withdraw", "gas", left)
-	evm.StateDB.SetPOSState(StakingAddress, common.BytesToHash(from[:]), nil)
+	impawn.Save(evm.StateDB, StakingAddress)
 
 	return nil, nil
 }
@@ -185,9 +220,32 @@ const abiJSON = `
     "gas": 420
   },
   {
+    "name": "cancel",
+    "outputs": [],
+    "inputs": [
+      {
+        "type":
+        "uint256",
+        "unit": "wei",
+        "name": "value"
+	  }
+    ],
+    "constant": false,
+    "payable": false,
+    "type": "function",
+    "gas": 366
+  },
+  {
     "name": "withdraw",
     "outputs": [],
-    "inputs": [],
+    "inputs": [
+      {
+        "type":
+        "uint256",
+        "unit": "wei",
+        "name": "value"
+	  }
+    ],
     "constant": false,
     "payable": false,
     "type": "function",
