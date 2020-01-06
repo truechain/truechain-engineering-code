@@ -1016,7 +1016,7 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) er
 		//fruit award amount
 		minerFruitCoinOne = new(big.Int).Div(minerFruitCoin, blockFruitsLen)
 	)
-	log.Info("[Consensus AddBalance]", "info", "TIP8 Reward", "CoinBase:", sBlock.Coinbase().String(), "amount", minerCoin)
+
 	//miner's award
 	stateDB.AddBalance(sBlock.Coinbase(), minerCoin)
 	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
@@ -1030,12 +1030,18 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) er
 	if err != nil {
 		return err
 	}
+	var ss string
+	for _, v := range infos {
+		ss += v.String()
+	}
+	log.Info("[Consensus AddBalance]", "info", "TIP8 Reward", "SnailHeight:", sBlock.NumberU64(), "reward", ss)
 	for _, v := range infos {
 		for _, vv := range v.Items {
 			stateDB.AddBalance(vv.Address, vv.Amount)
 			LogPrint("committee:", vv.Address, vv.Amount)
 		}
 	}
+
 	return nil
 }
 
