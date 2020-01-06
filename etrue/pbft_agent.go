@@ -537,8 +537,9 @@ func (agent *PbftAgent) loop() {
 				next := num.Uint64() + 1
 				epoch := types.GetEpochFromHeight(next)
 
-				if next == epoch.BeginHeight - types.ElectionPoint {
-					log.Info("Prepare new epoch", "id", epoch.EpochID)
+				if next == epoch.EndHeight - types.ElectionPoint + 1 {
+					epoch := types.GetEpochFromHeight(next + types.EpochLength)
+					log.Info("Prepare new epoch", "id", epoch.EpochID, "block", num)
 					committee := &types.CommitteeInfo{
 						Id:          new(big.Int).SetUint64(epoch.EpochID),
 						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
@@ -558,9 +559,10 @@ func (agent *PbftAgent) loop() {
 					}
 				}
 
-				if num.Uint64() == epoch.EndHeight {
+				if next == epoch.BeginHeight {
 					// Stop current epoch and bft
 					epoch := types.GetEpochFromHeight(num.Uint64())
+					log.Info("Stop epoch", "id", epoch.EpochID, "block", num)
 					committeeID := new(big.Int).SetUint64(epoch.EpochID)
 					if !agent.verifyCommitteeID(types.CommitteeStop, committeeID) {
 						continue
@@ -573,7 +575,7 @@ func (agent *PbftAgent) loop() {
 
 				if next == epoch.BeginHeight {
 					// Start New Epoch
-					log.Info("epoch id", "id", epoch.EpochID)
+					log.Info("New epoch id", "id", epoch.EpochID, "block", num)
 					committee := &types.CommitteeInfo{
 						Id:          new(big.Int).SetUint64(epoch.EpochID),
 						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
