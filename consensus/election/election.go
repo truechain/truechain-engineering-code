@@ -483,11 +483,30 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 
 func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
 	epoch := types.GetEpochFromHeight(fastNumber.Uint64())
+	if fastNumber.Uint64() > epoch.BeginHeight {
+		// Read committee from block body
+		block := e.fastchain.GetBlockByNumber(epoch.BeginHeight)
+		if block != nil {
+			var (
+				members []*types.CommitteeMember
+				backups []*types.CommitteeMember
+			)
+			for _, m := range e.fastchain.GetBlockByNumber(epoch.BeginHeight).SwitchInfos() {
+				if m.Flag == types.StateUsedFlag {
+					members = append(members, m)
+				}
+				if m.Flag == types.StateUnusedFlag {
+					backups = append(backups, m)
+				}
+			}
+			committee := &types.ElectionCommittee{Members: members, Backups: backups}
+			return committee.Members
+		}
+	}
 	block := e.fastchain.GetBlockByNumber(fastNumber.Uint64() - 1)
 	stateDb, err := e.fastchain.StateAt(block.Root())
 	if err != nil {
-		// Retrieve committee from block body
-		log.Info("Fetch committee from body")
+		log.Warn("Fetch committee from state failed", "number", fastNumber)
 		return nil
 	}
 	validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, fastNumber.Uint64())

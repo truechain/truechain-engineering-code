@@ -392,6 +392,10 @@ func (agent *PbftAgent) loop() {
 					agent.isCurrentCommitteeMember = false
 				}
 			}
+
+			agent.endFastNumber[epoch.EpochID] = new(big.Int).SetUint64(epoch.EndHeight)
+			agent.clearEndFastNumber(committee.Id)
+			help.CheckAndPrintError(agent.server.SetCommitteeStop(committee.Id, epoch.EndHeight))
 		}
 	}
 
@@ -530,6 +534,40 @@ func (agent *PbftAgent) loop() {
 				next := num.Uint64() + 1
 				epoch := types.GetEpochFromHeight(next)
 
+				if next == epoch.BeginHeight - types.ElectionPoint {
+					log.Info("Prepare new epoch", "id", epoch.EpochID)
+					committee := &types.CommitteeInfo{
+						Id:          new(big.Int).SetUint64(epoch.EpochID),
+						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
+						EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
+					}
+					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
+					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, num.Uint64())
+					committee.Members = validators
+					// Switch to new epoch
+					agent.setCommitteeInfo(nextCommittee, committee)
+					if agent.IsUsedOrUnusedMember(committee, agent.committeeNode.Publickey) {
+						agent.startSend(committee, true)
+						help.CheckAndPrintError(agent.server.PutCommittee(committee))
+						help.CheckAndPrintError(agent.server.PutNodes(committee.Id, []*types.CommitteeNode{agent.committeeNode}))
+					} else {
+						agent.startSend(committee, false)
+					}
+				}
+
+				if num.Uint64() == epoch.EndHeight {
+					// Stop current epoch and bft
+					epoch := types.GetEpochFromHeight(num.Uint64())
+					committeeID := new(big.Int).SetUint64(epoch.EpochID)
+					if !agent.verifyCommitteeID(types.CommitteeStop, committeeID) {
+						continue
+					}
+					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+						go help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
+					}
+					agent.stopSend()
+				}
+
 				if next == epoch.BeginHeight {
 					// Start New Epoch
 					log.Info("epoch id", "id", epoch.EpochID)
@@ -543,16 +581,6 @@ func (agent *PbftAgent) loop() {
 					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID+1, num.Uint64())
 					committee.Members = validators
 
-					// Switch to new epoch
-					agent.setCommitteeInfo(nextCommittee, committee)
-					if agent.IsUsedOrUnusedMember(committee, agent.committeeNode.Publickey) {
-						agent.startSend(committee, true)
-						help.CheckAndPrintError(agent.server.PutCommittee(committee))
-						help.CheckAndPrintError(agent.server.PutNodes(committee.Id, []*types.CommitteeNode{agent.committeeNode}))
-					} else {
-						agent.startSend(committee, false)
-					}
-
 					// Set new bft and start committee
 					if !agent.verifyCommitteeID(types.CommitteeStart, committee.Id) {
 						continue
@@ -564,19 +592,11 @@ func (agent *PbftAgent) loop() {
 					} else {
 						agent.isCurrentCommitteeMember = false
 					}
-				}
 
-				if num.Uint64() == epoch.EndHeight {
-					// Stop epoch and bft
-					epoch := types.GetEpochFromHeight(num.Uint64())
-					committeeID := new(big.Int).SetUint64(epoch.EpochID)
-					if !agent.verifyCommitteeID(types.CommitteeStop, committeeID) {
-						continue
-					}
-					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
-						go help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
-					}
-					agent.stopSend()
+					// Set bft stop block Number
+					agent.endFastNumber[epoch.EpochID] = new(big.Int).SetUint64(epoch.EndHeight)
+					agent.clearEndFastNumber(committee.Id)
+					help.CheckAndPrintError(agent.server.SetCommitteeStop(committee.Id, epoch.EndHeight))
 				}
 			}
 		}
