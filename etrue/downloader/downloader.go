@@ -1467,7 +1467,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	}
 
 	txLen := len(sblocks)
-	log.Info("Snail insert download", "blocks", txLen)
+	log.Info("Snail insert download", "blocks", txLen, "current number", d.blockchain.CurrentHeader().Number)
 	if d.mode == LightSync {
 		if err := d.importBlockAndSyncFast(sblocks, p, hash); err != nil {
 			return err
