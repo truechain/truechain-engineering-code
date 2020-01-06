@@ -586,9 +586,9 @@ func (agent *PbftAgent) loop() {
 					}
 
 					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
-					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID+1, num.Uint64())
+					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, num.Uint64())
 					if len(validators) == 0 {
-						log.Error("Start new epoch wrong,the validators was empty", "id", epoch.EpochID+1, "block", num)
+						log.Error("Start new epoch wrong,the validators was empty", "id", epoch.EpochID, "block", num)
 					}
 					committee.Members = validators
 
