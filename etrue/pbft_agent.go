@@ -361,6 +361,9 @@ func (agent *PbftAgent) loop() {
 	if agent.config.IsTIP8(current.Number()) {
 		epoch := types.GetEpochFromHeight(current.Number().Uint64())
 		if current.Number().Uint64() >= epoch.BeginHeight {
+			if current.Number().Uint64() == epoch.EndHeight {
+				epoch = types.GetEpochFromHeight(current.Number().Uint64() + 1)
+			}
 			log.Info("Epoch id at launch", "id", epoch.EpochID, "start", epoch.BeginHeight, "stop", epoch.EndHeight)
 			committee := &types.CommitteeInfo{
 				Id:          new(big.Int).SetUint64(epoch.EpochID),
