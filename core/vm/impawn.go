@@ -767,8 +767,8 @@ func (i *ImpawnImpl) Shift(epochid uint64) error {
 	minEpoch := types.GetEpochFromHeight(i.lastReward)
 	min := i.getMinEpochID()
 	fmt.Println("*** move min:", min, "minEpoch:", minEpoch.EpochID, "lastReward:", i.lastReward)
-	if minEpoch != nil && min > 0 && minEpoch.EpochID-1 > min {
-		for ii := min; ii < minEpoch.EpochID-1; ii++ {
+	if minEpoch != nil && min >= 0 && minEpoch.EpochID-1 > min {
+		for ii := min; minEpoch.EpochID > 1 && ii < minEpoch.EpochID-1; ii++ {
 			delete(i.accounts, ii)
 			fmt.Println("delete epoch:", ii)
 		}
@@ -984,7 +984,7 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 		return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
 	}
 	log.Info("Load", "accounts", len(temp.accounts))
-	i.curEpochID, i.accounts = temp.curEpochID, temp.accounts
+	i.curEpochID, i.accounts, i.lastReward = temp.curEpochID, temp.accounts, temp.lastReward
 	return nil
 }
 
