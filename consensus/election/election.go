@@ -155,6 +155,8 @@ type Election struct {
 }
 
 type BlockChain interface {
+	CurrentBlock() *types.Block
+
 	CurrentHeader() *types.Header
 
 	GetBlockByNumber(number uint64) *types.Block
@@ -483,7 +485,8 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 
 func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
 	epoch := types.GetEpochFromHeight(fastNumber.Uint64())
-	if fastNumber.Uint64() > epoch.BeginHeight {
+	current := e.fastchain.CurrentBlock().Number()
+	if current.Cmp(fastNumber) > 0 {
 		// Read committee from block body
 		block := e.fastchain.GetBlockByNumber(epoch.BeginHeight)
 		if block != nil {
