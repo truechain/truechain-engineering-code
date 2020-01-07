@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
 	"math/big"
 	"strconv"
 	"strings"
@@ -13,14 +12,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
+
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/pex"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
 	cfg "github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -148,11 +149,13 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	return nil
 }
 func (s *service) stop() error {
+	log.Info("begin service stop")
 	if s.sw.IsRunning() {
 		s.updateChan <- false
 		s.healthMgr.OnStop()
 		help.CheckAndPrintError(s.sw.Stop())
 		//help.CheckAndPrintError(s.eventBus.Stop())
+		log.Info("end service stop")
 	}
 	return nil
 }

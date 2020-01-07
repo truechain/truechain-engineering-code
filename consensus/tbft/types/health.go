@@ -266,11 +266,13 @@ func (h *HealthMgr) OnStart() error {
 
 //OnStop mgr stop
 func (h *HealthMgr) OnStop() {
+	log.Info("Begin HealthMgr finish")
 	EnableHealthMgr = false
 	if h.healthTick != nil {
 		h.healthTick.Stop()
 	}
 	help.CheckAndPrintError(h.Stop())
+	log.Info("End HealthMgr finish")
 }
 func (h *HealthMgr) getCurSV() *SwitchValidator {
 	h.lock.Lock()
