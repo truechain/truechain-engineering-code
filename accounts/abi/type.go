@@ -271,7 +271,7 @@ func (t Type) pack(v reflect.Value) ([]byte, error) {
 		}
 		return append(ret, tail...), nil
 	case TupleTy:
-		// (T1,...,Tk) for k >= 0 and any types T1, �, Tk
+		// (T1,...,Tk) for k >= 0 and any types T1, …, Tk
 		// enc(X) = head(X(1)) ... head(X(k)) tail(X(1)) ... tail(X(k))
 		// where X = (X(1), ..., X(k)) and head and tail are defined for Ti being a static
 		// type as
@@ -321,7 +321,7 @@ func (t Type) requiresLengthPrefix() bool {
 }
 
 // isDynamicType returns true if the type is dynamic.
-// The following types are called "dynamic":
+// The following types are called “dynamic”:
 // * bytes
 // * string
 // * T[] for any T
