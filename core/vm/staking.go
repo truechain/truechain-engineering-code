@@ -28,7 +28,6 @@ import (
 // StakingAddress is defined as Address('truestaking')
 // i.e. contractAddress = 0x000000000000000000747275657374616b696E67
 var StakingAddress = common.BytesToAddress([]byte("truestaking"))
-
 // Staking contract ABI
 var abiStaking abi.ABI
 
@@ -55,6 +54,12 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		ret, err = deposit(evm, contract, data)
 	case "withdraw":
 		ret, err = withdraw(evm, contract, data)
+	case "cancel":
+		ret, err = cancel(evm, contract, data)
+	case "delegate":
+		ret, err = delegate(evm, contract, data)
+	case "undelegate":
+		ret, err = undelegate(evm, contract, data)
 	default:
 		log.Warn("Staking call fallback function")
 		err = ErrStakingInvalidInput
@@ -80,9 +85,63 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 
-	impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, pubkey, contract.value, big.NewInt(0), true)
-	err = impawn.Save(evm.StateDB, StakingAddress)
+	err = impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, pubkey, contract.value, big.NewInt(0), true)
+	if err != nil {
+		log.Error("Staking deposit", "address", contract.caller.Address(), "value", contract.value, "error", err)
+		return nil, err
+	}
+	impawn.Save(evm.StateDB, StakingAddress)
 
+	return nil, nil
+}
+
+// delegate
+func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	var holder common.Address
+
+	method, _ := abiStaking.Methods["delegate"]
+	err = method.Inputs.Unpack(&holder, input)
+	if err != nil {
+		log.Error("Unpack deposit pubkey error", "err", err)
+		return nil, ErrStakingInvalidInput
+	}
+	from := contract.caller.Address()
+
+	log.Info("Staking delegate", "address", contract.caller.Address(), "holder", holder, "value", contract.value)
+	impawn := NewImpawnImpl()
+	impawn.Load(evm.StateDB, StakingAddress)
+	err = impawn.InsertDAccount2(evm.Context.BlockNumber.Uint64(), from, holder, contract.value)
+	if err != nil {
+		log.Error("Staking delegate", "address", contract.caller.Address(), "value", contract.value, "error", err)
+		return nil, err
+	}
+	impawn.Save(evm.StateDB, StakingAddress)
+
+	return nil, nil
+}
+
+// undelegate
+func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	args := struct {Holder common.Address; Value *big.Int}{}
+
+	method, _ := abiStaking.Methods["undelegate"]
+	err = method.Inputs.Unpack(&args, input)
+	if err != nil {
+		log.Error("Unpack undelegate error", "err", err)
+		return nil, ErrStakingInvalidInput
+	}
+	from := contract.caller.Address()
+
+	log.Info("Staking undelegate", "address", contract.caller.Address(), "holder", args.Holder, "value", args.Value)
+	impawn := NewImpawnImpl()
+	impawn.Load(evm.StateDB, StakingAddress)
+	err = impawn.RedeemDAccount(evm.Context.BlockNumber.Uint64(), from, args.Holder, args.Value)
+	if err != nil {
+		log.Error("Staking undelegate", "address", contract.caller.Address(), "value", args.Value, "error", err)
+		return nil, err
+	}
+
+	impawn.Save(evm.StateDB, StakingAddress)
 	return nil, nil
 }
 
@@ -98,17 +157,16 @@ func cancel(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) 
 		return nil, ErrStakingInvalidInput
 	}
 
+	log.Info("Staking cancel", "address", contract.caller.Address(), "value", amount)
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 	err = impawn.CancelSAccount(evm.Context.BlockNumber.Uint64(), from, amount)
 	if err != nil {
-		log.Error("Staking cancel input error", "address", from, "value", amount)
+		log.Error("Staking cancel error", "address", from, "value", amount)
 		return nil, err
 	}
 
-	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", amount)
 	impawn.Save(evm.StateDB, StakingAddress)
-
 	return nil, nil
 }
 
@@ -129,7 +187,7 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 
 	err = impawn.RedeemSAccount(evm.Context.BlockNumber.Uint64(), from, amount)
 	if err != nil {
-		log.Error("Staking withdraw input error", "address", from, "value", amount)
+		log.Error("Staking withdraw error", "address", from, "value", amount)
 		return nil, err
 	}
 
@@ -139,9 +197,9 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		log.Info("Staking withdraw transfer failed", "err", err)
 		return nil, nil
 	}
+
 	log.Info("Staking withdraw", "gas", left)
 	impawn.Save(evm.StateDB, StakingAddress)
-
 	return nil, nil
 }
 
@@ -155,7 +213,6 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	var depositAddr common.Address
 	method, _ := abiStaking.Methods["getDeposit"]
 
-	// depositAddr := struct {Validator common.Address}{}
 	err = method.Inputs.Unpack(&depositAddr, input)
 	if err != nil {
 		log.Error("Unpack get_deposit input error")
@@ -197,8 +254,38 @@ const abiJSON = `
     ],
     "constant": false,
     "payable": true,
-    "type": "function",
-    "gas": 371
+    "type": "function"
+  },
+  {
+    "name": "delegate",
+    "outputs": [],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "holder"
+      }
+    ],
+    "constant": false,
+    "payable": true,
+    "type": "function"
+  },
+  {
+    "name": "undelegate",
+    "outputs": [],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "holder"
+      },
+      {
+        "type": "uint256",
+        "unit": "wei",
+        "name": "value"
+      }
+    ],
+    "constant": false,
+    "payable": false,
+    "type": "function"
   },
   {
     "name": "getDeposit",
@@ -217,40 +304,35 @@ const abiJSON = `
     ],
     "constant": true,
     "payable": false,
-    "type": "function",
-    "gas": 420
+    "type": "function"
   },
   {
     "name": "cancel",
     "outputs": [],
     "inputs": [
       {
-        "type":
-        "uint256",
+        "type": "uint256",
         "unit": "wei",
         "name": "value"
-	  }
+      }
     ],
     "constant": false,
     "payable": false,
-    "type": "function",
-    "gas": 366
+    "type": "function"
   },
   {
     "name": "withdraw",
     "outputs": [],
     "inputs": [
       {
-        "type":
-        "uint256",
+        "type": "uint256",
         "unit": "wei",
         "name": "value"
-	  }
+      }
     ],
     "constant": false,
     "payable": false,
-    "type": "function",
-    "gas": 366
+    "type": "function"
   }
 ]
 `
