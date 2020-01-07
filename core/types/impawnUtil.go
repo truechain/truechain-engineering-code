@@ -105,7 +105,7 @@ func FromBlock(block *SnailBlock) (begin, end uint64) {
 	begin, end = 0, 0
 	l := len(block.Fruits())
 	if l > 0 {
-		begin, end = block.Fruits()[0].NumberU64(), block.Fruits()[l-1].NumberU64()
+		begin, end = block.Fruits()[0].FastNumber().Uint64(), block.Fruits()[l-1].FastNumber().Uint64()
 	}
 	return
 }

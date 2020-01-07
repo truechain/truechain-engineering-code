@@ -670,6 +670,29 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 		return res, nil
 	}
 }
+func (i *ImpawnImpl) reward(begin, end uint64, allAmount *big.Int) ([]*types.SARewardInfos, error) {
+	ids := types.GetEpochFromRange(begin, end)
+	if ids == nil || len(ids) > 2 {
+		return nil, types.ErrMatchEpochID
+	}
+
+	if len(ids) == 2 {
+		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-ids[0].BeginHeight)), new(big.Int).SetUint64(end-begin))
+		amount1, amount2 := tmp, new(big.Int).Sub(allAmount, tmp)
+		if items, err := i.calcReward(ids[0].EndHeight, amount1, ids[0]); err != nil {
+			return nil, err
+		} else {
+			if items1, err2 := i.calcReward(ids[1].EndHeight, amount2, ids[1]); err != nil {
+				return nil, err2
+			} else {
+				items = append(items, items1[:]...)
+			}
+			return items, nil
+		}
+	} else {
+		return i.calcReward(end, allAmount, ids[0])
+	}
+}
 
 ///////////auxiliary function ////////////////////////////////////////////
 
@@ -927,27 +950,11 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 
 func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*types.SARewardInfos, error) {
 	begin, end := types.FromBlock(block)
-	ids := types.GetEpochFromRange(begin, end)
-	if ids == nil || len(ids) > 2 {
-		return nil, types.ErrMatchEpochID
+	res, err := i.reward(begin, end, allAmount)
+	if err == nil {
+		i.lastReward = end
 	}
-	defer func() { i.lastReward = end }()
-	if len(ids) == 2 {
-		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-ids[0].BeginHeight)), new(big.Int).SetUint64(end-begin))
-		amount1, amount2 := tmp, new(big.Int).Sub(allAmount, tmp)
-		if items, err := i.calcReward(ids[0].EndHeight, amount1, ids[0]); err != nil {
-			return nil, err
-		} else {
-			if items1, err2 := i.calcReward(ids[1].EndHeight, amount2, ids[1]); err != nil {
-				return nil, err2
-			} else {
-				items = append(items, items1[:]...)
-			}
-			return items, nil
-		}
-	} else {
-		return i.calcReward(end, allAmount, ids[0])
-	}
+	return res, err
 }
 
 /////////////////////////////////////////////////////////////////////////////////
