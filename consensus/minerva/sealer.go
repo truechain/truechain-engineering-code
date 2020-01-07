@@ -25,9 +25,9 @@ import (
 	"sync"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
@@ -160,7 +160,7 @@ mineloop:
 		case result = <-found:
 			// One of the threads found a block or fruit return it
 			send <- result
-
+			log.Debug("seal conseal found fruit or block to Agent")
 			if block.Fruits() != nil {
 				if !result.IsFruit() {
 					// stop threads when get a block, wait for outside abort when result is fruit

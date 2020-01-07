@@ -31,10 +31,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	//"github.com/truechain/truechain-engineering-code/core/vm"
 	//"crypto/rand"
-	"github.com/truechain/truechain-engineering-code/log"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/fatih/set.v0"
 )
@@ -410,7 +410,7 @@ func (w *worker) wait() {
 			}
 
 			block := result.Block
-
+			log.Debug("Worker get wait fond block or fruit")
 			if block.IsFruit() {
 				if block.FastNumber() == nil {
 					// if it does't include a fast block signs, it's not a fruit

@@ -20,9 +20,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // CPUAgent is for agent to mine
@@ -128,6 +128,7 @@ mineloop:
 			// One of the threads found a block or fruit return it
 			agent.returnCh <- &Result{work, result}
 			// when get a fruit, to stop or continue
+			log.Debug("Agent get send chan block or fruit")
 			if !result.IsFruit() {
 				break mineloop
 			}
