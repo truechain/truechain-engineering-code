@@ -645,7 +645,7 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 	} else {
 		das := i.getElections3(einfo.EpochID)
 		if das == nil {
-			return nil, types.ErrMatchEpochID
+			return nil, errors.New(fmt.Sprint(types.ErrMatchEpochID, "epochid:", einfo.EpochID))
 		}
 		impawns := SAImpawns(das)
 		var res []*types.SARewardInfos
