@@ -157,6 +157,14 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	}
 }
 
+func (b *BlockGen) GetHeader() *types.Header {
+	return b.header
+}
+
+func (b *BlockGen) GetStateDB() *state.StateDB {
+	return b.statedb
+}
+
 // GenerateChain creates a chain of n blocks. The first block's
 // parent will be the provided parent. db is used to store
 // intermediate states and should contain the parent's state trie.
@@ -178,7 +186,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		return nil, nil
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	chainreader := &fakeChainReader{config: config}
+	chainreader := &fakeChainReader{config: config, genesis: parent}
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
 		b.header = makeHeader(chainreader, parent, statedb, b.engine)

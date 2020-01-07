@@ -90,7 +90,7 @@ func TestImpawnImplReward(t *testing.T) {
 	fmt.Println(" epoch 3 ", types.GetEpochFromID(3))
 	impl := NewImpawnImpl()
 
-	for i := uint64(0); i < 6; i++ {
+	for i := uint64(0); i < 4; i++ {
 		value := big.NewInt(100)
 		priKey, _ := crypto.GenerateKey()
 		from := crypto.PubkeyToAddress(priKey.PublicKey)
@@ -104,34 +104,39 @@ func TestImpawnImplReward(t *testing.T) {
 	}
 	err = impl.Shift(1)
 
-	for i := uint64(0); i < 6; i++ {
+	for i := uint64(0); i < 5; i++ {
 		value := big.NewInt(100)
 		priKey, _ := crypto.GenerateKey()
 		from := crypto.PubkeyToAddress(priKey.PublicKey)
 		pub := crypto.FromECDSAPub(&priKey.PublicKey)
-		impl.InsertSAccount2(395+i, from, pub, value, big.NewInt(50), true)
+		impl.InsertSAccount2(396+i, from, pub, value, big.NewInt(50), true)
 		priKeyDA, _ := crypto.GenerateKey()
 		daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
-		impl.InsertDAccount2(395+i, daAddress, from, value)
+		impl.InsertDAccount2(396+i, daAddress, from, value)
 	}
 
 	committee, _ := impl.DoElections(2, 400)
-	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election ", len(impl.getElections3(1)))
-	fmt.Println("election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
+	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 1 ", len(impl.getElections3(1)), "election 2 ", len(impl.getElections3(2)))
 
 	fruits := make([]*types.SnailBlock, 0)
-	for i := uint64(0); i < 6; i++ {
+	for i := uint64(0); i < 60; i++ {
 		sh := &types.SnailHeader{
-			Number: big.NewInt(int64(395 + i)),
+			Number: big.NewInt(int64(341 + i)),
 		}
 		fruits = append(fruits, types.NewSnailBlockWithHeader(sh))
 	}
 	sh := &types.SnailHeader{
-		Number: big.NewInt(int64(400)),
+		Number: big.NewInt(int64(5)),
 	}
 
 	sblock := types.NewSnailBlock(sh, fruits, nil, nil, params.TestChainConfig)
-	impl.Reward(sblock, big.NewInt(int64(70)))
+	rinfo, _ := impl.Reward(sblock, big.NewInt(int64(100)))
+	for i, info := range rinfo {
+		fmt.Println("i ", i, " info ", len(info.Items), " rinfo ", len(rinfo))
+		for j, item := range info.Items {
+			fmt.Println("j ", j, " item ", item.Amount, " address ", item.Address)
+		}
+	}
 
 	for i := uint64(0); i < 5; i++ {
 		value := big.NewInt(100)
@@ -144,7 +149,6 @@ func TestImpawnImplReward(t *testing.T) {
 		impl.InsertDAccount2(496+i, daAddress, from, value)
 	}
 
-	fmt.Println(impl.getCurrentEpochInfo(), " election 2 ", len(impl.getElections3(2)))
 	impl.Shift(2)
 	fmt.Println(" Shift 2 ", impl.getCurrentEpochInfo(), " election 3 ", len(impl.getElections3(3)))
 
@@ -159,7 +163,7 @@ func TestImpawnImplReward(t *testing.T) {
 		impl.InsertDAccount2(895+i, daAddress, from, value)
 	}
 
-	fmt.Println(" Shift 3 ", impl.getCurrentEpochInfo(), " election  2 ", len(impl.getElections3(2)), " 3 ", len(impl.getElections3(3)))
+	fmt.Println(" Shift 3 ", " election  2 ", len(impl.getElections3(2)), " 3 ", len(impl.getElections3(3)))
 	committee, _ = impl.DoElections(3, 900)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 

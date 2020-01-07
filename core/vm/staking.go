@@ -81,6 +81,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	impawn.Load(evm.StateDB, StakingAddress)
 
 	impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, pubkey, contract.value, big.NewInt(0), true)
+	err = impawn.Save(evm.StateDB, StakingAddress)
 
 	return nil, nil
 }
