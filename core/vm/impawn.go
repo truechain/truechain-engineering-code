@@ -743,11 +743,14 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 func (i *ImpawnImpl) Shift(epochid uint64) error {
 	minEpoch := types.GetEpochFromHeight(i.lastReward)
 	min := i.getMinEpochID()
+	fmt.Println("*** move min:", min, "minEpoch:", minEpoch.EpochID, "lastReward:", i.lastReward)
 	if minEpoch != nil && min > 0 && minEpoch.EpochID-1 > min {
 		for ii := min; ii < minEpoch.EpochID-1; ii++ {
 			delete(i.accounts, ii)
+			fmt.Println("delete epoch:", ii)
 		}
 	}
+
 	if epochid != i.getCurrentEpoch()+1 {
 		return types.ErrOverEpochID
 	}
