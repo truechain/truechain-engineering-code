@@ -673,7 +673,7 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 func (i *ImpawnImpl) reward(begin, end uint64, allAmount *big.Int) ([]*types.SARewardInfos, error) {
 	ids := types.GetEpochFromRange(begin, end)
 	if ids == nil || len(ids) > 2 {
-		return nil, types.ErrMatchEpochID
+		return nil, errors.New(fmt.Sprint(types.ErrMatchEpochID, "more than 2 epochid:", begin, end))
 	}
 
 	if len(ids) == 2 {
