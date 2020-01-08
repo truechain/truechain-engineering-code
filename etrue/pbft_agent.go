@@ -389,9 +389,11 @@ func (agent *PbftAgent) loop() {
 			if agent.verifyCommitteeID(types.CommitteeStart, committee.Id) {
 				agent.setCommitteeInfo(currentCommittee, types.CopyCommitteeInfo(agent.nextCommitteeInfo))
 				if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+					log.Info("Notyfy bft server start")
 					agent.isCurrentCommitteeMember = true
 					go help.CheckAndPrintError(agent.server.Notify(committee.Id, int(types.CommitteeStart)))
 				} else {
+					log.Info("Is not committee member at epoch", "epoch", epoch.EpochID)
 					agent.isCurrentCommitteeMember = false
 				}
 			}
@@ -571,6 +573,7 @@ func (agent *PbftAgent) loop() {
 						continue
 					}
 					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+						log.Info("Notyfy bft server stop")
 						help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
 					}
 					agent.stopSend()
@@ -598,9 +601,11 @@ func (agent *PbftAgent) loop() {
 					}
 					agent.setCommitteeInfo(currentCommittee, types.CopyCommitteeInfo(agent.nextCommitteeInfo))
 					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+						log.Info("Notyfy bft server start")
 						agent.isCurrentCommitteeMember = true
 						help.CheckAndPrintError(agent.server.Notify(committee.Id, int(types.CommitteeStart)))
 					} else {
+						log.Info("Is not committee member at epoch", "epoch", epoch.EpochID)
 						agent.isCurrentCommitteeMember = false
 					}
 
