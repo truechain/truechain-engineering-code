@@ -535,7 +535,11 @@ func (ec *Client) GetNonceAtBlockNumber(ctx context.Context, account common.Addr
 // FilterLogs executes a filter query.
 func (ec *Client) FilterLogs(ctx context.Context, q truechain.FilterQuery) ([]types.Log, error) {
 	var result []types.Log
-	err := ec.c.CallContext(ctx, &result, "etrue_getLogs", toFilterArg(q))
+	arg, err := toFilterArg(q)
+	if err != nil {
+		return nil, err
+	}
+	err = ec.c.CallContext(ctx, &result, "etrue_getLogs", arg)
 	return result, err
 }
 
