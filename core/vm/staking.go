@@ -60,6 +60,8 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		ret, err = delegate(evm, contract, data)
 	case "undelegate":
 		ret, err = undelegate(evm, contract, data)
+	case "withdrawDelegate":
+		ret, err = withdrawDelegate(evm, contract, data)
 	default:
 		log.Warn("Staking call fallback function")
 		err = ErrStakingInvalidInput
@@ -135,7 +137,7 @@ func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	log.Info("Staking undelegate", "address", contract.caller.Address(), "holder", args.Holder, "value", args.Value)
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
-	err = impawn.RedeemDAccount(evm.Context.BlockNumber.Uint64(), from, args.Holder, args.Value)
+	err = impawn.RedeemDAccount(evm.Context.BlockNumber.Uint64(), args.Holder, from, args.Value)
 	if err != nil {
 		log.Error("Staking undelegate", "address", contract.caller.Address(), "value", args.Value, "error", err)
 		return nil, err
@@ -185,13 +187,13 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 
+	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", amount)
 	err = impawn.RedeemSAccount(evm.Context.BlockNumber.Uint64(), from, amount)
 	if err != nil {
 		log.Error("Staking withdraw error", "address", from, "value", amount)
 		return nil, err
 	}
 
-	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", amount)
 	_, left, err := evm.Call(contract.self, from, nil, evm.callGasTemp, amount, nil)
 	if err != nil {
 		log.Info("Staking withdraw transfer failed", "err", err)
@@ -199,6 +201,39 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	}
 
 	log.Info("Staking withdraw", "gas", left)
+	impawn.Save(evm.StateDB, StakingAddress)
+	return nil, nil
+}
+
+func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	args := struct {Holder common.Address; Value *big.Int}{}
+	from := contract.caller.Address()
+
+	method, _ := abiStaking.Methods["withdrawDelegate"]
+	err = method.Inputs.Unpack(&args, input)
+	if err != nil {
+		log.Error("Unpack withdraw delegate input error")
+		return nil, ErrStakingInvalidInput
+	}
+
+	impawn := NewImpawnImpl()
+	impawn.Load(evm.StateDB, StakingAddress)
+
+	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", args.Value)
+
+	err = impawn.RedeemDAccount(evm.Context.BlockNumber.Uint64(), args.Holder, from, args.Value)
+	if err != nil {
+		log.Error("Staking withdraw delegate error", "address", from, "holer", args.Holder, "value", args.Value)
+		return nil, err
+	}
+
+	_, left, err := evm.Call(contract.self, from, nil, evm.callGasTemp, args.Value, nil)
+	if err != nil {
+		log.Info("Staking withdraw delegate transfer failed", "err", err)
+		return nil, nil
+	}
+
+	log.Info("Staking withdraw delegate", "gas", left)
 	impawn.Save(evm.StateDB, StakingAddress)
 	return nil, nil
 }
@@ -324,6 +359,24 @@ const abiJSON = `
     "name": "withdraw",
     "outputs": [],
     "inputs": [
+      {
+        "type": "uint256",
+        "unit": "wei",
+        "name": "value"
+      }
+    ],
+    "constant": false,
+    "payable": false,
+    "type": "function"
+  },
+  {
+    "name": "withdrawDelegate",
+    "outputs": [],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "holder"
+      },
       {
         "type": "uint256",
         "unit": "wei",
