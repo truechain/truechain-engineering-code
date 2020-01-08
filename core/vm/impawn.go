@@ -874,8 +874,10 @@ func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error 
 	} else {
 		if ds == nil {
 			sa.delegation = append(sa.delegation, da)
+			log.Info("Insert delegation account", "staking account", sa.unit.GetRewardAddress(), "account", da.unit.GetRewardAddress())
 		} else {
 			ds.update(da, false)
+			log.Info("Update delegation account", "staking account", sa.unit.GetRewardAddress(), "account", da.unit.GetRewardAddress())
 		}
 	}
 	return nil
@@ -912,14 +914,17 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 		var accounts []*StakingAccount
 		accounts = append(accounts, sa)
 		i.accounts[epochInfo.EpochID] = SAImpawns(accounts)
+		log.Info("Insert staking account", "account", sa.unit.GetRewardAddress())
 	} else {
 		for _, ii := range val {
 			if bytes.Equal(ii.unit.address.Bytes(), sa.unit.address.Bytes()) {
 				ii.update(sa, height, false, false)
+				log.Info("Update staking account", "account", sa.unit.GetRewardAddress())
 				return nil
 			}
 		}
 		i.accounts[epochInfo.EpochID] = append(val, sa)
+		log.Info("Insert staking account", "account", sa.unit.GetRewardAddress())
 	}
 	return nil
 }
