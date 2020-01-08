@@ -131,7 +131,7 @@ func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) error {
 	return nil
 }
 func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int, error) {
-	if amount.Cmp(s.getValidRedeem(hh)) < 0 {
+	if amount.Cmp(s.getValidRedeem(hh)) > 0 {
 		return common.Address{}, nil, types.ErrAmountOver
 	}
 	allAmount := big.NewInt(0)
