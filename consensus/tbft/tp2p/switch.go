@@ -2,15 +2,16 @@ package tp2p
 
 import (
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
-	config "github.com/truechain/truechain-engineering-code/params"
 	"math"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
+	"github.com/truechain/truechain-engineering-code/log"
+	config "github.com/truechain/truechain-engineering-code/params"
 )
 
 const (
@@ -210,6 +211,7 @@ func (sw *Switch) SetNodeKey(nodeKey *NodeKey) {
 // OnStart implements BaseService. It starts all the reactors, peers, and listeners.
 func (sw *Switch) OnStart() error {
 	// Start reactors
+	log.Info("Begin Switch start")
 	for _, reactor := range sw.reactors {
 		err := reactor.Start()
 		if err != nil {
@@ -220,6 +222,7 @@ func (sw *Switch) OnStart() error {
 	for _, listener := range sw.listeners {
 		go sw.listenerRoutine(listener)
 	}
+	log.Info("End Switch start")
 	return nil
 }
 

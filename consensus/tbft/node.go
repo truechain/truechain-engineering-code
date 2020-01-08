@@ -430,19 +430,19 @@ func (n *Node) Notify(id *big.Int, action int) error {
 				}
 				n.servicePre = id.Uint64()
 			}
-			log.Debug("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			help.CheckAndPrintError(server.start(id, n))
-			log.Debug("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			return nil
 		}
 		return errors.New("wrong conmmitt ID:" + id.String())
 
 	case Stop:
 		if server, ok := n.services[id.Uint64()]; ok {
-			log.Debug("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
+			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 			help.CheckAndPrintError(server.stop())
 			//delete(n.services, id.Uint64())
-			log.Debug("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
+			log.Info("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 		}
 		return nil
 	case Switch:
