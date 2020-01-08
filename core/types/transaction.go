@@ -86,6 +86,8 @@ type raw_txdata struct {
 	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
 	Payload      []byte          `json:"input"    gencodec:"required"`
+	Payer        *common.Address `json:"payer"    rlp:"nil"`
+	Fee          *big.Int        `json:"fee"   rlp:"nil"`
 
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
@@ -172,15 +174,14 @@ func newTransaction(nonce uint64, to *common.Address, payer *common.Address, amo
 		Payer:        payer,
 		Payload:      data,
 		Amount:       new(big.Int),
-		//Fee:          new(big.Int),
-		GasLimit: gasLimit,
-		Price:    new(big.Int),
-		V:        new(big.Int),
-		R:        new(big.Int),
-		S:        new(big.Int),
-		PV:       new(big.Int),
-		PR:       new(big.Int),
-		PS:       new(big.Int),
+		GasLimit:     gasLimit,
+		Price:        new(big.Int),
+		V:            new(big.Int),
+		R:            new(big.Int),
+		S:            new(big.Int),
+		PV:           new(big.Int),
+		PR:           new(big.Int),
+		PS:           new(big.Int),
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
