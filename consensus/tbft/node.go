@@ -419,6 +419,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 
 	switch action {
 	case Start:
+		log.Info("Notify Node Action:start", "id", id.Uint64())
 		if server, ok := n.services[id.Uint64()]; ok {
 			if server.consensusState == nil {
 				panic(0)
@@ -438,6 +439,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 		return errors.New("wrong conmmitt ID:" + id.String())
 
 	case Stop:
+		log.Info("Notify Node Action:stop", "id", id.Uint64())
 		if server, ok := n.services[id.Uint64()]; ok {
 			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 			help.CheckAndPrintError(server.stop())
