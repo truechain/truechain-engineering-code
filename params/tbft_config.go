@@ -249,7 +249,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		TimeoutPrevoteDelta:         500,
 		TimeoutPrecommit:            3000,
 		TimeoutPrecommitDelta:       500,
-		TimeoutCommit:               4500,
+		TimeoutCommit:               1000,
 		TimeoutCatchup:              1000,
 		SkipTimeoutCommit:           false,
 		CreateEmptyBlocks:           true,
