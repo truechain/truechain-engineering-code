@@ -571,7 +571,7 @@ func (agent *PbftAgent) loop() {
 						continue
 					}
 					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
-						go help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
+						help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
 					}
 					agent.stopSend()
 				}
@@ -599,7 +599,7 @@ func (agent *PbftAgent) loop() {
 					agent.setCommitteeInfo(currentCommittee, types.CopyCommitteeInfo(agent.nextCommitteeInfo))
 					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
 						agent.isCurrentCommitteeMember = true
-						go help.CheckAndPrintError(agent.server.Notify(committee.Id, int(types.CommitteeStart)))
+						help.CheckAndPrintError(agent.server.Notify(committee.Id, int(types.CommitteeStart)))
 					} else {
 						agent.isCurrentCommitteeMember = false
 					}
