@@ -326,9 +326,10 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) 
 			da.update(v, move)
 		}
 	}
-
+	// ignore the pk param
 	if hh > s.getMaxHeight() {
-		s.modify = sa.modify
+		s.modify.fee = new(big.Int).Set(sa.modify.fee)
+		s.modify.votePubkey = types.CopyVotePk(s.votepubkey)
 	}
 	if next {
 		s.changeAlterableInfo()
@@ -886,6 +887,7 @@ func (i *ImpawnImpl) InsertDAccount2(height uint64, addr, deleAddr common.Addres
 	if val.Sign() <= 0 || height <= 0 {
 		return types.ErrInvalidParam
 	}
+
 	state := uint8(0)
 	state |= types.StateStakingAuto
 	da := &DelegationAccount{
@@ -929,8 +931,11 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 	return nil
 }
 func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Int, auto bool) error {
-	if val.Sign() <= 0 {
+	if val.Sign() <= 0 || height <= 0 {
 		return types.ErrInvalidParam
+	}
+	if err := types.ValidPk(pk); err != nil {
+		return err
 	}
 	state := uint8(0)
 	if auto {
