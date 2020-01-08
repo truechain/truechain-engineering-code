@@ -23,7 +23,7 @@ import (
 var (
 	priKey, _          = crypto.HexToECDSA("0260c952edc49037129d8cabbe4603d15185d83aa718291279937fb6db0fa7a2")
 	depositFnSignature = []byte("transfer(address,uint256)")
-	abiStaking, _      = abi.JSON(strings.NewReader(abiJSON))
+	abiStaking, _      = abi.JSON(strings.NewReader(vm.StakeABIJSON))
 )
 
 func main() {
@@ -31,6 +31,7 @@ func main() {
 	if len(os.Args[1]) > 2 {
 		action = os.Args[1]
 	}
+	fmt.Println("action ", action)
 	pub := crypto.FromECDSAPub(&priKey.PublicKey)
 
 	transactOpts := bind.NewKeyedTransactor(priKey)
@@ -50,14 +51,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println(chainID.Uint64()) // 5671744
-
 	header, err := conn.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(header.Number.String()) // 5671744
+	fmt.Println("chainID ", chainID.Uint64(), " Number ", header.Number.String())
 
 	account := common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69")
 	balance, err := conn.BalanceAt(context.Background(), account, nil)
@@ -66,9 +65,10 @@ func main() {
 	}
 	fbalance := new(big.Float)
 	fbalance.SetString(balance.String())
-	ethValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
+	impawnValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
-	fmt.Println(ethValue) // 25.729324269165216041
+	sbalance, err := conn.BalanceAt(context.Background(), vm.StakingAddress, nil)
+	fmt.Println(" Value ", impawnValue, " stake ", types.ToTrue(sbalance))
 
 	if strings.Contains(action, "contractS") {
 
@@ -81,13 +81,16 @@ func main() {
 	} else if strings.Contains(action, "contractT") {
 
 		input, err := abiStaking.Pack("deposit", pub)
-		fmt.Println(" err ", err)
+		if err != nil {
+			fmt.Println("err ", err)
+		}
 		sendContractTransaction(conn, account, vm.StakingAddress, priKey, input)
 
 	}
 }
 
 func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, privateKey *ecdsa.PrivateKey, input []byte) {
+	// Ensure a valid value field and resolve the account nonce
 	nonce, err := client.PendingNonceAt(context.Background(), from)
 	if err != nil {
 		log.Fatal(err)
@@ -99,15 +102,17 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 		log.Fatal(err)
 	}
 
-	gasLimit, err := client.EstimateGas(context.Background(), truechain.CallMsg{
-		To:   &toAddress,
-		Data: input,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(gasLimit)
+	gasLimit := uint64(2100000) // in units
 
+	// If the contract surely has code (or code is not needed), estimate the transaction
+	msg := truechain.CallMsg{From: from, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
+	gasLimit, err = client.EstimateGas(context.Background(), msg)
+	if err != nil {
+		fmt.Println("err ", err)
+	}
+	fmt.Println("nonce ", nonce, " value ", types.ToTrue(value), " gasLimit ", gasLimit, " gasPrice ", gasPrice)
+
+	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, input)
 
 	chainID, err := client.NetworkID(context.Background())
@@ -120,7 +125,7 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 		log.Fatal(err)
 	}
 
-	err = client.SendTransaction(context.Background(), signedTx)
+	err = client.SendPayTransaction(context.Background(), signedTx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -154,7 +159,7 @@ func sendTransaction(client *etrueclient.Client, from, toAddress common.Address,
 		log.Fatal(err)
 	}
 
-	err = client.SendTransaction(context.Background(), signedTx)
+	err = client.SendPayTransaction(context.Background(), signedTx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -208,99 +213,3 @@ func printCurrentBlock() {
 		}
 	}
 }
-
-const abiJSON = `
-[
-  {
-    "name": "deposit",
-    "outputs": [],
-    "inputs": [
-      {
-        "type": "bytes",
-        "name": "pubkey"
-      }
-    ],
-    "constant": false,
-    "payable": true,
-    "type": "function"
-  },
-  {
-    "name": "delegate",
-    "outputs": [],
-    "inputs": [
-      {
-        "type": "address",
-        "name": "holder"
-      }
-    ],
-    "constant": false,
-    "payable": true,
-    "type": "function"
-  },
-  {
-    "name": "undelegate",
-    "outputs": [],
-    "inputs": [
-      {
-        "type": "address",
-        "name": "holder"
-      },
-      {
-        "type": "uint256",
-        "unit": "wei",
-        "name": "value"
-      }
-    ],
-    "constant": false,
-    "payable": false,
-    "type": "function"
-  },
-  {
-    "name": "getDeposit",
-    "outputs": [
-      {
-        "type": "uint256",
-        "unit": "wei",
-        "name": "out"
-      }
-    ],
-    "inputs": [
-      {
-        "type": "address",
-        "name": "owner"
-      }
-    ],
-    "constant": true,
-    "payable": false,
-    "type": "function"
-  },
-  {
-    "name": "cancel",
-    "outputs": [],
-    "inputs": [
-      {
-        "type": "uint256",
-        "unit": "wei",
-        "name": "value"
-      }
-    ],
-    "constant": false,
-    "payable": false,
-    "type": "function"
-  },
-  {
-    "name": "withdraw",
-    "outputs": [],
-    "inputs": [
-      {
-        "type": "uint256",
-        "unit": "wei",
-        "name": "value"
-      }
-    ],
-    "constant": false,
-    "payable": false,
-    "type": "function"
-  }
-]
-`

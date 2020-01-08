@@ -1,6 +1,8 @@
 package etrue
 
 import (
+	"fmt"
+	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -13,8 +15,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	"math"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -36,10 +40,10 @@ func DefaulGenesisBlock() *core.Genesis {
 		GasLimit:   88080384,
 		Difficulty: big.NewInt(20000),
 		Alloc: map[common.Address]types.GenesisAccount{
-			common.HexToAddress("0x3f9061bf173d8f096c94db95c40f3658b4c7eaad"): {Balance: i},
-			common.HexToAddress("0x2cdac3658f85b5da3b70223cc3ad3b2dfe7c1930"): {Balance: i},
-			common.HexToAddress("0x41acde8dd7611338c2a30e90149e682566716e9d"): {Balance: i},
-			common.HexToAddress("0x0ffd116a3bf97a7112ff8779cc770b13ea3c66a5"): {Balance: i},
+			common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69"): {Balance: i},
+			common.HexToAddress("0x6d348e0188Cc2596aaa4046a1D50bB3BA50E8524"): {Balance: i},
+			common.HexToAddress("0xE803895897C3cCd35315b2E41c95F817543811A5"): {Balance: i},
+			common.HexToAddress("0x3F739ffD8A59965E07e1B8d7CCa938125BCe8CFb"): {Balance: i},
 		},
 		Committee: []*types.CommitteeMember{
 			{Coinbase: common.HexToAddress("0x3f9061bf173d8f096c94db95c40f3658b4c7eaad"), Publickey: key1},
@@ -53,9 +57,11 @@ func DefaulGenesisBlock() *core.Genesis {
 /////////////////////////////////////////////////////////////////////
 func TestChainImpawnImpl(t *testing.T) {
 	var (
-		engine = minerva.NewFaker()
-		db     = etruedb.NewMemDatabase()
-		gspec  = DefaulGenesisBlock()
+		engine        = minerva.NewFaker()
+		db            = etruedb.NewMemDatabase()
+		gspec         = DefaulGenesisBlock()
+		abiStaking, _ = abi.JSON(strings.NewReader(vm.StakeABIJSON))
+		signer        = types.NewTIP1Signer(gspec.Config.ChainID)
 	)
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
@@ -75,32 +81,63 @@ func TestChainImpawnImpl(t *testing.T) {
 	for i := 1; i < 71; i++ {
 
 		chain, _ := core.GenerateChain(gspec.Config, parentFast, engine, db, 60, func(i int, gen *core.BlockGen) {
-			switch i {
-			case 0:
-				header := gen.GetHeader()
-				rewardSnailBlock(snailChain, blockchain, header)
 
+			header := gen.GetHeader()
+			rewardSnailBlock(snailChain, blockchain, header)
+
+			if header.Number.Uint64() == 20 {
 				stateDb := gen.GetStateDB()
-				impl := vm.NewImpawnImpl()
-				impl.Load(stateDb, vm.StakingAddress)
+				priKey, _ := crypto.HexToECDSA("0260c952edc49037129d8cabbe4603d15185d83aa718291279937fb6db0fa7a2")
+				pub := crypto.FromECDSAPub(&priKey.PublicKey)
+				account := common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69")
+				input, err := abiStaking.Pack("deposit", pub)
 
-				for i := uint64(0); i < 5; i++ {
-					value := big.NewInt(100)
-					priKey, _ := crypto.GenerateKey()
-					from := crypto.PubkeyToAddress(priKey.PublicKey)
-					pub := crypto.FromECDSAPub(&priKey.PublicKey)
-					err := impl.InsertSAccount2(header.Number.Uint64(), from, pub, value, big.NewInt(50), true)
-					if err != nil {
-						log.Info("InsertSAccount2", "err", err)
-					}
-					priKeyDA, _ := crypto.GenerateKey()
-					daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
-					err = impl.InsertDAccount2(header.Number.Uint64(), daAddress, from, value)
-					if err != nil {
-						log.Info("InsertDAccount2", "err", err)
-					}
+				fmt.Println(" err ", err, " ", types.ToTrue(stateDb.GetBalance(account)))
+				balance := stateDb.GetBalance(vm.StakingAddress)
+				fbalance := new(big.Float)
+				fbalance.SetString(balance.String())
+				StakinValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
+
+				fmt.Println(" fbalance ", fbalance, " Value ", StakinValue)
+
+				tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(account), vm.StakingAddress, big.NewInt(1000000000000000000), 127200, nil, input), signer, priKey)
+				gen.AddTxWithChain(blockchain, tx)
+
+				//priKeyDA, _ := crypto.GenerateKey()
+				//daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
+				//err = impl.InsertDAccount2(header.Number.Uint64(), daAddress, from, value)
+				//if err != nil {
+				//	log.Info("InsertDAccount2", "err", err)
+				//}
+				if err != nil {
+					log.Error("ToFastBlock IMPL Save", "error", err)
 				}
-				err := impl.Save(stateDb, vm.StakingAddress)
+			}
+
+			if header.Number.Uint64() == 120 {
+				stateDb := gen.GetStateDB()
+				priKey, _ := crypto.HexToECDSA("0260c952edc49037129d8cabbe4603d15185d83aa718291279937fb6db0fa7a2")
+				pub := crypto.FromECDSAPub(&priKey.PublicKey)
+				account := common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69")
+				input, err := abiStaking.Pack("deposit", pub)
+
+				fmt.Println(" err ", err, " ", types.ToTrue(stateDb.GetBalance(account)))
+				balance := stateDb.GetBalance(vm.StakingAddress)
+				fbalance := new(big.Float)
+				fbalance.SetString(balance.String())
+				StakinValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
+
+				fmt.Println(" fbalance ", fbalance, " Value ", StakinValue)
+
+				tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(account), vm.StakingAddress, big.NewInt(1000000000000000000), 127200, nil, input), signer, priKey)
+				gen.AddTxWithChain(blockchain, tx)
+
+				//priKeyDA, _ := crypto.GenerateKey()
+				//daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
+				//err = impl.InsertDAccount2(header.Number.Uint64(), daAddress, from, value)
+				//if err != nil {
+				//	log.Info("InsertDAccount2", "err", err)
+				//}
 				if err != nil {
 					log.Error("ToFastBlock IMPL Save", "error", err)
 				}

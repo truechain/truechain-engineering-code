@@ -28,13 +28,14 @@ import (
 // StakingAddress is defined as Address('truestaking')
 // i.e. contractAddress = 0x000000000000000000747275657374616b696E67
 var StakingAddress = common.BytesToAddress([]byte("truestaking"))
+
 // Staking contract ABI
 var abiStaking abi.ABI
 
 type StakeContract struct{}
 
 func init() {
-	abiStaking, _ = abi.JSON(strings.NewReader(abiJSON))
+	abiStaking, _ = abi.JSON(strings.NewReader(StakeABIJSON))
 }
 
 // RunStaking execute truechain staking contract
@@ -124,7 +125,10 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 
 // undelegate
 func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
-	args := struct {Holder common.Address; Value *big.Int}{}
+	args := struct {
+		Holder common.Address
+		Value  *big.Int
+	}{}
 
 	method, _ := abiStaking.Methods["undelegate"]
 	err = method.Inputs.Unpack(&args, input)
@@ -276,7 +280,7 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 }
 
 // Staking Contract json abi
-const abiJSON = `
+const StakeABIJSON = `
 [
   {
     "name": "deposit",
