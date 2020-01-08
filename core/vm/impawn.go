@@ -884,7 +884,7 @@ func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error 
 	return nil
 }
 func (i *ImpawnImpl) InsertDAccount2(height uint64, addr, deleAddr common.Address, val *big.Int) error {
-	if val.Sign() <= 0 || height <= 0 {
+	if val.Sign() <= 0 || height < 0 {
 		return types.ErrInvalidParam
 	}
 
@@ -931,7 +931,7 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 	return nil
 }
 func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Int, auto bool) error {
-	if val.Sign() <= 0 || height <= 0 {
+	if val.Sign() <= 0 || height < 0 {
 		return types.ErrInvalidParam
 	}
 	if err := types.ValidPk(pk); err != nil {
@@ -965,6 +965,16 @@ func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*typ
 		i.lastReward = end
 	}
 	return res, err
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+// GetStakings return all staking accounts of the current epoch
+func (i *ImpawnImpl) GetAllStaking() SAImpawns {
+	if val, ok := i.accounts[i.curEpochID]; ok {
+		return val
+	} else {
+		return nil
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////
