@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
 )
 
 var (
@@ -75,6 +76,21 @@ type EpochIDInfo struct {
 	EpochID     uint64
 	BeginHeight uint64
 	EndHeight   uint64
+}
+
+type StakingItem struct {
+	// CoinBase 	common.Address
+	Fee         *big.Int
+	PK          []byte
+	Value       map[uint64]*big.Int
+	Delegations map[common.Address]*DelegationItem
+}
+type DelegationItem struct {
+	SA common.Address
+	// CoinBase 	common.Address
+	Value map[uint64]*big.Int
+}
+type LockedItem struct {
 }
 
 func (e *EpochIDInfo) isValid() bool {
@@ -198,4 +214,8 @@ func CopyVotePk(pk []byte) []byte {
 	cc := make([]byte, len(pk))
 	copy(cc, pk)
 	return cc
+}
+func ValidPk(pk []byte) error {
+	_, err := crypto.UnmarshalPubkey(pk)
+	return err
 }
