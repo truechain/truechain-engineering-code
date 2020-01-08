@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	key, _             = crypto.HexToECDSA("0260c952edc49037129d8cabbe4603d15185d83aa718291279937fb6db0fa7a2")
+	priKey, _          = crypto.HexToECDSA("0260c952edc49037129d8cabbe4603d15185d83aa718291279937fb6db0fa7a2")
 	depositFnSignature = []byte("transfer(address,uint256)")
 	abiStaking, _      = abi.JSON(strings.NewReader(abiJSON))
 )
@@ -31,10 +31,9 @@ func main() {
 	if len(os.Args[1]) > 2 {
 		action = os.Args[1]
 	}
-	priKey, _ := crypto.GenerateKey()
 	pub := crypto.FromECDSAPub(&priKey.PublicKey)
 
-	transactOpts := bind.NewKeyedTransactor(key)
+	transactOpts := bind.NewKeyedTransactor(priKey)
 	transactOpts.Value = new(big.Int).SetUint64(100)
 
 	go printCurrentBlock()
