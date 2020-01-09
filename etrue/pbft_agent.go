@@ -330,6 +330,40 @@ func (agent *PbftAgent) stopSend() {
 	nodeWork.loadNodeWork(new(types.CommitteeInfo), false)
 }
 
+func (agent *PbftAgent) getValidators(epochId uint64) []*types.CommitteeMember {
+	epoch := types.GetEpochFromID(epochId)
+	current := agent.fastChain.CurrentBlock().Number()
+	if current.Uint64() >= epoch.BeginHeight {
+		// Read committee from block body
+		block := agent.fastChain.GetBlockByNumber(epoch.BeginHeight)
+		if block != nil {
+			var (
+				members []*types.CommitteeMember
+				backups []*types.CommitteeMember
+			)
+			for _, m := range agent.fastChain.GetBlockByNumber(epoch.BeginHeight).SwitchInfos() {
+				if m.Flag == types.StateUsedFlag {
+					members = append(members, m)
+				}
+				if m.Flag == types.StateUnusedFlag {
+					backups = append(backups, m)
+				}
+			}
+			committee := &types.ElectionCommittee{Members: members, Backups: backups}
+			return committee.Members
+		}
+	}
+	block := agent.fastChain.CurrentBlock()
+	stateDb, err := agent.fastChain.StateAt(block.Root())
+	if err != nil {
+		log.Warn("Fetch validator from state failed", "block", block.Number(), "err", err)
+		return nil
+	}
+	validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, block.Number().Uint64())
+
+	return validators
+}
+
 func (agent *PbftAgent) verifyCommitteeID(electionEventType uint, committeeID *big.Int) bool {
 	switch electionEventType {
 	case types.CommitteeStart:
@@ -547,8 +581,8 @@ func (agent *PbftAgent) loop() {
 						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
 						EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
 					}
-					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
-					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, num.Uint64())
+					validators := agent.getValidators(epoch.EpochID)
+
 					if len(validators) == 0 {
 						log.Error("Prepare new epoch wrong,the validators was empty", "id", epoch.EpochID, "block", num)
 					}
@@ -588,8 +622,7 @@ func (agent *PbftAgent) loop() {
 						EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
 					}
 
-					stateDb, _ := agent.fastChain.StateAt(ch.Block.Root())
-					validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, num.Uint64())
+					validators := agent.getValidators(epoch.EpochID)
 					if len(validators) == 0 {
 						log.Error("Start new epoch wrong,the validators was empty", "id", epoch.EpochID, "block", num)
 					}
