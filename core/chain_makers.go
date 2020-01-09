@@ -188,7 +188,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	chainreader := &fakeChainReader{config: config, genesis: parent}
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
-		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
+		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine, feeAmout: big.NewInt(0)}
 		b.header = makeHeader(chainreader, parent, statedb, b.engine)
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
@@ -200,6 +200,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
 			block.SetSign(sign)
+
 			// Write state changes to db
 			root, err := statedb.Commit(true)
 			if err != nil {
@@ -290,7 +291,6 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 	}
 
 	return &types.Header{
-		Root:       state.IntermediateRoot(true),
 		ParentHash: parent.Hash(),
 		GasLimit:   FastCalcGasLimit(parent, parent.GasLimit(), parent.GasLimit()),
 		Number:     new(big.Int).Add(parent.Number(), common.Big1),

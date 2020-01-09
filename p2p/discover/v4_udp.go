@@ -60,7 +60,7 @@ const (
 	ntpWarningCooldown  = 10 * time.Minute // Minimum amount of time to pass before repeating NTP warning
 	driftThreshold      = 10 * time.Second // Allowed clock drift before warning user
 	trueVersion         = 520
-	checkIPTime         = 30 * time.Second
+	checkIPTime         = 2 * time.Minute
 
 	// Discovery packets are defined to be no larger than 1280 bytes.
 	// Packets larger than this size will be cut at the end and treated

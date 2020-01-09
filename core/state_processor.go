@@ -95,7 +95,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	}
 
 	// Create a new context to be used in the EVM environment
-	context := NewEVMContext(msg, header, bc,nil,nil)
+	context := NewEVMContext(msg, header, bc, nil, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
@@ -128,6 +128,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	receipt.BlockHash = statedb.BlockHash()
+	receipt.BlockNumber = header.Number
+	receipt.TransactionIndex = uint(statedb.TxIndex())
 
 	return receipt, gas, err
 }

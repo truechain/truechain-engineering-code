@@ -18,6 +18,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -84,12 +85,33 @@ func main() {
 		if err != nil {
 			fmt.Println("err ", err)
 		}
-		sendContractTransaction(conn, account, vm.StakingAddress, priKey, input)
+		txHash := sendContractTransaction(conn, account, vm.StakingAddress, priKey, input)
 
+		time.Sleep(5 * time.Millisecond)
+
+		tx, isPending, err := conn.TransactionByHash(context.Background(), txHash)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(tx.Hash().Hex(), " isPending ", isPending)
+
+		receipt, err := conn.TransactionReceipt(context.Background(), txHash)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("number", receipt.BlockNumber.Uint64(), "Status ", receipt.Status, " Logs ", len(receipt.Logs)) // 1
+
+		block, err := conn.BlockByHash(context.Background(), receipt.BlockHash)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println("number ", block.Number().Uint64(), " count ", block.Transactions())
 	}
 }
 
-func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, privateKey *ecdsa.PrivateKey, input []byte) {
+func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, privateKey *ecdsa.PrivateKey, input []byte) common.Hash {
 	// Ensure a valid value field and resolve the account nonce
 	nonce, err := client.PendingNonceAt(context.Background(), from)
 	if err != nil {
@@ -131,6 +153,7 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 	}
 
 	fmt.Printf("tx sent: %s", signedTx.Hash().Hex())
+	return signedTx.Hash()
 }
 
 func sendTransaction(client *etrueclient.Client, from, toAddress common.Address, privateKey *ecdsa.PrivateKey) {

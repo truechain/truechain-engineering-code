@@ -26,22 +26,22 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/common/prque"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
 
@@ -899,6 +899,11 @@ func SetReceiptsData(config *params.ChainConfig, block *types.Block, receipts ty
 	for j := 0; j < len(receipts); j++ {
 		// The transaction hash can be retrieved from the transaction itself
 		receipts[j].TxHash = transactions[j].Hash()
+
+		// block location fields
+		receipts[j].BlockHash = block.Hash()
+		receipts[j].BlockNumber = block.Number()
+		receipts[j].TransactionIndex = uint(j)
 
 		// The contract address can be derived from the transaction itself
 		if transactions[j].To() == nil {

@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"math/big"
 )
 
@@ -349,6 +349,9 @@ func ReadReceipts(db DatabaseReader, hash common.Hash, number uint64) types.Rece
 			logIndex += 1
 		}
 		receipts[i] = (*types.Receipt)(receipt)
+		receipts[i].BlockHash = hash
+		receipts[i].BlockNumber = big.NewInt(0).SetUint64(number)
+		receipts[i].TransactionIndex = uint(i)
 	}
 	return receipts
 }
