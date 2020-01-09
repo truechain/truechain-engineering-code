@@ -616,12 +616,12 @@ func (i *ImpawnImpl) redeemBySa(sa *StakingAccount, height uint64, amount *big.I
 	if err1 != nil {
 		return err1
 	}
-	err := i.redeemPrincipal(addr, all)
-	if err == nil {
-		sa.finishRedeemed()
+	if all.Cmp(amount) != 0 {
+		return errors.New(fmt.Sprint(types.ErrRedeemAmount, "request amount", amount, "redeem amount", all))
 	}
-	fmt.Println("SA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
-	return err
+	sa.finishRedeemed()
+	fmt.Println("SA redeemed amount:[", all.String(), "],addr:[", addr.String())
+	return nil
 }
 func (i *ImpawnImpl) redeemByDa(da *DelegationAccount, height uint64, amount *big.Int) error {
 	// can be redeem in the DA
@@ -629,12 +629,12 @@ func (i *ImpawnImpl) redeemByDa(da *DelegationAccount, height uint64, amount *bi
 	if err1 != nil {
 		return err1
 	}
-	err := i.redeemPrincipal(addr, all)
-	if err == nil {
-		da.finishRedeemed()
+	if all.Cmp(amount) != 0 {
+		return errors.New(fmt.Sprint(types.ErrRedeemAmount, "request amount", amount, "redeem amount", all))
 	}
-	fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String(), "],err:", err)
-	return err
+	da.finishRedeemed()
+	fmt.Println("DA redeemed amount:[", all.String(), "],addr:[", addr.String())
+	return nil
 }
 func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward, allStaking *big.Int, item *types.RewardInfo) ([]*types.RewardInfo, error) {
 	if sa == nil || allReward == nil || item == nil || allStaking == nil {
