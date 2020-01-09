@@ -84,7 +84,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 
 	from := contract.caller.Address()
 
-	log.Info("Staking deposit", "address", contract.caller.Address(), "value", contract.value)
+	log.Info("Staking deposit", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", contract.value)
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 
@@ -110,7 +110,7 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	}
 	from := contract.caller.Address()
 
-	log.Info("Staking delegate", "address", contract.caller.Address(), "holder", holder, "value", contract.value)
+	log.Info("Staking delegate", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "holder", holder, "value", contract.value)
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 	err = impawn.InsertDAccount2(evm.Context.BlockNumber.Uint64(), holder, from, contract.value)
@@ -138,7 +138,7 @@ func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	}
 	from := contract.caller.Address()
 
-	log.Info("Staking undelegate", "address", contract.caller.Address(), "holder", args.Holder, "value", args.Value)
+	log.Info("Staking undelegate", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "holder", args.Holder, "value", args.Value)
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 	err = impawn.CancelDAccount(evm.Context.BlockNumber.Uint64(), args.Holder, from, args.Value)
@@ -163,7 +163,7 @@ func cancel(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) 
 		return nil, ErrStakingInvalidInput
 	}
 
-	log.Info("Staking cancel", "address", contract.caller.Address(), "value", amount)
+	log.Info("Staking cancel", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", amount)
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 	err = impawn.CancelSAccount(evm.Context.BlockNumber.Uint64(), from, amount)
@@ -191,7 +191,7 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 
-	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", amount)
+	log.Info("Staking withdraw", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", amount)
 	err = impawn.RedeemSAccount(evm.Context.BlockNumber.Uint64(), from, amount)
 	if err != nil {
 		log.Error("Staking withdraw error", "address", from, "value", amount)
@@ -210,7 +210,10 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 }
 
 func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
-	args := struct {Holder common.Address; Value *big.Int}{}
+	args := struct {
+		Holder common.Address
+		Value  *big.Int
+	}{}
 	from := contract.caller.Address()
 
 	method, _ := abiStaking.Methods["withdrawDelegate"]
@@ -223,7 +226,7 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
 
-	log.Info("Staking withdraw", "address", contract.caller.Address(), "value", args.Value)
+	log.Info("Staking withdraw", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", args.Value)
 
 	err = impawn.RedeemDAccount(evm.Context.BlockNumber.Uint64(), args.Holder, from, args.Value)
 	if err != nil {

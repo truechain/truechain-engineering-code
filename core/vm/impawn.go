@@ -1003,7 +1003,6 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 		log.Error("Invalid ImpawnImpl entry RLP", "err", err)
 		return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
 	}
-	log.Info("Load", "accounts", len(temp.accounts))
 	i.curEpochID, i.accounts, i.lastReward = temp.curEpochID, temp.accounts, temp.lastReward
 	return nil
 }
@@ -1030,7 +1029,6 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 func GetValidatorsByEpoch(state StateDB, eid, hh uint64) []*types.CommitteeMember {
 	i := NewImpawnImpl()
 	err := i.Load(state, StakingAddress)
-	log.Warn("Validator accounts", "len", len(i.accounts), "height", hh)
 	accs := i.getElections3(eid)
 	first := types.GetFirstEpoch()
 	if hh == first.EndHeight-types.ElectionPoint {
