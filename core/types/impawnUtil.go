@@ -38,6 +38,7 @@ var (
 	ErrNotElectionTime   = errors.New("not time to election the next committee")
 	ErrAmountOver        = errors.New("the amount more than staking amount")
 	ErrDelegationSelf    = errors.New("Cann't delegation myself")
+	ErrRedeemAmount      = errors.New("wrong redeem amount")
 )
 
 const (
