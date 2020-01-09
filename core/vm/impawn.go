@@ -55,6 +55,12 @@ func (r *RedeemItem) isRedeem(target uint64) bool {
 	hh := r.toHeight().Uint64()
 	return target > hh+types.MaxRedeemHeight
 }
+func newRedeemItem(eid uint64, amount *big.Int) *RedeemItem {
+	return &RedeemItem{
+		Amount:  new(big.Int).Set(amount),
+		EpochID: eid,
+	}
+}
 
 type impawnUnit struct {
 	address    common.Address
@@ -692,7 +698,7 @@ func (i *ImpawnImpl) reward(begin, end uint64, allAmount *big.Int) ([]*types.SAR
 	}
 
 	if len(ids) == 2 {
-		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-ids[0].BeginHeight)), new(big.Int).SetUint64(end-begin))
+		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-begin)), new(big.Int).SetUint64(end-begin))
 		amount1, amount2 := tmp, new(big.Int).Sub(allAmount, tmp)
 		if items, err := i.calcReward(ids[0].EndHeight, amount1, ids[0]); err != nil {
 			return nil, err
@@ -735,9 +741,6 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 		}
 	}
 	i.accounts[next] = nextInfos
-	return nil
-}
-func (i *ImpawnImpl) redeemPrincipal(addr common.Address, amount *big.Int) error {
 	return nil
 }
 
@@ -999,10 +1002,6 @@ func (i *ImpawnImpl) GetStakingAsset(addr common.Address) map[common.Address]*ty
 	return i.getAsset(addr, epochid, false)
 }
 func (i *ImpawnImpl) GetLockedAsset(addr common.Address) map[common.Address]*types.StakingValue {
-	epochid := i.curEpochID
-	return i.getAsset(addr, epochid, true)
-}
-func (i *ImpawnImpl) GetRedeemableAsset(addr common.Address) map[common.Address]*types.StakingValue {
 	epochid := i.curEpochID
 	return i.getAsset(addr, epochid, true)
 }
