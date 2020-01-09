@@ -474,6 +474,10 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if state == nil {
 		return errors.New("make the nil state")
 	}
+	if committeeInfo.EndHeight.Cmp(committeeInfo.StartHeight) > 0 {
+		state.SetEndHeight(committeeInfo.EndHeight.Uint64())
+	}
+
 	store := ttypes.NewBlockStore()
 	service := newNodeService(n.config.P2P, n.config.Consensus, state, store, cid)
 
