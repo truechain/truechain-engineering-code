@@ -533,13 +533,11 @@ func GenesisSnailBlockForTesting(db etruedb.Database, addr common.Address, balan
 // DefaultDevGenesisBlock returns the Rinkeby network genesis block.
 func DefaultDevGenesisBlock() *Genesis {
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-	key1 := hexutil.MustDecode("0x04d341c94a16b02cee86a627d0f6bc6e814741af4cab5065637aa013c9a7d9f26051bb6546030cd67e440d6df741cb65debaaba6c0835579f88a282193795ed369")
-	key2 := hexutil.MustDecode("0x0496e0f18d4bf38e0b0de161edd2aa168adaf6842706e5ebf31e1d46cb79fe7b720c750a9e7a3e1a528482b0da723b5dfae739379e555a2893e8693747559f83cd")
-	key3 := hexutil.MustDecode("0x0418196ee090081bdec01e8840941b9f6a141a713dd3461b78825edf0d8a7f8cdf3f612832dc9d94249c10c72629ea59fbe0bdd09bea872ddab2799748964c93a8")
-	key4 := hexutil.MustDecode("0x04c4935993a3ce206318ab884871fbe2d4dce32a022795c674784f58e7faf3239631b6952b82471fe1e93ef999108a18d028e5d456cd88bb367d610c5e57c7e443")
-	key5 := hexutil.MustDecode("0x048b76d25cfe53bdf98c81d962b0455f8cf7862143802f834d7ea8416ebd6196486bb4f2dec2c94d760c1be7a524c4b94dabfb71b62e56287e663de78bf282273b")
-	key6 := hexutil.MustDecode("0x043e0f5ad76101625deb568e03ff7a09b2bfdfd47211192d2b55f45888881fa37890ccdf64c7c382d34527d9bd938b58fa78a461bfc364cc8e5ac54c0e3d41637c")
-	key7 := hexutil.MustDecode("0x043979431a588e09d9a2811d9e8fc73c4d2b341030d18ba02e387651fcb3e3dd7b362fcb396894156f44cb36729278b3907c9afa74210635a88d9d9920dc84f198")
+	key1 := hexutil.MustDecode("0x040743b25066dac37d3552e63c9ba3325884ba28d0906ce5fd9a18a55312ef478c2b9c33f6ef519c1fd0e42884a25bf2be1ea83f3354a3e54243d521c37865c062")
+	key2 := hexutil.MustDecode("0x04a8bd50e35f99f77edda08e333339ab49db89f0c81f49a37e7d4ddb84a06738ff54becf677f3ea6d9abdd321e50d77680871f408dcb7a17dfa7f0d8bb5229d831")
+	key3 := hexutil.MustDecode("0x0439d8ca80e0f4bc3a1aa203fa280909f426db90436dabcc9a1a3ef8efaa9d0ea8a9647eaa821b8346a92eed28cd707cb062ec54b31b819d0bf03af79fd63ea40e")
+	key4 := hexutil.MustDecode("0x046bf0f9bb43ac46efe9bd58a465a4b2f9cf8962b728907471f2b4b51a899c3eb166b4a3ee69eac012abc39cd91451dd20089b1371c2acf6e18066d0e8c2cab717")
+
 
 	return &Genesis{
 		Config:     params.DevnetChainConfig,
@@ -549,19 +547,16 @@ func DefaultDevGenesisBlock() *Genesis {
 		Difficulty: big.NewInt(20000),
 		//Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
-			common.HexToAddress("0x3f9061bf173d8f096c94db95c40f3658b4c7eaad"): {Balance: i},
-			common.HexToAddress("0x2cdac3658f85b5da3b70223cc3ad3b2dfe7c1930"): {Balance: i},
-			common.HexToAddress("0x41acde8dd7611338c2a30e90149e682566716e9d"): {Balance: i},
-			common.HexToAddress("0x0ffd116a3bf97a7112ff8779cc770b13ea3c66a5"): {Balance: i},
+			common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69"): {Balance: i},
+			common.HexToAddress("0x6d348e0188Cc2596aaa4046a1D50bB3BA50E8524"): {Balance: i},
+			common.HexToAddress("0xE803895897C3cCd35315b2E41c95F817543811A5"): {Balance: i},
+			common.HexToAddress("0x3F739ffD8A59965E07e1B8d7CCa938125BCe8CFb"): {Balance: i},
 		},
 		Committee: []*types.CommitteeMember{
-			{Coinbase: common.HexToAddress("0x3f9061bf173d8f096c94db95c40f3658b4c7eaad"), Publickey: key1},
-			{Coinbase: common.HexToAddress("0x2cdac3658f85b5da3b70223cc3ad3b2dfe7c1930"), Publickey: key2},
-			{Coinbase: common.HexToAddress("0x41acde8dd7611338c2a30e90149e682566716e9d"), Publickey: key3},
-			{Coinbase: common.HexToAddress("0x0ffd116a3bf97a7112ff8779cc770b13ea3c66a5"), Publickey: key4},
-			{Coinbase: common.HexToAddress("0x0f4fd48A768b78f227983b6F1A42bdB2b3d58f2D"), Publickey: key5},
-			{Coinbase: common.HexToAddress("0x899F9c9622351718a19Cb1Ed22B0948dDB8a3555"), Publickey: key6},
-			{Coinbase: common.HexToAddress("0x91E1ECBc4d692A334eBE073BD7F7494B95FD03d2"), Publickey: key7},
+			{Coinbase: common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69"), Publickey: key1},
+			{Coinbase: common.HexToAddress("0x6d348e0188Cc2596aaa4046a1D50bB3BA50E8524"), Publickey: key2},
+			{Coinbase: common.HexToAddress("0xE803895897C3cCd35315b2E41c95F817543811A5"), Publickey: key3},
+			{Coinbase: common.HexToAddress("0x3F739ffD8A59965E07e1B8d7CCa938125BCe8CFb"), Publickey: key4},
 		},
 	}
 }
