@@ -52,7 +52,7 @@ const (
 	nextCommittee           //next committee
 )
 const (
-	chainHeadSize       = 256
+	chainHeadSize       = 512
 	electionChanSize    = 64
 	nodeSize            = 50
 	committeeIDChanSize = 3
@@ -110,7 +110,7 @@ type PbftAgent struct {
 
 	electionCh    chan types.ElectionEvent
 	cryNodeInfoCh chan *types.EncryptNodeMessage
-	chainHeadCh   chan types.FastChainHeadEvent
+	chainHeadCh   chan types.FastChainEvent
 
 	electionSub       event.Subscription
 	chainHeadAgentSub event.Subscription
@@ -162,7 +162,7 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		committeeIds:         make([]*big.Int, committeeIDChanSize),
 		endFastNumber:        make(map[uint64]*big.Int),
 		electionCh:           make(chan types.ElectionEvent, electionChanSize),
-		chainHeadCh:          make(chan types.FastChainHeadEvent, chainHeadSize),
+		chainHeadCh:          make(chan types.FastChainEvent, chainHeadSize),
 		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage, nodeSize),
 		election:             election,
 		mux:                  new(event.TypeMux),
@@ -250,7 +250,7 @@ func (agent *PbftAgent) stop() {
 
 func (agent *PbftAgent) subScribeEvent() {
 	agent.electionSub = agent.election.SubscribeElectionEvent(agent.electionCh)
-	agent.chainHeadAgentSub = agent.fastChain.SubscribeChainHeadEvent(agent.chainHeadCh)
+	agent.chainHeadAgentSub = agent.fastChain.SubscribeChainEvent(agent.chainHeadCh)
 }
 
 type nodeInfoWork struct {
