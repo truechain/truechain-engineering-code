@@ -259,6 +259,20 @@ func (s *impawnUnit) isValid() bool {
 	}
 	return false
 }
+func (s *impawnUnit) valueToMap() map[uint64]*big.Int {
+	res := make(map[uint64]*big.Int)
+	for _, v := range s.value {
+		res[v.height.Uint64()] = new(big.Int).Set(v.amount)
+	}
+	return res
+}
+func (s *impawnUnit) redeemToMap() map[uint64]*big.Int {
+	res := make(map[uint64]*big.Int)
+	for _, v := range s.redeemInof {
+		res[v.EpochID] = new(big.Int).Set(v.Amount)
+	}
+	return res
+}
 
 /////////////////////////////////////////////////////////////////////////////////
 
@@ -883,17 +897,19 @@ func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error 
 	}
 	return nil
 }
-func (i *ImpawnImpl) InsertDAccount2(height uint64, addr, deleAddr common.Address, val *big.Int) error {
+func (i *ImpawnImpl) InsertDAccount2(height uint64, addrSA, addrDA common.Address, val *big.Int) error {
 	if val.Sign() <= 0 || height < 0 {
 		return types.ErrInvalidParam
 	}
-
+	if bytes.Equal(addrSA.Bytes(), addrDA.Bytes()) {
+		return types.ErrDelegationSelf
+	}
 	state := uint8(0)
 	state |= types.StateStakingAuto
 	da := &DelegationAccount{
-		deleAddress: deleAddr,
+		deleAddress: addrSA,
 		unit: &impawnUnit{
-			address: addr,
+			address: addrDA,
 			value: []*PairstakingValue{&PairstakingValue{
 				amount: new(big.Int).Set(val),
 				height: new(big.Int).SetUint64(height),
@@ -969,12 +985,76 @@ func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*typ
 
 /////////////////////////////////////////////////////////////////////////////////
 // GetStakings return all staking accounts of the current epoch
-func (i *ImpawnImpl) GetAllStaking() SAImpawns {
+func (i *ImpawnImpl) GetAllStakingAccount() SAImpawns {
 	if val, ok := i.accounts[i.curEpochID]; ok {
 		return val
 	} else {
 		return nil
 	}
+}
+
+// GetStakingAccount2 returns a map for all staking amount of the address, the key is the SA address
+func (i *ImpawnImpl) GetStakingAsset(addr common.Address) map[common.Address]*types.StakingValue {
+	epochid := i.curEpochID
+	return i.getAsset(addr, epochid, false)
+}
+func (i *ImpawnImpl) GetLockedAsset(addr common.Address) map[common.Address]*types.StakingValue {
+	epochid := i.curEpochID
+	return i.getAsset(addr, epochid, true)
+}
+func (i *ImpawnImpl) GetRedeemableAsset(addr common.Address) map[common.Address]*types.StakingValue {
+	epochid := i.curEpochID
+	return i.getAsset(addr, epochid, true)
+}
+
+func (i *ImpawnImpl) getAsset(addr common.Address, epoch uint64, locked bool) map[common.Address]*types.StakingValue {
+	epochid := epoch
+	if val, ok := i.accounts[epochid]; ok {
+		res := make(map[common.Address]*types.StakingValue)
+		for _, v := range val {
+			if bytes.Equal(v.unit.address.Bytes(), addr.Bytes()) {
+				if _, ok := res[addr]; !ok {
+					if locked {
+						res[addr] = &types.StakingValue{
+							Value: v.unit.redeemToMap(),
+						}
+					} else {
+						res[addr] = &types.StakingValue{
+							Value: v.unit.valueToMap(),
+						}
+					}
+
+				} else {
+					log.Error("getAsset", "repeat staking account", addr, "epochid", epochid, "locked", locked)
+				}
+				continue
+			} else {
+				for _, vv := range v.delegation {
+					if bytes.Equal(vv.unit.address.Bytes(), addr.Bytes()) {
+						if _, ok := res[v.unit.address]; !ok {
+							if locked {
+								res[v.unit.address] = &types.StakingValue{
+									Value: vv.unit.redeemToMap(),
+								}
+							} else {
+								res[v.unit.address] = &types.StakingValue{
+									Value: vv.unit.valueToMap(),
+								}
+							}
+
+						} else {
+							log.Error("getAsset", "repeat delegation account[sa,da]", v.unit.address, addr, "epochid", epochid, "locked", locked)
+						}
+						break
+					}
+				}
+			}
+		}
+		return res
+	} else {
+		log.Error("getAsset", "wrong epoch in current", epochid)
+	}
+	return nil
 }
 
 /////////////////////////////////////////////////////////////////////////////////

@@ -37,6 +37,7 @@ var (
 	ErrNotMatchEpochInfo = errors.New("the epoch info is not match with accounts")
 	ErrNotElectionTime   = errors.New("not time to election the next committee")
 	ErrAmountOver        = errors.New("the amount more than staking amount")
+	ErrDelegationSelf    = errors.New("Cann't delegation myself")
 )
 
 const (
@@ -78,19 +79,15 @@ type EpochIDInfo struct {
 	EndHeight   uint64
 }
 
-type StakingItem struct {
+type StakingInfo struct {
 	// CoinBase 	common.Address
-	Fee         *big.Int
-	PK          []byte
-	Value       map[uint64]*big.Int
-	Delegations map[common.Address]*DelegationItem
+	Fee *big.Int
+	PK  []byte
 }
-type DelegationItem struct {
-	SA common.Address
-	// CoinBase 	common.Address
+
+// the key is epochid if StakingValue as a locked asset,otherwise key is block height if StakingValue as a staking asset
+type StakingValue struct {
 	Value map[uint64]*big.Int
-}
-type LockedItem struct {
 }
 
 func (e *EpochIDInfo) isValid() bool {
