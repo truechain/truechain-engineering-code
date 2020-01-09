@@ -431,9 +431,9 @@ func (n *Node) Notify(id *big.Int, action int) error {
 				}
 				n.servicePre = id.Uint64()
 			}
-			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "begin", server.sa.BeginHeight, "stop", server.sa.EndHeight)
 			help.CheckAndPrintError(server.start(id, n))
-			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "begin", server.sa.BeginHeight, "stop", server.sa.EndHeight)
 			return nil
 		}
 		return errors.New("wrong conmmitt ID:" + id.String())
@@ -441,10 +441,10 @@ func (n *Node) Notify(id *big.Int, action int) error {
 	case Stop:
 		log.Info("Notify Node Action:stop", "id", id.Uint64())
 		if server, ok := n.services[id.Uint64()]; ok {
-			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
+			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height, "begin", server.sa.BeginHeight, "stop", server.sa.EndHeight)
 			help.CheckAndPrintError(server.stop())
 			//delete(n.services, id.Uint64())
-			log.Info("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
+			log.Info("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height, "begin", server.sa.BeginHeight, "stop", server.sa.EndHeight)
 		}
 		return nil
 	case Switch:
@@ -466,7 +466,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if _, ok := n.services[id.Uint64()]; ok {
 		return errors.New("repeat ID:" + id.String())
 	}
-	log.Trace("pbft PutCommittee", "info", committeeInfo.String())
+	log.Info("pbft PutCommittee", "info", committeeInfo.String())
 	// Make StateAgent
 	startHeight := committeeInfo.StartHeight.Uint64()
 	cid := id.Uint64()

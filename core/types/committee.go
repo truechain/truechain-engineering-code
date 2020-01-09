@@ -5,16 +5,17 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math/big"
+	"strings"
+	"sync/atomic"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"golang.org/x/crypto/sha3"
-	"io"
-	"math/big"
-	"strings"
-	"sync/atomic"
 )
 
 const (
@@ -289,10 +290,10 @@ func (c *CommitteeInfo) String() string {
 				backMemStrings[i] = m.String()
 			}
 		}
-		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s},BM:{%s}}", c.Id, c.StartHeight,
+		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,EH:%s,M:{%s},BM:{%s}}", c.Id, c.StartHeight, c.EndHeight,
 			strings.Join(memStrings, "\n  "), strings.Join(backMemStrings, "\n  "))
 	}
-	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}", c.Id, c.StartHeight)
+	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,EH:%s}", c.Id, c.StartHeight, c.EndHeight)
 }
 
 //EncryptCommitteeNode represent a committee member encrypt info

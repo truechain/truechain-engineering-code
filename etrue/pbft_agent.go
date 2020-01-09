@@ -400,7 +400,7 @@ func (agent *PbftAgent) loop() {
 
 			agent.endFastNumber[epoch.EpochID] = new(big.Int).SetUint64(epoch.EndHeight)
 			agent.clearEndFastNumber(committee.Id)
-			help.CheckAndPrintError(agent.server.SetCommitteeStop(committee.Id, epoch.EndHeight))
+			help.CheckAndPrintError(agent.server.SetCommitteeStop(new(big.Int).SetUint64(epoch.EpochID), epoch.EndHeight))
 		}
 	}
 
