@@ -217,3 +217,7 @@ func ValidPk(pk []byte) error {
 	_, err := crypto.UnmarshalPubkey(pk)
 	return err
 }
+func MinCalcRedeemHeight(eid uint64) uint64 {
+	e := GetEpochFromID(eid + 1)
+	return e.BeginHeight + MaxRedeemHeight + 1
+}
