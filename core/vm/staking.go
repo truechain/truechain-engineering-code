@@ -141,7 +141,7 @@ func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	log.Info("Staking undelegate", "address", contract.caller.Address(), "holder", args.Holder, "value", args.Value)
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
-	err = impawn.RedeemDAccount(evm.Context.BlockNumber.Uint64(), args.Holder, from, args.Value)
+	err = impawn.CancelDAccount(evm.Context.BlockNumber.Uint64(), args.Holder, from, args.Value)
 	if err != nil {
 		log.Error("Staking undelegate", "address", contract.caller.Address(), "value", args.Value, "error", err)
 		return nil, err
