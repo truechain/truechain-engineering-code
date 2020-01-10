@@ -29,6 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -257,7 +258,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		}
 	}
 
-	if g.Config.IsTIP8(new(big.Int).SetUint64(g.Number)) {
+	if consensus.IsTIP8(new(big.Int).SetUint64(g.Number), g.Config, nil) {
 		impl := vm.NewImpawnImpl()
 		hh := g.Number
 		if hh != 0 {
@@ -537,7 +538,6 @@ func DefaultDevGenesisBlock() *Genesis {
 	key2 := hexutil.MustDecode("0x04a8bd50e35f99f77edda08e333339ab49db89f0c81f49a37e7d4ddb84a06738ff54becf677f3ea6d9abdd321e50d77680871f408dcb7a17dfa7f0d8bb5229d831")
 	key3 := hexutil.MustDecode("0x0439d8ca80e0f4bc3a1aa203fa280909f426db90436dabcc9a1a3ef8efaa9d0ea8a9647eaa821b8346a92eed28cd707cb062ec54b31b819d0bf03af79fd63ea40e")
 	key4 := hexutil.MustDecode("0x046bf0f9bb43ac46efe9bd58a465a4b2f9cf8962b728907471f2b4b51a899c3eb166b4a3ee69eac012abc39cd91451dd20089b1371c2acf6e18066d0e8c2cab717")
-
 
 	return &Genesis{
 		Config:     params.DevnetChainConfig,

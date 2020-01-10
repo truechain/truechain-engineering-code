@@ -27,6 +27,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -1436,20 +1437,16 @@ func (e *Election) SetEngine(engine consensus.Engine) {
 	e.engine = engine
 }
 func (e *Election) IsTIP8(fastHeadNumber *big.Int) bool {
-	snailHeadNumber := e.snailchain.CurrentHeader().Number
-	oldID := new(big.Int).Div(snailHeadNumber, params.ElectionPeriodNumber)
-	lastFast := e.getEndFast(oldID)
-	if lastFast == nil {
-		res := oldID.Cmp(e.chainConfig.TIP8.CID)
-		if res < 0 {
-			return true
-		} else {
-			return false
+	return consensus.IsTIP8(fastHeadNumber, e.chainConfig, e.getSnailChainReader())
+}
+func (e *Election) getSnailChainReader() consensus.SnailChainReader {
+	if e.snailchain != nil {
+		p, ok := (e.snailchain).(*snailchain.SnailBlockChain)
+		if ok {
+			return p
 		}
-	} else {
-		e.chainConfig.TIP8.FastNumber = new(big.Int).Set(lastFast)
 	}
-	return e.chainConfig.IsTIP8(oldID, fastHeadNumber)
+	return nil
 }
 
 func printCommittee(c *committee) {

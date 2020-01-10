@@ -865,7 +865,8 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, types.ErrSnailHeightNotYet
 		}
-		if chain.Config().IsTIP8(header.Number) {
+
+		if consensus.IsTIP8(header.Number, chain.Config(), m.sbc) {
 			err := accumulateRewardsFast2(state, sBlock)
 			if err != nil {
 				log.Error("Finalize Error", "accumulateRewardsFast2", err.Error())
@@ -927,7 +928,8 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 
 // gas allocation
 func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.StateDB, fastNumber *big.Int) error {
-	if chain.Config().IsTIP8(fastNumber) {
+
+	if consensus.IsTIP8(fastNumber, chain.Config(), m.sbc) {
 		epoch := types.GetEpochFromHeight(fastNumber.Uint64())
 		if fastNumber.Uint64() == epoch.EndHeight-types.ElectionPoint {
 			i := vm.NewImpawnImpl()

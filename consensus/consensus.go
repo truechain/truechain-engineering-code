@@ -182,3 +182,46 @@ type PoW interface {
 	// Hashrate returns the current mining hashrate of a PoW consensus engine.
 	Hashrate() float64
 }
+
+func IsTIP8(fastHeadNumber *big.Int, config *params.ChainConfig, reader SnailChainReader) bool {
+
+	oldID := big.NewInt(0)
+	var lastFast *big.Int
+	if reader != nil {
+		snailHeadNumber := reader.CurrentHeader().Number
+		oldID = new(big.Int).Div(snailHeadNumber, params.ElectionPeriodNumber)
+		lastFast = getEndOfOldEpoch(oldID, reader)
+	}
+
+	if lastFast == nil {
+		res := oldID.Cmp(config.TIP8.CID)
+		if res < 0 {
+			return true
+		} else {
+			return false
+		}
+	} else {
+		config.TIP8.FastNumber = new(big.Int).Set(lastFast)
+	}
+	return config.IsTIP8(oldID, fastHeadNumber)
+}
+func getEndOfOldEpoch(eid *big.Int, reader SnailChainReader) *big.Int {
+
+	switchCheckNumber := new(big.Int).Mul(new(big.Int).Add(eid, common.Big1), params.ElectionPeriodNumber)
+	snailEndNumber := new(big.Int).Sub(switchCheckNumber, params.SnailConfirmInterval)
+
+	header := reader.GetHeaderByNumber(snailEndNumber.Uint64())
+	if header == nil {
+		return nil
+	}
+	block := reader.GetBlock(header.Hash(), snailEndNumber.Uint64())
+	if block == nil {
+		return nil
+	}
+
+	fruits := block.Fruits()
+	lastFruitNumber := fruits[len(fruits)-1].FastNumber()
+	lastFastNumber := new(big.Int).Add(lastFruitNumber, params.ElectionSwitchoverNumber)
+
+	return lastFastNumber
+}
