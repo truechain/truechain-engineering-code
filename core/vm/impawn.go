@@ -651,6 +651,9 @@ func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 	all, left := new(big.Int).Sub(allReward, fee), big.NewInt(0)
 	for _, v := range sa.delegation {
 		daAll := v.getAllStaking(target)
+		if daAll.Sign() <= 0 {
+			continue
+		}
 		v1 := new(big.Int).Quo(new(big.Int).Mul(all, daAll), allStaking)
 		left = left.Add(left, v1)
 		var ii types.RewardInfo
@@ -677,6 +680,9 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 			var item types.RewardInfo
 			item.Address = v.unit.GetRewardAddress()
 			allStaking := v.getAllStaking(target)
+			if allStaking.Sign() <= 0 {
+				continue
+			}
 
 			v2 := new(big.Int).Quo(new(big.Int).Mul(allStaking, allAmount), allValidatorStaking)
 
