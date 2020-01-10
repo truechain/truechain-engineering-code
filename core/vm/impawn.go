@@ -1062,7 +1062,6 @@ func (i *ImpawnImpl) GetRoot() common.Hash {
 	return common.Hash{}
 }
 func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
-	log.Info("Save", "accounts", len(i.accounts))
 	key := common.BytesToHash(preAddress[:])
 	data, err := rlp.EncodeToBytes(i)
 	if err != nil {
