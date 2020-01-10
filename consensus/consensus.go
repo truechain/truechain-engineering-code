@@ -195,10 +195,10 @@ func IsTIP8(fastHeadNumber *big.Int, config *params.ChainConfig, reader SnailCha
 
 	if lastFast == nil {
 		res := oldID.Cmp(config.TIP8.CID)
-		if res < 0 {
-			return true
-		} else {
+		if res <= 0 {
 			return false
+		} else {
+			return true
 		}
 	} else {
 		config.TIP8.FastNumber = new(big.Int).Set(lastFast)
