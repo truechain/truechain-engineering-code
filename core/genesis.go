@@ -538,6 +538,9 @@ func DefaultDevGenesisBlock() *Genesis {
 	key2 := hexutil.MustDecode("0x04a8bd50e35f99f77edda08e333339ab49db89f0c81f49a37e7d4ddb84a06738ff54becf677f3ea6d9abdd321e50d77680871f408dcb7a17dfa7f0d8bb5229d831")
 	key3 := hexutil.MustDecode("0x0439d8ca80e0f4bc3a1aa203fa280909f426db90436dabcc9a1a3ef8efaa9d0ea8a9647eaa821b8346a92eed28cd707cb062ec54b31b819d0bf03af79fd63ea40e")
 	key4 := hexutil.MustDecode("0x046bf0f9bb43ac46efe9bd58a465a4b2f9cf8962b728907471f2b4b51a899c3eb166b4a3ee69eac012abc39cd91451dd20089b1371c2acf6e18066d0e8c2cab717")
+	key5 := hexutil.MustDecode("0x0424ee11dfbdf1cf406c7ed026c8217847fc3e62477d6987fdd93c9b3f7a4543fc0bf6b9767653da3fca5e9c58c6bc1999f9003e8ccbf4509572be38d28f83bed0")
+	key6 := hexutil.MustDecode("0x04a4b046b2760d8f761f73136227c3c8298d8e41330318c2b3879976d505ec98cfe2b6708ba3195f809a26fd48e9b0699fc15db05d22bddcca9a9d57dec84ccb74")
+	key7 := hexutil.MustDecode("0x04fd2c876106b349248134f698665b183d61dca0685cf757cca6ff5f47eb62951ebfbace4631f025716223fb009359af3acec85e2e3632d7353cc0393769745042")
 
 	return &Genesis{
 		Config:     params.DevnetChainConfig,
@@ -557,6 +560,9 @@ func DefaultDevGenesisBlock() *Genesis {
 			{Coinbase: common.HexToAddress("0x6d348e0188Cc2596aaa4046a1D50bB3BA50E8524"), Publickey: key2},
 			{Coinbase: common.HexToAddress("0xE803895897C3cCd35315b2E41c95F817543811A5"), Publickey: key3},
 			{Coinbase: common.HexToAddress("0x3F739ffD8A59965E07e1B8d7CCa938125BCe8CFb"), Publickey: key4},
+			{Coinbase: common.HexToAddress("0x9030Ef4DA870b6392529D1547F4de8D2419dC413"), Publickey: key5},
+			{Coinbase: common.HexToAddress("0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2"), Publickey: key6},
+			{Coinbase: common.HexToAddress("0x1A00C7d99aa1F70D612f2bA90c68DcD179BEd24f"), Publickey: key7},
 		},
 	}
 }

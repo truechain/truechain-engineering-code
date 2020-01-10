@@ -68,7 +68,7 @@ var (
 	fsHeaderSafetyNet = 2048             // Number of headers to discard in case a chain violation is detected
 	fsHeaderContCheck = 15 * time.Second // Time interval to check for header continuations during state download
 
-	maxSyncSnailHeight = 12
+	maxSyncSnailHeight = new(big.Int).Sub(params.SnailRewardInterval, common.Big1).Uint64()
 )
 
 var (
@@ -1473,7 +1473,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			return err
 		}
 	} else {
-		maxSize := maxSyncSnailHeight
+		maxSize := int(maxSyncSnailHeight)
 		if txLen > maxSize {
 			for i := 0; i < txLen; {
 				i = i + maxSize
@@ -1539,7 +1539,7 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 			fruitHeads[i] = block.Body().FruitsHeaders()
 		}
 
-		maxSize := maxSyncSnailHeight / 2
+		maxSize := int(maxSyncSnailHeight) / 2
 		txLen := len(heads)
 
 		if txLen > maxSize {

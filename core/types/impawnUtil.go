@@ -7,21 +7,16 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 var (
-	baseUnit           = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	fbaseUnit          = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
-	mixImpawn          = new(big.Int).Mul(big.NewInt(1000), baseUnit)
-	Base               = new(big.Int).SetUint64(10000)
-	CountInEpoch       = 31
-	MaxRedeemHeight    = uint64(1000)
-	MixEpochCount      = 2
-	DposForkPoint      = uint64(0)
-	PreselectionPeriod = uint64(0)
-	EpochLength        = uint64(500)
-	ElectionPoint      = uint64(100)
-	FirstEpochID       = uint64(1)
+	baseUnit  = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	fbaseUnit = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
+	mixImpawn = new(big.Int).Mul(big.NewInt(1000), baseUnit)
+	Base      = new(big.Int).SetUint64(10000)
+
+	MixEpochCount = 2
 )
 
 var (
@@ -95,7 +90,7 @@ func (e *EpochIDInfo) isValid() bool {
 	if e.EpochID < 0 {
 		return false
 	}
-	if e.EpochID == 0 && DposForkPoint+1 != e.BeginHeight {
+	if e.EpochID == 0 && params.DposForkPoint+1 != e.BeginHeight {
 		return false
 	}
 	if e.BeginHeight < 0 || e.EndHeight <= 0 || e.EndHeight <= e.BeginHeight {
@@ -124,34 +119,21 @@ func FromBlock(block *SnailBlock) (begin, end uint64) {
 	return
 }
 func GetFirstEpoch() *EpochIDInfo {
-	// if DposForkPoint == 0 {
-	// 	return &EpochIDInfo{
-	// 		EpochID:     FirstEpochID,
-	// 		BeginHeight: 0,
-	// 		EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
-	// 	}
-	// } else {
-	// 	return &EpochIDInfo{
-	// 		EpochID:     FirstEpochID,
-	// 		BeginHeight: DposForkPoint + 1,
-	// 		EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
-	// 	}
-	// }
 	return &EpochIDInfo{
-		EpochID:     FirstEpochID,
-		BeginHeight: DposForkPoint + PreselectionPeriod + 1,
-		EndHeight:   DposForkPoint + PreselectionPeriod + EpochLength,
+		EpochID:     params.FirstNewEpochID,
+		BeginHeight: params.DposForkPoint + 1,
+		EndHeight:   params.DposForkPoint + params.NewEpochLength,
 	}
 }
 func GetPreFirstEpoch() *EpochIDInfo {
 	return &EpochIDInfo{
-		EpochID:     FirstEpochID - 1,
+		EpochID:     params.FirstNewEpochID - 1,
 		BeginHeight: 0,
-		EndHeight:   DposForkPoint + PreselectionPeriod,
+		EndHeight:   params.DposForkPoint,
 	}
 }
 func GetEpochFromHeight(hh uint64) *EpochIDInfo {
-	if hh <= DposForkPoint+PreselectionPeriod {
+	if hh <= params.DposForkPoint {
 		return GetPreFirstEpoch()
 	}
 	first := GetFirstEpoch()
@@ -159,10 +141,10 @@ func GetEpochFromHeight(hh uint64) *EpochIDInfo {
 		return first
 	}
 	var eid uint64
-	if (hh-first.EndHeight)%EpochLength == 0 {
-		eid = (hh-first.EndHeight)/EpochLength + first.EpochID
+	if (hh-first.EndHeight)%params.NewEpochLength == 0 {
+		eid = (hh-first.EndHeight)/params.NewEpochLength + first.EpochID
 	} else {
-		eid = (hh-first.EndHeight)/EpochLength + first.EpochID + 1
+		eid = (hh-first.EndHeight)/params.NewEpochLength + first.EpochID + 1
 	}
 	return GetEpochFromID(eid)
 }
@@ -177,12 +159,12 @@ func GetEpochFromID(eid uint64) *EpochIDInfo {
 	}
 	return &EpochIDInfo{
 		EpochID:     eid,
-		BeginHeight: first.EndHeight + (eid-first.EpochID-1)*EpochLength + 1,
-		EndHeight:   first.EndHeight + (eid-first.EpochID)*EpochLength,
+		BeginHeight: first.EndHeight + (eid-first.EpochID-1)*params.NewEpochLength + 1,
+		EndHeight:   first.EndHeight + (eid-first.EpochID)*params.NewEpochLength,
 	}
 }
 func GetEpochFromRange(begin, end uint64) []*EpochIDInfo {
-	if end == 0 || begin > end || (begin < DposForkPoint && end < DposForkPoint) {
+	if end == 0 || begin > end || (begin < params.DposForkPoint && end < params.DposForkPoint) {
 		return nil
 	}
 	var ids []*EpochIDInfo
@@ -193,7 +175,7 @@ func GetEpochFromRange(begin, end uint64) []*EpochIDInfo {
 		ids = append(ids, e1)
 		e = e1.EndHeight
 	} else {
-		e = DposForkPoint
+		e = params.DposForkPoint
 	}
 	for e < end {
 		e2 := GetEpochFromHeight(e + 1)
@@ -219,5 +201,5 @@ func ValidPk(pk []byte) error {
 }
 func MinCalcRedeemHeight(eid uint64) uint64 {
 	e := GetEpochFromID(eid + 1)
-	return e.BeginHeight + MaxRedeemHeight + 1
+	return e.BeginHeight + params.MaxRedeemHeight + 1
 }

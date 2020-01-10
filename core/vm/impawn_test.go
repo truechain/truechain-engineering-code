@@ -3,20 +3,21 @@ package vm
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"math/big"
-	"testing"
 )
 
 /////////////////////////////////////////////////////////////////////
 
 func TestImpawnImplDoElections(t *testing.T) {
-	fmt.Println(" epoch 1 ", types.GetEpochFromID(1), " ", types.FirstEpochID)
+	fmt.Println(" epoch 1 ", types.GetEpochFromID(1), " ", params.FirstNewEpochID)
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
 	fmt.Println(" epoch 3 ", types.GetEpochFromID(3))
 	impl := NewImpawnImpl()
@@ -85,7 +86,7 @@ func TestImpawnImplDoElections(t *testing.T) {
 }
 
 func TestImpawnImplReward(t *testing.T) {
-	fmt.Println(" epoch 1 ", types.GetEpochFromID(1), " ", types.FirstEpochID)
+	fmt.Println(" epoch 1 ", types.GetEpochFromID(1), " ", params.FirstNewEpochID)
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
 	fmt.Println(" epoch 3 ", types.GetEpochFromID(3))
 	impl := NewImpawnImpl()
@@ -172,17 +173,16 @@ func TestImpawnImplReward(t *testing.T) {
 }
 
 func TestImpawnImplRedeem(t *testing.T) {
-	types.PreselectionPeriod = 2
-	types.EpochLength = 5
-	types.MaxRedeemHeight = 0
-	types.ElectionPoint = 10
-	types.DposForkPoint = 20
-	fmt.Println(" epoch 1 ", types.GetEpochFromID(1), " ", types.FirstEpochID)
+	params.NewEpochLength = 5
+	params.MaxRedeemHeight = 0
+	params.ElectionPoint = 10
+	params.DposForkPoint = 20
+	fmt.Println(" epoch 1 ", types.GetEpochFromID(1), " ", params.FirstNewEpochID)
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
 	fmt.Println(" epoch 3 ", types.GetEpochFromID(3))
 	impl := NewImpawnImpl()
 
-	for i := uint64(0); i < types.PreselectionPeriod+types.EpochLength+1; i++ {
+	for i := uint64(0); i < params.NewEpochLength+1; i++ {
 		value := big.NewInt(100)
 		priKey, _ := crypto.GenerateKey()
 		from := crypto.PubkeyToAddress(priKey.PublicKey)
@@ -201,7 +201,7 @@ func TestImpawnImplRedeem(t *testing.T) {
 	impl.CancelSAccount(23, impl.accounts[1][3].unit.address, big.NewInt(int64(70)))
 
 	fruits := make([]*types.SnailBlock, 0)
-	for i := uint64(0); i < types.EpochLength; i++ {
+	for i := uint64(0); i < params.NewEpochLength; i++ {
 		sh := &types.SnailHeader{
 			Number: big.NewInt(int64(28 + i)),
 		}
@@ -236,7 +236,7 @@ func TestImpawnImplRedeem(t *testing.T) {
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election ", len(impl.getElections3(1)))
 	fmt.Println(" election ", len(impl.getElections3(1)), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 
-	for i := uint64(0); i < types.EpochLength; i++ {
+	for i := uint64(0); i < params.NewEpochLength; i++ {
 		value := big.NewInt(100)
 		priKey, _ := crypto.GenerateKey()
 		from := crypto.PubkeyToAddress(priKey.PublicKey)
@@ -250,16 +250,15 @@ func TestImpawnImplRedeem(t *testing.T) {
 }
 
 func TestImpawnImpl(t *testing.T) {
-	types.PreselectionPeriod = 2
-	types.EpochLength = 5
-	types.MaxRedeemHeight = 0
-	types.ElectionPoint = 10
-	types.DposForkPoint = 20
+	params.NewEpochLength = 5
+	params.MaxRedeemHeight = 0
+	params.ElectionPoint = 10
+	params.DposForkPoint = 20
 	fmt.Println(" epoch 1 ", types.GetEpochFromID(1))
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
 	impl := NewImpawnImpl()
 
-	for i := uint64(0); i < types.PreselectionPeriod+types.EpochLength+1; i++ {
+	for i := uint64(0); i < params.NewEpochLength+1; i++ {
 		value := big.NewInt(100)
 		priKey, _ := crypto.GenerateKey()
 		from := crypto.PubkeyToAddress(priKey.PublicKey)
@@ -276,7 +275,7 @@ func TestImpawnImpl(t *testing.T) {
 }
 
 func TestEpoch(t *testing.T) {
-	types.DposForkPoint = 20
+	params.DposForkPoint = 20
 	fmt.Println(" first  ", types.GetFirstEpoch())
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(1))
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
@@ -299,10 +298,9 @@ func TestEpoch(t *testing.T) {
 // Underlying data structure
 /////////////////////////////////////////////////////////////////////
 func TestImpawnUnit(t *testing.T) {
-	types.DposForkPoint = 1
-	types.PreselectionPeriod = 0
-	types.EpochLength = 50
-	types.MaxRedeemHeight = 0
+	params.DposForkPoint = 1
+	params.NewEpochLength = 50
+	params.MaxRedeemHeight = 0
 	fmt.Println(" epoch 1 ", types.GetEpochFromID(1))
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
 	priKey, _ := crypto.GenerateKey()

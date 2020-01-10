@@ -931,7 +931,7 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 
 	if consensus.IsTIP8(fastNumber, chain.Config(), m.sbc) {
 		epoch := types.GetEpochFromHeight(fastNumber.Uint64())
-		if fastNumber.Uint64() == epoch.EndHeight-types.ElectionPoint {
+		if fastNumber.Uint64() == epoch.EndHeight-params.ElectionPoint {
 			i := vm.NewImpawnImpl()
 			error := i.Load(state, vm.StakingAddress)
 			if es, err := i.DoElections(epoch.EpochID+1, fastNumber.Uint64()); err != nil {

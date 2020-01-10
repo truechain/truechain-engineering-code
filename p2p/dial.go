@@ -205,6 +205,12 @@ func (s *dialstate) newTasks(nRunning int, peers map[enode.ID]*Peer, now time.Ti
 
 		if addDial(dynDialedConn, bootnode) {
 			needDynDials--
+		} else {
+			_, dialing := s.dialing[bootnode.ID()]
+			if dialing {
+				log.Info("newTasks delete history", "maxDynDials", s.maxDynDials, "needDynDials", needDynDials, "static", len(s.static), "task", len(newtasks), "bootnodes", len(s.bootnodes))
+				delete(s.dialing, bootnode.ID())
+			}
 		}
 	}
 	// Use random nodes from the table for half of the necessary

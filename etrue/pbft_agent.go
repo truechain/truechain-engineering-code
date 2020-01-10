@@ -573,8 +573,8 @@ func (agent *PbftAgent) loop() {
 				next := num.Uint64() + 1
 				epoch := types.GetEpochFromHeight(next)
 
-				if next == epoch.EndHeight-types.ElectionPoint+1 {
-					epoch := types.GetEpochFromHeight(next + types.EpochLength)
+				if next == epoch.EndHeight-params.ElectionPoint+1 {
+					epoch := types.GetEpochFromHeight(next + params.NewEpochLength)
 					log.Info("Prepare new epoch", "id", epoch.EpochID, "block", num)
 					committee := &types.CommitteeInfo{
 						Id:          new(big.Int).SetUint64(epoch.EpochID),
