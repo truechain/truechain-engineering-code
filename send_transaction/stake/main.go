@@ -22,26 +22,29 @@ import (
 )
 
 var (
-	priKey, _          = crypto.HexToECDSA("0260c952edc49037129d8cabbe4603d15185d83aa718291279937fb6db0fa7a2")
-	depositFnSignature = []byte("transfer(address,uint256)")
-	abiStaking, _      = abi.JSON(strings.NewReader(vm.StakeABIJSON))
+	priKey, _     = crypto.HexToECDSA("0260c952edc49037129d8cabbe4603d15185d83aa718291279937fb6db0fa7a2")
+	abiStaking, _ = abi.JSON(strings.NewReader(vm.StakeABIJSON))
+	account       = common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69")
+	generalA      = common.HexToAddress("0xa5F41eaf51d24c8eDcDF254F200f8a6D818a6836")
 )
 
 func main() {
 	var action string
-	if len(os.Args[1]) > 2 {
+	var method string
+	if len(os.Args) > 1 {
 		action = os.Args[1]
 	}
-	fmt.Println("action ", action)
+	if len(os.Args) > 2 {
+		method = os.Args[2]
+	}
+	fmt.Println("action ", action, " method ", method)
 	pub := crypto.FromECDSAPub(&priKey.PublicKey)
-
-	transactOpts := bind.NewKeyedTransactor(priKey)
-	transactOpts.Value = new(big.Int).SetUint64(100)
 
 	go printCurrentBlock()
 
 	// Create an IPC based RPC connection to a remote node
-	conn, err := etrueclient.Dial("http://39.100.97.129:8545")
+	//conn, err := etrueclient.Dial("http://39.100.97.129:8545")
+	conn, err := etrueclient.Dial("http://127.0.0.1:8545")
 	//conn, err := etrueclient.Dial("/root/data/node3/getrue.ipc")
 	if err != nil {
 		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
@@ -59,7 +62,6 @@ func main() {
 
 	fmt.Println("chainID ", chainID.Uint64(), " Number ", header.Number.String())
 
-	account := common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69")
 	balance, err := conn.BalanceAt(context.Background(), account, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -69,15 +71,17 @@ func main() {
 	impawnValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
 	sbalance, err := conn.BalanceAt(context.Background(), vm.StakingAddress, nil)
-	fmt.Println(" Value ", impawnValue, " stake ", types.ToTrue(sbalance))
+	generalABalance, err := conn.BalanceAt(context.Background(), generalA, nil)
+	fmt.Println(" Value ", impawnValue, " stake ", types.ToTrue(sbalance), " general ", types.ToTrue(generalABalance))
 
 	if strings.Contains(action, "contractS") {
-
+		transactOpts := bind.NewKeyedTransactor(priKey)
+		transactOpts.Value = new(big.Int).SetUint64(100)
 		callContract(conn, transactOpts, pub)
 
 	} else if strings.Contains(action, "tx") {
 
-		sendTransaction(conn, account, vm.StakingAddress, priKey)
+		sendTransaction(conn, account, generalA, priKey)
 
 	} else if strings.Contains(action, "contractT") {
 
@@ -85,7 +89,7 @@ func main() {
 		if err != nil {
 			fmt.Println("err ", err)
 		}
-		txHash := sendContractTransaction(conn, account, vm.StakingAddress, priKey, input)
+		txHash := sendContractTransaction(conn, generalA, vm.StakingAddress, priKey, input, header.Number)
 
 		time.Sleep(5 * time.Millisecond)
 
@@ -94,7 +98,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		fmt.Println(tx.Hash().Hex(), " isPending ", isPending)
+		fmt.Println(tx.Hash().String(), " isPending ", isPending)
 
 		receipt, err := conn.TransactionReceipt(context.Background(), txHash)
 		if err != nil {
@@ -111,9 +115,10 @@ func main() {
 	}
 }
 
-func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, privateKey *ecdsa.PrivateKey, input []byte) common.Hash {
+func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, privateKey *ecdsa.PrivateKey, input []byte, height *big.Int) common.Hash {
 	// Ensure a valid value field and resolve the account nonce
-	nonce, err := client.PendingNonceAt(context.Background(), from)
+	//nonce, err := client.PendingNonceAt(context.Background(), from)
+	nonce, err := client.GetNonceAtBlockNumber(context.Background(), from, height)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -136,6 +141,7 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, input)
+	//tx := types.NewTransaction(nonce, toAddress, value, 47200, big.NewInt(1000000), input)
 
 	chainID, err := client.NetworkID(context.Background())
 	if err != nil {
@@ -162,7 +168,7 @@ func sendTransaction(client *etrueclient.Client, from, toAddress common.Address,
 		log.Fatal(err)
 	}
 
-	value := big.NewInt(1000000000000000000) // in wei (1 eth)
+	value := big.NewInt(2000000000000000000) // in wei (1 eth)
 	gasLimit := uint64(21000)                // in units
 	gasPrice, err := client.SuggestGasPrice(context.Background())
 	if err != nil {

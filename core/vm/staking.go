@@ -194,7 +194,7 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	log.Info("Staking withdraw", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", amount)
 	err = impawn.RedeemSAccount(evm.Context.BlockNumber.Uint64(), from, amount)
 	if err != nil {
-		log.Error("Staking withdraw error", "address", from, "value", amount)
+		log.Error("Staking withdraw error", "address", from, "value", amount, "err", err)
 		return nil, err
 	}
 
@@ -230,7 +230,7 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 
 	err = impawn.RedeemDAccount(evm.Context.BlockNumber.Uint64(), args.Holder, from, args.Value)
 	if err != nil {
-		log.Error("Staking withdraw delegate error", "address", from, "holer", args.Holder, "value", args.Value)
+		log.Error("Staking withdraw delegate error", "address", from, "holer", args.Holder, "value", args.Value, "err", err)
 		return nil, err
 	}
 
