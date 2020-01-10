@@ -410,16 +410,15 @@ func (e *Election) VerifySwitchInfo(fastNumber *big.Int, info []*types.Committee
 		log.Error("Failed to fetch elected committee", "fast", fastNumber)
 		return ErrCommittee
 	}
-	if begin.Cmp(fastNumber) != 0 || len(members) != len(info) {
-		log.Error("SwitchInfo members invalid or not the begin number of epoch", "num", fastNumber)
-		return ErrInvalidSwitch
-	}
-	for i := range info {
-		if !info[i].Compared(members[i]) {
-			log.Error("SwitchInfo members invalid", "num", fastNumber)
-			return ErrInvalidSwitch
+	if begin.Cmp(fastNumber) == 0 && len(members) == len(info) {
+		for i := range info {
+			if !info[i].Compared(members[i]) {
+				log.Error("SwitchInfo members invalid", "num", fastNumber)
+				return ErrInvalidSwitch
+			}
 		}
 	}
+
 	return nil
 }
 
