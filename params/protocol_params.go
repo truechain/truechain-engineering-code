@@ -135,3 +135,11 @@ var (
 	ProposalCommitteeNumber = 20
 	MinimumCommitteeNumber  = 7
 )
+
+var (
+	CountInEpoch           = 31
+	MaxRedeemHeight uint64 = 1000
+	NewEpochLength  uint64 = 2000
+	ElectionPoint   uint64 = 200
+	FirstNewEpochID uint64 = 1
+)

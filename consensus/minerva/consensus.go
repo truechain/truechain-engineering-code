@@ -929,7 +929,7 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.StateDB, fastNumber *big.Int) error {
 	if chain.Config().IsTIP8(fastNumber) {
 		epoch := types.GetEpochFromHeight(fastNumber.Uint64())
-		if fastNumber.Uint64() == epoch.EndHeight-types.ElectionPoint {
+		if fastNumber.Uint64() == epoch.EndHeight-params.ElectionPoint {
 			i := vm.NewImpawnImpl()
 			error := i.Load(state, vm.StakingAddress)
 			if es, err := i.DoElections(epoch.EpochID+1, fastNumber.Uint64()); err != nil {

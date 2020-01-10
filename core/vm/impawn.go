@@ -12,6 +12,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
@@ -53,7 +54,7 @@ func (r *RedeemItem) update(o *RedeemItem) {
 }
 func (r *RedeemItem) isRedeem(target uint64) bool {
 	hh := r.toHeight().Uint64()
-	return target > hh+types.MaxRedeemHeight
+	return target > hh+params.MaxRedeemHeight
 }
 func newRedeemItem(eid uint64, amount *big.Int) *RedeemItem {
 	return &RedeemItem{
@@ -498,7 +499,7 @@ type ImpawnImpl struct {
 
 func NewImpawnImpl() *ImpawnImpl {
 	return &ImpawnImpl{
-		curEpochID: types.FirstEpochID - 1,
+		curEpochID: params.FirstNewEpochID - 1,
 		lastReward: 0,
 		accounts:   make(map[uint64]SAImpawns),
 	}
@@ -587,7 +588,7 @@ func (i *ImpawnImpl) getElections2(epochid uint64) []*StakingAccount {
 }
 func (i *ImpawnImpl) getElections3(epochid uint64) []*StakingAccount {
 	eid := epochid
-	if eid >= types.FirstEpochID {
+	if eid >= params.FirstNewEpochID {
 		eid = eid - 1
 	}
 	return i.getElections2(eid)
@@ -755,18 +756,18 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 
 // DoElections called by consensus while it closer the end of epoch,have 500~1000 fast block
 func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, error) {
-	if epochid < types.FirstEpochID && epochid != i.getCurrentEpoch()+1 {
+	if epochid < params.FirstNewEpochID && epochid != i.getCurrentEpoch()+1 {
 		return nil, types.ErrOverEpochID
 	}
 	if types.DposForkPoint != 0 || height > 0 {
 		cur := types.GetEpochFromID(i.curEpochID)
-		if cur.EndHeight != height+types.ElectionPoint {
+		if cur.EndHeight != height+params.ElectionPoint {
 			return nil, types.ErrNotElectionTime
 		}
 	}
 	e := types.GetEpochFromID(epochid)
 	eid := epochid
-	if eid >= types.FirstEpochID {
+	if eid >= params.FirstNewEpochID {
 		eid = eid - 1
 	}
 	if val, ok := i.accounts[eid]; ok {
@@ -775,7 +776,7 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 		for i, v := range val {
 			v.committee = true
 			ee = append(ee, v)
-			if i == types.CountInEpoch-1 {
+			if i == params.CountInEpoch-1 {
 				break
 			}
 		}
@@ -1115,7 +1116,7 @@ func GetValidatorsByEpoch(state StateDB, eid, hh uint64) []*types.CommitteeMembe
 	err := i.Load(state, StakingAddress)
 	accs := i.getElections3(eid)
 	first := types.GetFirstEpoch()
-	if hh == first.EndHeight-types.ElectionPoint {
+	if hh == first.EndHeight-params.ElectionPoint {
 		fmt.Println("****** accounts len:", len(i.accounts), "election:", len(accs), " err ", err)
 	}
 	var vv []*types.CommitteeMember
