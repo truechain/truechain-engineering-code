@@ -17,7 +17,6 @@ var (
 	Base      = new(big.Int).SetUint64(10000)
 
 	MixEpochCount = 2
-	DposForkPoint = uint64(0)
 )
 
 var (
@@ -91,7 +90,7 @@ func (e *EpochIDInfo) isValid() bool {
 	if e.EpochID < 0 {
 		return false
 	}
-	if e.EpochID == 0 && DposForkPoint+1 != e.BeginHeight {
+	if e.EpochID == 0 && params.DposForkPoint+1 != e.BeginHeight {
 		return false
 	}
 	if e.BeginHeight < 0 || e.EndHeight <= 0 || e.EndHeight <= e.BeginHeight {
@@ -122,19 +121,19 @@ func FromBlock(block *SnailBlock) (begin, end uint64) {
 func GetFirstEpoch() *EpochIDInfo {
 	return &EpochIDInfo{
 		EpochID:     params.FirstNewEpochID,
-		BeginHeight: DposForkPoint + 1,
-		EndHeight:   DposForkPoint + params.NewEpochLength,
+		BeginHeight: params.DposForkPoint + 1,
+		EndHeight:   params.DposForkPoint + params.NewEpochLength,
 	}
 }
 func GetPreFirstEpoch() *EpochIDInfo {
 	return &EpochIDInfo{
 		EpochID:     params.FirstNewEpochID - 1,
 		BeginHeight: 0,
-		EndHeight:   DposForkPoint,
+		EndHeight:   params.DposForkPoint,
 	}
 }
 func GetEpochFromHeight(hh uint64) *EpochIDInfo {
-	if hh <= DposForkPoint {
+	if hh <= params.DposForkPoint {
 		return GetPreFirstEpoch()
 	}
 	first := GetFirstEpoch()
@@ -165,7 +164,7 @@ func GetEpochFromID(eid uint64) *EpochIDInfo {
 	}
 }
 func GetEpochFromRange(begin, end uint64) []*EpochIDInfo {
-	if end == 0 || begin > end || (begin < DposForkPoint && end < DposForkPoint) {
+	if end == 0 || begin > end || (begin < params.DposForkPoint && end < params.DposForkPoint) {
 		return nil
 	}
 	var ids []*EpochIDInfo
@@ -176,7 +175,7 @@ func GetEpochFromRange(begin, end uint64) []*EpochIDInfo {
 		ids = append(ids, e1)
 		e = e1.EndHeight
 	} else {
-		e = DposForkPoint
+		e = params.DposForkPoint
 	}
 	for e < end {
 		e2 := GetEpochFromHeight(e + 1)

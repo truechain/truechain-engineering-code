@@ -759,11 +759,9 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 	if epochid < params.FirstNewEpochID && epochid != i.getCurrentEpoch()+1 {
 		return nil, types.ErrOverEpochID
 	}
-	if types.DposForkPoint != 0 || height > 0 {
-		cur := types.GetEpochFromID(i.curEpochID)
-		if cur.EndHeight != height+params.ElectionPoint {
-			return nil, types.ErrNotElectionTime
-		}
+	cur := types.GetEpochFromID(i.curEpochID)
+	if cur.EndHeight != height+params.ElectionPoint && i.curEpochID >= params.FirstNewEpochID {
+		return nil, types.ErrNotElectionTime
 	}
 	e := types.GetEpochFromID(epochid)
 	eid := epochid

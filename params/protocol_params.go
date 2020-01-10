@@ -142,4 +142,5 @@ var (
 	NewEpochLength  uint64 = 2000
 	ElectionPoint   uint64 = 200
 	FirstNewEpochID uint64 = 1
+	DposForkPoint   uint64 = 0
 )

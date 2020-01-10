@@ -176,7 +176,7 @@ func TestImpawnImplRedeem(t *testing.T) {
 	params.NewEpochLength = 5
 	params.MaxRedeemHeight = 0
 	params.ElectionPoint = 10
-	types.DposForkPoint = 20
+	params.DposForkPoint = 20
 	fmt.Println(" epoch 1 ", types.GetEpochFromID(1), " ", params.FirstNewEpochID)
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
 	fmt.Println(" epoch 3 ", types.GetEpochFromID(3))
@@ -253,7 +253,7 @@ func TestImpawnImpl(t *testing.T) {
 	params.NewEpochLength = 5
 	params.MaxRedeemHeight = 0
 	params.ElectionPoint = 10
-	types.DposForkPoint = 20
+	params.DposForkPoint = 20
 	fmt.Println(" epoch 1 ", types.GetEpochFromID(1))
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
 	impl := NewImpawnImpl()
@@ -275,7 +275,7 @@ func TestImpawnImpl(t *testing.T) {
 }
 
 func TestEpoch(t *testing.T) {
-	types.DposForkPoint = 20
+	params.DposForkPoint = 20
 	fmt.Println(" first  ", types.GetFirstEpoch())
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(1))
 	fmt.Println(" epoch 2 ", types.GetEpochFromID(2))
@@ -298,7 +298,7 @@ func TestEpoch(t *testing.T) {
 // Underlying data structure
 /////////////////////////////////////////////////////////////////////
 func TestImpawnUnit(t *testing.T) {
-	types.DposForkPoint = 1
+	params.DposForkPoint = 1
 	params.NewEpochLength = 50
 	params.MaxRedeemHeight = 0
 	fmt.Println(" epoch 1 ", types.GetEpochFromID(1))
