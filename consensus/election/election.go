@@ -211,7 +211,6 @@ func NewElection(chainConfig *params.ChainConfig, fastBlockChain BlockChain, sna
 		log.Error("Election creation get no genesis committee members")
 	}
 
-	election.snailChainEventSub = election.snailchain.SubscribeChainEvent(election.snailChainEventCh)
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
 
 	if election.singleNode {
@@ -1249,6 +1248,7 @@ func (e *Election) Start() error {
 		return nil
 	}
 
+	e.snailChainEventSub = e.snailchain.SubscribeChainEvent(e.snailChainEventCh)
 	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if currentCommittee == nil {
 		log.Crit("Election faiiled to get committee on start")
