@@ -25,28 +25,59 @@ import (
 var (
 	first       = false
 	firstNumber = uint64(0)
+	sb          map[common.Address]*types.StakingValue
+	dbb         map[common.Address]*types.StakingValue
 )
 
-func SendTX(block *types.Block, propagate bool, blockchain *core.BlockChain, tx txPool) {
+func SendTX(block *types.Block, propagate bool, blockchain *core.BlockChain, tx txPool, config *params.ChainConfig) {
 	if !propagate {
 		return
 	}
+
 	if !first {
 		first = true
 		firstNumber = block.Number().Uint64()
+		signer = types.NewTIP1Signer(config.ChainID)
+
+		stateDb, _ := blockchain.StateAt(block.Header().Root)
+		impawn := vm.NewImpawnImpl()
+		impawn.Load(stateDb, vm.StakingAddress)
+		sb = impawn.GetLockedAsset(saddr1)
+		dbb = impawn.GetLockedAsset(daddr1)
 	}
 	number := block.Number().Uint64()
 	diff := number - firstNumber
 
-	snedTranction(diff, nil, blockchain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, tx, block.Header())
-	snedTranction(diff, nil, blockchain, mAccount, daddr1, big.NewInt(6000000000000000000), priKey, signer, tx, block.Header())
+	if sb != nil {
+		for addr, value := range sb {
+			for i, val := range value.Value {
+				fmt.Println("epoch ", i, " value ", val, " addr ", addr.String())
+				sendNWithdrawTransaction(i, number, nil, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, tx, block.Header())
+			}
+		}
+	} else {
+		snedTranction(diff, nil, blockchain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, tx, block.Header())
 
-	sendDepositTransaction(diff, nil, saddr1, skey1, signer, blockchain, abiStaking, tx, block.Header())
-	sendDelegateTransaction(diff, nil, daddr1, saddr1, dkey1, signer, blockchain, abiStaking, tx, block.Header())
-	sendCancelTransaction(diff, nil, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, tx, block.Header())
-	sendUnDelegateTransaction(diff, nil, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, tx, block.Header())
-	sendWithdrawTransaction(diff, nil, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, tx, block.Header())
-	sendWithdrawDelegateTransaction(diff, nil, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, tx, block.Header())
+		sendDepositTransaction(diff, nil, saddr1, skey1, signer, blockchain, abiStaking, tx, block.Header())
+		sendCancelTransaction(diff, nil, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, tx, block.Header())
+		sendWithdrawTransaction(diff, nil, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, tx, block.Header())
+	}
+
+	if dbb != nil {
+		for addr, value := range dbb {
+			for i, val := range value.Value {
+				fmt.Println("epoch ", i, " value ", val, " addr ", addr.String())
+				sendNWithdrawDelegateTransaction(i, number, nil, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, tx, block.Header())
+			}
+		}
+	} else {
+		snedTranction(diff-2, nil, blockchain, mAccount, daddr1, big.NewInt(6000000000000000000), priKey, signer, tx, block.Header())
+
+		sendDelegateTransaction(diff, nil, daddr1, saddr1, dkey1, signer, blockchain, abiStaking, tx, block.Header())
+		sendUnDelegateTransaction(diff, nil, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, tx, block.Header())
+		sendWithdrawDelegateTransaction(diff, nil, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, tx, block.Header())
+
+	}
 }
 
 type txPool interface {
@@ -173,7 +204,7 @@ func rewardSnailBlock(chain consensus.SnailChainReader, fastChain *core.BlockCha
 
 func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Address, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == 40 {
-		nonce := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header)
 		pub := crypto.FromECDSAPub(&priKey.PublicKey)
 		input, err := abiStaking.Pack("deposit", pub)
 		if err != nil {
@@ -185,7 +216,7 @@ func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Addre
 
 func sendDelegateTransaction(height uint64, gen *core.BlockGen, from common.Address, toAddress common.Address, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == 60 {
-		nonce := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header)
 		input, err := abiStaking.Pack("delegate", toAddress)
 		if err != nil {
 			fmt.Println("sendDelegateTransaction ", "error", err)
@@ -196,7 +227,7 @@ func sendDelegateTransaction(height uint64, gen *core.BlockGen, from common.Addr
 
 func sendCancelTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == 80 {
-		nonce := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header)
 		input, err := abiStaking.Pack("cancel", value)
 		if err != nil {
 			fmt.Println("sendCancelTransaction ", "error", err)
@@ -207,7 +238,7 @@ func sendCancelTransaction(height uint64, gen *core.BlockGen, from common.Addres
 
 func sendUnDelegateTransaction(height uint64, gen *core.BlockGen, from common.Address, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == 120 {
-		nonce := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header)
 		input, err := abiStaking.Pack("undelegate", toAddress, value)
 		if err != nil {
 			fmt.Println("sendUnDelegateTransaction ", "error", err)
@@ -218,7 +249,7 @@ func sendUnDelegateTransaction(height uint64, gen *core.BlockGen, from common.Ad
 
 func sendWithdrawTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == types.MinCalcRedeemHeight(types.GetEpochFromHeight(160).EpochID) {
-		nonce := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header)
 		input, err := abiStaking.Pack("withdraw", value)
 		if err != nil {
 			fmt.Println("sendWithdrawTransaction ", "error", err)
@@ -229,7 +260,7 @@ func sendWithdrawTransaction(height uint64, gen *core.BlockGen, from common.Addr
 
 func sendWithdrawDelegateTransaction(height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == types.MinCalcRedeemHeight(types.GetEpochFromHeight(180).EpochID) {
-		nonce := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header)
 		input, err := abiStaking.Pack("withdrawDelegate", toAddress, value)
 		if err != nil {
 			fmt.Println("sendWithdrawDelegateTransaction ", "error", err)
@@ -238,30 +269,57 @@ func sendWithdrawDelegateTransaction(height uint64, gen *core.BlockGen, from, to
 	}
 }
 
+func sendNWithdrawDelegateTransaction(epoch uint64, height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
+	if height == types.MinCalcRedeemHeight(epoch) {
+		nonce, _ := getNonce(gen, from, blockchain, header)
+		input, err := abiStaking.Pack("withdrawDelegate", toAddress, value)
+		if err != nil {
+			fmt.Println("sendWithdrawDelegateTransaction ", "error", err)
+		}
+		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+	}
+}
+
+func sendNWithdrawTransaction(epoch uint64, height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
+	if height == types.MinCalcRedeemHeight(epoch) {
+		nonce, _ := getNonce(gen, from, blockchain, header)
+		input, err := abiStaking.Pack("withdraw", value)
+		if err != nil {
+			fmt.Println("sendWithdrawTransaction ", "error", err)
+		}
+		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+	}
+}
+
 func snedTranction(height uint64, gen *core.BlockGen, blockchain *core.BlockChain, from, to common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, signer types.TIP1Signer, txPool txPool, header *types.Header) {
 	if height == 20 {
-		nonce := getNonce(gen, from, blockchain, header)
-		tx, _ := types.SignTx(types.NewTransaction(nonce, to, value, params.TxGas, nil, nil), signer, privateKey)
-		if gen != nil {
-			gen.AddTx(tx)
-		} else {
-			txPool.AddRemotes([]*types.Transaction{tx})
+		nonce, statedb := getNonce(gen, from, blockchain, header)
+		balance := statedb.GetBalance(to)
+		remaining := new(big.Int).Sub(value, balance)
+		fmt.Println("snedTranction ", balance.Uint64(), " remaining ", remaining.Uint64(), " height ", height, " current ", header.Number.Uint64())
+		if remaining.Sign() > 0 {
+			tx, _ := types.SignTx(types.NewTransaction(nonce, to, remaining, params.TxGas, new(big.Int).SetInt64(1000000), nil), signer, privateKey)
+			if gen != nil {
+				gen.AddTx(tx)
+			} else {
+				txPool.AddRemotes([]*types.Transaction{tx})
+			}
 		}
 	}
 }
 
-func getNonce(gen *core.BlockGen, from common.Address, blockchain *core.BlockChain, header *types.Header) uint64 {
+func getNonce(gen *core.BlockGen, from common.Address, blockchain *core.BlockChain, header *types.Header) (uint64, *state.StateDB) {
 	var nonce uint64
 	var stateDb *state.StateDB
 	if gen != nil {
 		nonce = gen.TxNonce(from)
 		stateDb = gen.GetStateDB()
 	} else {
-		stateDb, _ := blockchain.StateAt(header.Root)
+		stateDb, _ = blockchain.StateAt(header.Root)
 		nonce = stateDb.GetNonce(from)
 	}
 	printBalance(stateDb, from)
-	return nonce
+	return nonce, stateDb
 }
 
 func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, input []byte, txPool txPool, priKey *ecdsa.PrivateKey, signer types.TIP1Signer) {
@@ -274,11 +332,10 @@ func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, input 
 }
 
 func printBalance(stateDb *state.StateDB, from common.Address) {
-	fmt.Println(" printBalance ", " ", types.ToTrue(stateDb.GetBalance(from)))
 	balance := stateDb.GetBalance(vm.StakingAddress)
 	fbalance := new(big.Float)
 	fbalance.SetString(balance.String())
 	StakinValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
-	fmt.Println(" fbalance ", fbalance, " Value ", StakinValue)
+	fmt.Println(" from ", types.ToTrue(stateDb.GetBalance(from)), " Staking fbalance ", fbalance, " StakinValue ", StakinValue)
 }
