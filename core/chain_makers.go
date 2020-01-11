@@ -202,7 +202,6 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 
 			// Write state changes to db
 			root, err := statedb.Commit(true)
-			fmt.Println("chain Finalize ", root.String())
 			if err != nil {
 				panic(fmt.Sprintf("state write error: %v", err))
 			}

@@ -25,8 +25,8 @@ func TestOnlyDeposit(t *testing.T) {
 		sendCancelTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
 		sendWithdrawTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
 	}
-	manager := newTestPOSManager(40, executable)
-	fmt.Println(" saddr1 ", manager.GetBalance(saddr1))
+	manager := newTestPOSManager(55, executable)
+	fmt.Println(" saddr1 ", manager.GetBalance(saddr1), " StakingAddress ", manager.GetBalance(vm.StakingAddress), " ", types.ToTrue(manager.GetBalance(vm.StakingAddress)))
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -41,7 +41,7 @@ func TestGetLockedAsset(t *testing.T) {
 			stateDb := gen.GetStateDB()
 			impawn := vm.NewImpawnImpl()
 			impawn.Load(stateDb, vm.StakingAddress)
-			arr := impawn.GetLockedAsset(daddr1)
+			arr := impawn.GetLockedAsset(saddr1)
 			for addr, value := range arr {
 				fmt.Println("value ", value.Value, " addr ", addr.String())
 			}
@@ -49,7 +49,7 @@ func TestGetLockedAsset(t *testing.T) {
 
 		sendWithdrawTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
 	}
-	manager := newTestPOSManager(40, executable)
+	manager := newTestPOSManager(55, executable)
 	fmt.Println(" saddr1 ", manager.GetBalance(saddr1))
 }
 
@@ -64,8 +64,22 @@ func TestDeposit(t *testing.T) {
 		sendDelegateTransaction(number, gen, daddr1, saddr1, dkey1, signer, blockchain, abiStaking, nil, header)
 		sendCancelTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, nil, header)
 		sendUnDelegateTransaction(number, gen, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, nil, header)
+		if number == 130 {
+			stateDb := gen.GetStateDB()
+			impawn := vm.NewImpawnImpl()
+			impawn.Load(stateDb, vm.StakingAddress)
+			arr := impawn.GetLockedAsset(saddr1)
+			for addr, value := range arr {
+				fmt.Println("value ", value.Value, " addr ", addr.String())
+			}
+			arr1 := impawn.GetLockedAsset(daddr1)
+			for addr, value := range arr1 {
+				fmt.Println("value D ", value.Value, " addr ", addr.String())
+			}
+		}
 		sendWithdrawTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, nil, header)
 		sendWithdrawDelegateTransaction(number, gen, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, nil, header)
 	}
-	newTestPOSManager(40, executable)
+	manager := newTestPOSManager(55, executable)
+	fmt.Println(" saddr1 ", types.ToTrue(manager.GetBalance(saddr1)), " StakingAddress ", manager.GetBalance(vm.StakingAddress), " ", types.ToTrue(manager.GetBalance(vm.StakingAddress)))
 }

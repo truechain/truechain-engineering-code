@@ -204,96 +204,96 @@ func rewardSnailBlock(chain consensus.SnailChainReader, fastChain *core.BlockCha
 
 func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Address, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == 40 {
-		nonce, _ := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header, "sendDepositTransaction")
 		pub := crypto.FromECDSAPub(&priKey.PublicKey)
 		input, err := abiStaking.Pack("deposit", pub)
 		if err != nil {
 			fmt.Println("sendDepositTransaction ", "error", err)
 		}
-		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+		addTx(gen, blockchain, nonce, big.NewInt(1000000000000000000), input, txPool, priKey, signer)
 	}
 }
 
 func sendDelegateTransaction(height uint64, gen *core.BlockGen, from common.Address, toAddress common.Address, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == 60 {
-		nonce, _ := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header, "sendDelegateTransaction")
 		input, err := abiStaking.Pack("delegate", toAddress)
 		if err != nil {
 			fmt.Println("sendDelegateTransaction ", "error", err)
 		}
-		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+		addTx(gen, blockchain, nonce, big.NewInt(1000000000000000000), input, txPool, priKey, signer)
 	}
 }
 
 func sendCancelTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == 80 {
-		nonce, _ := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header, "sendCancelTransaction")
 		input, err := abiStaking.Pack("cancel", value)
 		if err != nil {
 			fmt.Println("sendCancelTransaction ", "error", err)
 		}
-		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
 	}
 }
 
 func sendUnDelegateTransaction(height uint64, gen *core.BlockGen, from common.Address, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == 120 {
-		nonce, _ := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header, "sendUnDelegateTransaction")
 		input, err := abiStaking.Pack("undelegate", toAddress, value)
 		if err != nil {
 			fmt.Println("sendUnDelegateTransaction ", "error", err)
 		}
-		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
 	}
 }
 
 func sendWithdrawTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == types.MinCalcRedeemHeight(types.GetEpochFromHeight(160).EpochID) {
-		nonce, _ := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header, "sendWithdrawTransaction")
 		input, err := abiStaking.Pack("withdraw", value)
 		if err != nil {
 			fmt.Println("sendWithdrawTransaction ", "error", err)
 		}
-		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
 	}
 }
 
 func sendWithdrawDelegateTransaction(height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == types.MinCalcRedeemHeight(types.GetEpochFromHeight(180).EpochID) {
-		nonce, _ := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header, "sendWithdrawDelegateTransaction")
 		input, err := abiStaking.Pack("withdrawDelegate", toAddress, value)
 		if err != nil {
 			fmt.Println("sendWithdrawDelegateTransaction ", "error", err)
 		}
-		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
 	}
 }
 
 func sendNWithdrawDelegateTransaction(epoch uint64, height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == types.MinCalcRedeemHeight(epoch) {
-		nonce, _ := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header, "sendNWithdrawDelegateTransaction")
 		input, err := abiStaking.Pack("withdrawDelegate", toAddress, value)
 		if err != nil {
 			fmt.Println("sendWithdrawDelegateTransaction ", "error", err)
 		}
-		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
 	}
 }
 
 func sendNWithdrawTransaction(epoch uint64, height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
 	if height == types.MinCalcRedeemHeight(epoch) {
-		nonce, _ := getNonce(gen, from, blockchain, header)
+		nonce, _ := getNonce(gen, from, blockchain, header, "sendNWithdrawTransaction")
 		input, err := abiStaking.Pack("withdraw", value)
 		if err != nil {
 			fmt.Println("sendWithdrawTransaction ", "error", err)
 		}
-		addTx(gen, blockchain, nonce, input, txPool, priKey, signer)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
 	}
 }
 
 func snedTranction(height uint64, gen *core.BlockGen, blockchain *core.BlockChain, from, to common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, signer types.TIP1Signer, txPool txPool, header *types.Header) {
 	if height == 20 {
-		nonce, statedb := getNonce(gen, from, blockchain, header)
+		nonce, statedb := getNonce(gen, from, blockchain, header, "snedTranction")
 		balance := statedb.GetBalance(to)
 		remaining := new(big.Int).Sub(value, balance)
 		fmt.Println("snedTranction ", balance.Uint64(), " remaining ", remaining.Uint64(), " height ", height, " current ", header.Number.Uint64())
@@ -308,7 +308,7 @@ func snedTranction(height uint64, gen *core.BlockGen, blockchain *core.BlockChai
 	}
 }
 
-func getNonce(gen *core.BlockGen, from common.Address, blockchain *core.BlockChain, header *types.Header) (uint64, *state.StateDB) {
+func getNonce(gen *core.BlockGen, from common.Address, blockchain *core.BlockChain, header *types.Header, method string) (uint64, *state.StateDB) {
 	var nonce uint64
 	var stateDb *state.StateDB
 	if gen != nil {
@@ -318,12 +318,12 @@ func getNonce(gen *core.BlockGen, from common.Address, blockchain *core.BlockCha
 		stateDb, _ = blockchain.StateAt(header.Root)
 		nonce = stateDb.GetNonce(from)
 	}
-	printBalance(stateDb, from)
+	printBalance(stateDb, from, method)
 	return nonce, stateDb
 }
 
-func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, input []byte, txPool txPool, priKey *ecdsa.PrivateKey, signer types.TIP1Signer) {
-	tx, _ := types.SignTx(types.NewTransaction(nonce, vm.StakingAddress, big.NewInt(1000000000000000000), 47200, big.NewInt(1000000), input), signer, priKey)
+func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value *big.Int, input []byte, txPool txPool, priKey *ecdsa.PrivateKey, signer types.TIP1Signer) {
+	tx, _ := types.SignTx(types.NewTransaction(nonce, vm.StakingAddress, value, 47200, big.NewInt(1000000), input), signer, priKey)
 	if gen != nil {
 		gen.AddTxWithChain(blockchain, tx)
 	} else {
@@ -331,11 +331,11 @@ func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, input 
 	}
 }
 
-func printBalance(stateDb *state.StateDB, from common.Address) {
+func printBalance(stateDb *state.StateDB, from common.Address, method string) {
 	balance := stateDb.GetBalance(vm.StakingAddress)
 	fbalance := new(big.Float)
 	fbalance.SetString(balance.String())
 	StakinValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
-	fmt.Println(" from ", types.ToTrue(stateDb.GetBalance(from)), " Staking fbalance ", fbalance, " StakinValue ", StakinValue)
+	fmt.Println(method, " from ", types.ToTrue(stateDb.GetBalance(from)), " Staking fbalance ", fbalance, " StakinValue ", StakinValue)
 }
