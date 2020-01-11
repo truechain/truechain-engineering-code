@@ -22,10 +22,11 @@ import (
 )
 
 var (
-	priKey, _     = crypto.HexToECDSA("0260c952edc49037129d8cabbe4603d15185d83aa718291279937fb6db0fa7a2")
 	abiStaking, _ = abi.JSON(strings.NewReader(vm.StakeABIJSON))
+	priKey, _     = crypto.HexToECDSA("0260c952edc49037129d8cabbe4603d15185d83aa718291279937fb6db0fa7a2")
 	account       = common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69")
-	generalA      = common.HexToAddress("0xa5F41eaf51d24c8eDcDF254F200f8a6D818a6836")
+	skey1, _      = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
+	saddr1        = crypto.PubkeyToAddress(skey1.PublicKey)
 )
 
 func main() {
@@ -40,11 +41,11 @@ func main() {
 	fmt.Println("action ", action, " method ", method)
 	pub := crypto.FromECDSAPub(&priKey.PublicKey)
 
-	go printCurrentBlock()
+	printCurrentBlock()
 
 	// Create an IPC based RPC connection to a remote node
-	//conn, err := etrueclient.Dial("http://39.100.97.129:8545")
-	conn, err := etrueclient.Dial("http://127.0.0.1:8545")
+	conn, err := etrueclient.Dial("http://39.100.120.25:8545")
+	//conn, err := etrueclient.Dial("http://127.0.0.1:8545")
 	//conn, err := etrueclient.Dial("/root/data/node3/getrue.ipc")
 	if err != nil {
 		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
@@ -71,7 +72,7 @@ func main() {
 	impawnValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
 	sbalance, err := conn.BalanceAt(context.Background(), vm.StakingAddress, nil)
-	generalABalance, err := conn.BalanceAt(context.Background(), generalA, nil)
+	generalABalance, err := conn.BalanceAt(context.Background(), saddr1, nil)
 	fmt.Println(" Value ", impawnValue, " stake ", types.ToTrue(sbalance), " general ", types.ToTrue(generalABalance))
 
 	if strings.Contains(action, "contractS") {
@@ -81,7 +82,7 @@ func main() {
 
 	} else if strings.Contains(action, "tx") {
 
-		sendTransaction(conn, account, generalA, priKey)
+		sendTransaction(conn, account, saddr1, priKey)
 
 	} else if strings.Contains(action, "contractT") {
 
@@ -89,7 +90,7 @@ func main() {
 		if err != nil {
 			fmt.Println("err ", err)
 		}
-		txHash := sendContractTransaction(conn, generalA, vm.StakingAddress, priKey, input, header.Number)
+		txHash := sendContractTransaction(conn, saddr1, vm.StakingAddress, skey1, input, header.Number)
 
 		time.Sleep(5 * time.Millisecond)
 
@@ -182,6 +183,7 @@ func sendTransaction(client *etrueclient.Client, from, toAddress common.Address,
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("nonce ", nonce, " value ", types.ToTrue(value), " gasLimit ", gasLimit, " gasPrice ", gasPrice)
 
 	signedTx, err := types.SignTx(tx, types.NewTIP1Signer(chainID), privateKey)
 	if err != nil {
@@ -212,7 +214,7 @@ func callContract(conn *etrueclient.Client, transactOpts *bind.TransactOpts, pub
 }
 
 func printCurrentBlock() {
-	client, err := etrueclient.Dial("wss://127.0.0.1/ws")
+	client, err := etrueclient.Dial("wss://39.100.120.25:8545/ws")
 	if err != nil {
 		log.Fatal(err)
 	}
