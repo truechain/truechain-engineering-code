@@ -929,8 +929,27 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 // gas allocation
 func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.StateDB, fastNumber *big.Int) error {
 
+	next := new(big.Int).Add(fastNumber, big1)
+	if consensus.IsTIP8(next, chain.Config(), m.sbc) {
+		// init the first epoch in the fork
+		first := types.GetFirstEpoch()
+		if first.BeginHeight == next.Uint64() {
+			i := vm.NewImpawnImpl()
+			error := i.Load(state, vm.StakingAddress)
+			if es, err := i.DoElections(first.EpochID, next.Uint64()); err != nil {
+				return err
+			} else {
+				log.Info("init in first forked, Do pre election", "height", next, "epoch:", first.EpochID, "len:", len(es), "err", error)
+			}
+			if err := i.Shift(first.EpochID); err != nil {
+				return err
+			}
+			i.Save(state, vm.StakingAddress)
+		}
+	}
 	if consensus.IsTIP8(fastNumber, chain.Config(), m.sbc) {
 		epoch := types.GetEpochFromHeight(fastNumber.Uint64())
+		// if first.EpochID == epoch.EpochID &&
 		if fastNumber.Uint64() == epoch.EndHeight-params.ElectionPoint {
 			i := vm.NewImpawnImpl()
 			error := i.Load(state, vm.StakingAddress)

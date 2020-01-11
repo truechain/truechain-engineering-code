@@ -201,7 +201,7 @@ func IsTIP8(fastHeadNumber *big.Int, config *params.ChainConfig, reader SnailCha
 			return true
 		}
 	} else {
-		config.TIP8.FastNumber = new(big.Int).Set(lastFast)
+		updateForkedPoint(oldID, lastFast, config)
 	}
 	return config.IsTIP8(oldID, fastHeadNumber)
 }
@@ -224,4 +224,10 @@ func getEndOfOldEpoch(eid *big.Int, reader SnailChainReader) *big.Int {
 	lastFastNumber := new(big.Int).Add(lastFruitNumber, params.ElectionSwitchoverNumber)
 
 	return lastFastNumber
+}
+func updateForkedPoint(forkedID, fastNumber *big.Int, config *params.ChainConfig) {
+	if config.TIP8.CID.Cmp(forkedID) == 0 && config.TIP8.FastNumber.Sign() == 0 && fastNumber != nil {
+		params.DposForkPoint = fastNumber.Uint64()
+		config.TIP8.FastNumber = new(big.Int).Set(fastNumber)
+	}
 }
