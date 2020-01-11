@@ -945,6 +945,7 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 				return err
 			}
 			i.Save(state, vm.StakingAddress)
+			log.Info("init in first forked,", "height", next, "epoch:", first.EpochID, "len:", len(es))
 		}
 	}
 	if consensus.IsTIP8(fastNumber, chain.Config(), m.sbc) {
