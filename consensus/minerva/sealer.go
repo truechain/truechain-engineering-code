@@ -248,7 +248,6 @@ search:
 
 					blockR := block.WithSeal(header)
 					blockR.SetSnailBlockSigns(nil)
-
 					select {
 					case found <- blockR:
 						logger.Trace("Truehash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)

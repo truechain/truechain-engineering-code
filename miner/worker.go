@@ -29,14 +29,16 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
+
 	//"github.com/truechain/truechain-engineering-code/core/vm"
 	//"crypto/rand"
+
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	"gopkg.in/fatih/set.v0"
+	set "gopkg.in/fatih/set.v0"
 )
 
 const (
@@ -403,6 +405,7 @@ func (w *worker) update() {
 func (w *worker) wait() {
 	for {
 		for result := range w.recv {
+
 			atomic.AddInt32(&w.atWork, -1)
 
 			if result == nil {
@@ -410,6 +413,15 @@ func (w *worker) wait() {
 			}
 
 			block := result.Block
+			if block == nil {
+				log.Error("miner wait log  block is nill")
+				continue
+			}
+			// watch := help.NewTWatch(3, fmt.Sprintf("worker result is %v", block.Number()))
+			// defer func() {
+			// 	watch.EndWatch()
+			// 	watch.Finish("end")
+			// }()
 			log.Debug("Worker get wait fond block or fruit")
 			if block.IsFruit() {
 				if block.FastNumber() == nil {
@@ -449,6 +461,7 @@ func (w *worker) wait() {
 					events = append(events, types.NewMinedFruitEvent{Block: block})
 					w.chain.PostChainEvents(events)
 				}
+				log.Info("🍒  mined fruit", "number  3333")
 			} else {
 				if block.Fruits() == nil {
 					w.atCommintNewWoker = false
@@ -481,6 +494,7 @@ func (w *worker) wait() {
 
 				// Insert the block into the set of pending ones to wait for confirmations
 				w.unconfirmed.Insert(block.NumberU64(), block.Hash())
+				log.Info("+++++ mined block 2  end ---  ", "block number")
 
 			}
 		}
