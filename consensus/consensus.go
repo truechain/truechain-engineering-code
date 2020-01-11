@@ -24,6 +24,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
@@ -185,6 +186,10 @@ type PoW interface {
 
 func IsTIP8(fastHeadNumber *big.Int, config *params.ChainConfig, reader SnailChainReader) bool {
 
+	if config.TIP8.FastNumber != nil && config.TIP8.FastNumber.Sign() > 0 {
+		return fastHeadNumber.Cmp(config.TIP8.FastNumber) >= 0
+	}
+
 	oldID := big.NewInt(0)
 	var lastFast *big.Int
 	if reader != nil {
@@ -229,5 +234,28 @@ func updateForkedPoint(forkedID, fastNumber *big.Int, config *params.ChainConfig
 	if config.TIP8.CID.Cmp(forkedID) == 0 && config.TIP8.FastNumber.Sign() == 0 && fastNumber != nil {
 		params.DposForkPoint = fastNumber.Uint64()
 		config.TIP8.FastNumber = new(big.Int).Set(fastNumber)
+	}
+}
+
+func InitTIP8(config *params.ChainConfig, reader SnailChainReader) {
+	eid := config.TIP8.CID
+	params.FirstNewEpochID = new(big.Int).Add(eid, common.Big1).Uint64()
+	switchCheckNumber := new(big.Int).Mul(new(big.Int).Add(eid, common.Big1), params.ElectionPeriodNumber)
+	curSnailNumber := reader.CurrentHeader().Number
+	if curSnailNumber.Cmp(switchCheckNumber) >= 0 {
+		snailEndNumber := new(big.Int).Sub(switchCheckNumber, params.SnailConfirmInterval)
+		header := reader.GetHeaderByNumber(snailEndNumber.Uint64())
+		if header == nil {
+			log.Error("InitTIP8 GetHeaderByNumber failed.", "switchCheckNumber", switchCheckNumber, "curSnailNumber", curSnailNumber, "Epochid", eid)
+			return
+		}
+		block := reader.GetBlock(header.Hash(), snailEndNumber.Uint64())
+		if block == nil {
+			log.Error("InitTIP8 GetBlock failed.", "switchCheckNumber", switchCheckNumber, "curSnailNumber", curSnailNumber, "Epochid", eid)
+			return
+		}
+		fruits := block.Fruits()
+		lastFruitNumber := fruits[len(fruits)-1].FastNumber()
+		config.TIP8.FastNumber = new(big.Int).Add(lastFruitNumber, params.ElectionSwitchoverNumber)
 	}
 }

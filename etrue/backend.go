@@ -20,13 +20,14 @@ package etrue
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft"
-	config "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
+
+	"github.com/truechain/truechain-engineering-code/consensus/tbft"
+	config "github.com/truechain/truechain-engineering-code/params"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -199,6 +200,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.bloomIndexer.Start(etrue.blockchain)
 
+	consensus.InitTIP8(chainConfig, etrue.snailblockchain)
 	//sv := chain.NewBlockValidator(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 	//etrue.snailblockchain.SetValidator(sv)
 

@@ -22,10 +22,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/crypto"
-
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/truechain/truechain-engineering-code/crypto"
 )
 
 // Genesis hashes to enforce below configs on.
