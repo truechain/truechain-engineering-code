@@ -93,17 +93,16 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
+		b.feeAmout = big.NewInt(0)
 	}
-	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
+	b.statedb.Prepare(tx.Hash(), b.header.Hash(), len(b.txs))
 
-	feeAmount := big.NewInt(0)
-	receipt, _, err := ApplyTransaction(b.config, bc, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, feeAmount, vm.Config{})
+	receipt, _, err := ApplyTransaction(b.config, bc, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, b.feeAmout, vm.Config{})
 	if err != nil {
 		panic(err)
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
-	b.feeAmout = feeAmount
 }
 
 // Number returns the block number of the block being generated.
@@ -203,6 +202,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 
 			// Write state changes to db
 			root, err := statedb.Commit(true)
+			fmt.Println("chain Finalize ", root.String())
 			if err != nil {
 				panic(fmt.Sprintf("state write error: %v", err))
 			}
