@@ -267,11 +267,9 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	impawn.Load(evm.StateDB, StakingAddress)
 	epoch := types.GetEpochFromHeight(evm.Context.BlockNumber.Uint64())
 
-	asset := impawn.GetStakingAsset(depositAddr)
+	asset := impawn.GetAllCancelableAsset(depositAddr)
 	if stake, ok := asset[depositAddr]; ok {
-		for _, value := range stake.Value {
-			staked.Add(staked, value)
-		}
+		staked.Add(staked, stake)
 	}
 
 	lockedAsset := impawn.GetLockedAsset(depositAddr)
@@ -313,11 +311,9 @@ func getDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err er
 	impawn.Load(evm.StateDB, StakingAddress)
 	epoch := types.GetEpochFromHeight(evm.Context.BlockNumber.Uint64())
 
-	asset := impawn.GetStakingAsset(args.Owner)
+	asset := impawn.GetAllCancelableAsset(args.Owner)
 	if stake, ok := asset[args.Holder]; ok {
-		for _, value := range stake.Value {
-			staked.Add(staked, value)
-		}
+		staked.Add(staked, stake)
 	}
 
 	lockedAsset := impawn.GetLockedAsset(args.Owner)
