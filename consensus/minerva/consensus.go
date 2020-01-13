@@ -865,8 +865,8 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, types.ErrSnailHeightNotYet
 		}
-
-		if consensus.IsTIP8(header.Number, chain.Config(), m.sbc) {
+		endfast := sBlock.MaxFruitNumber()
+		if consensus.IsTIP8(endfast, chain.Config(), m.sbc) {
 			err := accumulateRewardsFast2(state, sBlock)
 			if err != nil {
 				log.Error("Finalize Error", "accumulateRewardsFast2", err.Error())
@@ -1064,6 +1064,41 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) er
 		}
 	}
 
+	return nil
+}
+func accumulateRewardsFast3(election consensus.CommitteeElection, stateDB *state.StateDB, sBlock *types.SnailBlock) error {
+	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
+	if e != nil {
+		return e
+	}
+	var (
+		blockFruits    = sBlock.Body().Fruits
+		blockFruitsLen = big.NewInt(int64(len(blockFruits)))
+	)
+	if blockFruitsLen.Uint64() == 0 {
+		return consensus.ErrInvalidBlock
+	}
+	var (
+		//fruit award amount
+		minerFruitCoinOne = new(big.Int).Div(minerFruitCoin, blockFruitsLen)
+		//committee's award amount
+		committeeCoinFruit = new(big.Int).Div(committeeCoin, blockFruitsLen)
+		//all fail committee coinBase
+		failAddr = make(map[common.Address]bool)
+	)
+	//miner's award
+	stateDB.AddBalance(sBlock.Coinbase(), minerCoin)
+	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
+
+	for _, fruit := range blockFruits {
+		stateDB.AddBalance(fruit.Coinbase(), minerFruitCoinOne)
+		LogPrint("minerFruit", fruit.Coinbase(), minerFruitCoinOne)
+		//committee reward
+		err := rewardFruitCommitteeMember(stateDB, election, fruit, committeeCoinFruit, failAddr)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
