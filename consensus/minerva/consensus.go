@@ -865,7 +865,10 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, types.ErrSnailHeightNotYet
 		}
-		endfast := sBlock.MaxFruitNumber()
+		endfast := new(big.Int).Set(header.Number)
+		if len(sBlock.Fruits()) > 0 {
+			endfast = new(big.Int).Set(sBlock.MinFruitNumber())
+		}
 		if consensus.IsTIP8(endfast, chain.Config(), m.sbc) {
 			err := accumulateRewardsFast2(state, sBlock)
 			if err != nil {
