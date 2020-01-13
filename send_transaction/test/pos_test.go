@@ -6,6 +6,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"os"
 	"testing"
@@ -17,22 +18,30 @@ func init() {
 
 ///////////////////////////////////////////////////////////////////////
 func TestOnlyDeposit(t *testing.T) {
-	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(number uint64, gen *core.BlockGen, fastChain *core.BlockChain, header *types.Header) {
-		snedTranction(number, gen, fastChain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 
-		sendDepositTransaction(number, gen, saddr1, skey1, signer, fastChain, abiStaking, nil, header)
-		sendCancelTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
-		sendWithdrawTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
+	params.MinimumFruits = 60
+
+	// Create a helper to check if a gas allowance results in an executable transaction
+	executable := func(number uint64, gen *core.BlockGen, fastChain *core.BlockChain, header *types.Header, config *params.ChainConfig) {
+
+		if config.TIP8.FastNumber != nil && config.TIP8.FastNumber.Sign() > 0 {
+			begin := config.TIP8.FastNumber.Uint64() - 1200
+			snedTranction(number-begin, gen, fastChain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
+
+			sendDepositTransaction(number-begin, gen, saddr1, skey1, signer, fastChain, abiStaking, nil, header)
+			sendCancelTransaction(number-begin, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
+			sendWithdrawTransaction(number-begin, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
+		}
 	}
-	manager := newTestPOSManager(55, executable)
+	manager := newTestPOSManager(520, executable)
+	fmt.Println("BeginHeight ", types.GetEpochFromID(3).BeginHeight, " ")
 	fmt.Println(" saddr1 ", manager.GetBalance(saddr1), " StakingAddress ", manager.GetBalance(vm.StakingAddress), " ", types.ToTrue(manager.GetBalance(vm.StakingAddress)))
 }
 
 ///////////////////////////////////////////////////////////////////////
 func TestGetLockedAsset(t *testing.T) {
 	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(number uint64, gen *core.BlockGen, fastChain *core.BlockChain, header *types.Header) {
+	executable := func(number uint64, gen *core.BlockGen, fastChain *core.BlockChain, header *types.Header, config *params.ChainConfig) {
 		snedTranction(number, gen, fastChain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 
 		sendDepositTransaction(number, gen, saddr1, skey1, signer, fastChain, abiStaking, nil, header)
@@ -56,7 +65,7 @@ func TestGetLockedAsset(t *testing.T) {
 ///////////////////////////////////////////////////////////////////////
 func TestDeposit(t *testing.T) {
 	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(number uint64, gen *core.BlockGen, blockchain *core.BlockChain, header *types.Header) {
+	executable := func(number uint64, gen *core.BlockGen, blockchain *core.BlockChain, header *types.Header, config *params.ChainConfig) {
 		snedTranction(number, gen, blockchain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 		snedTranction(number, gen, blockchain, mAccount, daddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 

@@ -114,9 +114,10 @@ func DefaulGenesisBlock() *core.Genesis {
 }
 
 type POSManager struct {
-	blockchain *core.BlockChain
-	snailchain *snailchain.SnailBlockChain
-	GetBalance func(addr common.Address) *big.Int
+	blockchain  *core.BlockChain
+	snailchain  *snailchain.SnailBlockChain
+	chainconfig *params.ChainConfig
+	GetBalance  func(addr common.Address) *big.Int
 }
 
 var (
@@ -133,12 +134,12 @@ var (
 	daddr1        = crypto.PubkeyToAddress(dkey1.PublicKey)
 )
 
-func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *core.BlockChain, *types.Header)) *POSManager {
+func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *core.BlockChain, *types.Header, *params.ChainConfig)) *POSManager {
 
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
 
-	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0)}
+	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(0)}
 	gspec.Config.TIP9 = &params.BlockConfig{SnailNumber: big.NewInt(20)}
 
 	genesis := gspec.MustFastCommit(db)
@@ -152,14 +153,14 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 	parentSnail := []*types.SnailBlock{snailGenesis}
 	for i := 1; i < sBlocks; i++ {
 
-		chain, _ := core.GenerateChain(gspec.Config, parentFast, engine, db, 60, func(i int, gen *core.BlockGen) {
+		chain, _ := core.GenerateChain(gspec.Config, parentFast, engine, db, params.MinimumFruits, func(i int, gen *core.BlockGen) {
 
 			header := gen.GetHeader()
 			switch i {
 			case 0:
 				rewardSnailBlock(snailChainTest, blockchain, header)
 			}
-			executableTx(header.Number.Uint64(), gen, blockchain, header)
+			executableTx(header.Number.Uint64(), gen, blockchain, header, gspec.Config)
 		})
 		if _, err := blockchain.InsertChain(chain); err != nil {
 			panic(err)
@@ -169,13 +170,15 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 		if _, err := snailChainTest.InsertChain(schain); err != nil {
 			panic(err)
 		}
+		fmt.Println("GenerateChain", " parentSnail ", snailChainTest.CurrentBlock().Number().Uint64())
 		parentSnail = snailChainTest.GetBlocksFromNumber(0)
 	}
 
 	// Create the pos manager with the base fields
 	manager := &POSManager{
-		snailchain: snailChainTest,
-		blockchain: blockchain,
+		snailchain:  snailChainTest,
+		blockchain:  blockchain,
+		chainconfig: gspec.Config,
 	}
 
 	GetBalance := func(addr common.Address) *big.Int {
