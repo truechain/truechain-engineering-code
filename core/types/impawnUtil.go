@@ -47,6 +47,11 @@ const (
 	// StateRedeemed flag the asset which is staking in the height is redeemed
 	StateRedeemed
 )
+const (
+	OpQueryStaking uint8 = 1 << iota
+	OpQueryLocked
+	OpQueryCancelable
+)
 
 type RewardInfo struct {
 	Address common.Address

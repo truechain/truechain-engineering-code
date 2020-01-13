@@ -24,7 +24,7 @@ type PairstakingValue struct {
 }
 
 func (v *PairstakingValue) isElection() bool {
-	return v.state&types.StateStakingCancel == 0 && (v.state&types.StateStakingOnce != 0 || v.state&types.StateStakingAuto != 0)
+	return (v.state&types.StateStakingOnce != 0 || v.state&types.StateStakingAuto != 0)
 }
 
 type RewardItem struct {
@@ -91,6 +91,18 @@ func (s *impawnUnit) getValidStaking(hh uint64) *big.Int {
 			break
 		}
 	}
+	e := types.GetEpochFromHeight(hh)
+	r := s.getRedeemItem(e.EpochID)
+	if r != nil {
+		res := new(big.Int).Sub(all, r.Amount)
+		if res.Sign() >= 0 {
+			return res
+		} else {
+			log.Error("getValidStaking error", "all amount", all, "redeem amount", r.Amount, "height", hh)
+			return big.NewInt(0)
+		}
+	}
+
 	return all
 }
 func (s *impawnUnit) getValidRedeem(hh uint64) *big.Int {
@@ -1004,61 +1016,86 @@ func (i *ImpawnImpl) GetAllStakingAccount() SAImpawns {
 // GetStakingAccount2 returns a map for all staking amount of the address, the key is the SA address
 func (i *ImpawnImpl) GetStakingAsset(addr common.Address) map[common.Address]*types.StakingValue {
 	epochid := i.curEpochID
-	return i.getAsset(addr, epochid, false)
+	res, _ := i.getAsset(addr, epochid, types.OpQueryStaking)
+	return res
 }
 func (i *ImpawnImpl) GetLockedAsset(addr common.Address) map[common.Address]*types.StakingValue {
 	epochid := i.curEpochID
-	return i.getAsset(addr, epochid, true)
+	res, _ := i.getAsset(addr, epochid, types.OpQueryLocked)
+	return res
 }
-
-func (i *ImpawnImpl) getAsset(addr common.Address, epoch uint64, locked bool) map[common.Address]*types.StakingValue {
+func (i *ImpawnImpl) GetAllCancelableAsset(addr common.Address) map[common.Address]*big.Int {
+	epochid := i.curEpochID
+	_, res := i.getAsset(addr, epochid, types.OpQueryCancelable)
+	return res
+}
+func (i *ImpawnImpl) getAsset(addr common.Address, epoch uint64, op uint8) (map[common.Address]*types.StakingValue, map[common.Address]*big.Int) {
 	epochid := epoch
+	end := types.GetEpochFromID(epochid).EndHeight
 	if val, ok := i.accounts[epochid]; ok {
 		res := make(map[common.Address]*types.StakingValue)
+		res2 := make(map[common.Address]*big.Int)
 		for _, v := range val {
 			if bytes.Equal(v.unit.address.Bytes(), addr.Bytes()) {
-				if _, ok := res[addr]; !ok {
-					if locked {
-						res[addr] = &types.StakingValue{
-							Value: v.unit.redeemToMap(),
+				if op&types.OpQueryStaking != 0 || op&types.OpQueryLocked != 0 {
+					if _, ok := res[addr]; !ok {
+						if op&types.OpQueryStaking != 0 {
+							res[addr] = &types.StakingValue{
+								Value: v.unit.redeemToMap(),
+							}
+						} else {
+							res[addr] = &types.StakingValue{
+								Value: v.unit.valueToMap(),
+							}
 						}
-					} else {
-						res[addr] = &types.StakingValue{
-							Value: v.unit.valueToMap(),
-						}
-					}
 
-				} else {
-					log.Error("getAsset", "repeat staking account", addr, "epochid", epochid, "locked", locked)
+					} else {
+						log.Error("getAsset", "repeat staking account", addr, "epochid", epochid, "op", op)
+					}
 				}
+				if op&types.OpQueryCancelable != 0 {
+					all := v.unit.getValidStaking(end)
+					if all.Sign() >= 0 {
+						res2[addr] = all
+					}
+				}
+
 				continue
 			} else {
 				for _, vv := range v.delegation {
 					if bytes.Equal(vv.unit.address.Bytes(), addr.Bytes()) {
-						if _, ok := res[v.unit.address]; !ok {
-							if locked {
-								res[v.unit.address] = &types.StakingValue{
-									Value: vv.unit.redeemToMap(),
+						if op&types.OpQueryStaking != 0 || op&types.OpQueryLocked != 0 {
+							if _, ok := res[v.unit.address]; !ok {
+								if op&types.OpQueryStaking != 0 {
+									res[v.unit.address] = &types.StakingValue{
+										Value: vv.unit.redeemToMap(),
+									}
+								} else {
+									res[v.unit.address] = &types.StakingValue{
+										Value: vv.unit.valueToMap(),
+									}
 								}
 							} else {
-								res[v.unit.address] = &types.StakingValue{
-									Value: vv.unit.valueToMap(),
-								}
+								log.Error("getAsset", "repeat delegation account[sa,da]", v.unit.address, addr, "epochid", epochid, "op", op)
 							}
+						}
 
-						} else {
-							log.Error("getAsset", "repeat delegation account[sa,da]", v.unit.address, addr, "epochid", epochid, "locked", locked)
+						if op&types.OpQueryCancelable != 0 {
+							all := vv.unit.getValidStaking(end)
+							if all.Sign() >= 0 {
+								res2[v.unit.address] = all
+							}
 						}
 						break
 					}
 				}
 			}
 		}
-		return res
+		return res, res2
 	} else {
 		log.Error("getAsset", "wrong epoch in current", epochid)
 	}
-	return nil
+	return nil, nil
 }
 
 /////////////////////////////////////////////////////////////////////////////////
