@@ -833,6 +833,12 @@ func (b *SnailBlock) MaxFruitNumber() *big.Int {
 	}
 	return nil
 }
+func (b *SnailBlock) MinFruitNumber() *big.Int {
+	if len(b.Fruits()) > 0 {
+		return b.Fruits()[0].FastNumber()
+	}
+	return nil
+}
 
 // Body returns the non-header content of the snailblock.
 //func (b *SnailBlock) Body() *SnailBody { return b.body }
