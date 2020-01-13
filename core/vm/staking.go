@@ -51,6 +51,8 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	switch method.Name {
 	case "getDeposit":
 		ret, err = getDeposit(evm, contract, data)
+	case "getDelegate":
+		ret, err = getDelegate(evm, contract, data)
 	case "deposit":
 		ret, err = deposit(evm, contract, data)
 	case "withdraw":
@@ -247,13 +249,13 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 
 // getDeposit
 func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
-	if len(input)%32 != 0 {
-		log.Error("Call get_deposit input error")
-		return nil, ErrStakingInvalidInput
-	}
-
 	var depositAddr common.Address
 	method, _ := abiStaking.Methods["getDeposit"]
+	var (
+		staked   = big.NewInt(0)
+		locked   = big.NewInt(0)
+		unlocked = big.NewInt(0)
+	)
 
 	err = method.Inputs.Unpack(&depositAddr, input)
 	if err != nil {
@@ -263,22 +265,76 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, StakingAddress)
-
 	epoch := types.GetEpochFromHeight(evm.Context.BlockNumber.Uint64())
-	account, err := impawn.GetStakingAccount(epoch.EpochID, depositAddr)
+
+	asset := impawn.GetStakingAsset(depositAddr)
+	if stake, ok := asset[depositAddr]; ok {
+		for _, value := range stake.Value {
+			staked.Add(staked, value)
+		}
+	}
+
+	lockedAsset := impawn.GetLockedAsset(depositAddr)
+	if stake, ok := lockedAsset[depositAddr]; ok {
+		for num, value := range stake.Value {
+			if num > epoch.EpochID {
+				unlocked.Add(unlocked, value)
+			} else {
+				locked.Add(locked, value)
+			}
+		}
+	}
+
+	log.Info("Get staking get_deposit", "address", depositAddr, "staked", staked, "locked", locked, "unlocked", unlocked)
+
+	ret, err = method.Outputs.Pack(staked, locked, unlocked)
+	return ret, err
+}
+
+func getDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	args := struct {
+		Owner  common.Address
+		Holder common.Address
+	}{}
+	method, _ := abiStaking.Methods["getDeposit"]
+	var (
+		staked   = big.NewInt(0)
+		locked   = big.NewInt(0)
+		unlocked = big.NewInt(0)
+	)
+
+	err = method.Inputs.Unpack(&args, input)
 	if err != nil {
-		log.Error("Staking fetch account error", "error", err)
-		ret, _ = method.Outputs.Pack(big.NewInt(0))
-		return ret, err
+		log.Error("Unpack get_deposit input error")
+		return nil, ErrStakingInvalidInput
 	}
 
-	balance := new(big.Int)
-	for _, u := range account.unit.value {
-		balance.Add(balance, u.amount)
-	}
-	log.Info("Get staking get_deposit", "address", depositAddr, "balance", balance)
+	impawn := NewImpawnImpl()
+	impawn.Load(evm.StateDB, StakingAddress)
+	epoch := types.GetEpochFromHeight(evm.Context.BlockNumber.Uint64())
 
-	ret, err = method.Outputs.Pack(balance)
+	asset := impawn.GetStakingAsset(args.Owner)
+	if stake, ok := asset[args.Holder]; ok {
+		for _, value := range stake.Value {
+			staked.Add(staked, value)
+		}
+	}
+
+	lockedAsset := impawn.GetLockedAsset(args.Owner)
+	if stake, ok := lockedAsset[args.Holder]; ok {
+		for num, value := range stake.Value {
+			if num > epoch.EpochID {
+				unlocked.Add(unlocked, value)
+			} else {
+				locked.Add(locked, value)
+			}
+		}
+	}
+
+	log.Info("Get staking get_delegate", "address", args.Owner, "holder", args.Holder,
+		"staked", staked, "locked", locked, "unlocked", unlocked)
+
+	ret, err = method.Outputs.Pack(staked, locked, unlocked)
 	return ret, err
 }
 
@@ -335,13 +391,56 @@ const StakeABIJSON = `
       {
         "type": "uint256",
         "unit": "wei",
-        "name": "out"
+        "name": "staked"
+      },
+      {
+        "type": "uint256",
+        "unit": "wei",
+        "name": "locked"
+      },
+      {
+        "type": "uint256",
+        "unit": "wei",
+        "name": "unlocked"
       }
     ],
     "inputs": [
       {
         "type": "address",
         "name": "owner"
+      }
+    ],
+    "constant": true,
+    "payable": false,
+    "type": "function"
+  },
+  {
+    "name": "getDelegate",
+    "outputs": [
+      {
+        "type": "uint256",
+        "unit": "wei",
+        "name": "delegated"
+      },
+      {
+        "type": "uint256",
+        "unit": "wei",
+        "name": "locked"
+      },
+      {
+        "type": "uint256",
+        "unit": "wei",
+        "name": "unlocked"
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "owner"
+      },
+      {
+        "type": "address",
+        "name": "holder"
       }
     ],
     "constant": true,
