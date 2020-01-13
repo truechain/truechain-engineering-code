@@ -461,7 +461,7 @@ func (w *worker) wait() {
 					events = append(events, types.NewMinedFruitEvent{Block: block})
 					w.chain.PostChainEvents(events)
 				}
-				log.Info("🍒  mined fruit", "number  3333")
+				log.Info("🍒  mined fruit", "number", "3333")
 			} else {
 				if block.Fruits() == nil {
 					w.atCommintNewWoker = false
