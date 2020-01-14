@@ -21,11 +21,11 @@ func TestOnlyDeposit(t *testing.T) {
 	executable := func(number uint64, gen *core.BlockGen, fastChain *core.BlockChain, header *types.Header) {
 		snedTranction(number, gen, fastChain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 
-		sendDepositTransaction(number, gen, saddr1, skey1, signer, fastChain, abiStaking, nil, header)
+		sendDepositTransaction(number, gen, saddr1, big.NewInt(2000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
 		sendCancelTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
 		sendWithdrawTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
 	}
-	manager := newTestPOSManager(55, executable)
+	manager := newTestPOSManager(30, executable)
 	fmt.Println(" saddr1 ", manager.GetBalance(saddr1), " StakingAddress ", manager.GetBalance(vm.StakingAddress), " ", types.ToTrue(manager.GetBalance(vm.StakingAddress)))
 }
 
@@ -35,7 +35,7 @@ func TestGetLockedAsset(t *testing.T) {
 	executable := func(number uint64, gen *core.BlockGen, fastChain *core.BlockChain, header *types.Header) {
 		snedTranction(number, gen, fastChain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 
-		sendDepositTransaction(number, gen, saddr1, skey1, signer, fastChain, abiStaking, nil, header)
+		sendDepositTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
 		sendCancelTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, fastChain, abiStaking, nil, header)
 		if number == 90 {
 			stateDb := gen.GetStateDB()
@@ -60,8 +60,8 @@ func TestDeposit(t *testing.T) {
 		snedTranction(number, gen, blockchain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 		snedTranction(number, gen, blockchain, mAccount, daddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 
-		sendDepositTransaction(number, gen, saddr1, skey1, signer, blockchain, abiStaking, nil, header)
-		sendDelegateTransaction(number, gen, daddr1, saddr1, dkey1, signer, blockchain, abiStaking, nil, header)
+		sendDepositTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, nil, header)
+		sendDelegateTransaction(number, gen, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, nil, header)
 		sendCancelTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, nil, header)
 		sendUnDelegateTransaction(number, gen, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, nil, header)
 		if number == 130 {

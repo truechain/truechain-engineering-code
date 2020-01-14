@@ -1039,7 +1039,7 @@ func (i *ImpawnImpl) getAsset(addr common.Address, epoch uint64, op uint8) (map[
 			if bytes.Equal(v.unit.address.Bytes(), addr.Bytes()) {
 				if op&types.OpQueryStaking != 0 || op&types.OpQueryLocked != 0 {
 					if _, ok := res[addr]; !ok {
-						if op&types.OpQueryStaking != 0 {
+						if op&types.OpQueryLocked != 0 {
 							res[addr] = &types.StakingValue{
 								Value: v.unit.redeemToMap(),
 							}
@@ -1066,7 +1066,7 @@ func (i *ImpawnImpl) getAsset(addr common.Address, epoch uint64, op uint8) (map[
 					if bytes.Equal(vv.unit.address.Bytes(), addr.Bytes()) {
 						if op&types.OpQueryStaking != 0 || op&types.OpQueryLocked != 0 {
 							if _, ok := res[v.unit.address]; !ok {
-								if op&types.OpQueryStaking != 0 {
+								if op&types.OpQueryLocked != 0 {
 									res[v.unit.address] = &types.StakingValue{
 										Value: vv.unit.redeemToMap(),
 									}
