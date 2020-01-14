@@ -958,7 +958,7 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 		var accounts []*StakingAccount
 		accounts = append(accounts, sa)
 		i.accounts[epochInfo.EpochID] = SAImpawns(accounts)
-		log.Info("Insert staking account", "account", sa.unit.GetRewardAddress())
+		log.Info("Insert staking account", "epoch", epochInfo, "account", sa.unit.GetRewardAddress())
 	} else {
 		for _, ii := range val {
 			if bytes.Equal(ii.unit.address.Bytes(), sa.unit.address.Bytes()) {
@@ -968,7 +968,7 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 			}
 		}
 		i.accounts[epochInfo.EpochID] = append(val, sa)
-		log.Info("Insert staking account", "account", sa.unit.GetRewardAddress())
+		log.Info("Insert staking account", "epoch", epochInfo, "account", sa.unit.GetRewardAddress())
 	}
 	return nil
 }

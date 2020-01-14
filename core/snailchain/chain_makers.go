@@ -130,7 +130,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 	var blocks []*types.SnailBlock
 	blocks = append(blocks, parents...)
 	parent := parents[len(parents)-1]
-	log.Info("GenerateChain", "blocks", len(blocks), "number", parent.Number(), "n", n)
+	log.Debug("GenerateChain", "blocks", len(blocks), "number", parent.Number(), "n", n)
 
 	genblock := func(i int, parent *types.SnailBlock, chain []*types.SnailBlock) *types.SnailBlock {
 		var fruitSet []*types.SnailBlock
@@ -183,7 +183,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 		block := genblock(i, parent, blocks)
 		blocks = append(blocks, block)
 		parent = block
-		log.Info("Make snail block", "blocks", len(blocks[1:]), "number", parent.Number(), "i", i)
+		log.Debug("Make snail block", "blocks", len(blocks[1:]), "number", parent.Number(), "i", i)
 	}
 	return blocks[len(parents):]
 }
@@ -207,7 +207,7 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, fast
 	}
 	header.Difficulty = minerva.CalcDifficulty(chain.Config(), header.Time.Uint64(), minerva.GetParents(chain, header))
 
-	log.Info("makeBlockHead", "parent", parent.Number(), "fastNumber", fast.Number())
+	log.Debug("makeBlockHead", "parent", parent.Number(), "fastNumber", fast.Number())
 	return header
 }
 

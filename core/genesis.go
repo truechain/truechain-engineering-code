@@ -264,11 +264,11 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			hh = hh - 1
 		}
 		for _, member := range g.Committee {
-			err := impl.InsertSAccount2(hh, member.Coinbase, member.Publickey, big.NewInt(100000), big.NewInt(100), true)
+			err := impl.InsertSAccount2(hh, member.Coinbase, member.Publickey, big.NewInt(1000000000000000000), big.NewInt(100), true)
 			if err != nil {
 				log.Error("ToFastBlock InsertSAccount", "error", err)
 			}
-			statedb.AddBalance(vm.StakingAddress, big.NewInt(100000))
+			statedb.AddBalance(vm.StakingAddress, big.NewInt(1000000000000000000))
 		}
 		_, err := impl.DoElections(1, 0)
 		if err != nil {
@@ -540,7 +540,6 @@ func DefaultDevGenesisBlock() *Genesis {
 	key5 := hexutil.MustDecode("0x0424ee11dfbdf1cf406c7ed026c8217847fc3e62477d6987fdd93c9b3f7a4543fc0bf6b9767653da3fca5e9c58c6bc1999f9003e8ccbf4509572be38d28f83bed0")
 	key6 := hexutil.MustDecode("0x04a4b046b2760d8f761f73136227c3c8298d8e41330318c2b3879976d505ec98cfe2b6708ba3195f809a26fd48e9b0699fc15db05d22bddcca9a9d57dec84ccb74")
 	key7 := hexutil.MustDecode("0x04fd2c876106b349248134f698665b183d61dca0685cf757cca6ff5f47eb62951ebfbace4631f025716223fb009359af3acec85e2e3632d7353cc0393769745042")
-
 
 	return &Genesis{
 		Config:     params.DevnetChainConfig,
