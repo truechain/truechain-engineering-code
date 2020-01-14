@@ -990,6 +990,14 @@ func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*typ
 	}
 	return res, err
 }
+func (i *ImpawnImpl) Reward2(begin, end uint64, allAmount *big.Int) ([]*types.SARewardInfos, error) {
+
+	res, err := i.reward(begin, end, allAmount)
+	if err == nil {
+		i.lastReward = end
+	}
+	return res, err
+}
 
 /////////////////////////////////////////////////////////////////////////////////
 // GetStakings return all staking accounts of the current epoch
