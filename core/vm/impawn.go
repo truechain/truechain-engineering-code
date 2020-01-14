@@ -687,8 +687,10 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 		impawns := SAImpawns(das)
 		var res []*types.SARewardInfos
 		allValidatorStaking := impawns.getAllStaking(target)
+		sum := len(impawns)
+		left := big.NewInt(0)
 
-		for _, v := range impawns {
+		for pos, v := range impawns {
 			var info types.SARewardInfos
 			var item types.RewardInfo
 			item.Address = v.unit.GetRewardAddress()
@@ -698,6 +700,10 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 			}
 
 			v2 := new(big.Int).Quo(new(big.Int).Mul(allStaking, allAmount), allValidatorStaking)
+			if pos == sum-1 {
+				v2 = new(big.Int).Sub(allAmount, left)
+			}
+			left = left.Add(left, v2)
 
 			if ii, err := i.calcRewardInSa(target, v, v2, allStaking, &item); err != nil {
 				return nil, err
