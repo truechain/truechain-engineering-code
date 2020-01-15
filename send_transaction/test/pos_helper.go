@@ -27,56 +27,85 @@ var (
 	firstNumber = uint64(0)
 	sb          map[common.Address]*types.StakingValue
 	dbb         map[common.Address]*types.StakingValue
+	epoch       = uint64(0)
+	send        = false
 )
 
-func SendTX(block *types.Block, propagate bool, blockchain *core.BlockChain, tx txPool, config *params.ChainConfig) {
+//epoch  [id:1,begin:1,end:2000]   [id:2,begin:2001,end:4000]   [id:3,begin:4001,end:6000]   [id:4,begin:6001,end:8000]   [id:5,begin:8001,end:10000]
+func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, tx txPool, config *params.ChainConfig, gen *core.BlockGen, statedb *state.StateDB) {
 	if !propagate {
 		return
 	}
-
+	var stateDb *state.StateDB
+	if statedb == nil {
+		stateDb, _ = blockchain.StateAt(header.Root)
+	} else {
+		stateDb = statedb
+	}
 	if !first {
 		first = true
-		firstNumber = block.Number().Uint64()
+		if gen == nil {
+			skey1, _ = crypto.GenerateKey()
+			saddr1 = crypto.PubkeyToAddress(skey1.PublicKey)
+			dkey1, _ = crypto.GenerateKey()
+			daddr1 = crypto.PubkeyToAddress(dkey1.PublicKey)
+		}
+		firstNumber = header.Number.Uint64()
 		signer = types.NewTIP1Signer(config.ChainID)
-
-		stateDb, _ := blockchain.StateAt(block.Header().Root)
 		impawn := vm.NewImpawnImpl()
 		impawn.Load(stateDb, vm.StakingAddress)
 		sb = impawn.GetLockedAsset(saddr1)
 		dbb = impawn.GetLockedAsset(daddr1)
+		epoch = types.GetEpochFromHeight(firstNumber).EpochID
+		fmt.Println("cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
+		send = true
 	}
-	number := block.Number().Uint64()
+	number := header.Number.Uint64()
 	diff := number - firstNumber
 
-	if sb != nil {
-		for addr, value := range sb {
-			for i, val := range value.Value {
-				fmt.Println("epoch ", i, " value ", val, " addr ", addr.String())
-				sendNWithdrawTransaction(i, number, nil, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, tx, block.Header())
-			}
-		}
-	} else {
-		snedTranction(diff, nil, blockchain, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, tx, block.Header())
-
-		sendDepositTransaction(diff, nil, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, tx, block.Header())
-		sendCancelTransaction(diff, nil, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, tx, block.Header())
-		sendWithdrawTransaction(diff, nil, saddr1, big.NewInt(1000000000000000000), skey1, signer, blockchain, abiStaking, tx, block.Header())
+	cEpoch := types.GetEpochFromHeight(number).EpochID
+	if cEpoch != epoch && cEpoch-epoch == 4 {
+		send = true
+		firstNumber = types.GetEpochFromID(cEpoch).BeginHeight
+		epoch = cEpoch
+		fmt.Println("firstNumber", firstNumber, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
 	}
+	if send {
+		if sb != nil {
+			for addr, value := range sb {
+				for i, val := range value.Value {
+					fmt.Println("epoch ", i, " value ", val, " addr ", addr.String())
+					sendNWithdrawTransaction(i, number, gen, saddr1, val, skey1, signer, stateDb, blockchain, abiStaking, tx)
+				}
+			}
+		} else {
+			sendTranction(diff, gen, stateDb, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, tx, header)
 
-	if dbb != nil {
-		for addr, value := range dbb {
-			for i, val := range value.Value {
-				fmt.Println("epoch ", i, " value ", val, " addr ", addr.String())
-				sendNWithdrawDelegateTransaction(i, number, nil, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, tx, block.Header())
+			sendDepositTransaction(diff, gen, saddr1, big.NewInt(4000000000000000000), skey1, signer, stateDb, blockchain, abiStaking, tx)
+			sendCancelTransaction(diff-types.GetEpochFromID(epoch+1).BeginHeight+firstNumber, gen, saddr1, big.NewInt(2000000000000000000), skey1, signer, stateDb, blockchain, abiStaking, tx)
+			sendWithdrawTransaction(diff-types.MinCalcRedeemHeight(epoch+1)+firstNumber, gen, saddr1, big.NewInt(2000000000000000000), skey1, signer, stateDb, blockchain, abiStaking, tx)
+		}
+
+		if dbb != nil {
+			for addr, value := range dbb {
+				for i, val := range value.Value {
+					fmt.Println("epoch ", i, " value ", val, " addr ", addr.String())
+					sendNWithdrawDelegateTransaction(i, number, gen, daddr1, saddr1, val, dkey1, signer, stateDb, blockchain, abiStaking, tx)
+				}
+			}
+		} else {
+			sendTranction(diff-2, gen, stateDb, mAccount, daddr1, big.NewInt(6000000000000000000), priKey, signer, tx, header)
+
+			sendDelegateTransaction(diff, gen, daddr1, saddr1, big.NewInt(4000000000000000000), dkey1, signer, stateDb, blockchain, abiStaking, tx)
+			sendUnDelegateTransaction(diff-types.GetEpochFromID(epoch+1).BeginHeight+firstNumber, gen, daddr1, saddr1, big.NewInt(2000000000000000000), dkey1, signer, stateDb, blockchain, abiStaking, tx)
+			sendWithdrawDelegateTransaction(diff-types.MinCalcRedeemHeight(epoch+1)+firstNumber, gen, daddr1, saddr1, big.NewInt(2000000000000000000), dkey1, signer, stateDb, blockchain, abiStaking, tx)
+			if diff-types.MinCalcRedeemHeight(epoch+1) == 20 {
+				send = false
 			}
 		}
-	} else {
-		snedTranction(diff-2, nil, blockchain, mAccount, daddr1, big.NewInt(6000000000000000000), priKey, signer, tx, block.Header())
 
-		sendDelegateTransaction(diff, nil, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, tx, block.Header())
-		sendUnDelegateTransaction(diff, nil, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, tx, block.Header())
-		sendWithdrawDelegateTransaction(diff, nil, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, blockchain, abiStaking, tx, block.Header())
-
+		sb = nil
+		dbb = nil
 	}
 }
 
@@ -133,7 +162,7 @@ var (
 	daddr1        = crypto.PubkeyToAddress(dkey1.PublicKey)
 )
 
-func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *core.BlockChain, *types.Header)) *POSManager {
+func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *core.BlockChain, *types.Header, *state.StateDB)) *POSManager {
 
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
@@ -150,16 +179,17 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 
 	parentFast := genesis
 	parentSnail := []*types.SnailBlock{snailGenesis}
-	for i := 1; i < sBlocks; i++ {
+	for i := 0; i < sBlocks; i++ {
 
 		chain, _ := core.GenerateChain(gspec.Config, parentFast, engine, db, 60, func(i int, gen *core.BlockGen) {
 
 			header := gen.GetHeader()
+			stateDB := gen.GetStateDB()
 			switch i {
 			case 0:
 				rewardSnailBlock(snailChainTest, blockchain, header)
 			}
-			executableTx(header.Number.Uint64(), gen, blockchain, header)
+			executableTx(header.Number.Uint64(), gen, blockchain, header, stateDB)
 		})
 		if _, err := blockchain.InsertChain(chain); err != nil {
 			panic(err)
@@ -202,101 +232,77 @@ func rewardSnailBlock(chain consensus.SnailChainReader, fastChain *core.BlockCha
 	}
 }
 
-func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
+func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
 	if height == 40 {
-		nonce, _ := getNonce(gen, from, blockchain, header, "sendDepositTransaction")
+		nonce, _ := getNonce(gen, from, state, "sendDepositTransaction")
 		pub := crypto.FromECDSAPub(&priKey.PublicKey)
-		input, err := abiStaking.Pack("deposit", pub)
-		if err != nil {
-			fmt.Println("sendDepositTransaction ", "error", err)
-		}
+		input := packInput(abiStaking, "deposit", "sendDepositTransaction", pub)
 		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
 	}
 }
 
-func sendDelegateTransaction(height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
+func sendDelegateTransaction(height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
 	if height == 60 {
-		nonce, _ := getNonce(gen, from, blockchain, header, "sendDelegateTransaction")
-		input, err := abiStaking.Pack("delegate", toAddress)
-		if err != nil {
-			fmt.Println("sendDelegateTransaction ", "error", err)
-		}
+		nonce, _ := getNonce(gen, from, state, "sendDelegateTransaction")
+		input := packInput(abiStaking, "delegate", "sendDelegateTransaction", toAddress)
 		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
 	}
 }
 
-func sendCancelTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
-	if height == 80 {
-		nonce, _ := getNonce(gen, from, blockchain, header, "sendCancelTransaction")
-		input, err := abiStaking.Pack("cancel", value)
-		if err != nil {
-			fmt.Println("sendCancelTransaction ", "error", err)
-		}
+func sendCancelTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 10 {
+		nonce, _ := getNonce(gen, from, state, "sendCancelTransaction")
+		input := packInput(abiStaking, "cancel", "sendCancelTransaction", value)
 		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
 	}
 }
 
-func sendUnDelegateTransaction(height uint64, gen *core.BlockGen, from common.Address, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
-	if height == 120 {
-		nonce, _ := getNonce(gen, from, blockchain, header, "sendUnDelegateTransaction")
-		input, err := abiStaking.Pack("undelegate", toAddress, value)
-		if err != nil {
-			fmt.Println("sendUnDelegateTransaction ", "error", err)
-		}
-		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
-	}
-}
-
-func sendWithdrawTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
-	if height == types.MinCalcRedeemHeight(types.GetEpochFromHeight(160).EpochID) {
-		nonce, _ := getNonce(gen, from, blockchain, header, "sendWithdrawTransaction")
-		input, err := abiStaking.Pack("withdraw", value)
-		if err != nil {
-			fmt.Println("sendWithdrawTransaction ", "error", err)
-		}
-		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
-	}
-}
-
-func sendWithdrawDelegateTransaction(height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
-	if height == types.MinCalcRedeemHeight(types.GetEpochFromHeight(180).EpochID) {
-		nonce, _ := getNonce(gen, from, blockchain, header, "sendWithdrawDelegateTransaction")
-		input, err := abiStaking.Pack("withdrawDelegate", toAddress, value)
-		if err != nil {
-			fmt.Println("sendWithdrawDelegateTransaction ", "error", err)
-		}
-		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
-	}
-}
-
-func sendNWithdrawDelegateTransaction(epoch uint64, height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
-	if height == types.MinCalcRedeemHeight(epoch) {
-		nonce, _ := getNonce(gen, from, blockchain, header, "sendNWithdrawDelegateTransaction")
-		input, err := abiStaking.Pack("withdrawDelegate", toAddress, value)
-		if err != nil {
-			fmt.Println("sendWithdrawDelegateTransaction ", "error", err)
-		}
-		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
-	}
-}
-
-func sendNWithdrawTransaction(epoch uint64, height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool, header *types.Header) {
-	if height == types.MinCalcRedeemHeight(epoch) {
-		nonce, _ := getNonce(gen, from, blockchain, header, "sendNWithdrawTransaction")
-		input, err := abiStaking.Pack("withdraw", value)
-		if err != nil {
-			fmt.Println("sendWithdrawTransaction ", "error", err)
-		}
-		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
-	}
-}
-
-func snedTranction(height uint64, gen *core.BlockGen, blockchain *core.BlockChain, from, to common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, signer types.TIP1Signer, txPool txPool, header *types.Header) {
+func sendUnDelegateTransaction(height uint64, gen *core.BlockGen, from common.Address, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
 	if height == 20 {
-		nonce, statedb := getNonce(gen, from, blockchain, header, "snedTranction")
+		nonce, _ := getNonce(gen, from, state, "sendUnDelegateTransaction")
+		input := packInput(abiStaking, "undelegate", "sendUnDelegateTransaction", toAddress, value)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
+	}
+}
+
+func sendWithdrawTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 10 {
+		nonce, _ := getNonce(gen, from, state, "sendWithdrawTransaction")
+		input := packInput(abiStaking, "withdraw", "sendWithdrawTransaction", value)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
+	}
+}
+
+func sendWithdrawDelegateTransaction(height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 20 {
+		nonce, _ := getNonce(gen, from, state, "sendWithdrawDelegateTransaction")
+		input := packInput(abiStaking, "withdrawDelegate", "sendWithdrawDelegateTransaction", toAddress, value)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
+	}
+}
+
+func sendNWithdrawDelegateTransaction(epoch uint64, height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == types.MinCalcRedeemHeight(epoch) {
+		nonce, _ := getNonce(gen, from, state, "sendNWithdrawDelegateTransaction")
+		input := packInput(abiStaking, "withdrawDelegate", "sendNWithdrawDelegateTransaction", toAddress, value)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
+	}
+}
+
+func sendNWithdrawTransaction(epoch uint64, height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == types.MinCalcRedeemHeight(epoch) {
+		nonce, _ := getNonce(gen, from, state, "sendNWithdrawTransaction")
+		input := packInput(abiStaking, "withdraw", "sendNWithdrawTransaction", value)
+		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
+	}
+}
+
+func sendTranction(height uint64, gen *core.BlockGen, state *state.StateDB, from, to common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, signer types.TIP1Signer, txPool txPool, header *types.Header) {
+	if height == 20 {
+		nonce, statedb := getNonce(gen, from, state, "sendTranction")
 		balance := statedb.GetBalance(to)
 		remaining := new(big.Int).Sub(value, balance)
-		fmt.Println("snedTranction ", balance.Uint64(), " remaining ", remaining.Uint64(), " height ", height, " current ", header.Number.Uint64())
+		fmt.Println("sendTranction ", balance.Uint64(), " remaining ", remaining.Uint64(), " height ", height, " current ", header.Number.Uint64())
 		if remaining.Sign() > 0 {
 			tx, _ := types.SignTx(types.NewTransaction(nonce, to, remaining, params.TxGas, new(big.Int).SetInt64(1000000), nil), signer, privateKey)
 			if gen != nil {
@@ -304,18 +310,20 @@ func snedTranction(height uint64, gen *core.BlockGen, blockchain *core.BlockChai
 			} else {
 				txPool.AddRemotes([]*types.Transaction{tx})
 			}
+		} else {
+			fmt.Println("to ", to.String(), " have balance ", balance.Uint64(), " height ", height, " current ", header.Number.Uint64())
 		}
 	}
 }
 
-func getNonce(gen *core.BlockGen, from common.Address, blockchain *core.BlockChain, header *types.Header, method string) (uint64, *state.StateDB) {
+func getNonce(gen *core.BlockGen, from common.Address, state1 *state.StateDB, method string) (uint64, *state.StateDB) {
 	var nonce uint64
 	var stateDb *state.StateDB
 	if gen != nil {
 		nonce = gen.TxNonce(from)
 		stateDb = gen.GetStateDB()
 	} else {
-		stateDb, _ = blockchain.StateAt(header.Root)
+		stateDb = state1
 		nonce = stateDb.GetNonce(from)
 	}
 	printBalance(stateDb, from, method)
@@ -338,4 +346,12 @@ func printBalance(stateDb *state.StateDB, from common.Address, method string) {
 	StakinValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
 	fmt.Println(method, " from ", types.ToTrue(stateDb.GetBalance(from)), " Staking fbalance ", fbalance, " StakinValue ", StakinValue)
+}
+
+func packInput(abiStaking abi.ABI, abiMethod, method string, params ...interface{}) []byte {
+	input, err := abiStaking.Pack(abiMethod, params...)
+	if err != nil {
+		fmt.Println(method, " error ", err)
+	}
+	return input
 }
