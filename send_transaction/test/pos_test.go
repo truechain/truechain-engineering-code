@@ -88,7 +88,7 @@ func TestSendTX(t *testing.T) {
 		header := gen.GetHeader()
 		statedb := gen.GetStateDB()
 		if i > 60 {
-			SendTX(header, true, blockchain, nil, gspec.Config, gen, statedb)
+			SendTX(header, true, blockchain, nil, gspec.Config, gen, statedb, nil)
 		}
 	})
 	if _, err := blockchain.InsertChain(chain); err != nil {

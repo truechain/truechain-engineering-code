@@ -1507,3 +1507,8 @@ func (agent *PbftAgent) GetAlternativeCommittee() []string {
 	}
 	return memberKeys
 }
+
+//GetAlternativeCommittee return received back committee member's pubkey information
+func (agent *PbftAgent) GetPrivateKey() *ecdsa.PrivateKey {
+	return agent.privateKey
+}

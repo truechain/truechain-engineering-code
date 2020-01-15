@@ -17,14 +17,15 @@
 package etrue
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"io"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 // Constants to match up protocol versions and messages
@@ -144,6 +145,8 @@ type AgentNetworkProxy interface {
 	AddRemoteNodeInfo(*types.EncryptNodeMessage) error
 	//GetNodeInfoByHash get crypto nodeInfo  by hash
 	GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.EncryptNodeMessage, bool)
+	//GetPrivateKey get crypto privateKey
+	GetPrivateKey() *ecdsa.PrivateKey
 }
 
 // statusData is the network packet for the status message.

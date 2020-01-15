@@ -32,7 +32,7 @@ var (
 )
 
 //epoch  [id:1,begin:1,end:2000]   [id:2,begin:2001,end:4000]   [id:3,begin:4001,end:6000]   [id:4,begin:6001,end:8000]   [id:5,begin:8001,end:10000]
-func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, tx txPool, config *params.ChainConfig, gen *core.BlockGen, statedb *state.StateDB) {
+func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, tx txPool, config *params.ChainConfig, gen *core.BlockGen, statedb *state.StateDB, priKey *ecdsa.PrivateKey) {
 	if !propagate {
 		return
 	}
@@ -45,7 +45,11 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 	if !first {
 		first = true
 		if gen == nil {
-			skey1, _ = crypto.GenerateKey()
+			if priKey != nil {
+				skey1 = priKey
+			} else {
+				skey1, _ = crypto.GenerateKey()
+			}
 			saddr1 = crypto.PubkeyToAddress(skey1.PublicKey)
 			dkey1, _ = crypto.GenerateKey()
 			daddr1 = crypto.PubkeyToAddress(dkey1.PublicKey)
