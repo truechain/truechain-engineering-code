@@ -234,6 +234,7 @@ func updateForkedPoint(forkedID, fastNumber *big.Int, config *params.ChainConfig
 	if config.TIP8.CID.Cmp(forkedID) == 0 && config.TIP8.FastNumber.Sign() == 0 && fastNumber != nil {
 		params.DposForkPoint = fastNumber.Uint64()
 		config.TIP8.FastNumber = new(big.Int).Add(fastNumber, common.Big1)
+		log.Info("updateForkedPoint","", "TIP8.FastNumber", config.TIP8.FastNumber, "FirstNewEpochID", params.FirstNewEpochID)
 	}
 }
 
@@ -257,5 +258,6 @@ func InitTIP8(config *params.ChainConfig, reader SnailChainReader) {
 		fruits := block.Fruits()
 		lastFruitNumber := fruits[len(fruits)-1].FastNumber()
 		config.TIP8.FastNumber = new(big.Int).Add(new(big.Int).Add(lastFruitNumber, params.ElectionSwitchoverNumber), common.Big1)
+		log.Info("InitTIP8", "switchCheckNumber", switchCheckNumber,"", "TIP8.FastNumber", config.TIP8.FastNumber, "FirstNewEpochID", params.FirstNewEpochID)
 	}
 }
