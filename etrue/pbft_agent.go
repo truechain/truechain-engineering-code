@@ -573,7 +573,7 @@ func (agent *PbftAgent) loop() {
 			go agent.putCacheInsertChain(ch.Block)
 
 			num := ch.Block.Number()
-			if agent.election.IsTIP8(new(big.Int).Add(num, common.Big2)) {
+			if agent.election.IsTIP8(new(big.Int).Add(num, common.Big1)) {
 				epoch := types.GetFirstEpoch()
 				if num.Uint64() + 1 == epoch.BeginHeight {
 					log.Info("Prepare new epoch", "id", epoch.EpochID, "block", num)
