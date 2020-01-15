@@ -1245,6 +1245,7 @@ func (e *Election) initCurrent() {
 	}
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
+	e.snailChainEventSub = e.snailchain.SubscribeChainEvent(e.snailChainEventCh)
 	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if currentCommittee == nil {
 		log.Crit("Election faiiled to get committee on start")
@@ -1374,7 +1375,9 @@ func (e *Election) loop() {
 					EndFastNumber:    e.committee.endFastNumber,
 				})
 				log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "endfast", e.committee.endFastNumber)
-
+				if e.isTIP8FromCID(e.committee.id.Uint64()) {
+					continue
+				}
 				nextCommittee := e.calcCommittee(new(big.Int).Add(e.committee.id, common.Big1))
 				if e.nextCommittee != nil && e.nextCommittee.id.Cmp(nextCommittee.id) == 0 {
 					// May make a duplicate committee switchover if snail forks
@@ -1406,6 +1409,9 @@ func (e *Election) loop() {
 					BeginFastNumber:  e.committee.beginFastNumber,
 					EndFastNumber:    e.committee.endFastNumber,
 				})
+				if e.isTIP8FromCID(e.committee.id.Uint64()) {
+					continue
+				}
 
 				e.mu.Lock()
 				e.committee = e.nextCommittee
@@ -1437,6 +1443,9 @@ func (e *Election) SetEngine(engine consensus.Engine) {
 }
 func (e *Election) IsTIP8(fastHeadNumber *big.Int) bool {
 	return consensus.IsTIP8(fastHeadNumber, e.chainConfig, e.getSnailChainReader())
+}
+func (e *Election) isTIP8FromCID(cid uint64) bool {
+	return new(big.Int).SetUint64(cid).Cmp(e.chainConfig.TIP8.CID) >= 0
 }
 func (e *Election) getSnailChainReader() consensus.SnailChainReader {
 	if e.snailchain != nil {
