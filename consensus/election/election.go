@@ -1343,14 +1343,18 @@ func (e *Election) loop() {
 			BeginFastNumber:  e.committee.beginFastNumber,
 			EndFastNumber:    e.committee.endFastNumber,
 		})
-		e.electionFeed.Send(types.ElectionEvent{
-			Option:           types.CommitteeSwitchover,
-			CommitteeID:      e.nextCommittee.id,
-			CommitteeMembers: e.nextCommittee.Members(),
-			BackupMembers:    e.nextCommittee.BackupMembers(),
-			BeginFastNumber:  e.nextCommittee.beginFastNumber,
-		})
-		log.Info("Election switchover next on start", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
+		if e.isTIP8FromCID(e.committee.id.Uint64()) {
+			e.startSwitchover = false
+		} else {
+			e.electionFeed.Send(types.ElectionEvent{
+				Option:           types.CommitteeSwitchover,
+				CommitteeID:      e.nextCommittee.id,
+				CommitteeMembers: e.nextCommittee.Members(),
+				BackupMembers:    e.nextCommittee.BackupMembers(),
+				BeginFastNumber:  e.nextCommittee.beginFastNumber,
+			})
+			log.Info("Election switchover next on start", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
+		}
 	}
 
 	// Calculate commitee and switchover via fast and snail event
