@@ -25,6 +25,18 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
+// StakingGas defines all method gas
+var StakingGas = map[string]uint64{
+	"getDeposit": 21000,
+	"getDelegate": 21000,
+	"deposit": 21000,
+	"withdraw": 21000,
+	"cancel": 21000,
+	"delegate": 21000,
+	"undelegate": 21000,
+	"withdrawDelegate": 21000,
+}
+
 // Staking contract ABI
 var abiStaking abi.ABI
 

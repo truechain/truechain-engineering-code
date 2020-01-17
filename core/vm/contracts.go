@@ -365,7 +365,17 @@ func (c *bn256Pairing) Run(evm *EVM, contract *Contract, input []byte) ([]byte, 
 type staking struct{}
 
 func (c *staking) RequiredGas(input []byte) uint64 {
-	return 21000
+	var baseGas uint64 = 21000
+
+	method, err := abiStaking.MethodById(input)
+	if err != nil {
+		return baseGas
+	}
+	if gas, ok := StakingGas[string(method.Name)]; ok {
+		return gas
+	} else {
+		return baseGas
+	}
 }
 
 func (c *staking) Run(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
