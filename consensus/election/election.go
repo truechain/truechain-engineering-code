@@ -1244,7 +1244,6 @@ func (e *Election) initCurrent() {
 	}
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
-	e.snailChainEventSub = e.snailchain.SubscribeChainEvent(e.snailChainEventCh)
 	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if currentCommittee == nil {
 		log.Crit("Election faiiled to get committee on start")
@@ -1299,6 +1298,7 @@ func (e *Election) Start() error {
 		e.disabled = true
 		return nil
 	} else {
+		e.snailChainEventSub = e.snailchain.SubscribeChainEvent(e.snailChainEventCh)
 		e.initCurrent()
 		// send event to the subscripber
 		go func(e *Election) {
