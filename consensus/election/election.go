@@ -27,6 +27,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -403,30 +404,18 @@ func (e *Election) VerifySwitchInfo(fastNumber *big.Int, info []*types.Committee
 	if e.singleNode == true {
 		return nil
 	}
-	if e.chainConfig.IsTIP8(fastNumber) {
-		return nil
-	}
-	committee := e.electedCommittee(fastNumber)
-	if committee == nil {
+	begin, members := e.getMembers(fastNumber)
+	if begin == nil || members == nil {
 		log.Error("Failed to fetch elected committee", "fast", fastNumber)
 		return ErrCommittee
 	}
-
-	// Committee begin block must include members info
-	if committee.beginFastNumber.Cmp(fastNumber) == 0 {
-		members := committee.members
-		members = append(members, committee.backupMembers...)
-		if len(members) != len(info) {
-			log.Error("SwitchInfo members invalid", "num", fastNumber)
-			return ErrInvalidSwitch
-		}
+	if begin.Cmp(fastNumber) == 0 && len(members) == len(info) {
 		for i := range info {
 			if !info[i].Compared(members[i]) {
 				log.Error("SwitchInfo members invalid", "num", fastNumber)
 				return ErrInvalidSwitch
 			}
 		}
-		return nil
 	}
 
 	return nil
@@ -668,7 +657,7 @@ func (e *Election) electedCommittee(fastNumber *big.Int) *committee {
 func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	var members []*types.CommitteeMember
 
-	if e.chainConfig.IsTIP8(fastNumber) {
+	if e.IsTIP8(fastNumber) {
 		// Apply validators at stake from contract and blockchain
 		return e.getValidators(fastNumber)
 	}
@@ -806,7 +795,21 @@ func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
 
 	return nil
 }
-
+func (e *Election) getMembers(fastNumber *big.Int) (*big.Int, []*types.CommitteeMember) {
+	if e.IsTIP8(fastNumber) {
+		epoch := types.GetEpochFromHeight(fastNumber.Uint64())
+		return new(big.Int).SetUint64(epoch.BeginHeight), e.getValidators(fastNumber)
+	} else {
+		committee := e.electedCommittee(fastNumber)
+		if committee == nil {
+			log.Error("Failed to fetch elected committee", "fast", fastNumber)
+			return nil, nil
+		}
+		members := committee.members
+		members = append(members, committee.backupMembers...)
+		return committee.beginFastNumber, members
+	}
+}
 func membersDisplay(members []*types.CommitteeMember) []map[string]interface{} {
 	var attrs []map[string]interface{}
 	for _, member := range members {
@@ -1217,7 +1220,7 @@ func (e *Election) FinalizeCommittee(block *types.Block) error {
 		log.Error("Finalize committee get nil block")
 		return nil
 	}
-	if e.chainConfig.IsTIP8(new(big.Int).Add(block.Number(), common.Big0)) {
+	if e.IsTIP8(new(big.Int).Set(block.Number())) {
 		// No need to do retrieve election from PoW
 		return nil
 	}
@@ -1230,29 +1233,22 @@ func (e *Election) FinalizeCommittee(block *types.Block) error {
 
 	if e.committee.endFastNumber.Cmp(block.Number()) == 0 {
 		// Current committee completed, switch next
+		e.initCurrent()
 		e.switchNext <- struct{}{}
 	}
 	return nil
 }
-
-// Start load current committ and starts election processing
-func (e *Election) Start() error {
-	// get current committee info
+func (e *Election) initCurrent() {
+	if e.committee != nil {
+		return
+	}
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
-
-	if e.chainConfig.IsTIP8(fastHeadNumber) {
-		// No need to do retrieve committee from PoW and do election
-		log.Info("Election enable stake at launch")
-		e.disabled = true
-		return nil
-	}
-
 	e.snailChainEventSub = e.snailchain.SubscribeChainEvent(e.snailChainEventCh)
 	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if currentCommittee == nil {
 		log.Crit("Election faiiled to get committee on start")
-		return nil
+		return
 	}
 	// Rewind committee swtichinfo storage if blockchain rollbacks
 	for i := 0; i < len(currentCommittee.switches); i++ {
@@ -1289,27 +1285,41 @@ func (e *Election) Start() error {
 			e.prepare = true
 		}
 	}
+}
 
-	// send event to the subscripber
-	go func(e *Election) {
-		printCommittee(e.committee)
-		members, backups := e.filterWithSwitchInfo(e.committee)
-		e.electionFeed.Send(types.ElectionEvent{
-			Option:           types.CommitteeSwitchover,
-			CommitteeID:      e.committee.id,
-			CommitteeMembers: members,
-			BackupMembers:    backups,
-			BeginFastNumber:  e.committee.beginFastNumber,
-		})
-		e.electionFeed.Send(types.ElectionEvent{
-			Option:           types.CommitteeStart,
-			CommitteeID:      e.committee.id,
-			CommitteeMembers: members,
-			BackupMembers:    backups,
-			BeginFastNumber:  e.committee.beginFastNumber,
-		})
-	}(e)
+// Start load current committ and starts election processing
+func (e *Election) Start() error {
+	// get current committee info
+	fastHeadNumber := e.fastchain.CurrentHeader().Number
+	// snailHeadNumber := e.snailchain.CurrentHeader().Number
 
+	if e.IsTIP8(fastHeadNumber) {
+		// No need to do retrieve committee from PoW and do election
+		log.Info("Election enable stake at launch")
+		e.disabled = true
+		return nil
+	} else {
+		e.initCurrent()
+		// send event to the subscripber
+		go func(e *Election) {
+			printCommittee(e.committee)
+			members, backups := e.filterWithSwitchInfo(e.committee)
+			e.electionFeed.Send(types.ElectionEvent{
+				Option:           types.CommitteeSwitchover,
+				CommitteeID:      e.committee.id,
+				CommitteeMembers: members,
+				BackupMembers:    backups,
+				BeginFastNumber:  e.committee.beginFastNumber,
+			})
+			e.electionFeed.Send(types.ElectionEvent{
+				Option:           types.CommitteeStart,
+				CommitteeID:      e.committee.id,
+				CommitteeMembers: members,
+				BackupMembers:    backups,
+				BeginFastNumber:  e.committee.beginFastNumber,
+			})
+		}(e)
+	}
 	// Start the event loop and return
 	go e.loop()
 
@@ -1346,7 +1356,14 @@ func (e *Election) loop() {
 	for {
 		select {
 		case se := <-e.snailChainEventCh:
-			if se.Block != nil && e.committee.switchCheckNumber.Cmp(se.Block.Number()) == 0 {
+			fastHeadNumber := e.fastchain.CurrentHeader().Number
+			if e.IsTIP8(fastHeadNumber) {
+				continue
+			}
+			if e.committee == nil {
+				e.initCurrent()
+			}
+			if se.Block != nil && e.committee != nil && e.committee.switchCheckNumber.Cmp(se.Block.Number()) == 0 {
 				//Record Numbers to open elections
 				e.committee.endFastNumber = e.getEndFast(e.committee.id)
 				e.electionFeed.Send(types.ElectionEvent{
@@ -1379,7 +1396,7 @@ func (e *Election) loop() {
 				})
 			}
 		case <-e.switchNext:
-			if e.startSwitchover {
+			if e.startSwitchover && e.committee != nil {
 				log.Info("Election stop committee..", "id", e.committee.id)
 				e.electionFeed.Send(types.ElectionEvent{
 					Option:           types.CommitteeStop,
@@ -1417,6 +1434,18 @@ func (e *Election) SubscribeElectionEvent(ch chan<- types.ElectionEvent) event.S
 // SetEngine set election backend consesus
 func (e *Election) SetEngine(engine consensus.Engine) {
 	e.engine = engine
+}
+func (e *Election) IsTIP8(fastHeadNumber *big.Int) bool {
+	return consensus.IsTIP8(fastHeadNumber, e.chainConfig, e.getSnailChainReader())
+}
+func (e *Election) getSnailChainReader() consensus.SnailChainReader {
+	if e.snailchain != nil {
+		p, ok := (e.snailchain).(*snailchain.SnailBlockChain)
+		if ok {
+			return p
+		}
+	}
+	return nil
 }
 
 func printCommittee(c *committee) {

@@ -29,6 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -257,7 +258,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		}
 	}
 
-	if g.Config.IsTIP8(new(big.Int).SetUint64(g.Number)) {
+	if consensus.IsTIP8(new(big.Int).SetUint64(g.Number), g.Config, nil) {
 		impl := vm.NewImpawnImpl()
 		hh := g.Number
 		if hh != 0 {

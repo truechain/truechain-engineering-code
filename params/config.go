@@ -58,7 +58,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(1500000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(8000000)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(8000000), CID: big.NewInt(2000)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(640000)},
 	}
 
@@ -93,7 +93,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(450000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(4000)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(100)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(100), CID: big.NewInt(100)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
 
@@ -128,7 +128,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
 
@@ -141,7 +141,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(100)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(100), CID: big.NewInt(-1)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
 
@@ -238,6 +238,7 @@ type ChainConfig struct {
 type BlockConfig struct {
 	FastNumber  *big.Int
 	SnailNumber *big.Int
+	CID         *big.Int
 }
 
 func (c *ChainConfig) UnmarshalJSON(input []byte) error {
@@ -433,7 +434,7 @@ func (err *ConfigCompatError) Error() string {
 // phases.
 type Rules struct {
 	ChainID *big.Int
-	IsTIP3, IsTIP8 bool
+	IsTIP3  bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -445,7 +446,6 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	return Rules{
 		ChainID: new(big.Int).Set(chainID),
 		IsTIP3:  c.IsTIP3(num),
-		IsTIP8: c.IsTIP8(num),
 	}
 }
 
@@ -465,11 +465,15 @@ func (c *ChainConfig) IsTIP5(num *big.Int) bool {
 	return isForked(c.TIP5.SnailNumber, num)
 }
 
-func (c *ChainConfig) IsTIP8(num *big.Int) bool {
+func (c *ChainConfig) IsTIP8(cid, num *big.Int) bool {
 	if c.TIP8 == nil {
 		return false
 	}
-	return isForked(c.TIP8.FastNumber, num)
+	res := cid.Cmp(c.TIP8.CID)
+	if res > 0 || (res == 0 && num.Cmp(c.TIP8.FastNumber) >= 0) {
+		return true
+	}
+	return false
 }
 
 func (c *ChainConfig) IsTIP9(num *big.Int) bool {

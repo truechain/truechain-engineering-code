@@ -865,8 +865,12 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, types.ErrSnailHeightNotYet
 		}
-		if chain.Config().IsTIP8(header.Number) {
-			err := accumulateRewardsFast2(state, sBlock, header)
+		endfast := new(big.Int).Set(header.Number)
+		if len(sBlock.Fruits()) > 0 {
+			endfast = new(big.Int).Set(sBlock.MinFruitNumber())
+		}
+		if consensus.IsTIP8(endfast, chain.Config(), m.sbc) {
+			err := accumulateRewardsFast2(state, sBlock)
 			if err != nil {
 				log.Error("Finalize Error", "accumulateRewardsFast2", err.Error())
 				return nil, err
@@ -927,8 +931,30 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 
 // gas allocation
 func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.StateDB, fastNumber *big.Int) error {
-	if chain.Config().IsTIP8(fastNumber) {
+
+	next := new(big.Int).Add(fastNumber, big1)
+	if consensus.IsTIP8(next, chain.Config(), m.sbc) {
+		// init the first epoch in the fork
+		first := types.GetFirstEpoch()
+		fmt.Println("first.BeginHeight",first.BeginHeight,"next",next)
+		if first.BeginHeight == next.Uint64() {
+			i := vm.NewImpawnImpl()
+			error := i.Load(state, vm.StakingAddress)
+			if es, err := i.DoElections(first.EpochID, next.Uint64()); err != nil {
+				return err
+			} else {
+				log.Info("init in first forked, Do pre election", "height", next, "epoch:", first.EpochID, "len:", len(es), "err", error)
+			}
+			if err := i.Shift(first.EpochID); err != nil {
+				return err
+			}
+			i.Save(state, vm.StakingAddress)
+			log.Info("init in first forked,", "height", next, "epoch:", first.EpochID)
+		}
+	}
+	if consensus.IsTIP8(fastNumber, chain.Config(), m.sbc) {
 		epoch := types.GetEpochFromHeight(fastNumber.Uint64())
+	
 		if fastNumber.Uint64() == epoch.EndHeight-params.ElectionPoint {
 			i := vm.NewImpawnImpl()
 			error := i.Load(state, vm.StakingAddress)
@@ -996,7 +1022,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 	}
 	return nil
 }
-func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, header *types.Header) error {
+func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) error {
 	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
 	if e != nil {
 		return e
@@ -1034,14 +1060,123 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, he
 	for _, v := range infos {
 		ss += v.String()
 	}
+	log.Info("[Consensus AddBalance]", "info", "TIP8 Reward", "SnailHeight:", sBlock.NumberU64(), "reward", ss)
 	for _, v := range infos {
 		for _, vv := range v.Items {
 			stateDB.AddBalance(vv.Address, vv.Amount)
 			LogPrint("committee:", vv.Address, vv.Amount)
 		}
 	}
-	log.Info("[Consensus AddBalance]", "Info TIP8 Reward fast", header.Number.Uint64(), "SnailHeight:", sBlock.NumberU64(), "reward", ss)
+
 	return nil
+}
+func accumulateRewardsFast3(election consensus.CommitteeElection, stateDB *state.StateDB, sBlock *types.SnailBlock, tip8 bool) error {
+	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward3(sBlock.Header().Number, tip8)
+	if e != nil {
+		return e
+	}
+	var (
+		blockFruits    = sBlock.Body().Fruits
+		blockFruitsLen = big.NewInt(int64(len(blockFruits)))
+	)
+	if blockFruitsLen.Uint64() == 0 {
+		return consensus.ErrInvalidBlock
+	}
+	//miner's award
+	stateDB.AddBalance(sBlock.Coinbase(), minerCoin)
+	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
+
+	var (
+		//fruit award amount
+		minerFruitCoinOne = new(big.Int).Div(minerFruitCoin, blockFruitsLen)
+		//committee's award amount
+		committeeCoinFruit = new(big.Int).Div(committeeCoin, blockFruitsLen)
+		//all fail committee coinBase
+		failAddr = make(map[common.Address]bool)
+	)
+	if !tip8 {
+		for _, fruit := range blockFruits {
+			stateDB.AddBalance(fruit.Coinbase(), minerFruitCoinOne)
+			LogPrint("minerFruit", fruit.Coinbase(), minerFruitCoinOne)
+			//committee reward
+			err := rewardFruitCommitteeMember(stateDB, election, fruit, committeeCoinFruit, failAddr)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		impawn := vm.NewImpawnImpl()
+		impawn.Load(stateDB, vm.StakingAddress)
+		defer impawn.Save(stateDB, vm.StakingAddress)
+
+		fruitMin, fruitMax := sBlock.MinFruitNumber().Uint64(), sBlock.MaxFruitNumber().Uint64()
+		pos := posOfFruitsInFirstEpoch(blockFruits, fruitMin, fruitMax)
+		if pos > 0 {
+			for i := 0; i < pos; i++ {
+				fruit := blockFruits[i]
+				stateDB.AddBalance(fruit.Coinbase(), minerFruitCoinOne)
+				LogPrint("minerFruit", fruit.Coinbase(), minerFruitCoinOne)
+				//committee reward
+				err := rewardFruitCommitteeMember(stateDB, election, fruit, committeeCoinFruit, failAddr)
+				if err != nil {
+					return err
+				}
+			}
+			//committee reward
+			first := types.GetFirstEpoch()
+			infos, err := impawn.Reward2(first.BeginHeight, fruitMax, committeeCoin)
+			if err != nil {
+				return err
+			}
+			var ss string
+			for _, v := range infos {
+				ss += v.String()
+			}
+			log.Info("[Consensus AddBalance]", "info", "TIP8 Reward", "SnailHeight:", sBlock.NumberU64(), "reward", ss)
+			for _, v := range infos {
+				for _, vv := range v.Items {
+					stateDB.AddBalance(vv.Address, vv.Amount)
+					LogPrint("committee:", vv.Address, vv.Amount)
+				}
+			}
+		} else {
+			for _, fruit := range blockFruits {
+				stateDB.AddBalance(fruit.Coinbase(), minerFruitCoinOne)
+				LogPrint("minerFruit", fruit.Coinbase(), minerFruitCoinOne)
+			}
+			//committee reward
+			infos, err := impawn.Reward(sBlock, committeeCoin)
+			if err != nil {
+				return err
+			}
+			var ss string
+			for _, v := range infos {
+				ss += v.String()
+			}
+			log.Info("[Consensus AddBalance]", "info", "TIP8 Reward", "SnailHeight:", sBlock.NumberU64(), "reward", ss)
+			for _, v := range infos {
+				for _, vv := range v.Items {
+					stateDB.AddBalance(vv.Address, vv.Amount)
+					LogPrint("committee:", vv.Address, vv.Amount)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func posOfFruitsInFirstEpoch(fruits []*types.SnailBlock, min, max uint64) int {
+	first := types.GetFirstEpoch()
+
+	if min <= first.BeginHeight && first.BeginHeight <= max {
+		for i, v := range fruits {
+			if v.FastNumber().Uint64() == first.BeginHeight {
+				return i
+			}
+		}
+	}
+	return -1
 }
 
 // GetRewardContentBySnailNumber retrieves SnailRewardContenet by snail block.
@@ -1165,6 +1300,14 @@ func GetBlockReward(num *big.Int) (committee, minerBlock, minerFruit *big.Int, e
 	minerBlock = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/3*2)), Big1e6)
 	minerFruit = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/3)), Big1e6)
 	return
+}
+
+func GetBlockReward3(num *big.Int, tip8 bool) (committee, minerBlock, minerFruit *big.Int, e error) {
+	if tip8 {
+		return GetBlockReward(num)
+	} else {
+		return GetBlockReward(num)
+	}
 }
 
 // get Distribution ratio for miner and committee

@@ -199,6 +199,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.bloomIndexer.Start(etrue.blockchain)
 
+	consensus.InitTIP8(chainConfig, etrue.snailblockchain)
 	//sv := chain.NewBlockValidator(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 	//etrue.snailblockchain.SetValidator(sv)
 

@@ -898,6 +898,7 @@ func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	}
 	return i.redeemByDa(da, curHeight, amount)
 }
+
 func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error {
 	if da == nil {
 		return types.ErrInvalidParam
@@ -952,6 +953,7 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 	}
 	epochInfo := types.GetEpochFromHeight(height)
 	if epochInfo == nil || epochInfo.EpochID > i.getCurrentEpoch() {
+		log.Info("insertSAccount", "eid", epochInfo.EpochID, "height", height, "eid2", i.getCurrentEpoch())
 		return types.ErrOverEpochID
 	}
 	if val, ok := i.accounts[epochInfo.EpochID]; !ok {
@@ -1002,6 +1004,14 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 
 func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*types.SARewardInfos, error) {
 	begin, end := types.FromBlock(block)
+	res, err := i.reward(begin, end, allAmount)
+	if err == nil {
+		i.lastReward = end
+	}
+	return res, err
+}
+func (i *ImpawnImpl) Reward2(begin, end uint64, allAmount *big.Int) ([]*types.SARewardInfos, error) {
+
 	res, err := i.reward(begin, end, allAmount)
 	if err == nil {
 		i.lastReward = end
