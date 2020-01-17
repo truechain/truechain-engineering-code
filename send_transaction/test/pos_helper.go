@@ -265,7 +265,7 @@ func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Addre
 	if height == 40 {
 		nonce, _ := getNonce(gen, from, state, "sendDepositTransaction")
 		pub := crypto.FromECDSAPub(&priKey.PublicKey)
-		input := packInput(abiStaking, "deposit", "sendDepositTransaction", pub)
+		input := packInput(abiStaking, "deposit", "sendDepositTransaction", pub, new(big.Int).SetInt64(5000))
 		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
 	}
 }
@@ -360,7 +360,7 @@ func getNonce(gen *core.BlockGen, from common.Address, state1 *state.StateDB, me
 }
 
 func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value *big.Int, input []byte, txPool txPool, priKey *ecdsa.PrivateKey, signer types.TIP1Signer) {
-	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 47200, big.NewInt(1000000), input), signer, priKey)
+	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 57200, big.NewInt(1000000), input), signer, priKey)
 	if gen != nil {
 		gen.AddTxWithChain(blockchain, tx)
 	} else {
