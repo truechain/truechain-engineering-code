@@ -813,7 +813,7 @@ func (i *ImpawnImpl) Shift(epochid uint64) error {
 	minEpoch := types.GetEpochFromHeight(i.lastReward)
 	min := i.getMinEpochID()
 	fmt.Println("*** move min:", min, "minEpoch:", minEpoch.EpochID, "lastReward:", i.lastReward)
-	for ii := min; ii < minEpoch.EpochID; ii++ {
+	for ii := min; minEpoch.EpochID > 1 && ii < minEpoch.EpochID-1; ii++ {
 		delete(i.accounts, ii)
 		fmt.Println("delete epoch:", ii)
 	}
