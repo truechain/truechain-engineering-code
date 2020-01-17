@@ -216,7 +216,7 @@ func (self *StateDB) GetBalance(addr common.Address) *big.Int {
 }
 
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
-	stateObject := self.getStateObject(addr)
+	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		return stateObject.Nonce()
 	}

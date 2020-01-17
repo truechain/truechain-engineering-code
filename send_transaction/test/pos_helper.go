@@ -2,6 +2,7 @@ package test
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"fmt"
 	"math"
 	"math/big"
@@ -24,16 +25,20 @@ import (
 )
 
 var (
-	first       = false
-	firstNumber = uint64(0)
-	sb          map[common.Address]*types.StakingValue
-	dbb         map[common.Address]*types.StakingValue
-	epoch       = uint64(0)
-	send        = false
+	first        = false
+	firstNumber  = uint64(0)
+	sb           map[common.Address]*types.StakingValue
+	dbb          map[common.Address]*types.StakingValue
+	epoch        = uint64(0)
+	send         = false
+	delegateNum  = 999
+	delegateKey  []*ecdsa.PrivateKey
+	delegateAddr []common.Address
+	seed         = new(big.Int).SetInt64(0)
 )
 
 //epoch  [id:1,begin:1,end:2000]   [id:2,begin:2001,end:4000]   [id:3,begin:4001,end:6000]   [id:4,begin:6001,end:8000]   [id:5,begin:8001,end:10000]
-func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, tx txPool, config *params.ChainConfig, gen *core.BlockGen, statedb *state.StateDB, priKey *ecdsa.PrivateKey) {
+func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, tx txPool, config *params.ChainConfig, gen *core.BlockGen, statedb *state.StateDB, comKey *ecdsa.PrivateKey) {
 	if !propagate {
 		return
 	}
@@ -46,8 +51,8 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 	if !first {
 		first = true
 		if gen == nil {
-			if priKey != nil {
-				skey1 = priKey
+			if comKey != nil {
+				skey1 = comKey
 			} else {
 				skey1, _ = crypto.GenerateKey()
 			}
@@ -62,8 +67,15 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 		sb = impawn.GetLockedAsset(saddr1)
 		dbb = impawn.GetLockedAsset(daddr1)
 		epoch = types.GetEpochFromHeight(firstNumber).EpochID
-		fmt.Println("cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
 		send = true
+		delegateKey = make([]*ecdsa.PrivateKey, delegateNum)
+		delegateAddr = make([]common.Address, delegateNum)
+		for i := 0; i < delegateNum; i++ {
+			delegateKey[i], _ = crypto.GenerateKey()
+			delegateAddr[i] = crypto.PubkeyToAddress(delegateKey[i].PublicKey)
+		}
+		seed, _ = rand.Int(rand.Reader, big.NewInt(9))
+		printTest("seed ", seed, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
 	}
 	number := header.Number.Uint64()
 	diff := number - firstNumber
@@ -72,14 +84,15 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 	if cEpoch != epoch && cEpoch-epoch == 4 {
 		send = true
 		firstNumber = types.GetEpochFromID(cEpoch).BeginHeight
+		seed, _ = rand.Int(rand.Reader, big.NewInt(8))
 		epoch = cEpoch
-		fmt.Println("firstNumber", firstNumber, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
+		printTest("firstNumber", firstNumber, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
 	}
 	if send {
 		if sb != nil {
 			for addr, value := range sb {
 				for i, val := range value.Value {
-					fmt.Println("epoch ", i, " value ", val, " addr ", addr.String())
+					printTest("epoch ", i, " value ", val, " addr ", addr.String())
 					sendNWithdrawTransaction(i, number, gen, saddr1, val, skey1, signer, stateDb, blockchain, abiStaking, tx)
 				}
 			}
@@ -94,7 +107,7 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 		if dbb != nil {
 			for addr, value := range dbb {
 				for i, val := range value.Value {
-					fmt.Println("epoch ", i, " value ", val, " addr ", addr.String())
+					printTest("epoch ", i, " value ", val, " addr ", addr.String())
 					sendNWithdrawDelegateTransaction(i, number, gen, daddr1, saddr1, val, dkey1, signer, stateDb, blockchain, abiStaking, tx)
 				}
 			}
@@ -104,7 +117,17 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 			sendDelegateTransaction(diff, gen, daddr1, saddr1, big.NewInt(4000000000000000000), dkey1, signer, stateDb, blockchain, abiStaking, tx)
 			sendUnDelegateTransaction(diff-types.GetEpochFromID(epoch+1).BeginHeight+firstNumber, gen, daddr1, saddr1, big.NewInt(2000000000000000000), dkey1, signer, stateDb, blockchain, abiStaking, tx)
 			sendWithdrawDelegateTransaction(diff-types.MinCalcRedeemHeight(epoch+1)+firstNumber, gen, daddr1, saddr1, big.NewInt(2000000000000000000), dkey1, signer, stateDb, blockchain, abiStaking, tx)
-			if diff-types.MinCalcRedeemHeight(epoch+1) == 20 {
+			for i := 0; i < delegateNum; i++ {
+				if i%(int(seed.Uint64())+2) == 0 {
+					sendTranction(diff-2-uint64(i), gen, stateDb, mAccount, delegateAddr[i], big.NewInt(6000000000000000000), priKey, signer, tx, header)
+
+					sendDelegateTransaction(diff-uint64(i), gen, delegateAddr[i], saddr1, big.NewInt(4000000000000000000), delegateKey[i], signer, stateDb, blockchain, abiStaking, tx)
+					sendUnDelegateTransaction(diff-types.GetEpochFromID(epoch+1).BeginHeight+firstNumber-uint64(i), gen, delegateAddr[i], saddr1, big.NewInt(2000000000000000000), delegateKey[i], signer, stateDb, blockchain, abiStaking, tx)
+					sendWithdrawDelegateTransaction(diff-types.MinCalcRedeemHeight(epoch+1)+firstNumber-uint64(i), gen, delegateAddr[i], saddr1, big.NewInt(2000000000000000000), delegateKey[i], signer, stateDb, blockchain, abiStaking, tx)
+				}
+			}
+
+			if diff-types.MinCalcRedeemHeight(epoch+1)+uint64(delegateNum) == 20 {
 				send = false
 			}
 		}
@@ -172,6 +195,7 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
 
+	//gspec.Config.TIP8 = &params.BlockConfig{CID: big.NewInt(-1)}
 	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 	gspec.Config.TIP9 = &params.BlockConfig{SnailNumber: big.NewInt(20)}
 
@@ -307,7 +331,7 @@ func sendTranction(height uint64, gen *core.BlockGen, state *state.StateDB, from
 		nonce, statedb := getNonce(gen, from, state, "sendTranction")
 		balance := statedb.GetBalance(to)
 		remaining := new(big.Int).Sub(value, balance)
-		fmt.Println("sendTranction ", balance.Uint64(), " remaining ", remaining.Uint64(), " height ", height, " current ", header.Number.Uint64())
+		printTest("sendTranction ", balance.Uint64(), " remaining ", remaining.Uint64(), " height ", height, " current ", header.Number.Uint64())
 		if remaining.Sign() > 0 {
 			tx, _ := types.SignTx(types.NewTransaction(nonce, to, remaining, params.TxGas, new(big.Int).SetInt64(1000000), nil), signer, privateKey)
 			if gen != nil {
@@ -316,7 +340,7 @@ func sendTranction(height uint64, gen *core.BlockGen, state *state.StateDB, from
 				txPool.AddRemotes([]*types.Transaction{tx})
 			}
 		} else {
-			fmt.Println("to ", to.String(), " have balance ", balance.Uint64(), " height ", height, " current ", header.Number.Uint64())
+			printTest("to ", to.String(), " have balance ", balance.Uint64(), " height ", height, " current ", header.Number.Uint64())
 		}
 	}
 }
@@ -350,13 +374,17 @@ func printBalance(stateDb *state.StateDB, from common.Address, method string) {
 	fbalance.SetString(balance.String())
 	StakinValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
-	fmt.Println(method, " from ", types.ToTrue(stateDb.GetBalance(from)), " Staking fbalance ", fbalance, " StakinValue ", StakinValue)
+	printTest(method, " from ", types.ToTrue(stateDb.GetBalance(from)), " Staking fbalance ", fbalance, " StakinValue ", StakinValue)
 }
 
 func packInput(abiStaking abi.ABI, abiMethod, method string, params ...interface{}) []byte {
 	input, err := abiStaking.Pack(abiMethod, params...)
 	if err != nil {
-		fmt.Println(method, " error ", err)
+		printTest(method, " error ", err)
 	}
 	return input
+}
+
+func printTest(a ...interface{}) {
+	fmt.Println("test SendTX ", a)
 }
