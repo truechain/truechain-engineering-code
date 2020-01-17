@@ -269,7 +269,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			if err != nil {
 				log.Error("ToFastBlock InsertSAccount", "error", err)
 			}
-			statedb.AddBalance(vm.StakingAddress, big.NewInt(1000000000000000000))
+			statedb.AddBalance(types.StakingAddress, big.NewInt(1000000000000000000))
 		}
 		_, err := impl.DoElections(1, 0)
 		if err != nil {
@@ -279,7 +279,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		if err != nil {
 			log.Error("ToFastBlock Shift", "error", err)
 		}
-		err = impl.Save(statedb, vm.StakingAddress)
+		err = impl.Save(statedb, types.StakingAddress)
 		if err != nil {
 			log.Error("ToFastBlock IMPL Save", "error", err)
 		}

@@ -23,6 +23,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/bn256"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -33,7 +34,7 @@ import (
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
 type PrecompiledContract interface {
-	RequiredGas(input []byte) uint64  // RequiredPrice calculates the contract gas use
+	RequiredGas(input []byte) uint64                                // RequiredPrice calculates the contract gas use
 	Run(evm *EVM, contract *Contract, input []byte) ([]byte, error) // Run runs the precompiled contract
 }
 
@@ -44,7 +45,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{2}): &sha256hash{},
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
-	StakingAddress:                   &staking{},
+	types.StakingAddress:             &staking{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -58,7 +59,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{6}): &bn256Add{},
 	common.BytesToAddress([]byte{7}): &bn256ScalarMul{},
 	common.BytesToAddress([]byte{8}): &bn256Pairing{},
-	StakingAddress:                   &staking{},
+	types.StakingAddress:             &staking{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.

@@ -1148,7 +1148,7 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 
 func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 	i := NewImpawnImpl()
-	i.Load(state, StakingAddress)
+	i.Load(state, types.StakingAddress)
 	eid := i.getCurrentEpoch()
 	accs := i.getElections3(eid)
 	var vv []*types.CommitteeMember
@@ -1167,7 +1167,7 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 
 func GetValidatorsByEpoch(state StateDB, eid, hh uint64) []*types.CommitteeMember {
 	i := NewImpawnImpl()
-	err := i.Load(state, StakingAddress)
+	err := i.Load(state, types.StakingAddress)
 	accs := i.getElections3(eid)
 	first := types.GetFirstEpoch()
 	if hh == first.EndHeight-params.ElectionPoint {

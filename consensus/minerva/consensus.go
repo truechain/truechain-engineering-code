@@ -936,10 +936,10 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 	if consensus.IsTIP8(next, chain.Config(), m.sbc) {
 		// init the first epoch in the fork
 		first := types.GetFirstEpoch()
-		fmt.Println("first.BeginHeight",first.BeginHeight,"next",next)
+		fmt.Println("first.BeginHeight", first.BeginHeight, "next", next)
 		if first.BeginHeight == next.Uint64() {
 			i := vm.NewImpawnImpl()
-			error := i.Load(state, vm.StakingAddress)
+			error := i.Load(state, types.StakingAddress)
 			if es, err := i.DoElections(first.EpochID, next.Uint64()); err != nil {
 				return err
 			} else {
@@ -948,32 +948,32 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 			if err := i.Shift(first.EpochID); err != nil {
 				return err
 			}
-			i.Save(state, vm.StakingAddress)
+			i.Save(state, types.StakingAddress)
 			log.Info("init in first forked,", "height", next, "epoch:", first.EpochID)
 		}
 	}
 	if consensus.IsTIP8(fastNumber, chain.Config(), m.sbc) {
 		epoch := types.GetEpochFromHeight(fastNumber.Uint64())
-	
+
 		if fastNumber.Uint64() == epoch.EndHeight-params.ElectionPoint {
 			i := vm.NewImpawnImpl()
-			error := i.Load(state, vm.StakingAddress)
+			error := i.Load(state, types.StakingAddress)
 			if es, err := i.DoElections(epoch.EpochID+1, fastNumber.Uint64()); err != nil {
 				return err
 			} else {
 				log.Info("Do validators election", "height", fastNumber, "epoch:", epoch.EpochID+1, "len:", len(es), "err", error)
 			}
-			i.Save(state, vm.StakingAddress)
+			i.Save(state, types.StakingAddress)
 		}
 
 		if fastNumber.Uint64() == epoch.EndHeight {
 			i := vm.NewImpawnImpl()
-			err := i.Load(state, vm.StakingAddress)
+			err := i.Load(state, types.StakingAddress)
 			log.Info("Force new epoch", "height", fastNumber, "err", err)
 			if err := i.Shift(epoch.EpochID + 1); err != nil {
 				return err
 			}
-			i.Save(state, vm.StakingAddress)
+			i.Save(state, types.StakingAddress)
 		}
 	}
 	return nil
@@ -1028,8 +1028,8 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) er
 		return e
 	}
 	impawn := vm.NewImpawnImpl()
-	impawn.Load(stateDB, vm.StakingAddress)
-	defer impawn.Save(stateDB, vm.StakingAddress)
+	impawn.Load(stateDB, types.StakingAddress)
+	defer impawn.Save(stateDB, types.StakingAddress)
 
 	var (
 		blockFruits    = sBlock.Body().Fruits
@@ -1106,8 +1106,8 @@ func accumulateRewardsFast3(election consensus.CommitteeElection, stateDB *state
 		}
 	} else {
 		impawn := vm.NewImpawnImpl()
-		impawn.Load(stateDB, vm.StakingAddress)
-		defer impawn.Save(stateDB, vm.StakingAddress)
+		impawn.Load(stateDB, types.StakingAddress)
+		defer impawn.Save(stateDB, types.StakingAddress)
 
 		fruitMin, fruitMax := sBlock.MinFruitNumber().Uint64(), sBlock.MaxFruitNumber().Uint64()
 		pos := posOfFruitsInFirstEpoch(blockFruits, fruitMin, fruitMax)

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -15,8 +16,10 @@ var (
 	fbaseUnit = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
 	mixImpawn = new(big.Int).Mul(big.NewInt(1000), baseUnit)
 	Base      = new(big.Int).SetUint64(10000)
-
-	MixEpochCount = 2
+	// StakingAddress is defined as Address('truestaking')
+	// i.e. contractAddress = 0x000000000000000000747275657374616b696E67
+	StakingAddress = common.BytesToAddress([]byte("truestaking"))
+	MixEpochCount  = 2
 )
 
 var (
@@ -34,6 +37,7 @@ var (
 	ErrAmountOver        = errors.New("the amount more than staking amount")
 	ErrDelegationSelf    = errors.New("Cann't delegation myself")
 	ErrRedeemAmount      = errors.New("wrong redeem amount")
+	ErrForbidAddress     = errors.New("Forbidding Address")
 )
 
 const (
@@ -207,4 +211,10 @@ func ValidPk(pk []byte) error {
 func MinCalcRedeemHeight(eid uint64) uint64 {
 	e := GetEpochFromID(eid + 1)
 	return e.BeginHeight + params.MaxRedeemHeight + 1
+}
+func ForbidAddress(addr common.Address) error {
+	if bytes.Equal(addr[:], StakingAddress[:]) {
+		return errors.New(fmt.Sprint("addr error:", addr, ErrForbidAddress))
+	}
+	return nil
 }

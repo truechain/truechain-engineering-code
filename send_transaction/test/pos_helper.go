@@ -3,6 +3,10 @@ package test
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"math"
+	"math/big"
+	"strings"
+
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
@@ -17,9 +21,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	"math"
-	"math/big"
-	"strings"
 )
 
 var (
@@ -57,7 +58,7 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 		firstNumber = header.Number.Uint64()
 		signer = types.NewTIP1Signer(config.ChainID)
 		impawn := vm.NewImpawnImpl()
-		impawn.Load(stateDb, vm.StakingAddress)
+		impawn.Load(stateDb, types.StakingAddress)
 		sb = impawn.GetLockedAsset(saddr1)
 		dbb = impawn.GetLockedAsset(daddr1)
 		epoch = types.GetEpochFromHeight(firstNumber).EpochID
@@ -335,7 +336,7 @@ func getNonce(gen *core.BlockGen, from common.Address, state1 *state.StateDB, me
 }
 
 func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value *big.Int, input []byte, txPool txPool, priKey *ecdsa.PrivateKey, signer types.TIP1Signer) {
-	tx, _ := types.SignTx(types.NewTransaction(nonce, vm.StakingAddress, value, 47200, big.NewInt(1000000), input), signer, priKey)
+	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 47200, big.NewInt(1000000), input), signer, priKey)
 	if gen != nil {
 		gen.AddTxWithChain(blockchain, tx)
 	} else {
@@ -344,7 +345,7 @@ func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value 
 }
 
 func printBalance(stateDb *state.StateDB, from common.Address, method string) {
-	balance := stateDb.GetBalance(vm.StakingAddress)
+	balance := stateDb.GetBalance(types.StakingAddress)
 	fbalance := new(big.Float)
 	fbalance.SetString(balance.String())
 	StakinValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))

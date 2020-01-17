@@ -4,7 +4,14 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code"
+	"log"
+	"math"
+	"math/big"
+	"os"
+	"strings"
+	"time"
+
+	truechain "github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -13,12 +20,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etrueclient"
 	"github.com/truechain/truechain-engineering-code/send_transaction/stake/contract"
-	"log"
-	"math"
-	"math/big"
-	"os"
-	"strings"
-	"time"
 )
 
 var (
@@ -71,7 +72,7 @@ func main() {
 	fbalance.SetString(balance.String())
 	impawnValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
-	sbalance, err := conn.BalanceAt(context.Background(), vm.StakingAddress, nil)
+	sbalance, err := conn.BalanceAt(context.Background(), types.StakingAddress, nil)
 	generalABalance, err := conn.BalanceAt(context.Background(), saddr1, nil)
 	fmt.Println(" Value ", impawnValue, " stake ", types.ToTrue(sbalance), " general ", types.ToTrue(generalABalance))
 
@@ -90,7 +91,7 @@ func main() {
 		if err != nil {
 			fmt.Println("err ", err)
 		}
-		txHash := sendContractTransaction(conn, saddr1, vm.StakingAddress, skey1, input, header.Number)
+		txHash := sendContractTransaction(conn, saddr1, types.StakingAddress, skey1, input, header.Number)
 
 		time.Sleep(5 * time.Millisecond)
 
@@ -200,7 +201,7 @@ func sendTransaction(client *etrueclient.Client, from, toAddress common.Address,
 
 func callContract(conn *etrueclient.Client, transactOpts *bind.TransactOpts, pub []byte) {
 	// Instantiate the contract and display its name
-	stake, err := contract.NewToken(vm.StakingAddress, conn)
+	stake, err := contract.NewToken(types.StakingAddress, conn)
 	if err != nil {
 		log.Fatalf("Failed to instantiate a Token contract: %v", err)
 	}

@@ -2,15 +2,16 @@ package test
 
 import (
 	"fmt"
+	"math/big"
+	"os"
+	"testing"
+
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	"math/big"
-	"os"
-	"testing"
 )
 
 func init() {
@@ -28,7 +29,7 @@ func TestGetLockedAsset(t *testing.T) {
 		if number == 90 {
 			stateDb := gen.GetStateDB()
 			impawn := vm.NewImpawnImpl()
-			impawn.Load(stateDb, vm.StakingAddress)
+			impawn.Load(stateDb, types.StakingAddress)
 			arr := impawn.GetLockedAsset(saddr1)
 			for addr, value := range arr {
 				fmt.Println("value ", value.Value, " addr ", addr.String())
@@ -57,7 +58,7 @@ func TestDeposit(t *testing.T) {
 		if number == 130 {
 			stateDb := gen.GetStateDB()
 			impawn := vm.NewImpawnImpl()
-			impawn.Load(stateDb, vm.StakingAddress)
+			impawn.Load(stateDb, types.StakingAddress)
 			arr := impawn.GetLockedAsset(saddr1)
 			for addr, value := range arr {
 				fmt.Println("value ", value.Value, " addr ", addr.String())
@@ -71,7 +72,7 @@ func TestDeposit(t *testing.T) {
 		sendWithdrawDelegateTransaction(number-types.MinCalcRedeemHeight(2)-10, gen, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, statedb, blockchain, abiStaking, nil)
 	}
 	manager := newTestPOSManager(55, executable)
-	fmt.Println(" saddr1 ", types.ToTrue(manager.GetBalance(saddr1)), " StakingAddress ", manager.GetBalance(vm.StakingAddress), " ", types.ToTrue(manager.GetBalance(vm.StakingAddress)))
+	fmt.Println(" saddr1 ", types.ToTrue(manager.GetBalance(saddr1)), " StakingAddress ", manager.GetBalance(types.StakingAddress), " ", types.ToTrue(manager.GetBalance(types.StakingAddress)))
 }
 
 ///////////////////////////////////////////////////////////////////////
