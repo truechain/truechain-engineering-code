@@ -204,23 +204,27 @@ func (s *impawnUnit) sortRedeemItems() {
 // it will remove the staking which was canceled in the prev epoch
 // called by move function.
 func (s *impawnUnit) merge(epochid, hh uint64) {
-	redeem := s.getRedeemItem(epochid)
-	if redeem == nil {
-		return
-	}
+
 	all := big.NewInt(0)
 	for _, v := range s.value {
 		all = all.Add(all, v.amount)
 	}
-	var val []*PairstakingValue
-	left := all.Sub(all, redeem.Amount)
-	if left.Sign() > 0 {
-		val = append(val, &PairstakingValue{
-			amount: left,
-			height: new(big.Int).SetUint64(hh),
-			state:  types.StateStakingAuto,
-		})
+	tmp := &PairstakingValue{
+		amount: all,
+		height: new(big.Int).SetUint64(hh),
+		state:  types.StateStakingAuto,
 	}
+	var val []*PairstakingValue
+	redeem := s.getRedeemItem(epochid)
+	if redeem != nil {
+		left := all.Sub(all, redeem.Amount)
+		if left.Sign() > 0 {
+			tmp.amount = left
+		} else {
+			panic("big error" + fmt.Sprint("all:", all, "redeem:", redeem.Amount, "epoch:", epochid))
+		}
+	}
+	val = append(val, tmp)
 	s.value = val
 }
 func (s *impawnUnit) update(unit *impawnUnit, move bool) {
@@ -510,9 +514,10 @@ type ImpawnImpl struct {
 }
 
 func NewImpawnImpl() *ImpawnImpl {
+	pre := types.GetPreFirstEpoch()
 	return &ImpawnImpl{
-		curEpochID: params.FirstNewEpochID - 1,
-		lastReward: 0,
+		curEpochID: pre.EpochID,
+		lastReward: pre.EndHeight,
 		accounts:   make(map[uint64]SAImpawns),
 	}
 }
@@ -808,11 +813,9 @@ func (i *ImpawnImpl) Shift(epochid uint64) error {
 	minEpoch := types.GetEpochFromHeight(i.lastReward)
 	min := i.getMinEpochID()
 	fmt.Println("*** move min:", min, "minEpoch:", minEpoch.EpochID, "lastReward:", i.lastReward)
-	if minEpoch != nil && min >= 0 && minEpoch.EpochID-1 > min {
-		for ii := min; minEpoch.EpochID > 1 && ii < minEpoch.EpochID-1; ii++ {
-			delete(i.accounts, ii)
-			fmt.Println("delete epoch:", ii)
-		}
+	for ii := min; ii < minEpoch.EpochID; ii++ {
+		delete(i.accounts, ii)
+		fmt.Println("delete epoch:", ii)
 	}
 
 	if epochid != i.getCurrentEpoch()+1 {
@@ -975,7 +978,7 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 	return nil
 }
 func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Int, auto bool) error {
-	if val.Sign() <= 0 || height < 0 {
+	if val.Sign() <= 0 || height < 0 || fee.Sign() < 0 || fee.Cmp(types.Base) > 0 {
 		return types.ErrInvalidParam
 	}
 	if err := types.ValidPk(pk); err != nil {
