@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/truechain/truechain-engineering-code/send_transaction/test"
 	"math"
 	"math/big"
 	"strings"
@@ -1146,7 +1145,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 	peers := pm.peers.PeersWithoutFastBlock(hash)
 
 	if pm.chainconfig.ChainID.Uint64() == 100 {
-		test.SendTX(block.Header(), propagate, pm.blockchain, pm.txpool, pm.chainconfig, nil, nil, pm.agentProxy.GetPrivateKey())
+		//test.SendTX(block.Header(), propagate, pm.blockchain, pm.txpool, pm.chainconfig, nil, nil, pm.agentProxy.GetPrivateKey())
 	}
 
 	// If propagation is requested, send to a subset of the peer

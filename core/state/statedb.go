@@ -445,11 +445,13 @@ func (self *StateDB) deleteStateObject(stateObject *stateObject) {
 // Retrieve a state object given by the address. Returns nil if not found.
 func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObject) {
 	// Prefer 'live' objects.
-	if obj := self.stateObjects[addr]; obj != nil {
-		if obj.deleted {
-			return nil
+	if self.stateObjects != nil {
+		if obj := self.stateObjects[addr]; obj != nil {
+			if obj.deleted {
+				return nil
+			}
+			return obj
 		}
-		return obj
 	}
 
 	// Load the object from the database.
