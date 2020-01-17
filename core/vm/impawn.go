@@ -351,6 +351,23 @@ type AlterableInfo struct {
 func (s *StakingAccount) isInCommittee() bool {
 	return s.committee
 }
+func (s *StakingAccount) addAmount(height uint64, amount *big.Int) {
+	unit := &impawnUnit{
+		address: s.unit.address,
+		value: []*PairstakingValue{&PairstakingValue{
+			amount: new(big.Int).Set(amount),
+			height: new(big.Int).SetUint64(height),
+			state:  0,
+		}},
+		redeemInof: make([]*RedeemItem, 0),
+	}
+	s.unit.update(unit, false)
+}
+func (s *StakingAccount) updateFee(height uint64, fee *big.Int) {
+	if height > s.getMaxHeight() {
+		s.modify.fee = new(big.Int).Set(fee)
+	}
+}
 func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) {
 	s.unit.update(sa.unit, move)
 	dirty := false
@@ -1004,7 +1021,38 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 	}
 	return i.insertSAccount(height, sa)
 }
-
+func (i *ImpawnImpl) AppendSAAmount(height uint64, addr common.Address, val *big.Int) error {
+	if val.Sign() <= 0 || height < 0 {
+		return types.ErrInvalidParam
+	}
+	epochInfo := types.GetEpochFromHeight(height)
+	if epochInfo.EpochID > i.getCurrentEpoch() {
+		log.Info("insertSAccount", "eid", epochInfo.EpochID, "height", height, "eid2", i.getCurrentEpoch())
+		return types.ErrOverEpochID
+	}
+	sa, err := i.GetStakingAccount(epochInfo.EpochID, addr)
+	if err != nil {
+		return err
+	}
+	sa.addAmount(height, val)
+	return nil
+}
+func (i *ImpawnImpl) UpdateSAFee(height uint64, addr common.Address, fee *big.Int) error {
+	if height < 0 || fee.Sign() < 0 || fee.Cmp(types.Base) > 0 {
+		return types.ErrInvalidParam
+	}
+	epochInfo := types.GetEpochFromHeight(height)
+	if epochInfo.EpochID > i.getCurrentEpoch() {
+		log.Info("insertSAccount", "eid", epochInfo.EpochID, "height", height, "eid2", i.getCurrentEpoch())
+		return types.ErrOverEpochID
+	}
+	sa, err := i.GetStakingAccount(epochInfo.EpochID, addr)
+	if err != nil {
+		return err
+	}
+	sa.updateFee(height, fee)
+	return nil
+}
 func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*types.SARewardInfos, error) {
 	begin, end := types.FromBlock(block)
 	res, err := i.reward(begin, end, allAmount)
