@@ -83,10 +83,13 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 
 // deposit
 func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
-	var pubkey []byte
+	args := struct {
+		Pubkey []byte
+		Fee    *big.Int
+	}{}
 	method, _ := abiStaking.Methods["deposit"]
 
-	err = method.Inputs.Unpack(&pubkey, input)
+	err = method.Inputs.Unpack(&args, input)
 	if err != nil {
 		log.Error("Unpack deposit pubkey error", "err", err)
 		return nil, ErrStakingInvalidInput
@@ -98,7 +101,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, types.StakingAddress)
 
-	err = impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, pubkey, contract.value, big.NewInt(0), true)
+	err = impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, args.Pubkey, contract.value, args.Fee, true)
 	if err != nil {
 		log.Error("Staking deposit", "address", contract.caller.Address(), "value", contract.value, "error", err)
 		return nil, err
@@ -352,8 +355,20 @@ const StakeABIJSON = `
       {
         "type": "bytes",
         "name": "pubkey"
+      },
+      {
+        "type": "uint256",
+        "name": "fee"
       }
     ],
+    "constant": false,
+    "payable": true,
+    "type": "function"
+  },
+  {
+    "name": "append",
+    "outputs": [],
+    "inputs": [],
     "constant": false,
     "payable": true,
     "type": "function"
