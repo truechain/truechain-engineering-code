@@ -19,13 +19,14 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -640,6 +641,9 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if err != nil {
 		return ErrInvalidSender
 		//return fmt.Errorf("%v err is:%v", ErrInvalidSender, err)
+	}
+	if err := types.ForbidAddress(from); err != nil {
+		return err
 	}
 	// Make sure the transaction is psigned properly
 	payer, err := types.Payer(pool.signer, tx)

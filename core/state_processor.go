@@ -93,7 +93,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	if err != nil {
 		return nil, 0, err
 	}
-
+	if err := types.ForbidAddress(msg.From()); err != nil {
+		return nil, 0, err
+	}
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, nil, nil)
 	// Create a new environment which holds all relevant information
