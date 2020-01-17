@@ -392,9 +392,13 @@ func (agent *PbftAgent) loop() {
 	defer agent.stop()
 
 	current := agent.fastChain.CurrentBlock()
-	if agent.election.IsTIP8(current.Number()) {
-		epoch := types.GetEpochFromHeight(current.Number().Uint64())
-		if current.Number().Uint64() >= epoch.BeginHeight {
+	if agent.election.IsTIP8(new(big.Int).Add(current.Number(), common.Big1)) {
+		first := types.GetFirstEpoch()
+		epoch := first
+		if current.Number().Uint64()+1 > epoch.BeginHeight {
+			epoch = types.GetEpochFromHeight(current.Number().Uint64())
+		}
+		if current.Number().Uint64() >= epoch.BeginHeight || current.Number().Uint64() == first.BeginHeight-1 {
 			if current.Number().Uint64() == epoch.EndHeight {
 				epoch = types.GetEpochFromHeight(current.Number().Uint64() + 1)
 			}
@@ -569,6 +573,32 @@ func (agent *PbftAgent) loop() {
 			go agent.putCacheInsertChain(ch.Block)
 
 			num := ch.Block.Number()
+			if agent.election.IsTIP8(new(big.Int).Add(num, common.Big1)) {
+				epoch := types.GetFirstEpoch()
+				if num.Uint64()+1 == epoch.BeginHeight {
+					log.Info("Prepare new epoch", "id", epoch.EpochID, "block", num)
+					committee := &types.CommitteeInfo{
+						Id:          new(big.Int).SetUint64(epoch.EpochID),
+						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
+						EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
+					}
+					validators := agent.getValidators(epoch.EpochID)
+					if len(validators) == 0 {
+						log.Error("Prepare new epoch wrong,the validators was empty", "id", epoch.EpochID, "block", num)
+					}
+					committee.Members = validators
+					// Switch to new epoch
+					agent.setCommitteeInfo(nextCommittee, committee)
+					if agent.IsUsedOrUnusedMember(committee, agent.committeeNode.Publickey) {
+						agent.startSend(committee, true)
+						help.CheckAndPrintError(agent.server.PutCommittee(committee))
+						help.CheckAndPrintError(agent.server.PutNodes(committee.Id, []*types.CommitteeNode{agent.committeeNode}))
+					} else {
+						agent.startSend(committee, false)
+					}
+				}
+			}
+
 			if agent.election.IsTIP8(new(big.Int).Add(num, common.Big1)) {
 				next := num.Uint64() + 1
 				epoch := types.GetEpochFromHeight(next)
