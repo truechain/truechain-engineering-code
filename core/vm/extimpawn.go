@@ -69,14 +69,14 @@ func (d *DelegationAccount) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&da); err != nil {
 		return err
 	}
-	d.deleAddress, d.unit = da.DeleAddress, da.Unit
+	d.saAddress, d.unit = da.DeleAddress, da.Unit
 	return nil
 }
 
 // EncodeRLP serializes b into the truechain RLP DelegationAccount format.
 func (i *DelegationAccount) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extDAccount{
-		DeleAddress: i.deleAddress,
+		DeleAddress: i.saAddress,
 		Unit:        i.unit,
 	})
 }

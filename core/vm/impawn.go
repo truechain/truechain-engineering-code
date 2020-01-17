@@ -300,8 +300,8 @@ func (s *impawnUnit) redeemToMap() map[uint64]*big.Int {
 /////////////////////////////////////////////////////////////////////////////////
 
 type DelegationAccount struct {
-	deleAddress common.Address
-	unit        *impawnUnit
+	saAddress common.Address
+	unit      *impawnUnit
 }
 
 func (d *DelegationAccount) update(da *DelegationAccount, move bool) {
@@ -327,8 +327,8 @@ func (s *DelegationAccount) merge(epochid, hh uint64) {
 }
 func (s *DelegationAccount) clone() *DelegationAccount {
 	return &DelegationAccount{
-		deleAddress: s.deleAddress,
-		unit:        s.unit.clone(),
+		saAddress: s.saAddress,
+		unit:      s.unit.clone(),
 	}
 }
 func (s *DelegationAccount) isValid() bool {
@@ -702,11 +702,11 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 	if _, ok := i.accounts[einfo.EpochID]; !ok {
 		return nil, types.ErrInvalidParam
 	} else {
-		das := i.getElections3(einfo.EpochID)
-		if das == nil {
+		sas := i.getElections3(einfo.EpochID)
+		if sas == nil {
 			return nil, errors.New(fmt.Sprint(types.ErrMatchEpochID, "epochid:", einfo.EpochID))
 		}
-		impawns := SAImpawns(das)
+		impawns := SAImpawns(sas)
 		var res []*types.SARewardInfos
 		allValidatorStaking := impawns.getAllStaking(target)
 		sum := len(impawns)
@@ -745,7 +745,7 @@ func (i *ImpawnImpl) reward(begin, end uint64, allAmount *big.Int) ([]*types.SAR
 	}
 
 	if len(ids) == 2 {
-		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-begin)), new(big.Int).SetUint64(end-begin))
+		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-begin+1)), new(big.Int).SetUint64(end-begin+1))
 		amount1, amount2 := tmp, new(big.Int).Sub(allAmount, tmp)
 		if items, err := i.calcReward(ids[0].EndHeight, amount1, ids[0]); err != nil {
 			return nil, err
@@ -927,7 +927,7 @@ func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error 
 	if epochInfo == nil || epochInfo.EpochID > i.getCurrentEpoch() {
 		return types.ErrOverEpochID
 	}
-	sa, err := i.GetStakingAccount(epochInfo.EpochID, da.deleAddress)
+	sa, err := i.GetStakingAccount(epochInfo.EpochID, da.saAddress)
 	if err != nil {
 		return err
 	}
@@ -954,7 +954,7 @@ func (i *ImpawnImpl) InsertDAccount2(height uint64, addrSA, addrDA common.Addres
 	state := uint8(0)
 	state |= types.StateStakingAuto
 	da := &DelegationAccount{
-		deleAddress: addrSA,
+		saAddress: addrSA,
 		unit: &impawnUnit{
 			address: addrDA,
 			value: []*PairstakingValue{&PairstakingValue{
