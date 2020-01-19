@@ -707,6 +707,7 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 			return nil, errors.New(fmt.Sprint(types.ErrMatchEpochID, "epochid:", einfo.EpochID))
 		}
 		impawns := SAImpawns(sas)
+		impawns.sort(target,false)
 		var res []*types.SARewardInfos
 		allValidatorStaking := impawns.getAllStaking(target)
 		sum := len(impawns)
