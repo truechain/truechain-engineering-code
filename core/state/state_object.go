@@ -270,7 +270,7 @@ func (self *stateObject) setStateByteArray(key common.Hash, value []byte) {
 // updateTrie writes cached storage modifications into the object's storage trie.
 func (self *stateObject) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
-	log.Info("updateTrie", "count", len(self.dirtyStorage), "POSStorage", len(self.dirtyPOSStorage))
+	log.Debug("updateTrie", "count", len(self.dirtyStorage), "POSStorage", len(self.dirtyPOSStorage))
 	for key, value := range self.dirtyStorage {
 		delete(self.dirtyStorage, key)
 
@@ -303,7 +303,7 @@ func (self *stateObject) updateTrie(db Database) Trie {
 func (self *stateObject) updateRoot(db Database) {
 	self.updateTrie(db)
 	self.data.Root = self.trie.Hash()
-	log.Info("updateRoot", "address", self.address.String(), "root", self.data.Root.String())
+	log.Debug("updateRoot", "address", self.address.String(), "root", self.data.Root.String())
 }
 
 // CommitTrie the storage trie of the object to db.
