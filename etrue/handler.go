@@ -233,8 +233,11 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
-		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
-		return manager.blockchain.InsertChain(blocks)
+		n, err := manager.blockchain.InsertChain(blocks)
+		if err == nil {
+			atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
+		}
+		return n, err
 	}
 
 	snailValidator := func(header *types.SnailHeader) error {
@@ -1307,7 +1310,7 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
 		case signEvent := <-pm.minedFastCh:
-			log.Info("Broadcast fast block", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash(), "recipients", len(pm.peers.peers))
+			log.Info("Broadcast fast block", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.FastHash, "recipients", len(pm.peers.peers))
 			atomic.StoreUint32(&pm.acceptTxs, 1)
 			pm.BroadcastFastBlock(signEvent.Block, true)  // Only then announce to the rest
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest

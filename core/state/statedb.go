@@ -670,7 +670,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 // goes into transaction receipts.
 func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	s.Finalise(deleteEmptyObjects)
-	log.Info("IntermediateRoot", "hash", len(s.trie.Hash().String()), "deleteEmptyObjects", deleteEmptyObjects)
+	log.Info("IntermediateRoot", "hash", s.trie.Hash().String(), "deleteEmptyObjects", deleteEmptyObjects)
 	return s.trie.Hash()
 }
 
