@@ -1060,7 +1060,7 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) er
 	for _, v := range infos {
 		ss += v.String()
 	}
-	log.Info("[Consensus AddBalance]", "info", "TIP8 Reward", "SnailHeight:", sBlock.NumberU64(), "reward", ss)
+	log.Info("[Consensus AddBalance]TIP8 Reward", "SnailHeight:", sBlock.NumberU64(), "reward", ss)
 	for _, v := range infos {
 		for _, vv := range v.Items {
 			stateDB.AddBalance(vv.Address, vv.Amount)
