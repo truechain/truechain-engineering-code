@@ -870,7 +870,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 			endfast = new(big.Int).Set(sBlock.MinFruitNumber())
 		}
 		if consensus.IsTIP8(endfast, chain.Config(), m.sbc) {
-			err := accumulateRewardsFast2(state, sBlock)
+			err := accumulateRewardsFast2(state, sBlock, header.Number.Uint64())
 			if err != nil {
 				log.Error("Finalize Error", "accumulateRewardsFast2", err.Error())
 				return nil, err
@@ -1022,7 +1022,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 	}
 	return nil
 }
-func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) error {
+func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fast uint64) error {
 	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
 	if e != nil {
 		return e
@@ -1060,7 +1060,7 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock) er
 	for _, v := range infos {
 		ss += v.String()
 	}
-	log.Info("[Consensus AddBalance]TIP8 Reward", "SnailHeight:", sBlock.NumberU64(), "reward", ss)
+	log.Info("[Consensus AddBalance]TIP8 Reward", "fast number", fast, "SnailHeight:", sBlock.NumberU64(), "reward", ss)
 	for _, v := range infos {
 		for _, vv := range v.Items {
 			stateDB.AddBalance(vv.Address, vv.Amount)

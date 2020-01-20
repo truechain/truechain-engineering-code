@@ -31,7 +31,7 @@ var (
 	dbb          map[common.Address]*types.StakingValue
 	epoch        = uint64(0)
 	send         = false
-	delegateNum  = 999
+	delegateNum  = 0
 	delegateKey  []*ecdsa.PrivateKey
 	delegateAddr []common.Address
 	seed         = new(big.Int).SetInt64(0)

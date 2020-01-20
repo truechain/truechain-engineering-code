@@ -42,8 +42,6 @@ func main() {
 	fmt.Println("action ", action, " method ", method)
 	pub := crypto.FromECDSAPub(&priKey.PublicKey)
 
-	printCurrentBlock()
-
 	// Create an IPC based RPC connection to a remote node
 	conn, err := etrueclient.Dial("http://39.100.120.25:8545")
 	//conn, err := etrueclient.Dial("http://127.0.0.1:8545")
@@ -51,6 +49,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
 	}
+
+	printCurrentBlock(conn)
 
 	chainID, err := conn.NetworkID(context.Background())
 	if err != nil {
@@ -155,7 +155,7 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 		log.Fatal(err)
 	}
 
-	err = client.SendPayTransaction(context.Background(), signedTx)
+	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func sendTransaction(client *etrueclient.Client, from, toAddress common.Address,
 		log.Fatal(err)
 	}
 
-	err = client.SendPayTransaction(context.Background(), signedTx)
+	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -214,12 +214,12 @@ func callContract(conn *etrueclient.Client, transactOpts *bind.TransactOpts, pub
 	fmt.Println("Tx info: ", tx.Info())
 }
 
-func printCurrentBlock() {
-	client, err := etrueclient.Dial("wss://39.100.120.25:8545/ws")
+func printCurrentBlock(client *etrueclient.Client) {
+	//ws://[::]:8546 wss://39.100.120.25:8545/ws
+	client, err := etrueclient.Dial("ws://127.0.0.1:8546")
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	headers := make(chan *types.Header)
 	sub, err := client.SubscribeNewHead(context.Background(), headers)
 	if err != nil {

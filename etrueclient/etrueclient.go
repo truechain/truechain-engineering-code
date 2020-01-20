@@ -680,7 +680,7 @@ func (ec *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	if err != nil {
 		return err
 	}
-	return ec.c.CallContext(ctx, nil, "etrue_sendRawTransaction", common.ToHex(data))
+	return ec.c.CallContext(ctx, nil, "etrue_sendTrueRawTransaction", common.ToHex(data))
 }
 
 // SendPayTransaction injects a signed transaction(both sender and payer) into the pending pool for execution.
