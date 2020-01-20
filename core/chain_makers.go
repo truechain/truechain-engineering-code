@@ -284,7 +284,7 @@ func GenerateChainWithReward(config *params.ChainConfig, parent *types.Block, re
 func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
 	var time *big.Int
 	if parent.Time() == nil {
-		time = big.NewInt(10)
+		time = big.NewInt(5)
 	} else {
 		time = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
 	}

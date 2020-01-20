@@ -161,7 +161,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 				fastNumber = new(big.Int).Add(parent.Number(), common.Big1)
 			}
 			fast := fastChain.GetBlockByNumber(fastNumber.Uint64())
-			fruit, err := makeFruit(chainreader, fast, parent, freshPoint)
+			fruit, err := makeFruit(chainreader, fast, parent, freshPoint, fruitparent)
 			if err != nil {
 				return nil
 			}
@@ -193,7 +193,7 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, fast
 	if parent.Time() == nil {
 		time = big.NewInt(10)
 	} else {
-		time = new(big.Int).Add(parent.Time(), big.NewInt(3600)) // block time is fixed at 3600 seconds
+		time = new(big.Int).Add(parent.Time(), big.NewInt(4800)) // block time is fixed at 3600 seconds
 	}
 
 	header := &types.SnailHeader{
@@ -211,9 +211,9 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, fast
 	return header
 }
 
-func makeFruit(chain consensus.SnailChainReader, fast *types.Block, parent *types.SnailBlock, fresh int) (*types.SnailBlock, error) {
+func makeFruit(chain consensus.SnailChainReader, fast *types.Block, parent *types.SnailBlock, fresh int, fruitP *types.SnailBlock) (*types.SnailBlock, error) {
 
-	head := makeFruitHead(chain, fast, parent, fresh)
+	head := makeFruitHead(chain, fast, parent, fresh, fruitP)
 	head.FastHash = fast.Hash()
 	pointer := chain.GetHeader(head.PointerHash, head.PointerNumber.Uint64())
 	head.FruitDifficulty = minerva.CalcFruitDifficulty(chain.Config(), head.Time.Uint64(), fast.Header().Time.Uint64(), pointer)
@@ -228,12 +228,12 @@ func makeFruit(chain consensus.SnailChainReader, fast *types.Block, parent *type
 	return fruit, nil
 }
 
-func makeFruitHead(chain consensus.SnailChainReader, fastBlock *types.Block, parent *types.SnailBlock, fresh int) *types.SnailHeader {
+func makeFruitHead(chain consensus.SnailChainReader, fastBlock *types.Block, parent *types.SnailBlock, fresh int, fruitP *types.SnailBlock) *types.SnailHeader {
 	var time *big.Int
-	if parent.Time() == nil {
+	if fruitP.Time() == nil {
 		time = big.NewInt(10)
 	} else {
-		time = new(big.Int).Add(parent.Time(), big.NewInt(600)) // block time is fixed at 10 seconds
+		time = new(big.Int).Add(fruitP.Time(), big.NewInt(20)) // block time is fixed at 10 seconds
 	}
 
 	header := &types.SnailHeader{
@@ -403,7 +403,7 @@ func MakeSnailBlock(chain *SnailBlockChain, fastchain *core.BlockChain, parent *
 			fastNumber = new(big.Int).Add(parent.Number(), common.Big1)
 		}
 		fast := fastchain.GetBlockByNumber(fastNumber.Uint64())
-		fruit, err := makeFruit(chain, fast, parent, 7)
+		fruit, err := makeFruit(chain, fast, parent, 7, fruitparent)
 		if err != nil {
 			return nil, err
 		}
