@@ -83,18 +83,6 @@ type EpochIDInfo struct {
 	BeginHeight uint64
 	EndHeight   uint64
 }
-
-type StakingInfo struct {
-	// CoinBase 	common.Address
-	Fee *big.Int
-	PK  []byte
-}
-
-// the key is epochid if StakingValue as a locked asset,otherwise key is block height if StakingValue as a staking asset
-type StakingValue struct {
-	Value map[uint64]*big.Int
-}
-
 func (e *EpochIDInfo) isValid() bool {
 	if e.EpochID < 0 {
 		return false
@@ -109,6 +97,35 @@ func (e *EpochIDInfo) isValid() bool {
 }
 func (e *EpochIDInfo) String() string {
 	return fmt.Sprintf("[id:%v,begin:%v,end:%v]", e.EpochID, e.BeginHeight, e.EndHeight)
+}
+
+
+// the key is epochid if StakingValue as a locked asset,otherwise key is block height if StakingValue as a staking asset
+type StakingValue struct {
+	Value map[uint64]*big.Int
+}
+
+type LockedItem struct {
+	Amount *big.Int
+	Locked 	bool
+}
+// LockedValue,the key of Value is epochid
+type LockedValue struct {
+	Value map[uint64]*LockedItem
+}
+
+func (s *StakingValue) ToLockedValue(height uint64) *LockedValue {
+	res := make(map[uint64]*LockedItem)
+	for k,v := range s.Value {
+		item := &LockedItem{
+			Amount: new(big.Int).Set(v),
+			Locked: IsUnlocked(k,height),
+		}
+		res[k]=item
+	}
+	return &LockedValue{
+		Value: res,
+	}
 }
 
 func toReward(val *big.Float) *big.Int {
@@ -217,4 +234,8 @@ func ForbidAddress(addr common.Address) error {
 		return errors.New(fmt.Sprint("addr error:", addr, ErrForbidAddress))
 	}
 	return nil
+}
+func IsUnlocked(eid,height uint64) bool {
+	e := GetEpochFromID(eid + 1)
+	return height > e.BeginHeight+params.MaxRedeemHeight
 }
