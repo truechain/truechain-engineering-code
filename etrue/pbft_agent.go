@@ -966,6 +966,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 	if infos != nil {
 		header.Root = parent.Root()
 		fastBlock = types.NewBlock(header, nil, nil, nil, infos)
+		log.Info("1****FetchFastBlock****", "items", infos,"heigth",header.Number)
 	} else {
 		// Create the current work task and check any fork transitions needed
 		err := agent.makeCurrent(parent, header)
