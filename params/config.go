@@ -128,7 +128,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(0)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
 
