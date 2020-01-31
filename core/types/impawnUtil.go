@@ -119,7 +119,7 @@ func (s *StakingValue) ToLockedValue(height uint64) *LockedValue {
 	for k,v := range s.Value {
 		item := &LockedItem{
 			Amount: new(big.Int).Set(v),
-			Locked: IsUnlocked(k,height),
+			Locked: !IsUnlocked(k,height),
 		}
 		res[k]=item
 	}

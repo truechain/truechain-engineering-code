@@ -525,8 +525,8 @@ func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next, move bool) {
 // be thread-safe for caller locked
 type ImpawnImpl struct {
 	lock       sync.RWMutex
-	accounts   map[uint64]SAImpawns
-	curEpochID uint64
+	accounts   map[uint64]SAImpawns // key is epoch id,value is SA set
+	curEpochID uint64	// the new epochid of the current state
 	lastReward uint64 // the curnent reward height block
 }
 
