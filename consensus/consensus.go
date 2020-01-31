@@ -185,7 +185,9 @@ type PoW interface {
 }
 
 func IsTIP8(fastHeadNumber *big.Int, config *params.ChainConfig, reader SnailChainReader) bool {
-
+	if config.TIP8.CID.Sign() < 0 {
+		return true
+	}
 	if config.TIP8.FastNumber != nil && config.TIP8.FastNumber.Sign() > 0 {
 		return fastHeadNumber.Cmp(config.TIP8.FastNumber) >= 0
 	}
@@ -244,6 +246,9 @@ func InitTIP8(config *params.ChainConfig, reader SnailChainReader) {
 		params.FirstNewEpochID = new(big.Int).Add(eid, common.Big1).Uint64()
 	} else {
 		params.FirstNewEpochID = common.Big1.Uint64()
+		params.DposForkPoint = 0
+		config.TIP8.FastNumber = new(big.Int).Set(common.Big0)
+		return 
 	}
 
 	switchCheckNumber := new(big.Int).Mul(new(big.Int).Add(eid, common.Big1), params.ElectionPeriodNumber)
