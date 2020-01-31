@@ -195,7 +195,10 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		if b.engine != nil {
-			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, b.feeAmout)
+			block, err := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, b.feeAmout)
+			if err != nil {
+				fmt.Println(" err ", err.Error())
+			}
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
 			block.SetSign(sign)

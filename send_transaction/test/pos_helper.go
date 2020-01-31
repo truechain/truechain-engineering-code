@@ -39,7 +39,7 @@ var (
 
 //epoch  [id:1,begin:1,end:2000]   [id:2,begin:2001,end:4000]   [id:3,begin:4001,end:6000]   [id:4,begin:6001,end:8000]   [id:5,begin:8001,end:10000]
 func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, tx txPool, config *params.ChainConfig, gen *core.BlockGen, statedb *state.StateDB, comKey *ecdsa.PrivateKey) {
-	if !propagate {
+	if !propagate || !(gspec.Config.TIP8.FastNumber != nil && gspec.Config.TIP8.FastNumber.Sign() > 0) {
 		return
 	}
 	var stateDb *state.StateDB
@@ -150,7 +150,7 @@ func DefaulGenesisBlock() *core.Genesis {
 	key4 := hexutil.MustDecode("0x04c4935993a3ce206318ab884871fbe2d4dce32a022795c674784f58e7faf3239631b6952b82471fe1e93ef999108a18d028e5d456cd88bb367d610c5e57c7e443")
 
 	return &core.Genesis{
-		Config:     params.TestChainConfig,
+		Config:     params.DevnetChainConfig,
 		Nonce:      928,
 		ExtraData:  nil,
 		GasLimit:   88080384,
@@ -171,9 +171,10 @@ func DefaulGenesisBlock() *core.Genesis {
 }
 
 type POSManager struct {
-	blockchain *core.BlockChain
-	snailchain *snailchain.SnailBlockChain
-	GetBalance func(addr common.Address) *big.Int
+	blockchain  *core.BlockChain
+	snailchain  *snailchain.SnailBlockChain
+	chainconfig *params.ChainConfig
+	GetBalance  func(addr common.Address) *big.Int
 }
 
 var (
@@ -195,10 +196,6 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
 
-	//gspec.Config.TIP8 = &params.BlockConfig{CID: big.NewInt(-1)}
-	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0)}
-	gspec.Config.TIP9 = &params.BlockConfig{SnailNumber: big.NewInt(20)}
-
 	genesis := gspec.MustFastCommit(db)
 	blockchain, _ := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
 
@@ -218,7 +215,9 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 			case 0:
 				rewardSnailBlock(snailChainTest, blockchain, header)
 			}
-			executableTx(header.Number.Uint64(), gen, blockchain, header, stateDB)
+			if gspec.Config.TIP8.FastNumber != nil && gspec.Config.TIP8.FastNumber.Sign() > 0 {
+				executableTx(header.Number.Uint64()-gspec.Config.TIP8.FastNumber.Uint64()+9600, gen, blockchain, header, stateDB)
+			}
 		})
 		if _, err := blockchain.InsertChain(chain); err != nil {
 			panic(err)
@@ -231,10 +230,13 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 		parentSnail = snailChainTest.GetBlocksFromNumber(0)
 	}
 
+	consensus.InitTIP8(gspec.Config, snailChainTest)
+	fmt.Println("first ", types.GetFirstEpoch())
 	// Create the pos manager with the base fields
 	manager := &POSManager{
-		snailchain: snailChainTest,
-		blockchain: blockchain,
+		snailchain:  snailChainTest,
+		blockchain:  blockchain,
+		chainconfig: gspec.Config,
 	}
 
 	GetBalance := func(addr common.Address) *big.Int {
