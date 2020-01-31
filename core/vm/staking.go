@@ -296,20 +296,19 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, types.StakingAddress)
-	epoch := types.GetEpochFromHeight(evm.Context.BlockNumber.Uint64())
 
 	asset := impawn.GetAllCancelableAsset(depositAddr)
 	if stake, ok := asset[depositAddr]; ok {
 		staked.Add(staked, stake)
 	}
 
-	lockedAsset := impawn.GetLockedAsset(depositAddr)
+	lockedAsset := impawn.GetLockedAsset2(depositAddr, evm.Context.BlockNumber.Uint64())
 	if stake, ok := lockedAsset[depositAddr]; ok {
-		for num, value := range stake.Value {
-			if num > epoch.EpochID {
-				unlocked.Add(unlocked, value)
+		for _, item := range stake.Value {
+			if item.Locked {
+				locked.Add(locked, item.Amount)
 			} else {
-				locked.Add(locked, value)
+				unlocked.Add(unlocked, item.Amount)
 			}
 		}
 	}
@@ -340,20 +339,19 @@ func getDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err er
 
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, types.StakingAddress)
-	epoch := types.GetEpochFromHeight(evm.Context.BlockNumber.Uint64())
 
 	asset := impawn.GetAllCancelableAsset(args.Owner)
 	if stake, ok := asset[args.Holder]; ok {
 		staked.Add(staked, stake)
 	}
 
-	lockedAsset := impawn.GetLockedAsset(args.Owner)
+	lockedAsset := impawn.GetLockedAsset2(args.Owner, evm.Context.BlockNumber.Uint64())
 	if stake, ok := lockedAsset[args.Holder]; ok {
-		for num, value := range stake.Value {
-			if num > epoch.EpochID {
-				unlocked.Add(unlocked, value)
+		for _, item := range stake.Value {
+			if item.Locked {
+				locked.Add(locked, item.Amount)
 			} else {
-				locked.Add(locked, value)
+				unlocked.Add(unlocked, item.Amount)
 			}
 		}
 	}
