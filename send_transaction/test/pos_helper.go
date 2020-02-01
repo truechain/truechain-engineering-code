@@ -44,7 +44,7 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 	}
 	var stateDb *state.StateDB
 	if statedb == nil {
-		stateDb, _ = blockchain.StateAt(header.Root)
+		stateDb, _ = blockchain.StateAt(blockchain.CurrentFastBlock().Root())
 	} else {
 		stateDb = statedb
 	}
