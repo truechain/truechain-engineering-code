@@ -218,7 +218,7 @@ func (s *impawnUnit) merge(epochid, hh uint64) {
 	redeem := s.getRedeemItem(epochid)
 	if redeem != nil {
 		left := all.Sub(all, redeem.Amount)
-		if left.Sign() > 0 {
+		if left.Sign() >= 0 {
 			tmp.amount = left
 		} else {
 			panic("big error" + fmt.Sprint("all:", all, "redeem:", redeem.Amount, "epoch:", epochid))
