@@ -534,7 +534,7 @@ func NewImpawnImpl() *ImpawnImpl {
 	pre := types.GetPreFirstEpoch()
 	return &ImpawnImpl{
 		curEpochID: pre.EpochID,
-		lastReward: pre.EndHeight,
+		lastReward: 0,
 		accounts:   make(map[uint64]SAImpawns),
 	}
 }
@@ -828,7 +828,8 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 // Shift will move the staking account which has election flag to the next epoch
 // it will be save the whole state in the current epoch end block after it called by consensus
 func (i *ImpawnImpl) Shift(epochid uint64) error {
-	minEpoch := types.GetEpochFromHeight(i.lastReward)
+	lastReward := i.lastReward
+	minEpoch := types.GetEpochFromHeight(lastReward)
 	min := i.getMinEpochID()
 	fmt.Println("*** move min:", min, "minEpoch:", minEpoch.EpochID, "lastReward:", i.lastReward)
 	for ii := min; minEpoch.EpochID > 1 && ii < minEpoch.EpochID-1; ii++ {
