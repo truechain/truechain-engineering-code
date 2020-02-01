@@ -58,6 +58,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(1500000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
+		TIP7: &BlockConfig{FastNumber: big.NewInt(100000)},
 		TIP8: &BlockConfig{FastNumber: big.NewInt(8000000), CID: big.NewInt(2000)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(640000)},
 	}
@@ -93,6 +94,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(450000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(4000)},
+		TIP7: &BlockConfig{FastNumber: big.NewInt(0)},
 		TIP8: &BlockConfig{FastNumber: big.NewInt(100), CID: big.NewInt(100)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
@@ -128,6 +130,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
+		TIP7: &BlockConfig{FastNumber: big.NewInt(0)},
 		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(0)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
@@ -141,6 +144,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
+		TIP7: &BlockConfig{FastNumber: big.NewInt(0)},
 		TIP8: &BlockConfig{FastNumber: big.NewInt(100), CID: big.NewInt(-1)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
@@ -160,13 +164,13 @@ var (
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP5: nil, TIP8: nil, TIP9: nil}
+		TIP5: nil, TIP7: nil,TIP8: nil, TIP9: nil}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
 	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP5: nil, TIP8: nil, TIP9: nil}
+		TIP5: nil, TIP7: nil,TIP8: nil, TIP9: nil}
 )
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
@@ -229,6 +233,7 @@ type ChainConfig struct {
 	TIP3 *BlockConfig `json:"tip3"`
 
 	TIP5 *BlockConfig `json:"tip5"`
+	TIP7 *BlockConfig `json:"tip7"`
 	TIP8 *BlockConfig `json:"tip8"`
 	TIP9 *BlockConfig `json:"tip9"`
 
@@ -463,6 +468,12 @@ func (c *ChainConfig) IsTIP5(num *big.Int) bool {
 		return false
 	}
 	return isForked(c.TIP5.SnailNumber, num)
+}
+func (c *ChainConfig) IsTIP7(num *big.Int) bool {
+	if c.TIP7 == nil {
+		return false
+	}
+	return isForked(c.TIP7.FastNumber, num)
 }
 
 func (c *ChainConfig) IsTIP8(cid, num *big.Int) bool {

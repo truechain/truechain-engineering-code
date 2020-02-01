@@ -27,6 +27,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 )
 
 // ChainReader defines a small collection of methods needed to access the local
@@ -272,4 +273,19 @@ func InitTIP8(config *params.ChainConfig, reader SnailChainReader) {
 		config.TIP8.FastNumber = new(big.Int).Add(fisrtNum, common.Big1)
 		log.Info("InitTIP8", "switchCheckNumber", switchCheckNumber, "TIP8.FastNumber", config.TIP8.FastNumber, "FirstNewEpochID", params.FirstNewEpochID)
 	}
+}
+func initTip7(config *params.ChainConfig,state *state.StateDB,fastNumber *big.Int) {
+	if config.IsTIP7(fastNumber) {
+		stateAddress := types.StakingAddress
+		key := common.BytesToHash(stateAddress[:])
+		obj := state.GetPOSState(stateAddress, key)
+		if len(obj) == 0 {
+			i := vm.NewImpawnImpl()
+			i.Save(state,stateAddress)
+			state.SetNonce(stateAddress,1)
+		}
+	}
+}
+func OnceInitImpawnState(config *params.ChainConfig,state *state.StateDB,fastNumber *big.Int) {
+	initTip7(config,state,fastNumber)
 }
