@@ -526,8 +526,8 @@ func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next, move bool) {
 type ImpawnImpl struct {
 	lock       sync.RWMutex
 	accounts   map[uint64]SAImpawns // key is epoch id,value is SA set
-	curEpochID uint64	// the new epochid of the current state
-	lastReward uint64 // the curnent reward height block
+	curEpochID uint64               // the new epochid of the current state
+	lastReward uint64               // the curnent reward height block
 }
 
 func NewImpawnImpl() *ImpawnImpl {
@@ -707,7 +707,7 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 			return nil, errors.New(fmt.Sprint(types.ErrMatchEpochID, "epochid:", einfo.EpochID))
 		}
 		impawns := SAImpawns(sas)
-		impawns.sort(target,false)
+		impawns.sort(target, false)
 		var res []*types.SARewardInfos
 		allValidatorStaking := impawns.getAllStaking(target)
 		sum := len(impawns)
@@ -1088,22 +1088,24 @@ func (i *ImpawnImpl) GetStakingAsset(addr common.Address) map[common.Address]*ty
 	res, _ := i.getAsset(addr, epochid, types.OpQueryStaking)
 	return res
 }
-// GetLockedAsset returns a group canceled asset from the state of the addr,it includes redemption on 
+
+// GetLockedAsset returns a group canceled asset from the state of the addr,it includes redemption on
 // maturity and unmaturity asset
 func (i *ImpawnImpl) GetLockedAsset(addr common.Address) map[common.Address]*types.StakingValue {
 	epochid := i.curEpochID
 	res, _ := i.getAsset(addr, epochid, types.OpQueryLocked)
 	return res
 }
-func (i *ImpawnImpl) GetLockedAsset2(addr common.Address,height uint64) map[common.Address]*types.LockedValue {
+func (i *ImpawnImpl) GetLockedAsset2(addr common.Address, height uint64) map[common.Address]*types.LockedValue {
 	epochid := i.curEpochID
 	items, _ := i.getAsset(addr, epochid, types.OpQueryLocked)
 	res := make(map[common.Address]*types.LockedValue)
-	for k,v := range items {
+	for k, v := range items {
 		res[k] = v.ToLockedValue(height)
 	}
 	return res
 }
+
 // GetAllCancelableAsset returns all asset on addr it can be canceled
 func (i *ImpawnImpl) GetAllCancelableAsset(addr common.Address) map[common.Address]*big.Int {
 	epochid := i.curEpochID
