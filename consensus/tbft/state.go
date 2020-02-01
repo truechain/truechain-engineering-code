@@ -914,7 +914,6 @@ func (cs *ConsensusState) createProposalBlock(round int) (*types.Block, *ttypes.
 		v = &ttypes.SwitchValidator{
 			Infos: memers,
 		}
-		log.Info("2****createProposalBlock****", "items", v,"heigth",cs.cm.StartHeight.Uint64())
 	} else {
 		if len(cs.svs) > 0 {
 			tmp := cs.svs[0]
