@@ -39,7 +39,7 @@ var (
 
 //epoch  [id:1,begin:1,end:2000]   [id:2,begin:2001,end:4000]   [id:3,begin:4001,end:6000]   [id:4,begin:6001,end:8000]   [id:5,begin:8001,end:10000]
 func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, tx txPool, config *params.ChainConfig, gen *core.BlockGen, statedb *state.StateDB, comKey *ecdsa.PrivateKey) {
-	if !propagate || !(gspec.Config.TIP8.FastNumber != nil && gspec.Config.TIP8.FastNumber.Sign() > 0) {
+	if !propagate {
 		return
 	}
 	var stateDb *state.StateDB
@@ -88,6 +88,7 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 		epoch = cEpoch
 		printTest("firstNumber", firstNumber, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
 	}
+	//printTest("send ",send,"number ",number,"diff ",diff,"cEpoch ",cEpoch,"epoch ",epoch,"firstNumber ",firstNumber,"sb",sb)
 	if send {
 		if sb != nil {
 			for addr, value := range sb {
@@ -215,9 +216,10 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 			case 0:
 				rewardSnailBlock(snailChainTest, blockchain, header)
 			}
-			if gspec.Config.TIP8.FastNumber != nil && gspec.Config.TIP8.FastNumber.Sign() > 0 {
-				executableTx(header.Number.Uint64()-gspec.Config.TIP8.FastNumber.Uint64()+9600, gen, blockchain, header, stateDB)
-			}
+			//if gspec.Config.TIP8.FastNumber != nil && gspec.Config.TIP8.FastNumber.Sign() > 0 {
+			//	executableTx(header.Number.Uint64()-gspec.Config.TIP8.FastNumber.Uint64()+9600, gen, blockchain, header, stateDB)
+			//}
+			executableTx(header.Number.Uint64(), gen, blockchain, header, stateDB)
 		})
 		if _, err := blockchain.InsertChain(chain); err != nil {
 			panic(err)
@@ -285,6 +287,19 @@ func sendCancelTransaction(height uint64, gen *core.BlockGen, from common.Addres
 		nonce, _ := getNonce(gen, from, state, "sendCancelTransaction")
 		input := packInput(abiStaking, "cancel", "sendCancelTransaction", value)
 		addTx(gen, blockchain, nonce, big.NewInt(0), input, txPool, priKey, signer)
+	}
+}
+
+func sendGetDepositTransaction(height uint64, gen *core.BlockGen, from common.Address, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 10 {
+		input := packInput(abiStaking, "getDeposit", "sendGetDepositTransaction", from)
+		args := struct {
+			Staked   *big.Int
+			Locked   *big.Int
+			Unlocked *big.Int
+		}{}
+		readTx(gen, blockchain, 0, big.NewInt(0), input, txPool, priKey, signer, "getDeposit", &args)
+		printTest("Staked ", args.Staked, "Locked ", args.Locked, "Unlocked ", args.Unlocked)
 	}
 }
 
@@ -370,13 +385,27 @@ func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value 
 	}
 }
 
+func readTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value *big.Int, input []byte, txPool txPool, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, abiMethod string, result interface{}) {
+	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 57200, big.NewInt(1000000), input), signer, priKey)
+	if gen != nil {
+		output, gas := gen.ReadTxWithChain(blockchain, tx)
+		err := abiStaking.Unpack(result, abiMethod, output)
+		if err != nil {
+			printTest(abiMethod, " error ", err)
+		}
+		printTest("readTx gas ", gas)
+	} else {
+		txPool.AddRemotes([]*types.Transaction{tx})
+	}
+}
+
 func printBalance(stateDb *state.StateDB, from common.Address, method string) {
 	balance := stateDb.GetBalance(types.StakingAddress)
 	fbalance := new(big.Float)
 	fbalance.SetString(balance.String())
 	StakinValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
-	printTest(method, " from ", types.ToTrue(stateDb.GetBalance(from)), " Staking fbalance ", fbalance, " StakinValue ", StakinValue)
+	printTest(method, " from ", types.ToTrue(stateDb.GetBalance(from)), " Staking fbalance ", fbalance, " StakinValue ", StakinValue, "from ", from.String())
 }
 
 func packInput(abiStaking abi.ABI, abiMethod, method string, params ...interface{}) []byte {
@@ -388,5 +417,5 @@ func packInput(abiStaking abi.ABI, abiMethod, method string, params ...interface
 }
 
 func printTest(a ...interface{}) {
-	fmt.Println("test SendTX ", a)
+	log.Info("test", "SendTX", a)
 }

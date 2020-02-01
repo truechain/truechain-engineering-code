@@ -105,6 +105,28 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	b.receipts = append(b.receipts, receipt)
 }
 
+// ReadTxWithChain read a transaction to the generated block. If no coinbase has
+// been set, the block's coinbase is set to the zero address.
+//
+// AddTxWithChain panics if the transaction cannot be executed. In addition to
+// the protocol-imposed limitations (gas limit, etc.), there are some
+// further limitations on the content of transactions that can be
+// added. If contract code relies on the BLOCKHASH instruction,
+// the block in chain will be returned.
+func (b *BlockGen) ReadTxWithChain(bc *BlockChain, tx *types.Transaction) ([]byte, uint64) {
+	if b.gasPool == nil {
+		b.SetCoinbase(common.Address{})
+		b.feeAmout = big.NewInt(0)
+	}
+	stateDb, err := bc.StateAt(b.parent.Root())
+
+	result, gas, err := ReadTransaction(b.config, bc, stateDb, b.header, tx, vm.Config{})
+	if err != nil {
+		panic(err)
+	}
+	return result, gas
+}
+
 // Number returns the block number of the block being generated.
 func (b *BlockGen) Number() *big.Int {
 	return new(big.Int).Set(b.header.Number)
