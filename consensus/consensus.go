@@ -242,6 +242,13 @@ func updateForkedPoint(forkedID, fastNumber *big.Int, config *params.ChainConfig
 }
 
 func InitTIP8(config *params.ChainConfig, reader SnailChainReader) {
+	if params.DposForkPoint == 0 {
+		params.DposForkPoint = config.TIP7.FastNumber.Uint64() * 10
+	}
+	if params.DposForkPoint < 100000 {
+		params.DposForkPoint = 100000
+	}
+	
 	eid := config.TIP8.CID
 	if config.TIP8.CID.Sign() >= 0 {
 		params.FirstNewEpochID = new(big.Int).Add(eid, common.Big1).Uint64()
