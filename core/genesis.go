@@ -177,7 +177,10 @@ func setupFastGenesisBlock(db etruedb.Database, genesis *Genesis) (*params.Chain
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.CommitFast(db)
-		return genesis.Config, block.Hash(), err
+		if err != nil {
+			return genesis.Config, common.Hash{}, err
+		}
+		return genesis.Config, block.Hash(), nil
 	}
 
 	// Check whether the genesis block is already written.
@@ -319,7 +322,10 @@ func setupSnailGenesisBlock(db etruedb.Database, genesis *Genesis) (*params.Chai
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.CommitSnail(db)
-		return genesis.Config, block.Hash(), err
+		if err != nil {
+			return genesis.Config, common.Hash{}, err
+		}
+		return genesis.Config, block.Hash(), nil
 	}
 
 	// Check whether the genesis block is already written.
@@ -490,13 +496,13 @@ func decodePrealloc(data string) types.GenesisAlloc {
 
 // GenesisFastBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisFastBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.Block {
-	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}},Config:params.AllMinervaProtocolChanges}
+	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}, Config: params.AllMinervaProtocolChanges}
 	return g.MustFastCommit(db)
 }
 
 // GenesisSnailBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisSnailBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.SnailBlock {
-	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}},Config:params.AllMinervaProtocolChanges}
+	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}, Config: params.AllMinervaProtocolChanges}
 	return g.MustSnailCommit(db)
 }
 
@@ -532,6 +538,30 @@ func DefaultDevGenesisBlock() *Genesis {
 			{Coinbase: common.HexToAddress("0x2cdac3658f85b5da3b70223cc3ad3b2dfe7c1930"), Publickey: key5},
 			{Coinbase: common.HexToAddress("0x41acde8dd7611338c2a30e90149e682566716e9d"), Publickey: key6},
 			{Coinbase: common.HexToAddress("0x0ffd116a3bf97a7112ff8779cc770b13ea3c66a5"), Publickey: key7},
+		},
+	}
+}
+
+func DefaultSingleNodeGenesisBlock() *Genesis {
+	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
+	key1 := hexutil.MustDecode("0x04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1")
+
+	return &Genesis{
+		Config:     params.SingleNodeChainConfig,
+		Nonce:      66,
+		ExtraData:  nil,
+		GasLimit:   22020096,
+		Difficulty: big.NewInt(256),
+		//Alloc:      decodePrealloc(mainnetAllocData),
+		Alloc: map[common.Address]types.GenesisAccount{
+			common.HexToAddress("0xbd54a6c8298a70e9636d0555a77ffa412abdd71a"): {Balance: i},
+			common.HexToAddress("0x3c2e0a65a023465090aaedaa6ed2975aec9ef7f9"): {Balance: i},
+			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
+			common.HexToAddress("0xeeb69c67751e9f4917b605840fa9a28be4517871"): {Balance: i},
+			common.HexToAddress("0x9810a954bb88fdc251374d666ed7e06748ea672d"): {Balance: i},
+		},
+		Committee: []*types.CommitteeMember{
+			{Coinbase: common.HexToAddress("0x76ea2f3a002431fede1141b660dbb75c26ba6d97"), Publickey: key1},
 		},
 	}
 }

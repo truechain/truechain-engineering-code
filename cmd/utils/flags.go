@@ -795,9 +795,9 @@ func makeDatabaseHandles() int {
 		Fatalf("Failed to retrieve file descriptor allowance: %v", err)
 	}
 	raised, err := fdlimit.Raise(uint64(limit))
-	if err != nil {
+	/*if err != nil {
 		Fatalf("Failed to raise file descriptor allowance: %v", err)
-	}
+	}*/
 	return int(raised / 2) // Leave half for networking and other stuff
 }
 
@@ -1182,6 +1182,11 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 			cfg.NetworkId = 100
 		}
 		cfg.Genesis = core.DefaultDevGenesisBlock()
+	case ctx.GlobalBool(SingleNodeFlag.Name):
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 400
+		}
+		cfg.Genesis = core.DefaultSingleNodeGenesisBlock()
 	}
 	// TODO(fjl): move trie cache generations into config
 	if gen := ctx.GlobalInt(TrieCacheGenFlag.Name); gen > 0 {
@@ -1296,6 +1301,8 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 		genesis = core.DefaultTestnetGenesisBlock()
 	case ctx.GlobalBool(DevnetFlag.Name):
 		genesis = core.DefaultDevGenesisBlock()
+	case ctx.GlobalBool(SingleNodeFlag.Name):
+		genesis = core.DefaultSingleNodeGenesisBlock()
 	}
 	return genesis
 }
