@@ -257,7 +257,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			statedb.SetState(addr, key, value)
 		}
 	}
-
+	consensus.OnceInitImpawnState(g.Config,statedb,new(big.Int).SetUint64(g.Number))
 	if consensus.IsTIP8(new(big.Int).SetUint64(g.Number), g.Config, nil) {
 		impl := vm.NewImpawnImpl()
 		hh := g.Number

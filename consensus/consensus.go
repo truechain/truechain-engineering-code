@@ -237,7 +237,7 @@ func updateForkedPoint(forkedID, fastNumber *big.Int, config *params.ChainConfig
 	if config.TIP8.CID.Cmp(forkedID) == 0 && config.TIP8.FastNumber.Sign() == 0 && fastNumber != nil {
 		params.DposForkPoint = fastNumber.Uint64()
 		config.TIP8.FastNumber = new(big.Int).Add(fastNumber, common.Big1)
-		log.Info("updateForkedPoint", "TIP8.FastNumber", config.TIP8.FastNumber, "FirstNewEpochID", params.FirstNewEpochID, "DposForkPoint", params.DposForkPoint, "first", types.GetFirstEpoch())
+		log.Info("TIP8 updateForkedPoint", "FastNumber", config.TIP8.FastNumber, "FirstNewEpochID", params.FirstNewEpochID, "DposForkPoint", params.DposForkPoint, "first", types.GetFirstEpoch())
 	}
 }
 
@@ -274,7 +274,7 @@ func InitTIP8(config *params.ChainConfig, reader SnailChainReader) {
 		log.Info("InitTIP8", "switchCheckNumber", switchCheckNumber, "TIP8.FastNumber", config.TIP8.FastNumber, "FirstNewEpochID", params.FirstNewEpochID)
 	}
 }
-func initTip7(config *params.ChainConfig,state *state.StateDB,fastNumber *big.Int) {
+func makeImpawInitState(config *params.ChainConfig,state *state.StateDB,fastNumber *big.Int) bool {
 	if config.IsTIP7(fastNumber) {
 		stateAddress := types.StakingAddress
 		key := common.BytesToHash(stateAddress[:])
@@ -283,9 +283,12 @@ func initTip7(config *params.ChainConfig,state *state.StateDB,fastNumber *big.In
 			i := vm.NewImpawnImpl()
 			i.Save(state,stateAddress)
 			state.SetNonce(stateAddress,1)
+			log.Info("makeImpawInitState success")
+			return true
 		}
 	}
+	return false
 }
-func OnceInitImpawnState(config *params.ChainConfig,state *state.StateDB,fastNumber *big.Int) {
-	initTip7(config,state,fastNumber)
+func OnceInitImpawnState(config *params.ChainConfig,state *state.StateDB,fastNumber *big.Int) bool {
+	return makeImpawInitState(config,state,fastNumber)
 }
