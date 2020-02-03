@@ -196,6 +196,8 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
+	gspec.Config.TIP7 = &params.BlockConfig{FastNumber: big.NewInt(0)}
+	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)}
 
 	genesis := gspec.MustFastCommit(db)
 	blockchain, _ := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
@@ -300,6 +302,19 @@ func sendGetDepositTransaction(height uint64, gen *core.BlockGen, from common.Ad
 		}{}
 		readTx(gen, blockchain, 0, big.NewInt(0), input, txPool, priKey, signer, "getDeposit", &args)
 		printTest("Staked ", args.Staked, "Locked ", args.Locked, "Unlocked ", args.Unlocked)
+	}
+}
+
+func sendGetDelegateTransaction(height uint64, gen *core.BlockGen, from, saAddress common.Address, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 10 {
+		input := packInput(abiStaking, "getDelegate", "sendGetDelegateTransaction", from, saAddress)
+		args := struct {
+			Delegated *big.Int
+			Locked    *big.Int
+			Unlocked  *big.Int
+		}{}
+		readTx(gen, blockchain, 0, big.NewInt(0), input, txPool, priKey, signer, "getDelegate", &args)
+		printTest("Delegated ", args.Delegated, "Locked ", args.Locked, "Unlocked ", args.Unlocked)
 	}
 }
 

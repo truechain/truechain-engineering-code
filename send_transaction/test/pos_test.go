@@ -21,11 +21,11 @@ func init() {
 ///////////////////////////////////////////////////////////////////////
 func TestGetLockedAsset(t *testing.T) {
 	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(number uint64, gen *core.BlockGen, fastChain *core.BlockChain, header *types.Header, statedb *state.StateDB) {
+	executable := func(number uint64, gen *core.BlockGen, blockchain *core.BlockChain, header *types.Header, statedb *state.StateDB) {
 		sendTranction(number, gen, statedb, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 
-		sendDepositTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
-		sendCancelTransaction(number-types.GetEpochFromID(2).BeginHeight, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendDepositTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendCancelTransaction(number-types.GetEpochFromID(2).BeginHeight, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
 		if number == 90 {
 			stateDb := gen.GetStateDB()
 			impawn := vm.NewImpawnImpl()
@@ -36,7 +36,7 @@ func TestGetLockedAsset(t *testing.T) {
 			}
 		}
 
-		sendWithdrawTransaction(number-types.MinCalcRedeemHeight(2), gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendWithdrawTransaction(number-types.MinCalcRedeemHeight(2), gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
 	}
 	manager := newTestPOSManager(55, executable)
 	fmt.Println(" saddr1 ", manager.GetBalance(saddr1))
@@ -72,6 +72,45 @@ func TestDeposit(t *testing.T) {
 		sendWithdrawDelegateTransaction(number-types.MinCalcRedeemHeight(2)-10, gen, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, statedb, blockchain, abiStaking, nil)
 	}
 	manager := newTestPOSManager(55, executable)
+	fmt.Println(" saddr1 ", types.ToTrue(manager.GetBalance(saddr1)), " StakingAddress ", manager.GetBalance(types.StakingAddress), " ", types.ToTrue(manager.GetBalance(types.StakingAddress)))
+}
+
+func TestDepositGetDeposit(t *testing.T) {
+	// Create a helper to check if a gas allowance results in an executable transaction
+	executable := func(number uint64, gen *core.BlockGen, blockchain *core.BlockChain, header *types.Header, statedb *state.StateDB) {
+		sendTranction(number, gen, statedb, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
+		sendTranction(number, gen, statedb, mAccount, daddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
+
+		sendDepositTransaction(number, gen, saddr1, big.NewInt(4000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDepositTransaction(number-51, gen, saddr1, skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendDelegateTransaction(number, gen, daddr1, saddr1, big.NewInt(4000000000000000000), dkey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDelegateTransaction(number-61, gen, daddr1, saddr1, dkey1, signer, statedb, blockchain, abiStaking, nil)
+
+		sendCancelTransaction(number-types.GetEpochFromID(2).BeginHeight, gen, saddr1, big.NewInt(3000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDepositTransaction(number-types.GetEpochFromID(2).BeginHeight-11, gen, saddr1, skey1, signer, statedb, blockchain, abiStaking, nil)
+
+		sendUnDelegateTransaction(number-types.GetEpochFromID(2).BeginHeight, gen, daddr1, saddr1, big.NewInt(3000000000000000000), dkey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDelegateTransaction(number-types.GetEpochFromID(2).BeginHeight-21, gen, daddr1, saddr1, dkey1, signer, statedb, blockchain, abiStaking, nil)
+
+		if number == 130 {
+			stateDb := gen.GetStateDB()
+			impawn := vm.NewImpawnImpl()
+			impawn.Load(stateDb, types.StakingAddress)
+			arr := impawn.GetLockedAsset(saddr1)
+			for addr, value := range arr {
+				fmt.Println("value ", value.Value, " addr ", addr.String())
+			}
+			arr1 := impawn.GetLockedAsset(daddr1)
+			for addr, value := range arr1 {
+				fmt.Println("value D ", value.Value, " addr ", addr.String())
+			}
+		}
+		sendWithdrawTransaction(number-types.MinCalcRedeemHeight(2), gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDepositTransaction(number-types.MinCalcRedeemHeight(2)-11, gen, saddr1, skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendWithdrawDelegateTransaction(number-types.MinCalcRedeemHeight(2), gen, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDelegateTransaction(number-types.MinCalcRedeemHeight(2)-21, gen, daddr1, saddr1, dkey1, signer, statedb, blockchain, abiStaking, nil)
+	}
+	manager := newTestPOSManager(101, executable)
 	fmt.Println(" saddr1 ", types.ToTrue(manager.GetBalance(saddr1)), " StakingAddress ", manager.GetBalance(types.StakingAddress), " ", types.ToTrue(manager.GetBalance(types.StakingAddress)))
 }
 
