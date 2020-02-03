@@ -78,7 +78,7 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 		printTest("seed ", seed, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
 	}
 	number := header.Number.Uint64()
-	diff := number - firstNumber
+	diff := number - firstNumber - seed.Uint64()
 
 	cEpoch := types.GetEpochFromHeight(number).EpochID
 	if cEpoch != epoch && cEpoch-epoch == 4 {
