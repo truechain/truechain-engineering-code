@@ -84,6 +84,20 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	return ret, err
 }
 
+// logN add event log to receipt with topics up to 4
+func logN(evm *EVM, contract *Contract, topics []common.Hash, data []byte) ([]byte, error) {
+	evm.StateDB.AddLog(&types.Log{
+		Address: contract.Address(),
+		Topics:  topics,
+		Data:    data,
+		// This is a non-consensus field, but assigned here because
+		// core/state doesn't know the current block number.
+		BlockNumber: evm.BlockNumber.Uint64(),
+	})
+	return nil, nil
+}
+
+
 // deposit
 func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	args := struct {
@@ -119,6 +133,18 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+
+	event := abiStaking.Events["Deposit"]
+	logData, err := event.Inputs.PackNonIndexed(args.Pubkey, contract.value)
+	if err != nil {
+		log.Error("Pack staking log error", "error", err)
+		return nil, err
+	}
+	topics := []common.Hash{
+		event.ID(),
+		common.BytesToHash(from[:]),
+	}
+	logN(evm, contract, topics, logData)
 
 	return nil, nil
 }
@@ -177,6 +203,19 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+
+	event := abiStaking.Events["Delegate"]
+	logData, err := event.Inputs.PackNonIndexed(contract.value)
+	if err != nil {
+		log.Error("Pack staking log error", "error", err)
+		return nil, err
+	}
+	topics := []common.Hash{
+		event.ID(),
+		common.BytesToHash(from[:]),
+		common.BytesToHash(holder[:]),
+	}
+	logN(evm, contract, topics, logData)
 
 	return nil, nil
 }
@@ -431,6 +470,50 @@ func getDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err er
 // Staking Contract json abi
 const StakeABIJSON = `
 [
+  {
+	"name": "Deposit",
+	"inputs": [
+	  {
+		"type": "address",
+		"name": "from",
+		"indexed": true
+	  },
+	  {
+		"type": "bytes",
+		"name": "pubkey",
+		"indexed": false
+	  },
+	  {
+		"type": "uint256",
+		"name": "value",
+		"indexed": false
+	  }
+	],
+	"anonymous": false,
+	"type": "event"
+  },
+  {
+    "name": "Delegate",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "from",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "holder",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "value",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
   {
     "name": "deposit",
     "outputs": [],
