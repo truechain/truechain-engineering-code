@@ -683,29 +683,29 @@ const Impawn_JS = `
 web3._extend({
 	property: 'impawn',
 	methods: [
-		new Method({
+		new web3._extend.Method({
 			name: 'getAllStakingAccount',
 			call: 'impawn_getAllStakingAccount',
 			params: 1,
-			inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
+			inputFormatter: [web3._extend.formatters.inputDefaultBlockNumberFormatter]
 		}),
-		new Method({
+		new web3._extend.Method({
 			name: 'getStakingAsset',
 			call: 'impawn_getStakingAsset',
 			params: 2,
-			inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter]
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputDefaultBlockNumberFormatter]
 		}),
-		new Method({
+		new web3._extend.Method({
 			name: 'getLockedAsset',
 			call: 'impawn_getLockedAsset',
 			params: 2,
-			inputFormatter: [formatters.inputAddressFormatter,formatters.inputBlockNumberFormatter]
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputBlockNumberFormatter]
 		}),
-		new Method({
+		new web3._extend.Method({
 			name: 'getAllCancelableAsset',
 			call: 'impawn_getAllCancelableAsset',
 			params: 2,
-			inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter]
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputDefaultBlockNumberFormatter]
 		}),
 	],
 	properties:
