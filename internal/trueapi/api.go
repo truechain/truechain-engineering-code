@@ -1184,7 +1184,19 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 	}*/
 	return fields
 }
-
+func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map[string]interface{} {
+	content := s.b.GetChainRewardContent(blockNr)
+	if content == nil {
+		return nil
+	}
+	fields := map[string]interface{}{
+		"foundationReward":	content.Foundation,
+		"blockminer":     content.CoinBase,
+		"fruitminer":     content.FruitBase,
+		"committeReward": content.CommitteeBase,
+	}
+	return fields
+}
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
 type RPCTransaction struct {
 	BlockHash        common.Hash     `json:"blockHash"`

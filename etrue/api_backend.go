@@ -35,6 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
+	"github.com/truechain/truechain-engineering-code/consensus"
 )
 
 // TRUEAPIBackend implements ethapi.Backend for full nodes
@@ -241,7 +242,10 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 func (b *TrueAPIBackend) GetSnailRewardContent(snailNumber rpc.BlockNumber) *types.SnailRewardContenet {
 	return b.etrue.agent.GetSnailRewardContent(uint64(snailNumber))
 }
-
+func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
+	snailHeight := uint64(blockNr)
+	return consensus.CR.GetChainReward(snailHeight)
+}
 // GetCommittee returns the Committee info by committee number
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
 	return b.etrue.election.GetCommitteeById(big.NewInt(number.Int64())), nil

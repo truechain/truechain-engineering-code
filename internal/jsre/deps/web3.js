@@ -5381,6 +5381,13 @@ var methods = function () {
       inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
     });
 
+    var getChainRewardContent = new Method({
+        name: 'getChainRewardContent',
+        call: 'etrue_getChainRewardContent',
+        params: 1,
+        inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
+      });
+
     var getSnail = new Method({
         name: 'getSnail',
         call: snailBlockCall,
@@ -5594,6 +5601,7 @@ var methods = function () {
         getBlock,
         getRewardBlock,
       getSnailRewardContent,
+      getChainRewardContent,
         getSnail,
         getFruit,
         getUncle,
