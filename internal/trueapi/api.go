@@ -1970,3 +1970,77 @@ func (s *PublicNetAPI) PeerCount() hexutil.Uint {
 func (s *PublicNetAPI) Version() string {
 	return fmt.Sprintf("%d", s.networkVersion)
 }
+
+// PublicImpawnAPI offers and API for the snail pool. It only operates on data that is non confidential.
+type PublicImpawnAPI struct {
+	b Backend
+}
+
+// NewPublicFruitPoolAPI creates a new snail pool service that gives information about the snail pool.
+func NewPublicImpawnAPI(b Backend) *PublicImpawnAPI {
+	return &PublicImpawnAPI{b}
+}
+
+// GetAllStakingAccount returns the pendingFruits contained within the snail pool.
+func (s *PublicImpawnAPI) GetAllStakingAccount(ctx context.Context, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetAllStakingAccountRPC(), nil
+}
+
+// GetAllStakingAccount returns the pendingFruits contained within the snail pool.
+func (s *PublicImpawnAPI) GetStakingAsset(ctx context.Context, blockNr rpc.BlockNumber, addr common.Address) (map[string]interface{}, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetStakingAssetRPC(addr), nil
+}
+
+// GetAllStakingAccount returns the pendingFruits contained within the snail pool.
+func (s *PublicImpawnAPI) GetLockedAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetLockedAssetRPC(addr, uint64(blockNr)), nil
+}
+
+// GetAllStakingAccount returns the pendingFruits contained within the snail pool.
+func (s *PublicImpawnAPI) GetAllCancelableAsset(ctx context.Context, blockNr rpc.BlockNumber, addr common.Address) (map[string]interface{}, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetAllCancelableAssetRPC(addr), nil
+}

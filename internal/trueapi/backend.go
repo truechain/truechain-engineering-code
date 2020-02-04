@@ -21,8 +21,8 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -139,6 +139,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
 			Public:    false,
+		}, {
+			Namespace: "impawn",
+			Version:   "1.0",
+			Service:   NewPublicImpawnAPI(apiBackend),
+			Public:    true,
 		},
 	}...)
 	return apis

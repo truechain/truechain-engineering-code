@@ -1,8 +1,11 @@
 package vm
 
 import (
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"io"
 	"math/big"
+	"strconv"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/rlp"
@@ -180,4 +183,124 @@ func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
 		Array:      order,
 		LastReward: i.lastReward,
 	})
+}
+
+func (i *ImpawnImpl) GetAllStakingAccountRPC() map[string]interface{} {
+	sas := i.GetAllStakingAccount()
+	sasRPC := make(map[string]interface{}, len(sas))
+	for i, sa := range sas {
+		attr := make(map[string]interface{})
+		attr["unit"] = unitDisplay(sa.unit)
+		attr["votePubKey"] = hexutil.Bytes(sa.votepubkey)
+		attr["fee"] = (*hexutil.Big)(sa.fee)
+		attr["committee"] = sa.committee
+		attr["delegation"] = daSDisplay(sa.delegation)
+		ai := make(map[string]interface{})
+		ai["fee"] = (*hexutil.Big)(sa.modify.fee)
+		ai["votePubKey"] = hexutil.Bytes(sa.modify.votePubkey)
+		attr["modify"] = ai
+		sasRPC[strconv.Itoa(i)] = attr
+	}
+	return sasRPC
+}
+
+func (i *ImpawnImpl) GetStakingAssetRPC(addr common.Address) map[string]interface{} {
+	msv := i.GetStakingAsset(addr)
+	msvRPC := make(map[string]interface{}, len(msv))
+	for key, value := range msv {
+		attr := make(map[string]interface{})
+		attr["stakingValue"] = stakingValueDisplay(value)
+		msvRPC[key.String()] = attr
+	}
+	return msvRPC
+}
+
+func (i *ImpawnImpl) GetLockedAssetRPC(addr common.Address, height uint64) map[string]interface{} {
+	ls := i.GetLockedAsset2(addr, height)
+	lsRPC := make(map[string]interface{}, len(ls))
+	for key, value := range ls {
+		attr := make(map[string]interface{})
+		attr["lockValue"] = lockValueDisplay(value)
+		lsRPC[key.String()] = attr
+	}
+	return lsRPC
+}
+
+func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) map[string]interface{} {
+	assets := i.GetAllCancelableAsset(addr)
+	assetRPC := make(map[string]interface{}, len(assets))
+	for key, value := range assets {
+		var attr map[string]interface{}
+		attr["value"] = (*hexutil.Big)(value)
+		assetRPC[key.String()] = attr
+	}
+	return assetRPC
+}
+
+func daSDisplay(das []*DelegationAccount) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for _, da := range das {
+		attrs = append(attrs, map[string]interface{}{
+			"saAddress": da.saAddress,
+			"unit":      unitDisplay(da.unit),
+		})
+	}
+	return attrs
+}
+
+func unitDisplay(uint *impawnUnit) map[string]interface{} {
+	var attrs map[string]interface{}
+	attrs["address"] = uint.address
+	attrs["value"] = pvSDisplay(uint.value)
+	attrs["redeemInfo"] = riSDisplay(uint.redeemInof)
+	return attrs
+}
+
+func pvSDisplay(pvs []*PairstakingValue) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for _, pv := range pvs {
+		attrs = append(attrs, map[string]interface{}{
+			"amount": (*hexutil.Big)(pv.amount),
+			"height": (*hexutil.Big)(pv.height),
+			"state":  uint64(pv.state),
+		})
+	}
+	return attrs
+}
+
+func riSDisplay(ris []*RedeemItem) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for _, ri := range ris {
+		attrs = append(attrs, map[string]interface{}{
+			"amount":  (*hexutil.Big)(ri.Amount),
+			"epochID": uint64(ri.EpochID),
+			"state":   uint64(ri.State),
+		})
+	}
+	return attrs
+}
+
+func lockValueDisplay(lv *types.LockedValue) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for epoch, value := range lv.Value {
+		var attr map[string]interface{}
+		attr["amount"] = value.Amount
+		attr["locked"] = value.Locked
+		attrs = append(attrs, map[string]interface{}{
+			"epochID": epoch,
+			"item":    attr,
+		})
+	}
+	return attrs
+}
+
+func stakingValueDisplay(sv *types.StakingValue) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for epoch, value := range sv.Value {
+		attrs = append(attrs, map[string]interface{}{
+			"epochID": epoch,
+			"amount":  (*hexutil.Big)(value),
+		})
+	}
+	return attrs
 }

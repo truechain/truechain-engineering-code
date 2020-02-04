@@ -31,6 +31,7 @@ var Modules = map[string]string{
 	"swarmfs":    SWARMFS_JS,
 	"txpool":     TxPool_JS,
 	"fruitpool":  FruitPool_JS,
+	"impawn":     Impawn_JS,
 }
 
 const Chequebook_JS = `
@@ -673,6 +674,45 @@ web3._extend({
 		new web3._extend.Property({
 			name: 'status',
 			getter: 'fruitpool_status'
+		}),
+	]
+});
+`
+
+const Impawn_JS = `
+web3._extend({
+	property: 'impawn',
+	methods: [
+		new Method({
+			name: 'getAllStakingAccount',
+			call: 'impawn_getAllStakingAccount',
+			params: 1,
+			inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
+		}),
+		new Method({
+			name: 'getStakingAsset',
+			call: 'impawn_getStakingAsset',
+			params: 2,
+			inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter]
+		}),
+		new Method({
+			name: 'getLockedAsset',
+			call: 'impawn_getLockedAsset',
+			params: 2,
+			inputFormatter: [formatters.inputAddressFormatter,formatters.inputBlockNumberFormatter]
+		}),
+		new Method({
+			name: 'getAllCancelableAsset',
+			call: 'impawn_getAllCancelableAsset',
+			params: 2,
+			inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter]
+		}),
+	],
+	properties:
+	[
+		new web3._extend.Property({
+			name: 'getImpawnNode',
+			getter: 'impawn_getImpawnNode'
 		}),
 	]
 });
