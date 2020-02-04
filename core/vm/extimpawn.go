@@ -249,11 +249,11 @@ func daSDisplay(das []*DelegationAccount) []map[string]interface{} {
 }
 
 func unitDisplay(uint *impawnUnit) map[string]interface{} {
-	var attrs map[string]interface{}
-	attrs["address"] = uint.address
-	attrs["value"] = pvSDisplay(uint.value)
-	attrs["redeemInfo"] = riSDisplay(uint.redeemInof)
-	return attrs
+	attr := make(map[string]interface{})
+	attr["address"] = uint.address
+	attr["value"] = pvSDisplay(uint.value)
+	attr["redeemInfo"] = riSDisplay(uint.redeemInof)
+	return attr
 }
 
 func pvSDisplay(pvs []*PairstakingValue) []map[string]interface{} {
@@ -283,7 +283,7 @@ func riSDisplay(ris []*RedeemItem) []map[string]interface{} {
 func lockValueDisplay(lv *types.LockedValue) []map[string]interface{} {
 	var attrs []map[string]interface{}
 	for epoch, value := range lv.Value {
-		var attr map[string]interface{}
+		attr := make(map[string]interface{})
 		attr["amount"] = value.Amount
 		attr["locked"] = value.Locked
 		attrs = append(attrs, map[string]interface{}{
