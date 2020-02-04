@@ -27,15 +27,15 @@ import (
 
 // StakingGas defines all method gas
 var StakingGas = map[string]uint64{
-	"getDeposit":       21000,
-	"getDelegate":      21000,
-	"deposit":          21000,
-	"append":           21000,
-	"withdraw":         21000,
-	"cancel":           21000,
-	"delegate":         21000,
-	"undelegate":       21000,
-	"withdrawDelegate": 21000,
+	"getDeposit":       120000,
+	"getDelegate":      150000,
+	"deposit":          800000,
+	"append":           800000,
+	"withdraw":         840000,
+	"cancel":           800000,
+	"delegate":         500000,
+	"undelegate":       500000,
+	"withdrawDelegate": 540000,
 }
 
 // Staking contract ABI
