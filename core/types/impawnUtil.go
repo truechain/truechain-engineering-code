@@ -78,6 +78,56 @@ func (s *SARewardInfos) String() string {
 	return ss
 }
 
+type ChainReward struct {
+	Foundation		*RewardInfo
+	CoinBase 		*RewardInfo
+	FruitBase 		[]*RewardInfo
+	CommitteeBase 	[]*SARewardInfos
+}
+func NewChainReward(found,coin *RewardInfo,fruits []*RewardInfo,committee []*SARewardInfos) *ChainReward{
+	return &ChainReward{
+		Foundation: found,
+		CoinBase: 	coin,
+		FruitBase:fruits,
+		CommitteeBase:committee,
+	}
+}
+func ToRewardInfos1(items map[common.Address]*big.Int) []*RewardInfo {
+	infos := make([]*RewardInfo,0,0)
+	for k,v := range items {
+		infos = append(infos,&RewardInfo{
+			Address:	k,
+			Amount: 	new(big.Int).Set(v),
+		})
+	}
+	return infos
+}
+func ToRewardInfos2(items map[common.Address]*big.Int) []*SARewardInfos {
+	infos := make([]*SARewardInfos,0,0)
+	for k,v := range items {
+		items := []*RewardInfo{&RewardInfo{
+			Address:	k,
+			Amount: 	new(big.Int).Set(v),
+		}}
+		
+		infos = append(infos,&SARewardInfos{
+			Items:	items,
+		})
+	}
+	return infos
+}
+func MergeReward(map1,map2 map[common.Address]*big.Int) map[common.Address]*big.Int {
+	for k,v := range map2 {
+		if vv,ok := map1[k];ok {
+			map1[k] = new(big.Int).Add(vv,v)
+		} else {
+			map1[k] = v
+		}
+	}
+	return map1
+}
+
+
 type EpochIDInfo struct {
 	EpochID     uint64
 	BeginHeight uint64
