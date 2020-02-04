@@ -216,6 +216,9 @@ func (b *LesApiBackend) GetCommittee(number rpc.BlockNumber) (map[string]interfa
 func (b *LesApiBackend) GetSnailRewardContent(number rpc.BlockNumber) *types.SnailRewardContenet {
 	return nil
 }
+func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
+	return nil
+}
 
 func (b *LesApiBackend) SnailPoolContent() []*types.SnailBlock {
 	return nil
