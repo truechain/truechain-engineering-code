@@ -31,6 +31,7 @@ var StakingGas = map[string]uint64{
 	"getDelegate":      150000,
 	"deposit":          800000,
 	"append":           800000,
+	"setFee":           800000,
 	"withdraw":         840000,
 	"cancel":           800000,
 	"delegate":         500000,
@@ -70,6 +71,8 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		ret, err = withdraw(evm, contract, data)
 	case "cancel":
 		ret, err = cancel(evm, contract, data)
+	case "setFee":
+		ret, err = setFeeRate(evm, contract, data)
 	case "delegate":
 		ret, err = delegate(evm, contract, data)
 	case "undelegate":
@@ -165,6 +168,41 @@ func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err 
 		log.Error("Staking deposit extra", "address", contract.caller.Address(), "value", contract.value, "error", err)
 		return nil, err
 	}
+	err = impawn.Save(evm.StateDB, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking save state error", "error", err)
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func setFeeRate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	fee := big.NewInt(0)
+	method, _ := abiStaking.Methods["setFee"]
+
+	err = method.Inputs.Unpack(&fee, input)
+	if err != nil {
+		log.Error("Unpack deposit pubkey error", "err", err)
+		return nil, ErrStakingInvalidInput
+	}
+
+	from := contract.caller.Address()
+
+	log.Info("Staking set fee", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "fee", fee)
+	impawn := NewImpawnImpl()
+	err = impawn.Load(evm.StateDB, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	err = impawn.UpdateSAFee(evm.Context.BlockNumber.Uint64(), from, fee)
+	if err != nil {
+		log.Error("Staking fee", "address", contract.caller.Address(), "error", err)
+		return nil, err
+	}
+
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking save state error", "error", err)
@@ -529,6 +567,19 @@ const StakeABIJSON = `
     ],
     "constant": false,
     "payable": true,
+    "type": "function"
+  },
+  {
+    "name": "setFee",
+    "outputs": [],
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "fee"
+      }
+    ],
+    "constant": false,
+    "payable": false,
     "type": "function"
   },
   {
