@@ -2010,7 +2010,7 @@ func (s *PublicImpawnAPI) GetAllStakingAccount(ctx context.Context, blockNr rpc.
 }
 
 // GetAllStakingAccount returns the pendingFruits contained within the snail pool.
-func (s *PublicImpawnAPI) GetStakingAsset(ctx context.Context, blockNr rpc.BlockNumber, addr common.Address) (map[string]interface{}, error) {
+func (s *PublicImpawnAPI) GetStakingAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
 		return nil, err
@@ -2042,7 +2042,7 @@ func (s *PublicImpawnAPI) GetLockedAsset(ctx context.Context, addr common.Addres
 }
 
 // GetAllStakingAccount returns the pendingFruits contained within the snail pool.
-func (s *PublicImpawnAPI) GetAllCancelableAsset(ctx context.Context, blockNr rpc.BlockNumber, addr common.Address) (map[string]interface{}, error) {
+func (s *PublicImpawnAPI) GetAllCancelableAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
 		return nil, err

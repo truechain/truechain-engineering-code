@@ -192,11 +192,11 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC() map[string]interface{} {
 		attr := make(map[string]interface{})
 		attr["unit"] = unitDisplay(sa.unit)
 		attr["votePubKey"] = hexutil.Bytes(sa.votepubkey)
-		attr["fee"] = (*hexutil.Big)(sa.fee)
+		attr["fee"] = sa.fee.Uint64()
 		attr["committee"] = sa.committee
 		attr["delegation"] = daSDisplay(sa.delegation)
 		ai := make(map[string]interface{})
-		ai["fee"] = (*hexutil.Big)(sa.modify.fee)
+		ai["fee"] = sa.modify.fee.Uint64()
 		ai["votePubKey"] = hexutil.Bytes(sa.modify.votePubkey)
 		attr["modify"] = ai
 		sasRPC[strconv.Itoa(i)] = attr
@@ -207,43 +207,53 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC() map[string]interface{} {
 func (i *ImpawnImpl) GetStakingAssetRPC(addr common.Address) map[string]interface{} {
 	msv := i.GetStakingAsset(addr)
 	msvRPC := make(map[string]interface{}, len(msv))
+	var attrs []map[string]interface{}
 	for key, value := range msv {
 		attr := make(map[string]interface{})
 		attr["stakingValue"] = stakingValueDisplay(value)
-		msvRPC[key.String()] = attr
+		attr["address"] = key
+		attrs = append(attrs, attr)
 	}
+	msvRPC["stakingAssert"] = attrs
 	return msvRPC
 }
 
 func (i *ImpawnImpl) GetLockedAssetRPC(addr common.Address, height uint64) map[string]interface{} {
 	ls := i.GetLockedAsset2(addr, height)
 	lsRPC := make(map[string]interface{}, len(ls))
+	var attrs []map[string]interface{}
 	for key, value := range ls {
 		attr := make(map[string]interface{})
 		attr["lockValue"] = lockValueDisplay(value)
-		lsRPC[key.String()] = attr
+		attr["address"] = key
+		attrs = append(attrs, attr)
 	}
+	lsRPC["lockAssert"] = attrs
 	return lsRPC
 }
 
+//		attr := make(map[string]interface{})
 func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) map[string]interface{} {
 	assets := i.GetAllCancelableAsset(addr)
 	assetRPC := make(map[string]interface{}, len(assets))
+	var attrs []map[string]interface{}
 	for key, value := range assets {
-		var attr map[string]interface{}
+		attr := make(map[string]interface{})
 		attr["value"] = (*hexutil.Big)(value)
-		assetRPC[key.String()] = attr
+		attr["address"] = key
+		attrs = append(attrs, attr)
 	}
+	assetRPC["cancelAssert"] = attrs
 	return assetRPC
 }
 
-func daSDisplay(das []*DelegationAccount) []map[string]interface{} {
-	var attrs []map[string]interface{}
-	for _, da := range das {
-		attrs = append(attrs, map[string]interface{}{
-			"saAddress": da.saAddress,
-			"unit":      unitDisplay(da.unit),
-		})
+func daSDisplay(das []*DelegationAccount) map[string]interface{} {
+	attrs := make(map[string]interface{}, len(das))
+	for i, da := range das {
+		attr := make(map[string]interface{})
+		attr["saAddress"] = da.saAddress
+		attr["unit"] = unitDisplay(da.unit)
+		attrs[strconv.Itoa(i)] = attr
 	}
 	return attrs
 }
@@ -256,26 +266,26 @@ func unitDisplay(uint *impawnUnit) map[string]interface{} {
 	return attr
 }
 
-func pvSDisplay(pvs []*PairstakingValue) []map[string]interface{} {
-	var attrs []map[string]interface{}
-	for _, pv := range pvs {
-		attrs = append(attrs, map[string]interface{}{
-			"amount": (*hexutil.Big)(pv.amount),
-			"height": (*hexutil.Big)(pv.height),
-			"state":  uint64(pv.state),
-		})
+func pvSDisplay(pvs []*PairstakingValue) map[string]interface{} {
+	attrs := make(map[string]interface{}, len(pvs))
+	for i, pv := range pvs {
+		attr := make(map[string]interface{})
+		attr["amount"] = (*hexutil.Big)(pv.amount)
+		attr["height"] = (*hexutil.Big)(pv.height)
+		attr["state"] = uint64(pv.state)
+		attrs[strconv.Itoa(i)] = attr
 	}
 	return attrs
 }
 
-func riSDisplay(ris []*RedeemItem) []map[string]interface{} {
-	var attrs []map[string]interface{}
-	for _, ri := range ris {
-		attrs = append(attrs, map[string]interface{}{
-			"amount":  (*hexutil.Big)(ri.Amount),
-			"epochID": uint64(ri.EpochID),
-			"state":   uint64(ri.State),
-		})
+func riSDisplay(ris []*RedeemItem) map[string]interface{} {
+	attrs := make(map[string]interface{}, len(ris))
+	for i, ri := range ris {
+		attr := make(map[string]interface{})
+		attr["amount"] = (*hexutil.Big)(ri.Amount)
+		attr["epochID"] = ri.EpochID
+		attr["state"] = uint64(ri.State)
+		attrs[strconv.Itoa(i)] = attr
 	}
 	return attrs
 }
@@ -283,12 +293,10 @@ func riSDisplay(ris []*RedeemItem) []map[string]interface{} {
 func lockValueDisplay(lv *types.LockedValue) []map[string]interface{} {
 	var attrs []map[string]interface{}
 	for epoch, value := range lv.Value {
-		attr := make(map[string]interface{})
-		attr["amount"] = value.Amount
-		attr["locked"] = value.Locked
 		attrs = append(attrs, map[string]interface{}{
 			"epochID": epoch,
-			"item":    attr,
+			"amount":  value.Amount,
+			"locked":  value.Locked,
 		})
 	}
 	return attrs
