@@ -20,7 +20,7 @@ var (
 	// i.e. contractAddress = 0x000000000000000000747275657374616b696E67
 	StakingAddress = common.BytesToAddress([]byte("truestaking"))
 	MixEpochCount  = 2
-	FoundationAddress = common.Address{}
+	FoundationAddress = common.HexToAddress("0xDA79B1C2645750c655D848e04c27E2cD9d263C48")
 )
 
 var (
