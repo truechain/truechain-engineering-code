@@ -991,7 +991,7 @@ func LogPrint(info string, addr common.Address, amount *big.Int) {
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.StateDB, sBlock *types.SnailBlock) error {
-	committeeCoin, minerCoin, minerFruitCoin,_, e := GetBlockReward3(sBlock.Header().Number)
+	committeeCoin, minerCoin, minerFruitCoin,fundCoin, e := GetBlockReward3(sBlock.Header().Number)
 	if e != nil {
 		return e
 	}
@@ -1013,9 +1013,15 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 	//miner's award
 	stateDB.AddBalance(sBlock.Coinbase(), minerCoin)
 	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
+	if fundCoin != nil {
+		stateDB.AddBalance(types.FoundationAddress, fundCoin)
+		LogPrint("foundation's award", types.FoundationAddress, fundCoin)
+	} else {
+		fundCoin = common.Big0
+	}
 	found := &types.RewardInfo{
-		Address:	common.Address{},
-		Amount:		common.Big0,
+		Address:	types.FoundationAddress,
+		Amount:		fundCoin,
 	}
 	coinbase := &types.RewardInfo{
 		Address:	sBlock.Coinbase(),
@@ -1066,9 +1072,14 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 	//miner's award
 	stateDB.AddBalance(sBlock.Coinbase(), minerCoin)
 	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
-
+	if fundCoin != nil {
+		stateDB.AddBalance(types.FoundationAddress, fundCoin)
+		LogPrint("foundation's award", types.FoundationAddress, fundCoin)
+	} else {
+		fundCoin = common.Big0
+	}
 	found := &types.RewardInfo{
-		Address:	common.Address{},
+		Address:	types.FoundationAddress,
 		Amount:		fundCoin,
 	}
 	coinbase := &types.RewardInfo{
