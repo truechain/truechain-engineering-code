@@ -2007,7 +2007,7 @@ func (s *PublicImpawnAPI) GetAllStakingAccount(ctx context.Context, blockNr rpc.
 		return nil, err
 	}
 
-	return impawn.GetAllStakingAccountRPC(), nil
+	return impawn.GetAllStakingAccountRPC(uint64(blockNr)), nil
 }
 
 // GetAllStakingAccount returns the pendingFruits contained within the snail pool.

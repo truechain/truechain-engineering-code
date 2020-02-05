@@ -185,10 +185,11 @@ func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
 	})
 }
 
-func (i *ImpawnImpl) GetAllStakingAccountRPC() map[string]interface{} {
+func (i *ImpawnImpl) GetAllStakingAccountRPC(height uint64) map[string]interface{} {
 	sas := i.GetAllStakingAccount()
 	sasRPC := make(map[string]interface{}, len(sas))
 	var attrs []map[string]interface{}
+	count := 0
 	for i, sa := range sas {
 		attr := make(map[string]interface{})
 		attr["id"] = i
@@ -196,15 +197,19 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC() map[string]interface{} {
 		attr["votePubKey"] = hexutil.Bytes(sa.votepubkey)
 		attr["fee"] = sa.fee.Uint64()
 		attr["committee"] = sa.committee
-		attr["delegation"] = daSDisplay(sa.delegation)
+		attr["delegation"] = daSDisplay(sa.delegation, height)
 		ai := make(map[string]interface{})
 		ai["fee"] = sa.modify.fee.Uint64()
 		ai["votePubKey"] = hexutil.Bytes(sa.modify.votePubkey)
 		attr["modify"] = ai
+		attr["staking"] = sa.getAllStaking(height)
+		attr["validStaking"] = sa.getValidStaking(height)
 		attrs = append(attrs, attr)
+		count = count + len(sa.delegation)
 	}
 	sasRPC["stakers"] = attrs
-	sasRPC["count"] = len(sas)
+	sasRPC["stakerCount"] = len(sas)
+	sasRPC["delegateCount"] = count
 	return sasRPC
 }
 
@@ -244,11 +249,13 @@ func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) []map[string]
 	return attrs
 }
 
-func daSDisplay(das []*DelegationAccount) map[string]interface{} {
+func daSDisplay(das []*DelegationAccount, height uint64) map[string]interface{} {
 	attrs := make(map[string]interface{}, len(das))
 	for i, da := range das {
 		attr := make(map[string]interface{})
 		attr["saAddress"] = da.saAddress
+		attr["delegate"] = da.getAllStaking(height)
+		attr["validDelegate"] = da.getValidStaking(height)
 		attr["unit"] = unitDisplay(da.unit)
 		attrs[strconv.Itoa(i)] = attr
 	}

@@ -689,7 +689,6 @@ web3._extend({
 			params: 1,
 			inputFormatter: [web3._extend.formatters.inputDefaultBlockNumberFormatter],
 			outputFormatter: function(sas) {
-				var formatted = [];
 				for (var i = 0; i < sas.stakers.length; i++) {
 					var sa = sas.stakers[i];
 					if(sa.unit.value !== null) {
@@ -718,9 +717,8 @@ web3._extend({
 							}
 						}						
 					}
-					formatted.push(sa);
 				}
-				return formatted;
+				return sas;
 			}
 		}),
 		new web3._extend.Method({
