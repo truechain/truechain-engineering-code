@@ -1308,7 +1308,8 @@ func getRewardCoin(height *big.Int) *big.Int {
 		base := new(big.Int).Set(NewRewardCoin)
 		for i:=0;i<int(loops);i++ {
 			// decay 20% per epoch
-			base = new(big.Int).Div(new(big.Int).Mul(base,big.NewInt(20)),big.NewInt(100))
+			tmp := new(big.Int).Div(new(big.Int).Mul(base,big.NewInt(20)),big.NewInt(100))
+			base = new(big.Int).Sub(base,tmp)
 		}
 		return base
 	}
