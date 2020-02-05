@@ -54,6 +54,7 @@ var (
 	errInvalidFast       = errors.New("invalid fast number")
 	//ErrRewardedBlock is returned if a block to import is already rewarded.
 	ErrRewardedBlock = errors.New("block already rewarded")
+	ErrRewardEnd     = errors.New("Reward end")
 )
 
 // Author implements consensus.Engine, returning the header's coinbase as the
@@ -992,6 +993,9 @@ func LogPrint(info string, addr common.Address, amount *big.Int) {
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.StateDB, sBlock *types.SnailBlock) error {
 	committeeCoin, minerCoin, minerFruitCoin,fundCoin, e := GetBlockReward3(sBlock.Header().Number)
+	if e == ErrRewardEnd {
+		return nil
+	}
 	if e != nil {
 		return e
 	}
@@ -1051,6 +1055,9 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 }
 func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fast uint64) error {
 	committeeCoin, minerCoin, minerFruitCoin,fundCoin, e := GetBlockReward3(sBlock.Header().Number)
+	if e == ErrRewardEnd {
+		return nil
+	}
 	if e != nil {
 		return e
 	}
@@ -1268,6 +1275,9 @@ func GetBlockReward(num *big.Int) (committee, minerBlock, minerFruit *big.Int, e
 }
 
 func GetBlockReward3(num *big.Int) (committee, minerBlock, minerFruit,fundcoin *big.Int, e error) {
+	if num.Cmp(big.NewInt(int64(NewRewardBegin+RewardEndSnailHeight))) >= 0{
+		return nil,nil,nil,nil,ErrRewardEnd
+	}
 	if num.Cmp(big.NewInt(int64(NewRewardBegin))) >= 0 {
 		return getBlockReward2(num)
 	} else {
