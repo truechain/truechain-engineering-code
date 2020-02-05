@@ -687,32 +687,91 @@ web3._extend({
 			name: 'getAllStakingAccount',
 			call: 'impawn_getAllStakingAccount',
 			params: 1,
-			inputFormatter: [web3._extend.formatters.inputDefaultBlockNumberFormatter]
+			inputFormatter: [web3._extend.formatters.inputDefaultBlockNumberFormatter],
+			outputFormatter: function(sas) {
+				var formatted = [];
+				for (var i = 0; i < sas.stakers.length; i++) {
+					var sa = sas.stakers[i];
+					if(sa.unit.value !== null) {
+						for (var j = 0; j < sa.unit.value.length; j++) {
+							sa.unit.value[j].amount = web3._extend.utils.toBigNumber(sa.unit.value[j].amount);
+							sa.unit.value[j].height = web3._extend.utils.toBigNumber(sa.unit.value[j].height);
+						}						
+					}
+					if(sa.unit.redeemInfo !== null) {
+						for (var j = 0; j < sa.unit.redeemInfo.length; j++) {
+							sa.unit.redeemInfo[j].amount = web3._extend.utils.toBigNumber(sa.unit.redeemInfo[j].amount);
+						}						
+					}
+					if(sa.delegation !== null) {
+						for (var m = 0; m < sa.delegation.length; m++) {
+							if(sa.delegation[m].unit.value !== null) {
+								for (var j = 0; j < sa.delegation[m].unit.value.length; j++) {
+									sa.delegation[m].unit.value[j].amount = web3._extend.utils.toBigNumber(sa.delegation[m].unit.value[j].amount);
+									sa.delegation[m].unit.value[j].height = web3._extend.utils.toBigNumber(sa.delegation[m].unit.value[j].height);
+								}						
+							}
+							if(sa.delegation[m].unit.redeemInfo !== null) {
+								for (var j = 0; j < sa.delegation[m].unit.redeemInfo.length; j++) {
+									sa.delegation[m].unit.redeemInfo[j].amount = web3._extend.utils.toBigNumber(sa.delegation[m].unit.redeemInfo[j].amount);
+								}						
+							}
+						}						
+					}
+					formatted.push(sa);
+				}
+				return formatted;
+			}
 		}),
 		new web3._extend.Method({
 			name: 'getStakingAsset',
 			call: 'impawn_getStakingAsset',
 			params: 2,
-			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputDefaultBlockNumberFormatter]
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputDefaultBlockNumberFormatter],
+			outputFormatter: function(sas) {
+				var formatted = [];
+				for (var i = 0; i < sas.length; i++) {
+					if(sas[i].stakingValue !== null) {
+						for (var j = 0; j < sas[i].stakingValue.length; j++) {
+							sas[i].stakingValue[j].amount = web3._extend.utils.toBigNumber(sas[i].stakingValue[j].amount);
+						}						
+					}
+					formatted.push(sas[i]);
+				}
+				return formatted;
+			}
 		}),
 		new web3._extend.Method({
 			name: 'getLockedAsset',
 			call: 'impawn_getLockedAsset',
 			params: 2,
-			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputBlockNumberFormatter]
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputDefaultBlockNumberFormatter],
+			outputFormatter: function(las) {
+				var formatted = [];
+				for (var i = 0; i < las.length; i++) {
+					if(las[i].lockValue !== null) {
+						for (var j = 0; j < las[i].lockValue.length; j++) {
+							las[i].lockValue[j].amount = web3._extend.utils.toBigNumber(las[i].lockValue[j].amount);
+						}
+					}
+					formatted.push(las[i]);
+				}
+				return formatted;
+			}
 		}),
 		new web3._extend.Method({
 			name: 'getAllCancelableAsset',
 			call: 'impawn_getAllCancelableAsset',
 			params: 2,
-			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputDefaultBlockNumberFormatter]
-		}),
-	],
-	properties:
-	[
-		new web3._extend.Property({
-			name: 'getImpawnNode',
-			getter: 'impawn_getImpawnNode'
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputDefaultBlockNumberFormatter],
+			outputFormatter: function(cas) {
+				var formatted = [];
+				for (var i = 0; i < cas.length; i++) {
+					cas[i].value = web3._extend.utils.toBigNumber(cas[i].value)
+					formatted.push(cas[i]);
+				}
+				return formatted;
+			}
 		}),
 	]
 });

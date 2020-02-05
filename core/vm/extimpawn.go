@@ -188,8 +188,10 @@ func (i *ImpawnImpl) EncodeRLP(w io.Writer) error {
 func (i *ImpawnImpl) GetAllStakingAccountRPC() map[string]interface{} {
 	sas := i.GetAllStakingAccount()
 	sasRPC := make(map[string]interface{}, len(sas))
+	var attrs []map[string]interface{}
 	for i, sa := range sas {
 		attr := make(map[string]interface{})
+		attr["id"] = i
 		attr["unit"] = unitDisplay(sa.unit)
 		attr["votePubKey"] = hexutil.Bytes(sa.votepubkey)
 		attr["fee"] = sa.fee.Uint64()
@@ -199,14 +201,15 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC() map[string]interface{} {
 		ai["fee"] = sa.modify.fee.Uint64()
 		ai["votePubKey"] = hexutil.Bytes(sa.modify.votePubkey)
 		attr["modify"] = ai
-		sasRPC[strconv.Itoa(i)] = attr
+		attrs = append(attrs, attr)
 	}
+	sasRPC["stakers"] = attrs
+	sasRPC["count"] = len(sas)
 	return sasRPC
 }
 
-func (i *ImpawnImpl) GetStakingAssetRPC(addr common.Address) map[string]interface{} {
+func (i *ImpawnImpl) GetStakingAssetRPC(addr common.Address) []map[string]interface{} {
 	msv := i.GetStakingAsset(addr)
-	msvRPC := make(map[string]interface{}, len(msv))
 	var attrs []map[string]interface{}
 	for key, value := range msv {
 		attr := make(map[string]interface{})
@@ -214,37 +217,31 @@ func (i *ImpawnImpl) GetStakingAssetRPC(addr common.Address) map[string]interfac
 		attr["address"] = key
 		attrs = append(attrs, attr)
 	}
-	msvRPC["stakingAssert"] = attrs
-	return msvRPC
+	return attrs
 }
 
-func (i *ImpawnImpl) GetLockedAssetRPC(addr common.Address, height uint64) map[string]interface{} {
+func (i *ImpawnImpl) GetLockedAssetRPC(addr common.Address, height uint64) []map[string]interface{} {
 	ls := i.GetLockedAsset2(addr, height)
-	lsRPC := make(map[string]interface{}, len(ls))
 	var attrs []map[string]interface{}
 	for key, value := range ls {
 		attr := make(map[string]interface{})
 		attr["lockValue"] = lockValueDisplay(value)
-		attr["address"] = key
+		attr["address"] = key.String()
 		attrs = append(attrs, attr)
 	}
-	lsRPC["lockAssert"] = attrs
-	return lsRPC
+	return attrs
 }
 
-//		attr := make(map[string]interface{})
-func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) map[string]interface{} {
+func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) []map[string]interface{} {
 	assets := i.GetAllCancelableAsset(addr)
-	assetRPC := make(map[string]interface{}, len(assets))
 	var attrs []map[string]interface{}
 	for key, value := range assets {
 		attr := make(map[string]interface{})
 		attr["value"] = (*hexutil.Big)(value)
-		attr["address"] = key
+		attr["address"] = key.String()
 		attrs = append(attrs, attr)
 	}
-	assetRPC["cancelAssert"] = attrs
-	return assetRPC
+	return attrs
 }
 
 func daSDisplay(das []*DelegationAccount) map[string]interface{} {

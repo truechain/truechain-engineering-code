@@ -1190,13 +1190,14 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map
 		return nil
 	}
 	fields := map[string]interface{}{
-		"foundationReward":	content.Foundation,
-		"blockminer":     content.CoinBase,
-		"fruitminer":     content.FruitBase,
-		"committeReward": content.CommitteeBase,
+		"foundationReward": content.Foundation,
+		"blockminer":       content.CoinBase,
+		"fruitminer":       content.FruitBase,
+		"committeReward":   content.CommitteeBase,
 	}
 	return fields
 }
+
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
 type RPCTransaction struct {
 	BlockHash        common.Hash     `json:"blockHash"`
@@ -2010,7 +2011,7 @@ func (s *PublicImpawnAPI) GetAllStakingAccount(ctx context.Context, blockNr rpc.
 }
 
 // GetAllStakingAccount returns the pendingFruits contained within the snail pool.
-func (s *PublicImpawnAPI) GetStakingAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+func (s *PublicImpawnAPI) GetStakingAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) ([]map[string]interface{}, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
 		return nil, err
@@ -2026,7 +2027,7 @@ func (s *PublicImpawnAPI) GetStakingAsset(ctx context.Context, addr common.Addre
 }
 
 // GetAllStakingAccount returns the pendingFruits contained within the snail pool.
-func (s *PublicImpawnAPI) GetLockedAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+func (s *PublicImpawnAPI) GetLockedAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) ([]map[string]interface{}, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
 		return nil, err
@@ -2042,7 +2043,7 @@ func (s *PublicImpawnAPI) GetLockedAsset(ctx context.Context, addr common.Addres
 }
 
 // GetAllStakingAccount returns the pendingFruits contained within the snail pool.
-func (s *PublicImpawnAPI) GetAllCancelableAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+func (s *PublicImpawnAPI) GetAllCancelableAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) ([]map[string]interface{}, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
 		return nil, err
