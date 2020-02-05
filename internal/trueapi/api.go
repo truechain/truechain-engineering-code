@@ -1173,6 +1173,7 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 		"blockminer":     content.BlockMinerReward,
 		"fruitminer":     content.FruitMinerReward,
 		"committeReward": content.CommitteeReward,
+		"foundationReward": content.FoundationReward,
 	}
 	/*log.Warn("api", "blockminer", content.BlockMinerReward)
 	log.Warn("api", "committeReward", content.CommitteeReward)

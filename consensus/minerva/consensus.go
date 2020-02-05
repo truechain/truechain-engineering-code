@@ -1122,7 +1122,7 @@ func posOfFruitsInFirstEpoch(fruits []*types.SnailBlock, min, max uint64) int {
 
 // GetRewardContentBySnailNumber retrieves SnailRewardContenet by snail block.
 func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types.SnailRewardContenet {
-	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
+	committeeCoin, minerCoin, minerFruitCoin,fundCoin, e := GetBlockReward3(sBlock.Header().Number)
 	if e != nil {
 		return nil
 	}
@@ -1154,10 +1154,17 @@ func (m *Minerva) GetRewardContentBySnailNumber(sBlock *types.SnailBlock) *types
 		//committee reward
 		getCommitteeVoted(committeeReward, m.election, fruit, failAddr, committeeCoinFruit)
 	}
+	foundation := make(map[common.Address]*big.Int)
+	if fundCoin == nil {
+		foundation[types.FoundationAddress] = new(big.Int).Set(common.Big0)
+	} else {
+		foundation[types.FoundationAddress] = fundCoin
+	}
 	return &types.SnailRewardContenet{
 		BlockMinerReward: blockMinerReward,
 		FruitMinerReward: fruitMinerReward,
 		CommitteeReward:  committeeReward,
+		FoundationReward: foundation,
 	}
 }
 
