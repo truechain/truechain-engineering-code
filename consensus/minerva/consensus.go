@@ -991,7 +991,7 @@ func LogPrint(info string, addr common.Address, amount *big.Int) {
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.StateDB, sBlock *types.SnailBlock) error {
-	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
+	committeeCoin, minerCoin, minerFruitCoin,_, e := GetBlockReward3(sBlock.Header().Number)
 	if e != nil {
 		return e
 	}
@@ -1044,7 +1044,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 	return nil
 }
 func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fast uint64) error {
-	committeeCoin, minerCoin, minerFruitCoin, e := GetBlockReward(sBlock.Header().Number)
+	committeeCoin, minerCoin, minerFruitCoin,fundCoin, e := GetBlockReward3(sBlock.Header().Number)
 	if e != nil {
 		return e
 	}
@@ -1069,7 +1069,7 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 
 	found := &types.RewardInfo{
 		Address:	common.Address{},
-		Amount:		common.Big0,
+		Amount:		fundCoin,
 	}
 	coinbase := &types.RewardInfo{
 		Address:	sBlock.Coinbase(),
@@ -1249,11 +1249,12 @@ func GetBlockReward(num *big.Int) (committee, minerBlock, minerFruit *big.Int, e
 	return
 }
 
-func GetBlockReward3(num *big.Int, tip8 bool) (committee, minerBlock, minerFruit *big.Int, e error) {
-	if tip8 {
-		return GetBlockReward(num)
+func GetBlockReward3(num *big.Int) (committee, minerBlock, minerFruit,fundcoin *big.Int, e error) {
+	if num.Cmp(big.NewInt(int64(NewRewardBegin))) >= 0 {
+		return getBlockReward2(num)
 	} else {
-		return GetBlockReward(num)
+		committee,minerBlock,minerFruit,e = GetBlockReward(num)
+		return committee,minerBlock,minerFruit,nil,e
 	}
 }
 
@@ -1281,4 +1282,32 @@ func getCurrentCoin(h *big.Int) *big.Int {
 	d := h.Int64() / int64(SnailBlockRewardsChangeInterval)
 	ratio := big.NewInt(int64(powerf(0.98, d) * float64(SnailBlockRewardsBase)))
 	return new(big.Int).Mul(ratio, Big1e6)
+}
+func getRewardCoin(height *big.Int) *big.Int {
+	if height.Cmp(big.NewInt(int64(NewRewardBegin))) >= 0 {
+		last := new(big.Int).Sub(height,big.NewInt(int64(NewRewardBegin-1)))
+		loops := new(big.Int).Div(last,big.NewInt(int64(RewardMinerDecayEpoch))).Int64()
+		base := new(big.Int).Set(NewRewardCoin)
+		for i:=0;i<int(loops);i++ {
+			// decay 20% per epoch
+			base = new(big.Int).Div(new(big.Int).Mul(base,big.NewInt(20)),big.NewInt(100))
+		}
+		return base
+	}
+	return nil
+}
+func getBlockReward2(num *big.Int) (committee, minerBlock, minerFruit,fundcoin *big.Int, e error) {
+	base := getRewardCoin(num)
+	if base == nil {
+		return nil,nil,nil,nil,errors.New("wrong height in reward")
+	}
+	// committee = base * 81%
+	committee = new(big.Int).Div(new(big.Int).Mul(base,big.NewInt(81)),big.NewInt(100))
+	// fundcoin = base * 10%
+	fundcoin = new(big.Int).Div(new(big.Int).Mul(base,big.NewInt(10)),big.NewInt(100))
+	//  miner = base * 9%
+	miner := new(big.Int).Sub(base,new(big.Int).Add(committee,fundcoin))
+	minerBlock = new(big.Int).Div(new(big.Int).Mul(miner,big.NewInt(2)),big.NewInt(3))
+	minerFruit = new(big.Int).Sub(miner,minerBlock)
+	return
 }
