@@ -19,6 +19,7 @@ package etrue
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/state"
 	"io"
 	"math/big"
 
@@ -118,6 +119,7 @@ type txPool interface {
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
 	SubscribeNewTxsEvent(chan<- types.NewTxsEvent) event.Subscription
+	State() *state.ManagedState
 }
 
 type SnailPool interface {
