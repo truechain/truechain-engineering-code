@@ -738,6 +738,16 @@ func (ec *Client) Coinbase(ctx context.Context) (string, error) {
 	return result, nil
 }
 
+//etrue_pubkey
+func (ec *Client) Pubkey(ctx context.Context) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "etrue_pubkey", nil)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 //etrue_mining
 func (ec *Client) IsMining(ctx context.Context) (bool, error) {
 	var result bool
