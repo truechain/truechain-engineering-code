@@ -32,10 +32,12 @@ type CacheChainReward struct {
 	min 		uint64
 	max 		uint64
 	count 		int
-	lock sync.Mutex
+	lock sync.RWMutex
 }
 func (c *CacheChainReward) minMax() (uint64,uint64,int) {
 	min,max := uint64(0),uint64(0)
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	for k,_ := range c.RewardCache {
 		if min > k {
 			min = k
@@ -50,16 +52,20 @@ func (c *CacheChainReward) AddChainReward(snailBlock uint64,infos *types.ChainRe
 	if infos == nil {
 		log.Error("AddChainReward: infos is nil","height",snailBlock)
 	}
+	c.lock.Lock()
 	sum := len(c.RewardCache)
 	if sum > c.count {
 		delete(c.RewardCache,c.min)
 	}
 	c.RewardCache[snailBlock] = infos
+	c.lock.Unlock()
 	c.min,c.max,sum = c.minMax()	
 	log.Info("AddChainReward","height",snailBlock,"min",c.min,"max",c.max,"count",sum)
 }
 
 func (c *CacheChainReward) GetChainReward(snailBlock uint64) *types.ChainReward {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	infos,ok := c.RewardCache[snailBlock]
 	if ok {
 		return infos
