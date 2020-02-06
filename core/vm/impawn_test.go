@@ -27,7 +27,12 @@ func TestImpawnImplDoElections(t *testing.T) {
 		priKey, _ := crypto.GenerateKey()
 		from := crypto.PubkeyToAddress(priKey.PublicKey)
 		pub := crypto.FromECDSAPub(&priKey.PublicKey)
-		impl.InsertSAccount2(0, from, pub, value, big.NewInt(50), true)
+		if i % 2 == 0 {
+			amount := new(big.Int).Mul(big.NewInt(20000),big.NewInt(1e18))
+			impl.InsertSAccount2(0, from, pub, amount, big.NewInt(50), true)
+		} else {
+			impl.InsertSAccount2(0, from, pub, value, big.NewInt(50), true)
+		}
 	}
 
 	_, err := impl.DoElections(1, 0)
@@ -387,14 +392,14 @@ func initialStakingAccount(n int, m int, stride int, SAaddress common.Address, D
 	var das []*DelegationAccount
 	for k := 0; k < n; k++ {
 		da := &DelegationAccount{
-			deleAddress: SAaddress,
+			saAddress: SAaddress,
 			unit:        initialImpawnUnit(m, stride, DAaddress),
 		}
 		das = append(das, da)
 	}
 
 	da := &DelegationAccount{
-		deleAddress: SAaddress,
+		saAddress: SAaddress,
 		unit:        initialImpawnUnit(m, stride-5, DAaddress),
 	}
 	das = append(das, da)
@@ -448,7 +453,7 @@ func TestDelegationAccount(t *testing.T) {
 	priKeyDA, _ := crypto.GenerateKey()
 	daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
 	da := &DelegationAccount{
-		deleAddress: saAddress,
+		saAddress: saAddress,
 		unit:        initialImpawnUnit(3, 5, daAddress),
 	}
 
@@ -457,7 +462,7 @@ func TestDelegationAccount(t *testing.T) {
 	priKeyDA1, _ := crypto.GenerateKey()
 	daAddress1 := crypto.PubkeyToAddress(priKeyDA1.PublicKey)
 	da1 := &DelegationAccount{
-		deleAddress: saAddress1,
+		saAddress: saAddress1,
 		unit:        initialImpawnUnit(3, 4, daAddress1),
 	}
 	da.update(da1, false)
@@ -575,7 +580,7 @@ func makeImpawnImpl() *ImpawnImpl {
 			das := []*DelegationAccount{}
 			for k := 0; k < 3; k++ {
 				da := &DelegationAccount{
-					deleAddress: coinbase,
+					saAddress: coinbase,
 					unit:        unit,
 				}
 				das = append(das, da)
@@ -636,7 +641,7 @@ func makeDelegationAccount() *DelegationAccount {
 		}),
 	}
 	da := &DelegationAccount{
-		deleAddress: coinbase,
+		saAddress: coinbase,
 		unit:        iMunit,
 	}
 	return da
