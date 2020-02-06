@@ -417,6 +417,9 @@ func (s *StakingAccount) getValidStaking(hh uint64) *big.Int {
 	}
 	return all
 }
+func (s *StakingAccount) getValidStakingOnly(hh uint64) *big.Int {
+	return s.unit.getValidStaking(hh)
+}
 func (s *StakingAccount) merge(epochid, hh uint64) {
 	s.unit.merge(epochid, hh)
 	for _, v := range s.delegation {
@@ -804,15 +807,19 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 	if cur.EndHeight != height+params.ElectionPoint && i.curEpochID >= params.FirstNewEpochID {
 		return nil, types.ErrNotElectionTime
 	}
-	e := types.GetEpochFromID(epochid)
+	// e := types.GetEpochFromID(epochid)
 	eid := epochid
 	if eid >= params.FirstNewEpochID {
 		eid = eid - 1
 	}
 	if val, ok := i.accounts[eid]; ok {
-		val.sort(e.EndHeight, true)
+		val.sort(height, true)
 		var ee []*StakingAccount
 		for i, v := range val {
+			validStaking := v.getValidStakingOnly(height)
+			if validStaking.Cmp(params.ElectionMinLimitForStaking) < 0 {
+				continue
+			}
 			v.committee = true
 			ee = append(ee, v)
 			if i == params.CountInEpoch-1 {

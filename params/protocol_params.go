@@ -143,4 +143,5 @@ var (
 	ElectionPoint   uint64 = 200
 	FirstNewEpochID uint64 = 1
 	DposForkPoint   uint64 = 0
+	ElectionMinLimitForStaking  = new(big.Int).Mul(big.NewInt(10000),big.NewInt(1e18))
 )
