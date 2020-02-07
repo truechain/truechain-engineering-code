@@ -290,6 +290,7 @@ func makeImpawInitState(config *params.ChainConfig,state *state.StateDB,fastNumb
 			i := vm.NewImpawnImpl()
 			i.Save(state,stateAddress)
 			state.SetNonce(stateAddress,1)
+			state.SetCode(stateAddress,stateAddress[:])
 			log.Info("makeImpawInitState success")
 			return true
 		}
