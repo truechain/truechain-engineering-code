@@ -10,6 +10,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/console"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -25,125 +26,59 @@ import (
 )
 
 var (
-	password string
-	ip       string
-	port     int
+	key   string
+	store string
+	ip    string
+	port  int
 )
 
 var (
 	abiStaking, _ = abi.JSON(strings.NewReader(vm.StakeABIJSON))
 	priKey        *ecdsa.PrivateKey
 	from          common.Address
-	value         uint64
+	trueValue     uint64
 	fee           uint64
 )
 
 const (
 	datadirPrivateKey      = "key"
 	datadirDefaultKeyStore = "keystore"
-	DefaultHTTPHost        = "localhost" // Default host interface for the HTTP RPC server
-	DefaultHTTPPort        = 8545        // Default TCP port for the HTTP RPC server
 )
 
-var keyCommand = cli.Command{
-	Name:   "key",
-	Usage:  "Use private key in directory key",
-	Action: utils.MigrateFlags(KeyImpawn),
-	Flags:  ImpawnFlags,
-}
-
-var keystoreCommand = cli.Command{
-	Name:   "keystore",
-	Usage:  "Use keystore file in directory keystore",
-	Action: utils.MigrateFlags(keystoreImpawn),
-	Flags:  append(ImpawnFlags, utils.PasswordFileFlag),
-}
-
-func KeyImpawn(ctx *cli.Context) error {
-	LoadPrivateKey()
-	impawn(ctx)
-	return nil
-}
-
-func keystoreImpawn(ctx *cli.Context) error {
-	password = ctx.GlobalString(utils.PasswordFileFlag.Name)
-	if password == "" {
-		printError("password is nil ")
-	}
-	importKs(password)
-	impawn(ctx)
-	return nil
-}
-
 func impawn(ctx *cli.Context) error {
-	ip = ctx.GlobalString(utils.RPCListenAddrFlag.Name)
-	port = ctx.GlobalInt(utils.RPCPortFlag.Name)
-	value = ctx.GlobalUint64(ValueFlag.Name)
-	fee = ctx.GlobalUint64(FeeFlag.Name)
 
-	url := fmt.Sprintf("http://%s", fmt.Sprintf("%s:%d", ip, port))
-	// Create an IPC based RPC connection to a remote node
-	// "http://39.100.97.129:8545"
-	conn, err := etrueclient.Dial(url)
-	if err != nil {
-		log.Fatalf("Failed to connect to the Truechain client: %v", err)
-	}
+	loadPrivate(ctx)
 
-	printBaseInfo(conn)
+	conn, url := dialConn(ctx)
 
-	if priKey == nil {
-		printError("load privateKey failed")
-	}
+	printBaseInfo(conn, url)
 
 	PrintBalance(conn, from)
 
+	value := trueToWei(ctx, false)
+
+	fee = ctx.GlobalUint64(FeeFlag.Name)
 	pubkey, err := conn.Pubkey(context.Background())
 
 	if err != nil {
 		printError("get pubkey error", err)
 	}
+	fmt.Println("Fee", fee, " Pubkey ", pubkey, " value ", value)
+	input := packInput("deposit", common.Hex2Bytes(pubkey), new(big.Int).SetUint64(fee))
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
 
-	input, err := abiStaking.Pack("deposit", common.Hex2Bytes(pubkey), new(big.Int).SetUint64(fee))
-	if err != nil {
-		fmt.Println("abi input err ", err)
-	}
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, priKey, input)
+	getResult(conn, txHash)
 
-	for {
-		time.Sleep(3 * time.Millisecond)
-		tx, isPending, err := conn.TransactionByHash(context.Background(), txHash)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(tx.Hash().String(), " isPending ", isPending, "tx", tx.Info())
-		if !isPending {
-			break
-		}
-	}
-
-	receipt, err := conn.TransactionReceipt(context.Background(), txHash)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("number", receipt.BlockNumber.Uint64(), "Status ", receipt.Status, " Logs ", len(receipt.Logs))
-
-	block, err := conn.BlockByHash(context.Background(), receipt.BlockHash)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("number ", block.Number().Uint64(), " count ", len(block.Transactions()))
 	return nil
 }
 
-func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, privateKey *ecdsa.PrivateKey, input []byte) common.Hash {
+func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte) common.Hash {
 	// Ensure a valid value field and resolve the account nonce
 	nonce, err := client.PendingNonceAt(context.Background(), from)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	value := big.NewInt(1000000000000000000) // in wei (1 eth)
 	gasPrice, err := client.SuggestGasPrice(context.Background())
 	if err != nil {
 		log.Fatal(err)
@@ -158,13 +93,13 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 	}
 
 	// Create the transaction, sign it and schedule it for execution
-	tx := types.NewTransaction(nonce, toAddress, value, 1100000, gasPrice, input)
+	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, input)
 
 	chainID, err := client.ChainID(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("nonce ", nonce, " value ", types.ToTrue(value), " gasLimit ", gasLimit, " gasPrice ", gasPrice, " chainID ", chainID)
+	fmt.Println("nonce ", nonce, " transfer value ", value, " gasLimit ", gasLimit, " gasPrice ", gasPrice, " chainID ", chainID)
 
 	signedTx, err := types.SignTx(tx, types.NewTIP1Signer(chainID), privateKey)
 	if err != nil {
@@ -176,7 +111,6 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 		log.Fatal(err)
 	}
 
-	fmt.Printf("tx sent: %s", signedTx.Hash().Hex())
 	return signedTx.Hash()
 }
 
@@ -215,18 +149,21 @@ func importKs(password string) common.Address {
 	return from
 }
 
-func LoadPrivateKey() common.Address {
-	file, err := getAllFile(datadirPrivateKey)
-	if err != nil {
-		printError(" getAllFile file name error", err)
+func loadPrivateKey(path string) common.Address {
+	var err error
+	if path == "" {
+		file, err := getAllFile(datadirPrivateKey)
+		if err != nil {
+			printError(" getAllFile file name error", err)
+		}
+		kab, _ := filepath.Abs(datadirPrivateKey)
+		path = filepath.Join(kab, file)
 	}
-	kab, _ := filepath.Abs(datadirPrivateKey)
-	key, err := crypto.LoadECDSA(filepath.Join(kab, file))
+	priKey, err = crypto.LoadECDSA(path)
 	if err != nil {
 		printError("LoadECDSA error", err)
 	}
-	priKey = key
-	from = crypto.PubkeyToAddress(key.PublicKey)
+	from = crypto.PubkeyToAddress(priKey.PublicKey)
 	fmt.Println("address ", from.Hex())
 	return from
 }
@@ -253,6 +190,58 @@ func printError(error ...interface{}) {
 	log.Fatal(error)
 }
 
+func trueToWei(ctx *cli.Context, zero bool) *big.Int {
+	trueValue = ctx.GlobalUint64(TrueValueFlag.Name)
+	if !zero && trueValue <= 0 {
+		printError("Value must bigger than 0")
+	}
+	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	value := new(big.Int).Mul(big.NewInt(int64(trueValue)), baseUnit)
+	return value
+}
+
+func getResult(conn *etrueclient.Client, txHash common.Hash) {
+	fmt.Println("Please waiting ", " txHash ", txHash.String())
+
+	for {
+		time.Sleep(5 * time.Millisecond)
+		_, isPending, err := conn.TransactionByHash(context.Background(), txHash)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if !isPending {
+			break
+		}
+	}
+
+	receipt, err := conn.TransactionReceipt(context.Background(), txHash)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if receipt.Status == types.ReceiptStatusSuccessful && len(receipt.Logs) > 0 {
+		block, err := conn.BlockByHash(context.Background(), receipt.BlockHash)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println("Transaction Success", " Block Number", receipt.BlockNumber.Uint64(), " Block contain txs", len(block.Transactions()))
+
+	} else if receipt.Status == types.ReceiptStatusSuccessful {
+		fmt.Println("Transaction Success, But Contract exec failed ", " Block Number", receipt.BlockNumber.Uint64())
+	} else if receipt.Status == types.ReceiptStatusFailed {
+		fmt.Println("Transaction Failed ", " Block Number", receipt.BlockNumber.Uint64())
+	}
+}
+
+func packInput(abiMethod string, params ...interface{}) []byte {
+	input, err := abiStaking.Pack(abiMethod, params...)
+	if err != nil {
+		printError(abiMethod, " error ", err)
+	}
+	return input
+}
+
 func PrintBalance(conn *etrueclient.Client, from common.Address) {
 	balance, err := conn.BalanceAt(context.Background(), from, nil)
 	if err != nil {
@@ -263,20 +252,64 @@ func PrintBalance(conn *etrueclient.Client, from common.Address) {
 	trueValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
 	sbalance, err := conn.BalanceAt(context.Background(), types.StakingAddress, nil)
-	fmt.Println("balance value ", trueValue, " stake ", types.ToTrue(sbalance))
+	fmt.Println("Your wallet balance is ", trueValue, "'true ", " current Total Stake ", types.ToTrue(sbalance))
 }
 
-func printBaseInfo(conn *etrueclient.Client) *types.Header {
-	chainID, err := conn.NetworkID(context.Background())
-	if err != nil {
-		log.Fatal(err)
+func loadPrivate(ctx *cli.Context) {
+	key = ctx.GlobalString(KeyFlag.Name)
+	store = ctx.GlobalString(KeyStoreFlag.Name)
+	if key != "" {
+		loadPrivateKey(key)
+	} else if store != "" {
+		loadSigningKey(store)
+	} else {
+		printError("Must specify --key or --keystore")
 	}
 
+	if priKey == nil {
+		printError("load privateKey failed")
+	}
+}
+
+func dialConn(ctx *cli.Context) (*etrueclient.Client, string) {
+	ip = ctx.GlobalString(utils.RPCListenAddrFlag.Name)
+	port = ctx.GlobalInt(utils.RPCPortFlag.Name)
+
+	url := fmt.Sprintf("http://%s", fmt.Sprintf("%s:%d", ip, port))
+	// Create an IPC based RPC connection to a remote node
+	// "http://39.100.97.129:8545"
+	conn, err := etrueclient.Dial(url)
+	if err != nil {
+		log.Fatalf("Failed to connect to the Truechain client: %v", err)
+	}
+	return conn, url
+}
+
+func printBaseInfo(conn *etrueclient.Client, url string) *types.Header {
 	header, err := conn.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("chainID ", chainID.Uint64(), " Number ", header.Number.String())
+	fmt.Println("Url ", url, " Current number ", header.Number.String())
 	return header
+}
+
+// loadSigningKey loads a private key in Ethereum keystore format.
+func loadSigningKey(keyfile string) common.Address {
+	keyjson, err := ioutil.ReadFile(keyfile)
+	if err != nil {
+		printError(fmt.Errorf("failed to read the keyfile at '%s': %v", keyfile, err))
+	}
+	password, _ := console.Stdin.PromptPassword("Please enter the password for '" + keyfile + "': ")
+	//password := "secret"
+	key, err := keystore.DecryptKey(keyjson, password)
+	if err != nil {
+		printError(fmt.Errorf("error decrypting key: %v", err))
+	}
+	priKey = key.PrivateKey
+	from = crypto.PubkeyToAddress(priKey.PublicKey)
+
+	fmt.Println("address ", from.Hex())
+	return from
 }

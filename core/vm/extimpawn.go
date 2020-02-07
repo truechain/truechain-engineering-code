@@ -249,6 +249,25 @@ func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) []map[string]
 	return attrs
 }
 
+func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address) map[string]interface{} {
+	sas := i.GetAllStakingAccount()
+	sa := sas.getSA(address)
+	attr := make(map[string]interface{})
+	attr["id"] = i
+	attr["unit"] = unitDisplay(sa.unit)
+	attr["votePubKey"] = hexutil.Bytes(sa.votepubkey)
+	attr["fee"] = sa.fee.Uint64()
+	attr["committee"] = sa.committee
+	attr["delegation"] = daSDisplay(sa.delegation, height)
+	ai := make(map[string]interface{})
+	ai["fee"] = sa.modify.fee.Uint64()
+	ai["votePubKey"] = hexutil.Bytes(sa.modify.votePubkey)
+	attr["modify"] = ai
+	attr["staking"] = sa.getAllStaking(height)
+	attr["validStaking"] = sa.getValidStaking(height)
+	return attr
+}
+
 func daSDisplay(das []*DelegationAccount, height uint64) map[string]interface{} {
 	attrs := make(map[string]interface{}, len(das))
 	for i, da := range das {

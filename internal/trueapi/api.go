@@ -1170,9 +1170,9 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 		return nil
 	}
 	fields := map[string]interface{}{
-		"blockminer":     content.BlockMinerReward,
-		"fruitminer":     content.FruitMinerReward,
-		"committeReward": content.CommitteeReward,
+		"blockminer":       content.BlockMinerReward,
+		"fruitminer":       content.FruitMinerReward,
+		"committeReward":   content.CommitteeReward,
 		"foundationReward": content.FoundationReward,
 	}
 	/*log.Warn("api", "blockminer", content.BlockMinerReward)
@@ -2057,4 +2057,20 @@ func (s *PublicImpawnAPI) GetAllCancelableAsset(ctx context.Context, addr common
 	}
 
 	return impawn.GetAllCancelableAssetRPC(addr), nil
+}
+
+// GetStakingAccount returns the addr staking account.
+func (s *PublicImpawnAPI) GetStakingAccount(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetStakingAccountRPC(uint64(blockNr), addr), nil
 }

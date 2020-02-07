@@ -767,3 +767,53 @@ func (ec *Client) ListAccounts(ctx context.Context) ([]common.Address, error) {
 	}
 	return result, nil
 }
+
+//impawn_getAllStakingAccount
+func (ec *Client) GetAllStakingAccount(ctx context.Context) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "impawn_getAllStakingAccount", nil)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//impawn_getStakingAsset
+func (ec *Client) GetStakingAsset(ctx context.Context, account common.Address) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "impawn_getStakingAsset", account)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//impawn_getAllStakingAccount
+func (ec *Client) GetLockedAsset(ctx context.Context, account common.Address) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "impawn_getAllStakingAccount", account)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//impawn_getAllCancelableAsset
+func (ec *Client) GetAllCancelableAsset(ctx context.Context, account common.Address) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "impawn_getAllCancelableAsset", account)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//impawn_getStakingAccount
+func (ec *Client) GetStakingAccount(ctx context.Context, account common.Address) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "impawn_getStakingAccount", account)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
