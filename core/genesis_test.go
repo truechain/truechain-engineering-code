@@ -21,17 +21,24 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
+	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/state"
 	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/consensus"
 )
 
 func TestDefaultGenesisBlock(t *testing.T) {
+	block1 := DefaultDevGenesisBlock().ToFastBlock(nil)
+	if block1.Hash() != params.MainnetGenesisHash {
+		t.Errorf("wrong mainnet genesis hash, got %v, want %v", common.ToHex(block1.Hash().Bytes()), params.MainnetGenesisHash)
+	}
 	block := DefaultGenesisBlock().ToFastBlock(nil)
 	if block.Hash() != params.MainnetGenesisHash {
 		t.Errorf("wrong mainnet genesis hash, got %v, want %v", common.ToHex(block.Hash().Bytes()), params.MainnetGenesisHash)
@@ -283,4 +290,29 @@ func TestSetupSnailGenesis(t *testing.T) {
 			}
 		}
 	}
+}
+var (
+	root = common.Hash{}
+)
+
+func getFisrtState() *state.StateDB {
+	db := etruedb.NewMemDatabase()
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	return statedb
+}
+func TestTip7(t *testing.T) {
+	statedb := getFisrtState()
+	config := params.DevnetChainConfig
+	consensus.OnceInitImpawnState(config,statedb,new(big.Int).SetUint64(0))
+	root = statedb.IntermediateRoot(false)
+	statedb.Commit(false)
+	statedb.Database().TrieDB().Commit(root, true)
+
+	addr := types.StakingAddress
+	nonce := statedb.GetNonce(addr)
+	codeHash := statedb.GetCodeHash(addr)
+	codeSize := statedb.GetCodeSize(addr)
+	fmt.Println("nonce:",nonce,"codehash:",codeHash,"codesize:",codeSize)
+
+	fmt.Println("finish")
 }
