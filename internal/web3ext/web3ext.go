@@ -772,8 +772,8 @@ web3._extend({
 			}
 		}),
 		new web3._extend.Method({
-			name: 'getAllStakingAccount',
-			call: 'impawn_getAllStakingAccount',
+			name: 'getStakingAccount',
+			call: 'impawn_getStakingAccount',
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputDefaultBlockNumberFormatter],
 			outputFormatter: function(sa) {

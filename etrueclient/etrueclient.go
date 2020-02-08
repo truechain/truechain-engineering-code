@@ -788,10 +788,10 @@ func (ec *Client) GetStakingAsset(ctx context.Context, account common.Address) (
 	return result, nil
 }
 
-//impawn_getAllStakingAccount
+//impawn_getLockedAsset
 func (ec *Client) GetLockedAsset(ctx context.Context, account common.Address) (string, error) {
 	var result string
-	err := ec.c.CallContext(ctx, &result, "impawn_getAllStakingAccount", account)
+	err := ec.c.CallContext(ctx, &result, "impawn_getLockedAsset", account)
 	if err != nil {
 		return result, err
 	}

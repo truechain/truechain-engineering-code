@@ -137,7 +137,7 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 					}
 					addr := delegateAddr[j*int(params.NewEpochLength)+i]
 					key := delegateKey[j*int(params.NewEpochLength)+i]
-					sendTranction(diff-2-uint64(i), gen, stateDb, mAccount, addr, sendValue, priKey, signer, tx, header)
+					sendTranction(diff-4-uint64(i), gen, stateDb, mAccount, addr, sendValue, priKey, signer, tx, header)
 					sendDelegateTransaction(diff-uint64(i), gen, addr, saddr1, deleEValue, key, signer, stateDb, blockchain, abiStaking, tx)
 					sendUnDelegateTransaction(diff-types.GetEpochFromID(epoch+1).BeginHeight+firstNumber-uint64(i), gen, addr, saddr1, deleEValue, key, signer, stateDb, blockchain, abiStaking, tx)
 					sendWithdrawDelegateTransaction(diff-types.MinCalcRedeemHeight(epoch+1)+firstNumber-uint64(i), gen, addr, saddr1, deleEValue, key, signer, stateDb, blockchain, abiStaking, tx)
@@ -376,7 +376,7 @@ func sendNWithdrawTransaction(epoch uint64, height uint64, gen *core.BlockGen, f
 }
 
 func sendTranction(height uint64, gen *core.BlockGen, state *state.StateDB, from, to common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, signer types.TIP1Signer, txPool txPool, header *types.Header) {
-	if height == 20 {
+	if height == 10 {
 		nonce, statedb := getNonce(gen, from, state, "sendTranction", txPool)
 		balance := statedb.GetBalance(to)
 		remaining := new(big.Int).Sub(value, balance)
