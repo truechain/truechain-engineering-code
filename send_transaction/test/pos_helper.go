@@ -80,7 +80,7 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 		}
 		deleValue = stateDb.GetBalance(mAccount)
 		if delegateNum > 0 {
-			sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10)))
+			sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*100)))
 			deleEValue = new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
 		}
 		seed, _ = rand.Int(rand.Reader, big.NewInt(9))
