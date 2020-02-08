@@ -22,15 +22,18 @@ import (
 	"reflect"
 	"testing"
 	"fmt"
-
+	"encoding/hex"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/consensus"
 )
 
@@ -293,6 +296,12 @@ func TestSetupSnailGenesis(t *testing.T) {
 }
 var (
 	root = common.Hash{}
+	key1 = "da5756ffa265ed55dcb741c97e8d3d2f36269df8afcae4b59b0b1f1f8eb58977"
+	addr1 = "0x573baF2a36BFd683F1301db1EeBa1D55fd14De0A"
+	balance1 = new(big.Int).Mul(big.NewInt(1000),big.NewInt(1e18))
+	gp       = new(GasPool).AddGas(new(big.Int).Mul(big.NewInt(1),big.NewInt(1e18)).Uint64())
+	code = `0x608060405234801561001057600080fd5b506040516020806101758339810180604052810190808051906020019092919050505060006a747275657374616b696e6790508073ffffffffffffffffffffffffffffffffffffffff1663e1254fba836040518263ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001915050606060405180830381600087803b1580156100de57600080fd5b505af11580156100f2573d6000803e3d6000fd5b505050506040513d606081101561010857600080fd5b8101908080519060200190929190805190602001909291908051906020019092919050505050505050506035806101406000396000f3006080604052600080fd00a165627a7a72305820a76679c2a9c73eeafffe41cfccde51b6b5150b920f6d90f25792987d9ab855c400290000000000000000000000006d348e0188cc2596aaa4046a1d50bb3ba50e8524`
+	gasLimit = uint64(3000000)
 )
 
 func getFisrtState() *state.StateDB {
@@ -302,6 +311,20 @@ func getFisrtState() *state.StateDB {
 }
 func TestTip7(t *testing.T) {
 	statedb := getFisrtState()
+	toFirstBlock(statedb)
+
+	fmt.Println("finish")
+}
+func generateAddr() {
+	priv,_ := crypto.GenerateKey()
+	privHex := hex.EncodeToString(crypto.FromECDSA(priv))
+	fmt.Println(privHex)
+	addr := crypto.PubkeyToAddress(priv.PublicKey)
+	fmt.Println(addr.String())
+	fmt.Println("finish")
+}
+func toFirstBlock(statedb *state.StateDB)  {
+	statedb.AddBalance(common.HexToAddress(addr1),balance1)
 	config := params.DevnetChainConfig
 	consensus.OnceInitImpawnState(config,statedb,new(big.Int).SetUint64(0))
 	root = statedb.IntermediateRoot(false)
@@ -313,6 +336,49 @@ func TestTip7(t *testing.T) {
 	codeHash := statedb.GetCodeHash(addr)
 	codeSize := statedb.GetCodeSize(addr)
 	fmt.Println("nonce:",nonce,"codehash:",codeHash,"codesize:",codeSize)
+}
+func makeDeployedTx() *types.Transaction {
+	priv1,_ := crypto.HexToECDSA(key1)
+	tx := types.NewContractCreation(0, big.NewInt(0), gasLimit, 
+	new(big.Int).Mul(big.NewInt(10),big.NewInt(1e10)), common.FromHex(code))
+	tx, _ = types.SignTx(tx, types.NewTIP1Signer(big.NewInt(100)), priv1)
+	return tx
+}
+func TestDeployedTx(t *testing.T) {
+	
+	var (
+		db      = etruedb.NewMemDatabase()
+		addr1   = common.HexToAddress(addr1)
+		gspec   = &Genesis{
+			Config: params.DevnetChainConfig,
+			Alloc:  types.GenesisAlloc{addr1: {Balance: balance1}},
+		}
+		genesis = gspec.MustFastCommit(db)
+		pow     = minerva.NewFaker()
+	)
 
+	// This call generates a chain of 5 blocks. The function runs for
+	// each block and adds different features to gen based on the
+	// block index.
+	chain, _ := GenerateChain(gspec.Config, genesis, pow, db, 1, func(i int, gen *BlockGen) {
+		switch i {
+		case 0:
+			tx := makeDeployedTx()
+			gen.AddTx(tx)
+		}
+	})
+
+	// Import the chain. This runs all block validation rules.
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, pow, vm.Config{})
+	defer blockchain.Stop()
+
+	if i, err := blockchain.InsertChain(chain); err != nil {
+		fmt.Printf("insert error (block %d): %v\n", chain[i].NumberU64(), err)
+		return
+	}
+
+	state, _ := blockchain.State()
+	fmt.Printf("last block: #%d\n", blockchain.CurrentBlock().Number())
+	fmt.Println("balance of addr1:", state.GetBalance(addr1))
 	fmt.Println("finish")
 }
