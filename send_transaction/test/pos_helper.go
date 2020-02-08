@@ -36,6 +36,9 @@ var (
 	delegateAddr []common.Address
 	seed         = new(big.Int).SetInt64(0)
 	deleValue    = new(big.Int).SetInt64(0)
+	concurrence  = delegateNum / int(params.NewEpochLength)
+	sendValue    = new(big.Int).SetInt64(0)
+	deleEValue   = new(big.Int).SetInt64(0)
 )
 
 //epoch  [id:1,begin:1,end:2000]   [id:2,begin:2001,end:4000]   [id:3,begin:4001,end:6000]   [id:4,begin:6001,end:8000]   [id:5,begin:8001,end:10000]
@@ -76,6 +79,10 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 			delegateAddr[i] = crypto.PubkeyToAddress(delegateKey[i].PublicKey)
 		}
 		deleValue = stateDb.GetBalance(mAccount)
+		if delegateNum > 0 {
+			sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10)))
+			deleEValue = new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
+		}
 		seed, _ = rand.Int(rand.Reader, big.NewInt(9))
 		printTest("seed ", seed, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
 	}
@@ -120,11 +127,8 @@ func SendTX(header *types.Header, propagate bool, blockchain *core.BlockChain, t
 			sendDelegateTransaction(diff, gen, daddr1, saddr1, big.NewInt(4000000000000000000), dkey1, signer, stateDb, blockchain, abiStaking, tx)
 			sendUnDelegateTransaction(diff-types.GetEpochFromID(epoch+1).BeginHeight+firstNumber, gen, daddr1, saddr1, big.NewInt(2000000000000000000), dkey1, signer, stateDb, blockchain, abiStaking, tx)
 			sendWithdrawDelegateTransaction(diff-types.MinCalcRedeemHeight(epoch+1)+firstNumber, gen, daddr1, saddr1, big.NewInt(2000000000000000000), dkey1, signer, stateDb, blockchain, abiStaking, tx)
-			con := delegateNum / int(params.NewEpochLength)
-			sendValue := new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10)))
-			deleEValue := new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
 			for i := 0; i < int(params.NewEpochLength); i++ {
-				for j := 0; j < con+1; j++ {
+				for j := 0; j < concurrence+1; j++ {
 					if j*int(params.NewEpochLength)+i > len(delegateKey)-1 {
 						continue
 					}
