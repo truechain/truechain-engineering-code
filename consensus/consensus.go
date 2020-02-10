@@ -282,7 +282,7 @@ func InitTIP8(config *params.ChainConfig, reader SnailChainReader) {
 	}
 }
 func makeImpawInitState(config *params.ChainConfig,state *state.StateDB,fastNumber *big.Int) bool {
-	if config.IsTIP7(fastNumber) {
+	if config.TIP7.FastNumber.Cmp(fastNumber) == 0 {
 		stateAddress := types.StakingAddress
 		key := common.BytesToHash(stateAddress[:])
 		obj := state.GetPOSState(stateAddress, key)

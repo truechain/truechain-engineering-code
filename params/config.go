@@ -473,7 +473,7 @@ func (c *ChainConfig) IsTIP7(num *big.Int) bool {
 	if c.TIP7 == nil {
 		return false
 	}
-	return c.TIP7.FastNumber.Cmp(num) == 0
+	return isForked(c.TIP7.FastNumber, num)
 }
 
 func (c *ChainConfig) IsTIP8(cid, num *big.Int) bool {
