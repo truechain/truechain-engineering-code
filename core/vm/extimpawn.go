@@ -23,16 +23,16 @@ func (p *PairstakingValue) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&ep); err != nil {
 		return err
 	}
-	p.amount, p.height, p.state = ep.Amount, ep.Height, ep.State
+	p.Amount, p.Height, p.State = ep.Amount, ep.Height, ep.State
 	return nil
 }
 
 // EncodeRLP serializes b into the truechain RLP PairstakingValue format.
 func (p *PairstakingValue) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extPairstakingValue{
-		Amount: p.amount,
-		Height: p.height,
-		State:  p.state,
+		Amount: p.Amount,
+		Height: p.Height,
+		State:  p.State,
 	})
 }
 
@@ -48,16 +48,16 @@ func (i *impawnUnit) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&ei); err != nil {
 		return err
 	}
-	i.address, i.value, i.redeemInof = ei.Address, ei.Value, ei.RedeemInof
+	i.Address, i.Value, i.RedeemInof = ei.Address, ei.Value, ei.RedeemInof
 	return nil
 }
 
 // EncodeRLP serializes b into the truechain RLP impawnUnit format.
 func (i *impawnUnit) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extImpawnUnit{
-		Address:    i.address,
-		Value:      i.value,
-		RedeemInof: i.redeemInof,
+		Address:    i.Address,
+		Value:      i.Value,
+		RedeemInof: i.RedeemInof,
 	})
 }
 
@@ -72,15 +72,15 @@ func (d *DelegationAccount) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&da); err != nil {
 		return err
 	}
-	d.saAddress, d.unit = da.DeleAddress, da.Unit
+	d.SaAddress, d.Unit = da.DeleAddress, da.Unit
 	return nil
 }
 
 // EncodeRLP serializes b into the truechain RLP DelegationAccount format.
 func (i *DelegationAccount) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extDAccount{
-		DeleAddress: i.saAddress,
-		Unit:        i.unit,
+		DeleAddress: i.SaAddress,
+		Unit:        i.Unit,
 	})
 }
 
@@ -99,19 +99,19 @@ func (sa *StakingAccount) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&es); err != nil {
 		return err
 	}
-	sa.unit, sa.votepubkey, sa.fee, sa.committee, sa.delegation, sa.modify = es.Unit, es.Votepubkey, es.Fee, es.Committee, es.Delegation, es.Modify
+	sa.Unit, sa.Votepubkey, sa.Fee, sa.Committee, sa.Delegation, sa.Modify = es.Unit, es.Votepubkey, es.Fee, es.Committee, es.Delegation, es.Modify
 	return nil
 }
 
 // EncodeRLP serializes b into the truechain RLP StakingAccount format.
 func (sa *StakingAccount) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extSAccount{
-		Unit:       sa.unit,
-		Votepubkey: sa.votepubkey,
-		Fee:        sa.fee,
-		Committee:  sa.committee,
-		Delegation: sa.delegation,
-		Modify:     sa.modify,
+		Unit:       sa.Unit,
+		Votepubkey: sa.Votepubkey,
+		Fee:        sa.Fee,
+		Committee:  sa.Committee,
+		Delegation: sa.Delegation,
+		Modify:     sa.Modify,
 	})
 }
 
@@ -126,15 +126,15 @@ func (a *AlterableInfo) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&ea); err != nil {
 		return err
 	}
-	a.fee, a.votePubkey = ea.Fee, ea.VotePubkey
+	a.Fee, a.VotePubkey = ea.Fee, ea.VotePubkey
 	return nil
 }
 
 // EncodeRLP serializes b into the truechain RLP AlterableInfo format.
 func (a *AlterableInfo) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extAlterableInfo{
-		Fee:        a.fee,
-		VotePubkey: a.votePubkey,
+		Fee:        a.Fee,
+		VotePubkey: a.VotePubkey,
 	})
 }
 
@@ -193,19 +193,19 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC(height uint64) map[string]interface
 	for i, sa := range sas {
 		attr := make(map[string]interface{})
 		attr["id"] = i
-		attr["unit"] = unitDisplay(sa.unit)
-		attr["votePubKey"] = hexutil.Bytes(sa.votepubkey)
-		attr["fee"] = sa.fee.Uint64()
-		attr["committee"] = sa.committee
-		attr["delegation"] = daSDisplay(sa.delegation, height)
+		attr["unit"] = unitDisplay(sa.Unit)
+		attr["votePubKey"] = hexutil.Bytes(sa.Votepubkey)
+		attr["fee"] = sa.Fee.Uint64()
+		attr["committee"] = sa.Committee
+		attr["delegation"] = daSDisplay(sa.Delegation, height)
 		ai := make(map[string]interface{})
-		ai["fee"] = sa.modify.fee.Uint64()
-		ai["votePubKey"] = hexutil.Bytes(sa.modify.votePubkey)
+		ai["fee"] = sa.Modify.Fee.Uint64()
+		ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
 		attr["modify"] = ai
 		attr["staking"] = sa.getAllStaking(height)
 		attr["validStaking"] = sa.getValidStaking(height)
 		attrs = append(attrs, attr)
-		count = count + len(sa.delegation)
+		count = count + len(sa.Delegation)
 	}
 	sasRPC["stakers"] = attrs
 	sasRPC["stakerCount"] = len(sas)
@@ -254,14 +254,14 @@ func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address)
 	sa := sas.getSA(address)
 	attr := make(map[string]interface{})
 	attr["id"] = i
-	attr["unit"] = unitDisplay(sa.unit)
-	attr["votePubKey"] = hexutil.Bytes(sa.votepubkey)
-	attr["fee"] = sa.fee.Uint64()
-	attr["committee"] = sa.committee
-	attr["delegation"] = daSDisplay(sa.delegation, height)
+	attr["unit"] = unitDisplay(sa.Unit)
+	attr["votePubKey"] = hexutil.Bytes(sa.Votepubkey)
+	attr["fee"] = sa.Fee.Uint64()
+	attr["committee"] = sa.Committee
+	attr["delegation"] = daSDisplay(sa.Delegation, height)
 	ai := make(map[string]interface{})
-	ai["fee"] = sa.modify.fee.Uint64()
-	ai["votePubKey"] = hexutil.Bytes(sa.modify.votePubkey)
+	ai["fee"] = sa.Modify.Fee.Uint64()
+	ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
 	attr["modify"] = ai
 	attr["staking"] = sa.getAllStaking(height)
 	attr["validStaking"] = sa.getValidStaking(height)
@@ -272,10 +272,10 @@ func daSDisplay(das []*DelegationAccount, height uint64) map[string]interface{} 
 	attrs := make(map[string]interface{}, len(das))
 	for i, da := range das {
 		attr := make(map[string]interface{})
-		attr["saAddress"] = da.saAddress
+		attr["saAddress"] = da.SaAddress
 		attr["delegate"] = da.getAllStaking(height)
 		attr["validDelegate"] = da.getValidStaking(height)
-		attr["unit"] = unitDisplay(da.unit)
+		attr["unit"] = unitDisplay(da.Unit)
 		attrs[strconv.Itoa(i)] = attr
 	}
 	return attrs
@@ -283,9 +283,9 @@ func daSDisplay(das []*DelegationAccount, height uint64) map[string]interface{} 
 
 func unitDisplay(uint *impawnUnit) map[string]interface{} {
 	attr := make(map[string]interface{})
-	attr["address"] = uint.address
-	attr["value"] = pvSDisplay(uint.value)
-	attr["redeemInfo"] = riSDisplay(uint.redeemInof)
+	attr["address"] = uint.Address
+	attr["value"] = pvSDisplay(uint.Value)
+	attr["redeemInfo"] = riSDisplay(uint.RedeemInof)
 	return attr
 }
 
@@ -293,9 +293,9 @@ func pvSDisplay(pvs []*PairstakingValue) map[string]interface{} {
 	attrs := make(map[string]interface{}, len(pvs))
 	for i, pv := range pvs {
 		attr := make(map[string]interface{})
-		attr["amount"] = (*hexutil.Big)(pv.amount)
-		attr["height"] = (*hexutil.Big)(pv.height)
-		attr["state"] = uint64(pv.state)
+		attr["amount"] = (*hexutil.Big)(pv.Amount)
+		attr["height"] = (*hexutil.Big)(pv.Height)
+		attr["state"] = uint64(pv.State)
 		attrs[strconv.Itoa(i)] = attr
 	}
 	return attrs

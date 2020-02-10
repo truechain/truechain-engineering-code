@@ -18,13 +18,13 @@ import (
 
 /////////////////////////////////////////////////////////////////////////////////
 type PairstakingValue struct {
-	amount *big.Int
-	height *big.Int
-	state  uint8
+	Amount *big.Int
+	Height *big.Int
+	State  uint8
 }
 
 func (v *PairstakingValue) isElection() bool {
-	return (v.state&types.StateStakingOnce != 0 || v.state&types.StateStakingAuto != 0)
+	return (v.State&types.StateStakingOnce != 0 || v.State&types.StateStakingAuto != 0)
 }
 
 type RewardItem struct {
@@ -64,16 +64,16 @@ func newRedeemItem(eid uint64, amount *big.Int) *RedeemItem {
 }
 
 type impawnUnit struct {
-	address    common.Address
-	value      []*PairstakingValue // sort by height
-	redeemInof []*RedeemItem
+	Address    common.Address
+	Value      []*PairstakingValue // sort by height
+	RedeemInof []*RedeemItem
 }
 
 func (s *impawnUnit) getAllStaking(hh uint64) *big.Int {
 	all := big.NewInt(0)
-	for _, v := range s.value {
-		if v.height.Uint64() <= hh {
-			all = all.Add(all, v.amount)
+	for _, v := range s.Value {
+		if v.Height.Uint64() <= hh {
+			all = all.Add(all, v.Amount)
 		} else {
 			break
 		}
@@ -82,10 +82,10 @@ func (s *impawnUnit) getAllStaking(hh uint64) *big.Int {
 }
 func (s *impawnUnit) getValidStaking(hh uint64) *big.Int {
 	all := big.NewInt(0)
-	for _, v := range s.value {
-		if v.height.Uint64() <= hh {
+	for _, v := range s.Value {
+		if v.Height.Uint64() <= hh {
 			if v.isElection() {
-				all = all.Add(all, v.amount)
+				all = all.Add(all, v.Amount)
 			}
 		} else {
 			break
@@ -107,7 +107,7 @@ func (s *impawnUnit) getValidStaking(hh uint64) *big.Int {
 }
 func (s *impawnUnit) getValidRedeem(hh uint64) *big.Int {
 	all := big.NewInt(0)
-	for _, v := range s.redeemInof {
+	for _, v := range s.RedeemInof {
 		if v.isRedeem(hh) {
 			all = all.Add(all, v.Amount)
 		}
@@ -115,10 +115,10 @@ func (s *impawnUnit) getValidRedeem(hh uint64) *big.Int {
 	return all
 }
 func (s *impawnUnit) GetRewardAddress() common.Address {
-	return s.address
+	return s.Address
 }
 func (s *impawnUnit) getRedeemItem(epochID uint64) *RedeemItem {
-	for _, v := range s.redeemInof {
+	for _, v := range s.RedeemInof {
 		if v.EpochID == epochID {
 			return v
 		}
@@ -143,7 +143,7 @@ func (s *impawnUnit) stopStakingInfo(amount, lastHeight *big.Int) error {
 		State:   types.StateRedeem,
 	}
 	if r == nil {
-		s.redeemInof = append(s.redeemInof, tmp)
+		s.RedeemInof = append(s.RedeemInof, tmp)
 	} else {
 		r.update(tmp)
 	}
@@ -155,7 +155,7 @@ func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big
 	}
 	allAmount := big.NewInt(0)
 	s.sortRedeemItems()
-	for _, v := range s.redeemInof {
+	for _, v := range s.RedeemInof {
 		if v.isRedeem(hh) {
 			allAmount = allAmount.Add(allAmount, v.Amount)
 			res := allAmount.Cmp(amount)
@@ -173,30 +173,30 @@ func (s *impawnUnit) redeeming(hh uint64, amount *big.Int) (common.Address, *big
 	}
 	res := allAmount.Cmp(amount)
 	if res >= 0 {
-		return s.address, amount, nil
+		return s.Address, amount, nil
 	} else {
-		return s.address, allAmount, nil
+		return s.Address, allAmount, nil
 	}
 }
 
 // called by user input and it will be execute without wait for the staking be rewarded
 func (s *impawnUnit) finishRedeemed() {
 	pos := -1
-	for i, v := range s.redeemInof {
+	for i, v := range s.RedeemInof {
 		if v.Amount.Sign() == 0 && v.State == types.StateRedeemed {
 			pos = i
 		}
 	}
-	if len(s.redeemInof)-1 == pos {
-		s.redeemInof = s.redeemInof[0:0]
+	if len(s.RedeemInof)-1 == pos {
+		s.RedeemInof = s.RedeemInof[0:0]
 	} else {
-		s.redeemInof = s.redeemInof[pos+1:]
+		s.RedeemInof = s.RedeemInof[pos+1:]
 	}
 }
 
 // sort the redeemInof by asc with epochid
 func (s *impawnUnit) sortRedeemItems() {
-	sort.Sort(redeemByID(s.redeemInof))
+	sort.Sort(redeemByID(s.RedeemInof))
 }
 
 // merge for move from prev to next epoch,move the staking who was to be voted.
@@ -206,58 +206,58 @@ func (s *impawnUnit) sortRedeemItems() {
 func (s *impawnUnit) merge(epochid, hh uint64) {
 
 	all := big.NewInt(0)
-	for _, v := range s.value {
-		all = all.Add(all, v.amount)
+	for _, v := range s.Value {
+		all = all.Add(all, v.Amount)
 	}
 	tmp := &PairstakingValue{
-		amount: all,
-		height: new(big.Int).SetUint64(hh),
-		state:  types.StateStakingAuto,
+		Amount: all,
+		Height: new(big.Int).SetUint64(hh),
+		State:  types.StateStakingAuto,
 	}
 	var val []*PairstakingValue
 	redeem := s.getRedeemItem(epochid)
 	if redeem != nil {
 		left := all.Sub(all, redeem.Amount)
 		if left.Sign() >= 0 {
-			tmp.amount = left
+			tmp.Amount = left
 		} else {
 			panic("big error" + fmt.Sprint("all:", all, "redeem:", redeem.Amount, "epoch:", epochid))
 		}
 	}
 	val = append(val, tmp)
-	s.value = val
+	s.Value = val
 }
 func (s *impawnUnit) update(unit *impawnUnit, move bool) {
-	sorter := valuesByHeight(s.value)
+	sorter := valuesByHeight(s.Value)
 	sort.Sort(sorter)
-	for _, v := range unit.value {
+	for _, v := range unit.Value {
 		sorter = sorter.update(v)
 	}
-	s.value = sorter
+	s.Value = sorter
 
-	if s.redeemInof == nil {
-		s.redeemInof = make([]*RedeemItem, 0)
+	if s.RedeemInof == nil {
+		s.RedeemInof = make([]*RedeemItem, 0)
 	}
 	if move {
 		var tmp []*RedeemItem
-		s.redeemInof = append(append(tmp, unit.redeemInof...), s.redeemInof...)
+		s.RedeemInof = append(append(tmp, unit.RedeemInof...), s.RedeemInof...)
 	}
 }
 func (s *impawnUnit) clone() *impawnUnit {
 	tmp := &impawnUnit{
-		address:    s.address,
-		value:      make([]*PairstakingValue, 0),
-		redeemInof: make([]*RedeemItem, 0),
+		Address:    s.Address,
+		Value:      make([]*PairstakingValue, 0),
+		RedeemInof: make([]*RedeemItem, 0),
 	}
-	for _, v := range s.value {
-		tmp.value = append(tmp.value, &PairstakingValue{
-			amount: new(big.Int).Set(v.amount),
-			height: new(big.Int).Set(v.height),
-			state:  v.state,
+	for _, v := range s.Value {
+		tmp.Value = append(tmp.Value, &PairstakingValue{
+			Amount: new(big.Int).Set(v.Amount),
+			Height: new(big.Int).Set(v.Height),
+			State:  v.State,
 		})
 	}
-	for _, v := range s.redeemInof {
-		tmp.redeemInof = append(tmp.redeemInof, &RedeemItem{
+	for _, v := range s.RedeemInof {
+		tmp.RedeemInof = append(tmp.RedeemInof, &RedeemItem{
 			Amount:  new(big.Int).Set(v.Amount),
 			EpochID: v.EpochID,
 			State:   v.State,
@@ -266,16 +266,16 @@ func (s *impawnUnit) clone() *impawnUnit {
 	return tmp
 }
 func (s *impawnUnit) sort() {
-	sort.Sort(valuesByHeight(s.value))
+	sort.Sort(valuesByHeight(s.Value))
 	s.sortRedeemItems()
 }
 func (s *impawnUnit) isValid() bool {
-	for _, v := range s.value {
-		if v.amount.Sign() > 0 {
+	for _, v := range s.Value {
+		if v.Amount.Sign() > 0 {
 			return true
 		}
 	}
-	for _, v := range s.redeemInof {
+	for _, v := range s.RedeemInof {
 		if v.Amount.Sign() > 0 {
 			return true
 		}
@@ -284,14 +284,14 @@ func (s *impawnUnit) isValid() bool {
 }
 func (s *impawnUnit) valueToMap() map[uint64]*big.Int {
 	res := make(map[uint64]*big.Int)
-	for _, v := range s.value {
-		res[v.height.Uint64()] = new(big.Int).Set(v.amount)
+	for _, v := range s.Value {
+		res[v.Height.Uint64()] = new(big.Int).Set(v.Amount)
 	}
 	return res
 }
 func (s *impawnUnit) redeemToMap() map[uint64]*big.Int {
 	res := make(map[uint64]*big.Int)
-	for _, v := range s.redeemInof {
+	for _, v := range s.RedeemInof {
 		res[v.EpochID] = new(big.Int).Set(v.Amount)
 	}
 	return res
@@ -300,81 +300,81 @@ func (s *impawnUnit) redeemToMap() map[uint64]*big.Int {
 /////////////////////////////////////////////////////////////////////////////////
 
 type DelegationAccount struct {
-	saAddress common.Address
-	unit      *impawnUnit
+	SaAddress common.Address
+	Unit      *impawnUnit
 }
 
 func (d *DelegationAccount) update(da *DelegationAccount, move bool) {
-	d.unit.update(da.unit, move)
+	d.Unit.update(da.Unit, move)
 }
 func (s *DelegationAccount) getAllStaking(hh uint64) *big.Int {
-	return s.unit.getAllStaking(hh)
+	return s.Unit.getAllStaking(hh)
 }
 func (s *DelegationAccount) getValidStaking(hh uint64) *big.Int {
-	return s.unit.getValidStaking(hh)
+	return s.Unit.getValidStaking(hh)
 }
 func (s *DelegationAccount) stopStakingInfo(amount, lastHeight *big.Int) error {
-	return s.unit.stopStakingInfo(amount, lastHeight)
+	return s.Unit.stopStakingInfo(amount, lastHeight)
 }
 func (s *DelegationAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int, error) {
-	return s.unit.redeeming(hh, amount)
+	return s.Unit.redeeming(hh, amount)
 }
 func (s *DelegationAccount) finishRedeemed() {
-	s.unit.finishRedeemed()
+	s.Unit.finishRedeemed()
 }
 func (s *DelegationAccount) merge(epochid, hh uint64) {
-	s.unit.merge(epochid, hh)
+	s.Unit.merge(epochid, hh)
 }
 func (s *DelegationAccount) clone() *DelegationAccount {
 	return &DelegationAccount{
-		saAddress: s.saAddress,
-		unit:      s.unit.clone(),
+		SaAddress: s.SaAddress,
+		Unit:      s.Unit.clone(),
 	}
 }
 func (s *DelegationAccount) isValid() bool {
-	return s.unit.isValid()
+	return s.Unit.isValid()
 }
 
 type StakingAccount struct {
-	unit       *impawnUnit
-	votepubkey []byte
-	fee        *big.Int
-	committee  bool
-	delegation []*DelegationAccount
-	modify     *AlterableInfo
+	Unit       *impawnUnit
+	Votepubkey []byte
+	Fee        *big.Int
+	Committee  bool
+	Delegation []*DelegationAccount
+	Modify     *AlterableInfo
 }
 type AlterableInfo struct {
-	fee        *big.Int
-	votePubkey []byte
+	Fee        *big.Int
+	VotePubkey []byte
 }
 
 func (s *StakingAccount) isInCommittee() bool {
-	return s.committee
+	return s.Committee
 }
 func (s *StakingAccount) addAmount(height uint64, amount *big.Int) {
 	unit := &impawnUnit{
-		address: s.unit.address,
-		value: []*PairstakingValue{&PairstakingValue{
-			amount: new(big.Int).Set(amount),
-			height: new(big.Int).SetUint64(height),
-			state:  0,
+		Address: s.Unit.Address,
+		Value: []*PairstakingValue{&PairstakingValue{
+			Amount: new(big.Int).Set(amount),
+			Height: new(big.Int).SetUint64(height),
+			State:  0,
 		}},
-		redeemInof: make([]*RedeemItem, 0),
+		RedeemInof: make([]*RedeemItem, 0),
 	}
-	s.unit.update(unit, false)
+	s.Unit.update(unit, false)
 }
 func (s *StakingAccount) updateFee(height uint64, fee *big.Int) {
 	if height > s.getMaxHeight() {
-		s.modify.fee = new(big.Int).Set(fee)
+		s.Modify.Fee = new(big.Int).Set(fee)
 	}
 }
 func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) {
-	s.unit.update(sa.unit, move)
+	s.Unit.update(sa.Unit, move)
 	dirty := false
-	for _, v := range sa.delegation {
-		da := s.getDA(v.unit.GetRewardAddress())
+	for _, v := range sa.Delegation {
+		da := s.getDA(v.Unit.GetRewardAddress())
 		if da == nil {
-			s.delegation = append(s.delegation, v)
+			s.Delegation = append(s.Delegation, v)
 			dirty = true
 		} else {
 			da.update(v, move)
@@ -382,102 +382,102 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) 
 	}
 	// ignore the pk param
 	if hh > s.getMaxHeight() {
-		s.modify.fee = new(big.Int).Set(sa.modify.fee)
-		s.modify.votePubkey = types.CopyVotePk(s.votepubkey)
+		s.Modify.Fee = new(big.Int).Set(sa.Modify.Fee)
+		s.Modify.VotePubkey = types.CopyVotePk(s.Votepubkey)
 	}
 	if next {
 		s.changeAlterableInfo()
 	}
 	if dirty && hh != 0 {
-		tmp := toDelegationByAmount(hh, false, s.delegation)
+		tmp := toDelegationByAmount(hh, false, s.Delegation)
 		sort.Sort(tmp)
-		s.delegation, _ = fromDelegationByAmount(tmp)
+		s.Delegation, _ = fromDelegationByAmount(tmp)
 	}
 }
 func (s *StakingAccount) stopStakingInfo(amount, lastHeight *big.Int) error {
-	return s.unit.stopStakingInfo(amount, lastHeight)
+	return s.Unit.stopStakingInfo(amount, lastHeight)
 }
 func (s *StakingAccount) redeeming(hh uint64, amount *big.Int) (common.Address, *big.Int, error) {
-	return s.unit.redeeming(hh, amount)
+	return s.Unit.redeeming(hh, amount)
 }
 func (s *StakingAccount) finishRedeemed() {
-	s.unit.finishRedeemed()
+	s.Unit.finishRedeemed()
 }
 func (s *StakingAccount) getAllStaking(hh uint64) *big.Int {
-	all := s.unit.getAllStaking(hh)
-	for _, v := range s.delegation {
+	all := s.Unit.getAllStaking(hh)
+	for _, v := range s.Delegation {
 		all = all.Add(all, v.getAllStaking(hh))
 	}
 	return all
 }
 func (s *StakingAccount) getValidStaking(hh uint64) *big.Int {
-	all := s.unit.getValidStaking(hh)
-	for _, v := range s.delegation {
+	all := s.Unit.getValidStaking(hh)
+	for _, v := range s.Delegation {
 		all = all.Add(all, v.getValidStaking(hh))
 	}
 	return all
 }
 func (s *StakingAccount) getValidStakingOnly(hh uint64) *big.Int {
-	return s.unit.getValidStaking(hh)
+	return s.Unit.getValidStaking(hh)
 }
 func (s *StakingAccount) merge(epochid, hh uint64) {
-	s.unit.merge(epochid, hh)
-	for _, v := range s.delegation {
+	s.Unit.merge(epochid, hh)
+	for _, v := range s.Delegation {
 		v.merge(epochid, hh)
 	}
 }
 func (s *StakingAccount) getDA(addr common.Address) *DelegationAccount {
-	for _, v := range s.delegation {
-		if bytes.Equal(v.unit.address.Bytes(), addr.Bytes()) {
+	for _, v := range s.Delegation {
+		if bytes.Equal(v.Unit.Address.Bytes(), addr.Bytes()) {
 			return v
 		}
 	}
 	return nil
 }
 func (s *StakingAccount) getMaxHeight() uint64 {
-	l := len(s.unit.value)
-	return s.unit.value[l-1].height.Uint64()
+	l := len(s.Unit.Value)
+	return s.Unit.Value[l-1].Height.Uint64()
 }
 func (s *StakingAccount) changeAlterableInfo() {
-	if s.modify != nil {
-		if s.modify.fee != nil {
+	if s.Modify != nil {
+		if s.Modify.Fee != nil {
 			// s.fee = new(big.Int).Set(s.modify.fee)
-			s.fee = s.modify.fee
+			s.Fee = s.Modify.Fee
 		}
-		if s.modify.votePubkey != nil {
-			s.votepubkey = s.modify.votePubkey
+		if s.Modify.VotePubkey != nil {
+			s.Votepubkey = s.Modify.VotePubkey
 		}
 	}
 }
 func (s *StakingAccount) clone() *StakingAccount {
 	ss := &StakingAccount{
-		votepubkey: types.CopyVotePk(s.votepubkey),
-		unit:       s.unit.clone(),
-		fee:        new(big.Int).Set(s.fee),
-		committee:  s.committee,
-		delegation: make([]*DelegationAccount, 0),
-		modify:     &AlterableInfo{},
+		Votepubkey: types.CopyVotePk(s.Votepubkey),
+		Unit:       s.Unit.clone(),
+		Fee:        new(big.Int).Set(s.Fee),
+		Committee:  s.Committee,
+		Delegation: make([]*DelegationAccount, 0),
+		Modify:     &AlterableInfo{},
 	}
-	for _, v := range s.delegation {
-		ss.delegation = append(ss.delegation, v.clone())
+	for _, v := range s.Delegation {
+		ss.Delegation = append(ss.Delegation, v.clone())
 	}
-	if s.modify != nil {
-		if s.modify.fee != nil {
-			ss.modify.fee = new(big.Int).Set(s.modify.fee)
+	if s.Modify != nil {
+		if s.Modify.Fee != nil {
+			ss.Modify.Fee = new(big.Int).Set(s.Modify.Fee)
 		}
-		if s.modify.votePubkey != nil {
-			ss.modify.votePubkey = types.CopyVotePk(s.modify.votePubkey)
+		if s.Modify.VotePubkey != nil {
+			ss.Modify.VotePubkey = types.CopyVotePk(s.Modify.VotePubkey)
 		}
 	}
 	return ss
 }
 func (s *StakingAccount) isvalid() bool {
-	for _, v := range s.delegation {
+	for _, v := range s.Delegation {
 		if v.isValid() {
 			return true
 		}
 	}
-	return s.unit.isValid()
+	return s.Unit.isValid()
 }
 
 type SAImpawns []*StakingAccount
@@ -498,9 +498,9 @@ func (s *SAImpawns) getValidStaking(hh uint64) *big.Int {
 }
 func (s *SAImpawns) sort(hh uint64, valid bool) {
 	for _, v := range *s {
-		tmp := toDelegationByAmount(hh, valid, v.delegation)
+		tmp := toDelegationByAmount(hh, valid, v.Delegation)
 		sort.Sort(tmp)
-		v.delegation, _ = fromDelegationByAmount(tmp)
+		v.Delegation, _ = fromDelegationByAmount(tmp)
 	}
 	tmp := toStakingByAmount(hh, valid, *s)
 	sort.Sort(tmp)
@@ -508,14 +508,14 @@ func (s *SAImpawns) sort(hh uint64, valid bool) {
 }
 func (s *SAImpawns) getSA(addr common.Address) *StakingAccount {
 	for _, val := range *s {
-		if bytes.Equal(val.unit.address.Bytes(), addr.Bytes()) {
+		if bytes.Equal(val.Unit.Address.Bytes(), addr.Bytes()) {
 			return val
 		}
 	}
 	return nil
 }
 func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next, move bool) {
-	sa := s.getSA(sa1.unit.address)
+	sa := s.getSA(sa1.Unit.Address)
 	if sa == nil {
 		*s = append(*s, sa1)
 		s.sort(hh, false)
@@ -582,7 +582,7 @@ func (i *ImpawnImpl) GetStakingAccount(epochid uint64, addr common.Address) (*St
 		return nil, types.ErrInvalidStaking
 	} else {
 		for _, val := range v {
-			if bytes.Equal(val.unit.address.Bytes(), addr.Bytes()) {
+			if bytes.Equal(val.Unit.Address.Bytes(), addr.Bytes()) {
 				return val, nil
 			}
 		}
@@ -590,8 +590,8 @@ func (i *ImpawnImpl) GetStakingAccount(epochid uint64, addr common.Address) (*St
 	return nil, types.ErrInvalidStaking
 }
 func (i *ImpawnImpl) getDAfromSA(sa *StakingAccount, addr common.Address) (*DelegationAccount, error) {
-	for _, ii := range sa.delegation {
-		if bytes.Equal(ii.unit.address.Bytes(), addr.Bytes()) {
+	for _, ii := range sa.Delegation {
+		if bytes.Equal(ii.Unit.Address.Bytes(), addr.Bytes()) {
 			return ii, nil
 		}
 	}
@@ -604,7 +604,7 @@ func (i *ImpawnImpl) getElections(epochid uint64) []common.Address {
 		var addrs []common.Address
 		for _, v := range accounts {
 			if v.isInCommittee() {
-				addrs = append(addrs, v.unit.GetRewardAddress())
+				addrs = append(addrs, v.Unit.GetRewardAddress())
 			}
 		}
 		return addrs
@@ -647,7 +647,7 @@ func (i *ImpawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address
 		}
 		var items SAImpawns
 		for _, val := range accounts {
-			if val.isInCommittee() && find(addrs, val.unit.GetRewardAddress()) {
+			if val.isInCommittee() && find(addrs, val.Unit.GetRewardAddress()) {
 				items = append(items, val)
 			}
 		}
@@ -685,9 +685,9 @@ func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 		return nil, types.ErrInvalidParam
 	}
 	var items []*types.RewardInfo
-	fee := new(big.Int).Quo(new(big.Int).Mul(allReward, sa.fee), types.Base)
+	fee := new(big.Int).Quo(new(big.Int).Mul(allReward, sa.Fee), types.Base)
 	all, left := new(big.Int).Sub(allReward, fee), big.NewInt(0)
-	for _, v := range sa.delegation {
+	for _, v := range sa.Delegation {
 		daAll := v.getAllStaking(target)
 		if daAll.Sign() <= 0 {
 			continue
@@ -695,7 +695,7 @@ func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 		v1 := new(big.Int).Quo(new(big.Int).Mul(all, daAll), allStaking)
 		left = left.Add(left, v1)
 		var ii types.RewardInfo
-		ii.Address, ii.Amount = v.unit.GetRewardAddress(), new(big.Int).Set(v1)
+		ii.Address, ii.Amount = v.Unit.GetRewardAddress(), new(big.Int).Set(v1)
 		items = append(items, &ii)
 	}
 	item.Amount = new(big.Int).Add(new(big.Int).Sub(all, left), fee)
@@ -719,7 +719,7 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 		for pos, v := range impawns {
 			var info types.SARewardInfos
 			var item types.RewardInfo
-			item.Address = v.unit.GetRewardAddress()
+			item.Address = v.Unit.GetRewardAddress()
 			allStaking := v.getAllStaking(target)
 			if allStaking.Sign() <= 0 {
 				continue
@@ -787,7 +787,7 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 		vv := v.clone()
 		vv.merge(prev, nextEpoch.BeginHeight)
 		if vv.isvalid() {
-			vv.committee = false
+			vv.Committee = false
 			nextInfos.update(vv, nextEpoch.BeginHeight, true, true)
 		}
 	}
@@ -820,7 +820,7 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 			if validStaking.Cmp(params.ElectionMinLimitForStaking) < 0 {
 				continue
 			}
-			v.committee = true
+			v.Committee = true
 			ee = append(ee, v)
 			if i == params.CountInEpoch-1 {
 				break
@@ -936,19 +936,19 @@ func (i *ImpawnImpl) insertDAccount(height uint64, da *DelegationAccount) error 
 	if epochInfo == nil || epochInfo.EpochID > i.getCurrentEpoch() {
 		return types.ErrOverEpochID
 	}
-	sa, err := i.GetStakingAccount(epochInfo.EpochID, da.saAddress)
+	sa, err := i.GetStakingAccount(epochInfo.EpochID, da.SaAddress)
 	if err != nil {
 		return err
 	}
-	if ds, err := i.getDAfromSA(sa, da.unit.address); err != nil {
+	if ds, err := i.getDAfromSA(sa, da.Unit.Address); err != nil {
 		return err
 	} else {
 		if ds == nil {
-			sa.delegation = append(sa.delegation, da)
-			log.Info("Insert delegation account", "staking account", sa.unit.GetRewardAddress(), "account", da.unit.GetRewardAddress())
+			sa.Delegation = append(sa.Delegation, da)
+			log.Info("Insert delegation account", "staking account", sa.Unit.GetRewardAddress(), "account", da.Unit.GetRewardAddress())
 		} else {
 			ds.update(da, false)
-			log.Info("Update delegation account", "staking account", sa.unit.GetRewardAddress(), "account", da.unit.GetRewardAddress())
+			log.Info("Update delegation account", "staking account", sa.Unit.GetRewardAddress(), "account", da.Unit.GetRewardAddress())
 		}
 	}
 	return nil
@@ -963,15 +963,15 @@ func (i *ImpawnImpl) InsertDAccount2(height uint64, addrSA, addrDA common.Addres
 	state := uint8(0)
 	state |= types.StateStakingAuto
 	da := &DelegationAccount{
-		saAddress: addrSA,
-		unit: &impawnUnit{
-			address: addrDA,
-			value: []*PairstakingValue{&PairstakingValue{
-				amount: new(big.Int).Set(val),
-				height: new(big.Int).SetUint64(height),
-				state:  state,
+		SaAddress: addrSA,
+		Unit: &impawnUnit{
+			Address: addrDA,
+			Value: []*PairstakingValue{&PairstakingValue{
+				Amount: new(big.Int).Set(val),
+				Height: new(big.Int).SetUint64(height),
+				State:  state,
 			}},
-			redeemInof: make([]*RedeemItem, 0),
+			RedeemInof: make([]*RedeemItem, 0),
 		},
 	}
 	return i.insertDAccount(height, da)
@@ -989,17 +989,17 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 		var accounts []*StakingAccount
 		accounts = append(accounts, sa)
 		i.accounts[epochInfo.EpochID] = SAImpawns(accounts)
-		log.Info("Insert staking account", "epoch", epochInfo, "account", sa.unit.GetRewardAddress())
+		log.Info("Insert staking account", "epoch", epochInfo, "account", sa.Unit.GetRewardAddress())
 	} else {
 		for _, ii := range val {
-			if bytes.Equal(ii.unit.address.Bytes(), sa.unit.address.Bytes()) {
+			if bytes.Equal(ii.Unit.Address.Bytes(), sa.Unit.Address.Bytes()) {
 				ii.update(sa, height, false, false)
-				log.Info("Update staking account", "account", sa.unit.GetRewardAddress())
+				log.Info("Update staking account", "account", sa.Unit.GetRewardAddress())
 				return nil
 			}
 		}
 		i.accounts[epochInfo.EpochID] = append(val, sa)
-		log.Info("Insert staking account", "epoch", epochInfo, "account", sa.unit.GetRewardAddress())
+		log.Info("Insert staking account", "epoch", epochInfo, "account", sa.Unit.GetRewardAddress())
 	}
 	return nil
 }
@@ -1015,18 +1015,18 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 		state |= types.StateStakingAuto
 	}
 	sa := &StakingAccount{
-		votepubkey: append([]byte{}, pk...),
-		fee:        new(big.Int).Set(fee),
-		unit: &impawnUnit{
-			address: addr,
-			value: []*PairstakingValue{&PairstakingValue{
-				amount: new(big.Int).Set(val),
-				height: new(big.Int).SetUint64(height),
-				state:  state,
+		Votepubkey: append([]byte{}, pk...),
+		Fee:        new(big.Int).Set(fee),
+		Unit: &impawnUnit{
+			Address: addr,
+			Value: []*PairstakingValue{&PairstakingValue{
+				Amount: new(big.Int).Set(val),
+				Height: new(big.Int).SetUint64(height),
+				State:  state,
 			}},
-			redeemInof: make([]*RedeemItem, 0),
+			RedeemInof: make([]*RedeemItem, 0),
 		},
-		modify: &AlterableInfo{},
+		Modify: &AlterableInfo{},
 	}
 	return i.insertSAccount(height, sa)
 }
@@ -1126,16 +1126,16 @@ func (i *ImpawnImpl) getAsset(addr common.Address, epoch uint64, op uint8) (map[
 		res := make(map[common.Address]*types.StakingValue)
 		res2 := make(map[common.Address]*big.Int)
 		for _, v := range val {
-			if bytes.Equal(v.unit.address.Bytes(), addr.Bytes()) {
+			if bytes.Equal(v.Unit.Address.Bytes(), addr.Bytes()) {
 				if op&types.OpQueryStaking != 0 || op&types.OpQueryLocked != 0 {
 					if _, ok := res[addr]; !ok {
 						if op&types.OpQueryLocked != 0 {
 							res[addr] = &types.StakingValue{
-								Value: v.unit.redeemToMap(),
+								Value: v.Unit.redeemToMap(),
 							}
 						} else {
 							res[addr] = &types.StakingValue{
-								Value: v.unit.valueToMap(),
+								Value: v.Unit.valueToMap(),
 							}
 						}
 
@@ -1144,7 +1144,7 @@ func (i *ImpawnImpl) getAsset(addr common.Address, epoch uint64, op uint8) (map[
 					}
 				}
 				if op&types.OpQueryCancelable != 0 {
-					all := v.unit.getValidStaking(end)
+					all := v.Unit.getValidStaking(end)
 					if all.Sign() >= 0 {
 						res2[addr] = all
 					}
@@ -1152,28 +1152,28 @@ func (i *ImpawnImpl) getAsset(addr common.Address, epoch uint64, op uint8) (map[
 
 				continue
 			} else {
-				for _, vv := range v.delegation {
-					if bytes.Equal(vv.unit.address.Bytes(), addr.Bytes()) {
+				for _, vv := range v.Delegation {
+					if bytes.Equal(vv.Unit.Address.Bytes(), addr.Bytes()) {
 						if op&types.OpQueryStaking != 0 || op&types.OpQueryLocked != 0 {
-							if _, ok := res[v.unit.address]; !ok {
+							if _, ok := res[v.Unit.Address]; !ok {
 								if op&types.OpQueryLocked != 0 {
-									res[v.unit.address] = &types.StakingValue{
-										Value: vv.unit.redeemToMap(),
+									res[v.Unit.Address] = &types.StakingValue{
+										Value: vv.Unit.redeemToMap(),
 									}
 								} else {
-									res[v.unit.address] = &types.StakingValue{
-										Value: vv.unit.valueToMap(),
+									res[v.Unit.Address] = &types.StakingValue{
+										Value: vv.Unit.valueToMap(),
 									}
 								}
 							} else {
-								log.Error("getAsset", "repeat delegation account[sa,da]", v.unit.address, addr, "epochid", epochid, "op", op)
+								log.Error("getAsset", "repeat delegation account[sa,da]", v.Unit.Address, addr, "epochid", epochid, "op", op)
 							}
 						}
 
 						if op&types.OpQueryCancelable != 0 {
-							all := vv.unit.getValidStaking(end)
+							all := vv.Unit.getValidStaking(end)
 							if all.Sign() >= 0 {
-								res2[v.unit.address] = all
+								res2[v.Unit.Address] = all
 							}
 						}
 						break
@@ -1224,11 +1224,11 @@ func GetCurrentValidators(state StateDB) []*types.CommitteeMember {
 	accs := i.getElections3(eid)
 	var vv []*types.CommitteeMember
 	for _, v := range accs {
-		pubkey, _ := crypto.UnmarshalPubkey(v.votepubkey)
+		pubkey, _ := crypto.UnmarshalPubkey(v.Votepubkey)
 		vv = append(vv, &types.CommitteeMember{
 			CommitteeBase: crypto.PubkeyToAddress(*pubkey),
-			Coinbase:      v.unit.GetRewardAddress(),
-			Publickey:     types.CopyVotePk(v.votepubkey),
+			Coinbase:      v.Unit.GetRewardAddress(),
+			Publickey:     types.CopyVotePk(v.Votepubkey),
 			Flag:          types.StateUsedFlag,
 			MType:         types.TypeWorked,
 		})
@@ -1246,11 +1246,11 @@ func GetValidatorsByEpoch(state StateDB, eid, hh uint64) []*types.CommitteeMembe
 	}
 	var vv []*types.CommitteeMember
 	for _, v := range accs {
-		pubkey, _ := crypto.UnmarshalPubkey(v.votepubkey)
+		pubkey, _ := crypto.UnmarshalPubkey(v.Votepubkey)
 		vv = append(vv, &types.CommitteeMember{
 			CommitteeBase: crypto.PubkeyToAddress(*pubkey),
-			Coinbase:      v.unit.GetRewardAddress(),
-			Publickey:     types.CopyVotePk(v.votepubkey),
+			Coinbase:      v.Unit.GetRewardAddress(),
+			Publickey:     types.CopyVotePk(v.Votepubkey),
 			Flag:          types.StateUsedFlag,
 			MType:         types.TypeWorked,
 		})
@@ -1265,7 +1265,7 @@ func (vs valuesByHeight) Len() int {
 	return len(vs)
 }
 func (vs valuesByHeight) Less(i, j int) bool {
-	return vs[i].height.Cmp(vs[j].height) == -1
+	return vs[i].Height.Cmp(vs[j].Height) == -1
 }
 func (vs valuesByHeight) Swap(i, j int) {
 	it := vs[i]
@@ -1277,9 +1277,9 @@ func (vs valuesByHeight) find(hh uint64) (*PairstakingValue, int) {
 	mid := 0
 	for low <= height {
 		mid = (height + low) / 2
-		if hh == vs[mid].height.Uint64() {
+		if hh == vs[mid].Height.Uint64() {
 			return vs[mid], mid
-		} else if hh > vs[mid].height.Uint64() {
+		} else if hh > vs[mid].Height.Uint64() {
 			low = mid + 1
 			if low > height {
 				return nil, low
@@ -1291,10 +1291,10 @@ func (vs valuesByHeight) find(hh uint64) (*PairstakingValue, int) {
 	return nil, mid
 }
 func (vs valuesByHeight) update(val *PairstakingValue) valuesByHeight {
-	item, pos := vs.find(val.height.Uint64())
+	item, pos := vs.find(val.Height.Uint64())
 	if item != nil {
-		item.amount = item.amount.Add(item.amount, val.amount)
-		item.state |= val.state
+		item.Amount = item.Amount.Add(item.Amount, val.Amount)
+		item.State |= val.State
 	} else {
 		rear := append([]*PairstakingValue{}, vs[pos:]...)
 		vs = append(append(vs[:pos], val), rear...)
@@ -1335,7 +1335,7 @@ type stakingByAmount []*stakingItem
 func toStakingByAmount(hh uint64, valid bool, items []*StakingAccount) stakingByAmount {
 	var tmp []*stakingItem
 	for _, v := range items {
-		v.unit.sort()
+		v.Unit.sort()
 		tmp = append(tmp, &stakingItem{
 			item:   v,
 			height: hh,
@@ -1384,7 +1384,7 @@ type delegationItemByAmount []*delegationItem
 func toDelegationByAmount(hh uint64, valid bool, items []*DelegationAccount) delegationItemByAmount {
 	var tmp []*delegationItem
 	for _, v := range items {
-		v.unit.sort()
+		v.Unit.sort()
 		tmp = append(tmp, &delegationItem{
 			item:   v,
 			height: hh,
