@@ -71,6 +71,7 @@ func init() {
 		UpdateFeeCommand,
 		cancelCommand,
 		withdrawCommand,
+		queryStakingCommand,
 	}
 	cli.CommandHelpTemplate = utils.OriginCommandHelpTemplate
 	sort.Sort(cli.CommandsByName(app.Commands))

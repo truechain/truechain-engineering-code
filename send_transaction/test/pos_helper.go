@@ -213,6 +213,8 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
+	params.ElectionMinLimitForStaking = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e18))
+
 	gspec.Config.TIP7 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)}
 
@@ -418,7 +420,7 @@ func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value 
 }
 
 func readTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value *big.Int, input []byte, txPool txPool, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, abiMethod string, result interface{}) {
-	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 57200, big.NewInt(1000000), input), signer, priKey)
+	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 866328, big.NewInt(1000000), input), signer, priKey)
 	if gen != nil {
 		output, gas := gen.ReadTxWithChain(blockchain, tx)
 		err := abiStaking.Unpack(result, abiMethod, output)

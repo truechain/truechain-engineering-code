@@ -327,10 +327,10 @@ func lockValueDisplay(lv *types.LockedValue) []map[string]interface{} {
 
 func stakingValueDisplay(sv *types.StakingValue) []map[string]interface{} {
 	var attrs []map[string]interface{}
-	for epoch, value := range sv.Value {
+	for height, value := range sv.Value {
 		attrs = append(attrs, map[string]interface{}{
-			"epochID": epoch,
-			"amount":  (*hexutil.Big)(value),
+			"height": height,
+			"amount": (*hexutil.Big)(value),
 		})
 	}
 	return attrs

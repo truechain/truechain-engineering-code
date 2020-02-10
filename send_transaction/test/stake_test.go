@@ -36,7 +36,7 @@ func TestOnlyDeposit(t *testing.T) {
 
 	fmt.Println("saddr", saddr.String(), "saddr2", saddr2.String(), "saddr3", saddr3.String(), "saddr26 ", saddr26.String())
 
-	manager := newTestPOSManager(1, executable)
+	manager := newTestPOSManager(101, executable)
 	fmt.Println(" saddr1 ", manager.GetBalance(saddr1), " StakingAddress ", manager.GetBalance(types.StakingAddress), " ", types.ToTrue(manager.GetBalance(types.StakingAddress)))
 	fmt.Println("epoch ", types.GetEpochFromID(1), " ", types.GetEpochFromID(2), " ", types.GetEpochFromID(3), " ", types.GetEpochFromID(4), " ", types.GetEpochFromID(5))
 	fmt.Println("epoch ", types.GetEpochFromID(2), " ", types.MinCalcRedeemHeight(2))

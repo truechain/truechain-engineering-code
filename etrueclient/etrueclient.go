@@ -769,8 +769,8 @@ func (ec *Client) ListAccounts(ctx context.Context) ([]common.Address, error) {
 }
 
 //impawn_getAllStakingAccount
-func (ec *Client) GetAllStakingAccount(ctx context.Context, number *big.Int) (interface{}, error) {
-	var result interface{}
+func (ec *Client) GetAllStakingAccount(ctx context.Context, number *big.Int) (map[string]interface{}, error) {
+	var result map[string]interface{}
 	err := ec.c.CallContext(ctx, &result, "impawn_getAllStakingAccount", toBlockNumArg(number))
 	if err != nil {
 		return result, err
@@ -779,8 +779,8 @@ func (ec *Client) GetAllStakingAccount(ctx context.Context, number *big.Int) (in
 }
 
 //impawn_getStakingAsset
-func (ec *Client) GetStakingAsset(ctx context.Context, account common.Address, number *big.Int) (interface{}, error) {
-	var result interface{}
+func (ec *Client) GetStakingAsset(ctx context.Context, account common.Address, number *big.Int) ([]map[string]interface{}, error) {
+	var result []map[string]interface{}
 	err := ec.c.CallContext(ctx, &result, "impawn_getStakingAsset", account, toBlockNumArg(number))
 	if err != nil {
 		return result, err
@@ -789,8 +789,8 @@ func (ec *Client) GetStakingAsset(ctx context.Context, account common.Address, n
 }
 
 //impawn_getLockedAsset
-func (ec *Client) GetLockedAsset(ctx context.Context, account common.Address, number *big.Int) (interface{}, error) {
-	var result interface{}
+func (ec *Client) GetLockedAsset(ctx context.Context, account common.Address, number *big.Int) ([]map[string]interface{}, error) {
+	var result []map[string]interface{}
 	err := ec.c.CallContext(ctx, &result, "impawn_getLockedAsset", account, toBlockNumArg(number))
 	if err != nil {
 		return result, err
@@ -799,8 +799,8 @@ func (ec *Client) GetLockedAsset(ctx context.Context, account common.Address, nu
 }
 
 //impawn_getAllCancelableAsset
-func (ec *Client) GetAllCancelableAsset(ctx context.Context, account common.Address, number *big.Int) (interface{}, error) {
-	var result interface{}
+func (ec *Client) GetAllCancelableAsset(ctx context.Context, account common.Address, number *big.Int) ([]map[string]interface{}, error) {
+	var result []map[string]interface{}
 	err := ec.c.CallContext(ctx, &result, "impawn_getAllCancelableAsset", account, toBlockNumArg(number))
 	if err != nil {
 		return result, err
@@ -809,8 +809,8 @@ func (ec *Client) GetAllCancelableAsset(ctx context.Context, account common.Addr
 }
 
 //impawn_getStakingAccount
-func (ec *Client) GetStakingAccount(ctx context.Context, account common.Address, number *big.Int) (interface{}, error) {
-	var result interface{}
+func (ec *Client) GetStakingAccount(ctx context.Context, account common.Address, number *big.Int) (map[string]interface{}, error) {
+	var result map[string]interface{}
 	err := ec.c.CallContext(ctx, &result, "impawn_getStakingAccount", account, toBlockNumArg(number))
 	if err != nil {
 		return result, err

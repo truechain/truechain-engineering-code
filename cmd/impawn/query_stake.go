@@ -9,8 +9,8 @@ import (
 )
 
 var AppendCommand = cli.Command{
-	Name:   "depositappend",
-	Usage:  "Append validator staking count",
+	Name:   "append",
+	Usage:  "Append validator deposit staking count",
 	Action: utils.MigrateFlags(AppendImpawn),
 	Flags:  ImpawnFlags,
 }
@@ -39,6 +39,8 @@ var UpdateFeeCommand = cli.Command{
 }
 
 func UpdateFeeImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
+
 	conn, url := dialConn(ctx)
 	printBaseInfo(conn, url)
 
@@ -59,6 +61,7 @@ var cancelCommand = cli.Command{
 }
 
 func cancelImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
 	conn, url := dialConn(ctx)
 	printBaseInfo(conn, url)
 
@@ -79,8 +82,10 @@ var withdrawCommand = cli.Command{
 }
 
 func withdrawImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
 	conn, url := dialConn(ctx)
 	printBaseInfo(conn, url)
+	PrintBalance(conn, from)
 
 	value := trueToWei(ctx, false)
 
@@ -89,5 +94,22 @@ func withdrawImpawn(ctx *cli.Context) error {
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
 
 	getResult(conn, txHash)
+	PrintBalance(conn, from)
+	return nil
+}
+
+var queryStakingCommand = cli.Command{
+	Name:   "querystaking",
+	Usage:  "Query staking info, can cancel info and can withdraw info",
+	Action: utils.MigrateFlags(queryStakingImpawn),
+	Flags:  ImpawnFlags,
+}
+
+func queryStakingImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
+	conn, url := dialConn(ctx)
+	printBaseInfo(conn, url)
+
+	queryStakingInfo(conn)
 	return nil
 }

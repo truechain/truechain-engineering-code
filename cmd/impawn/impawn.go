@@ -164,7 +164,6 @@ func loadPrivateKey(path string) common.Address {
 		printError("LoadECDSA error", err)
 	}
 	from = crypto.PubkeyToAddress(priKey.PublicKey)
-	fmt.Println("address ", from.Hex())
 	return from
 }
 
@@ -200,6 +199,12 @@ func trueToWei(ctx *cli.Context, zero bool) *big.Int {
 	return value
 }
 
+func weiToTrue(value *big.Int) uint64 {
+	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	valueT := new(big.Int).Div(value, baseUnit).Uint64()
+	return valueT
+}
+
 func getResult(conn *etrueclient.Client, txHash common.Hash) {
 	fmt.Println("Please waiting ", " txHash ", txHash.String())
 
@@ -219,7 +224,7 @@ func getResult(conn *etrueclient.Client, txHash common.Hash) {
 		log.Fatal(err)
 	}
 
-	if receipt.Status == types.ReceiptStatusSuccessful && len(receipt.Logs) > 0 {
+	if receipt.Status == types.ReceiptStatusSuccessful {
 		block, err := conn.BlockByHash(context.Background(), receipt.BlockHash)
 		if err != nil {
 			log.Fatal(err)
@@ -227,8 +232,7 @@ func getResult(conn *etrueclient.Client, txHash common.Hash) {
 
 		fmt.Println("Transaction Success", " Block Number", receipt.BlockNumber.Uint64(), " Block contain txs", len(block.Transactions()))
 
-	} else if receipt.Status == types.ReceiptStatusSuccessful {
-		fmt.Println("Transaction Success, But Contract exec failed ", " Block Number", receipt.BlockNumber.Uint64())
+		queryStakingInfo(conn)
 	} else if receipt.Status == types.ReceiptStatusFailed {
 		fmt.Println("Transaction Failed ", " Block Number", receipt.BlockNumber.Uint64())
 	}
@@ -291,7 +295,7 @@ func printBaseInfo(conn *etrueclient.Client, url string) *types.Header {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Url ", url, " Current number ", header.Number.String())
+	fmt.Println("Url ", url, " Current number ", header.Number.String(), " Address ", from.Hex())
 	return header
 }
 
@@ -309,7 +313,32 @@ func loadSigningKey(keyfile string) common.Address {
 	}
 	priKey = key.PrivateKey
 	from = crypto.PubkeyToAddress(priKey.PublicKey)
-
-	fmt.Println("address ", from.Hex())
+	//fmt.Println("address ", from.Hex(), "key", hex.EncodeToString(crypto.FromECDSA(priKey)))
 	return from
+}
+
+func queryStakingInfo(conn *etrueclient.Client) {
+	header, err := conn.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	input := packInput("getDeposit", from)
+	msg := truechain.CallMsg{From: from, To: &types.StakingAddress, Data: input}
+	output, err := conn.CallContract(context.Background(), msg, header.Number)
+	if err != nil {
+		printError("method CallContract error", err)
+	}
+	args := struct {
+		Staked   *big.Int
+		Locked   *big.Int
+		Unlocked *big.Int
+	}{}
+	err = abiStaking.Unpack(&args, "getDeposit", output)
+	if err != nil {
+		printError("abi error", err)
+	}
+	println("Staked ", args.Staked.String(), "wei =", weiToTrue(args.Staked), "true Locked ",
+		args.Locked.String(), " wei =", weiToTrue(args.Locked), "true",
+		"Unlocked ", args.Unlocked.String(), " wei =", weiToTrue(args.Unlocked), "true")
 }
