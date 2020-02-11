@@ -19,7 +19,7 @@ var (
 	// Flags needed by abigen
 	KeyFlag = cli.StringFlag{
 		Name:  "key",
-		Usage: "Private file path",
+		Usage: "Private key file path",
 		Value: "",
 	}
 	KeyStoreFlag = cli.StringFlag{

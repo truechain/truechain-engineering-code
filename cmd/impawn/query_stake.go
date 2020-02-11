@@ -23,7 +23,7 @@ func AppendImpawn(ctx *cli.Context) error {
 
 	value := trueToWei(ctx, false)
 
-	input := packInput("append", "")
+	input := packInput("append")
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
 
 	getResult(conn, txHash)
@@ -44,7 +44,10 @@ func UpdateFeeImpawn(ctx *cli.Context) error {
 	conn, url := dialConn(ctx)
 	printBaseInfo(conn, url)
 
+	fee = ctx.GlobalUint64(FeeFlag.Name)
+	checkFee(new(big.Int).SetUint64(fee))
 	fmt.Println("Fee", fee)
+
 	input := packInput("setFee", new(big.Int).SetUint64(fee))
 
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)

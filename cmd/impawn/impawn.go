@@ -58,18 +58,31 @@ func impawn(ctx *cli.Context) error {
 	value := trueToWei(ctx, false)
 
 	fee = ctx.GlobalUint64(FeeFlag.Name)
+	checkFee(new(big.Int).SetUint64(fee))
+
 	pubkey, err := conn.Pubkey(context.Background())
 
 	if err != nil {
 		printError("get pubkey error", err)
 	}
+	pk := common.Hex2Bytes(pubkey)
+	if err = types.ValidPk(pk); err != nil {
+		printError("ValidPk error", err)
+	}
+
 	fmt.Println("Fee", fee, " Pubkey ", pubkey, " value ", value)
-	input := packInput("deposit", common.Hex2Bytes(pubkey), new(big.Int).SetUint64(fee))
+	input := packInput("deposit", pk, new(big.Int).SetUint64(fee))
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
 
 	getResult(conn, txHash)
 
 	return nil
+}
+
+func checkFee(fee *big.Int) {
+	if fee.Sign() < 0 || fee.Cmp(types.Base) > 0 {
+		printError("Please set correct fee value")
+	}
 }
 
 func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte) common.Hash {
@@ -99,7 +112,7 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("nonce ", nonce, " transfer value ", value, " gasLimit ", gasLimit, " gasPrice ", gasPrice, " chainID ", chainID)
+	fmt.Println("TX data nonce ", nonce, " transfer value ", value, " gasLimit ", gasLimit, " gasPrice ", gasPrice, " chainID ", chainID)
 
 	signedTx, err := types.SignTx(tx, types.NewTIP1Signer(chainID), privateKey)
 	if err != nil {
@@ -295,7 +308,7 @@ func printBaseInfo(conn *etrueclient.Client, url string) *types.Header {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Url ", url, " Current number ", header.Number.String(), " Address ", from.Hex())
+	fmt.Println("Connect url ", url, " current number ", header.Number.String(), " address ", from.Hex())
 	return header
 }
 
@@ -329,16 +342,20 @@ func queryStakingInfo(conn *etrueclient.Client) {
 	if err != nil {
 		printError("method CallContract error", err)
 	}
-	args := struct {
-		Staked   *big.Int
-		Locked   *big.Int
-		Unlocked *big.Int
-	}{}
-	err = abiStaking.Unpack(&args, "getDeposit", output)
-	if err != nil {
-		printError("abi error", err)
+	if len(output) != 0 {
+		args := struct {
+			Staked   *big.Int
+			Locked   *big.Int
+			Unlocked *big.Int
+		}{}
+		err = abiStaking.Unpack(&args, "getDeposit", output)
+		if err != nil {
+			printError("abi error", err)
+		}
+		println("Staked ", args.Staked.String(), "wei =", weiToTrue(args.Staked), "true Locked ",
+			args.Locked.String(), " wei =", weiToTrue(args.Locked), "true",
+			"Unlocked ", args.Unlocked.String(), " wei =", weiToTrue(args.Unlocked), "true")
+	} else {
+		println("Contract query result len == 0")
 	}
-	println("Staked ", args.Staked.String(), "wei =", weiToTrue(args.Staked), "true Locked ",
-		args.Locked.String(), " wei =", weiToTrue(args.Locked), "true",
-		"Unlocked ", args.Unlocked.String(), " wei =", weiToTrue(args.Unlocked), "true")
 }
