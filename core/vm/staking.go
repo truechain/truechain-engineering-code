@@ -361,7 +361,7 @@ func cancel(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) 
 	}
 
 	event := abiStaking.Events["Cancel"]
-	logData, err := event.Inputs.PackNonIndexed(contract.value)
+	logData, err := event.Inputs.PackNonIndexed(amount)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
