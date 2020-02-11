@@ -355,7 +355,20 @@ func queryStakingInfo(conn *etrueclient.Client) {
 		println("Staked ", args.Staked.String(), "wei =", weiToTrue(args.Staked), "true Locked ",
 			args.Locked.String(), " wei =", weiToTrue(args.Locked), "true",
 			"Unlocked ", args.Unlocked.String(), " wei =", weiToTrue(args.Unlocked), "true")
+		if args.Locked.Sign() > 0 {
+			lockAssets, err := conn.GetLockedAsset(context.Background(), from, header.Number)
+			if err != nil {
+				printError("GetLockedAsset error", err)
+			}
+			for k, v := range lockAssets {
+				for m, n := range v.LockValue {
+					if n.EpochID > 0 {
+						fmt.Println("Your can withdraw at height", types.MinCalcRedeemHeight(n.EpochID), " count value ", weiToTrue(n.Amount), " true  index", k+m, " lock ", n.Locked)
+					}
+				}
+			}
+		}
 	} else {
-		println("Contract query result len == 0")
+		println("Contract query failed result len == 0")
 	}
 }

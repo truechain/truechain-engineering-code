@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code"
@@ -769,8 +770,8 @@ func (ec *Client) ListAccounts(ctx context.Context) ([]common.Address, error) {
 }
 
 //impawn_getAllStakingAccount
-func (ec *Client) GetAllStakingAccount(ctx context.Context, number *big.Int) (map[string]interface{}, error) {
-	var result map[string]interface{}
+func (ec *Client) GetAllStakingAccount(ctx context.Context, number *big.Int) (json.RawMessage, error) {
+	var result json.RawMessage
 	err := ec.c.CallContext(ctx, &result, "impawn_getAllStakingAccount", toBlockNumArg(number))
 	if err != nil {
 		return result, err
@@ -779,8 +780,8 @@ func (ec *Client) GetAllStakingAccount(ctx context.Context, number *big.Int) (ma
 }
 
 //impawn_getStakingAsset
-func (ec *Client) GetStakingAsset(ctx context.Context, account common.Address, number *big.Int) ([]map[string]interface{}, error) {
-	var result []map[string]interface{}
+func (ec *Client) GetStakingAsset(ctx context.Context, account common.Address, number *big.Int) ([]vm.StakingAsset, error) {
+	var result []vm.StakingAsset
 	err := ec.c.CallContext(ctx, &result, "impawn_getStakingAsset", account, toBlockNumArg(number))
 	if err != nil {
 		return result, err
@@ -789,8 +790,8 @@ func (ec *Client) GetStakingAsset(ctx context.Context, account common.Address, n
 }
 
 //impawn_getLockedAsset
-func (ec *Client) GetLockedAsset(ctx context.Context, account common.Address, number *big.Int) ([]map[string]interface{}, error) {
-	var result []map[string]interface{}
+func (ec *Client) GetLockedAsset(ctx context.Context, account common.Address, number *big.Int) ([]vm.LockedAsset, error) {
+	var result []vm.LockedAsset
 	err := ec.c.CallContext(ctx, &result, "impawn_getLockedAsset", account, toBlockNumArg(number))
 	if err != nil {
 		return result, err
@@ -799,8 +800,8 @@ func (ec *Client) GetLockedAsset(ctx context.Context, account common.Address, nu
 }
 
 //impawn_getAllCancelableAsset
-func (ec *Client) GetAllCancelableAsset(ctx context.Context, account common.Address, number *big.Int) ([]map[string]interface{}, error) {
-	var result []map[string]interface{}
+func (ec *Client) GetAllCancelableAsset(ctx context.Context, account common.Address, number *big.Int) ([]vm.CancelableAsset, error) {
+	var result []vm.CancelableAsset
 	err := ec.c.CallContext(ctx, &result, "impawn_getAllCancelableAsset", account, toBlockNumArg(number))
 	if err != nil {
 		return result, err

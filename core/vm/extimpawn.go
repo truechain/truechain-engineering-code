@@ -1,6 +1,8 @@
 package vm
 
 import (
+	"encoding/json"
+	"errors"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"io"
@@ -213,40 +215,231 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC(height uint64) map[string]interface
 	return sasRPC
 }
 
-func (i *ImpawnImpl) GetStakingAssetRPC(addr common.Address) []map[string]interface{} {
+func (i *ImpawnImpl) GetStakingAssetRPC(addr common.Address) []StakingAsset {
 	msv := i.GetStakingAsset(addr)
-	var attrs []map[string]interface{}
+	var attrs []StakingAsset
 	for key, value := range msv {
-		attr := make(map[string]interface{})
-		attr["stakingValue"] = stakingValueDisplay(value)
-		attr["address"] = key
+		attr := StakingAsset{
+			StakingValue: stakingValueDisplay(value),
+			Address:      key,
+		}
 		attrs = append(attrs, attr)
 	}
 	return attrs
 }
 
-func (i *ImpawnImpl) GetLockedAssetRPC(addr common.Address, height uint64) []map[string]interface{} {
+type StakingAsset struct {
+	StakingValue []*StakingValue `json:"stakingValue"`
+	Address      common.Address  `json:"address"`
+}
+
+type StakingValue struct {
+	Height uint64
+	Amount *big.Int
+}
+
+// MarshalJSON marshals as JSON.
+func (s StakingValue) MarshalJSON() ([]byte, error) {
+	type StakingValue struct {
+		Height hexutil.Uint64 `json:"height"`
+		Amount *hexutil.Big   `json:"amount"`
+	}
+	var enc StakingValue
+	enc.Height = hexutil.Uint64(s.Height)
+
+	enc.Amount = (*hexutil.Big)(s.Amount)
+	return json.Marshal(&enc)
+}
+
+// UnmarshalJSON unmarshals from JSON.
+func (s *StakingValue) UnmarshalJSON(input []byte) error {
+	type StakingValue struct {
+		Height *hexutil.Uint64 `json:"height"`
+		Amount *hexutil.Big    `json:"amount"`
+	}
+	var dec StakingValue
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	if dec.Height != nil {
+		s.Height = uint64(*dec.Height)
+	}
+	if dec.Amount != nil {
+		s.Amount = (*big.Int)(dec.Amount)
+	}
+	return nil
+}
+
+// MarshalJSON marshals as JSON.
+func (s StakingAsset) MarshalJSON() ([]byte, error) {
+	type StakingAsset struct {
+		StakingValue []*StakingValue `json:"stakingValue"`
+		Address      common.Address  `json:"address"`
+	}
+	var enc StakingAsset
+	enc.StakingValue = s.StakingValue
+	enc.Address = s.Address
+	return json.Marshal(&enc)
+}
+
+// UnmarshalJSON unmarshals from JSON.
+func (s *StakingAsset) UnmarshalJSON(input []byte) error {
+	type StakingAsset struct {
+		StakingValue []*StakingValue `json:"stakingValue"`
+		Address      *common.Address `json:"address"`
+	}
+	var dec StakingAsset
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	if dec.StakingValue == nil {
+		return errors.New("missing required field 'stakingValue' for LockedAsset")
+	}
+	s.StakingValue = dec.StakingValue
+	if dec.Address != nil {
+		s.Address = *dec.Address
+	}
+	return nil
+}
+
+func (i *ImpawnImpl) GetLockedAssetRPC(addr common.Address, height uint64) []LockedAsset {
 	ls := i.GetLockedAsset2(addr, height)
-	var attrs []map[string]interface{}
+	var attrs []LockedAsset
 	for key, value := range ls {
-		attr := make(map[string]interface{})
-		attr["lockValue"] = lockValueDisplay(value)
-		attr["address"] = key.String()
+		attr := LockedAsset{
+			LockValue: lockValueDisplay(value),
+			Address:   key,
+		}
 		attrs = append(attrs, attr)
 	}
 	return attrs
 }
 
-func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) []map[string]interface{} {
+type LockedAsset struct {
+	LockValue []*LockValue   `json:"lockValue"`
+	Address   common.Address `json:"address"`
+}
+
+type LockValue struct {
+	EpochID uint64
+	Amount  *big.Int
+	Locked  bool
+}
+
+// MarshalJSON marshals as JSON.
+func (l LockValue) MarshalJSON() ([]byte, error) {
+	type LockValue struct {
+		EpochID hexutil.Uint64 `json:"epochID"`
+		Amount  *hexutil.Big   `json:"amount"`
+		Locked  bool           `json:"locked"`
+	}
+	var enc LockValue
+	enc.EpochID = hexutil.Uint64(l.EpochID)
+
+	enc.Amount = (*hexutil.Big)(l.Amount)
+	enc.Locked = l.Locked
+	return json.Marshal(&enc)
+}
+
+// UnmarshalJSON unmarshals from JSON.
+func (l *LockValue) UnmarshalJSON(input []byte) error {
+	type LockValue struct {
+		EpochID *hexutil.Uint64 `json:"epochID"`
+		Amount  *hexutil.Big    `json:"amount"`
+		Locked  *bool           `json:"locked"`
+	}
+	var dec LockValue
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	if dec.EpochID != nil {
+		l.EpochID = uint64(*dec.EpochID)
+	}
+	if dec.Amount != nil {
+		l.Amount = (*big.Int)(dec.Amount)
+	}
+	if dec.Locked != nil {
+		l.Locked = *dec.Locked
+	}
+	return nil
+}
+
+// MarshalJSON marshals as JSON.
+func (l LockedAsset) MarshalJSON() ([]byte, error) {
+	type LockedAsset struct {
+		LockValue []*LockValue   `json:"lockValue"`
+		Address   common.Address `json:"address"`
+	}
+	var enc LockedAsset
+	enc.LockValue = l.LockValue
+	enc.Address = l.Address
+	return json.Marshal(&enc)
+}
+
+// UnmarshalJSON unmarshals from JSON.
+func (l *LockedAsset) UnmarshalJSON(input []byte) error {
+	type LockedAsset struct {
+		LockValue []*LockValue    `json:"lockValue"`
+		Address   *common.Address `json:"address"`
+	}
+	var dec LockedAsset
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	if dec.LockValue == nil {
+		return errors.New("missing required field 'lockValue' for LockedAsset")
+	}
+	l.LockValue = dec.LockValue
+	if dec.Address != nil {
+		l.Address = *dec.Address
+	}
+	return nil
+}
+
+func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) []CancelableAsset {
 	assets := i.GetAllCancelableAsset(addr)
-	var attrs []map[string]interface{}
+	var attrs []CancelableAsset
 	for key, value := range assets {
-		attr := make(map[string]interface{})
-		attr["value"] = (*hexutil.Big)(value)
-		attr["address"] = key.String()
+		attr := CancelableAsset{Value: value, Address: key}
 		attrs = append(attrs, attr)
 	}
 	return attrs
+}
+
+type CancelableAsset struct {
+	Value   *big.Int
+	Address common.Address
+}
+
+// MarshalJSON marshals as JSON.
+func (c CancelableAsset) MarshalJSON() ([]byte, error) {
+	type CancelableAsset struct {
+		Value   *hexutil.Big   `json:"value"`
+		Address common.Address `json:"address"`
+	}
+	var enc CancelableAsset
+	enc.Value = (*hexutil.Big)(c.Value)
+	enc.Address = c.Address
+	return json.Marshal(&enc)
+}
+
+// UnmarshalJSON unmarshals from JSON.
+func (c *CancelableAsset) UnmarshalJSON(input []byte) error {
+	type CancelableAsset struct {
+		Value   *hexutil.Big    `json:"value"`
+		Address *common.Address `json:"address"`
+	}
+	var dec CancelableAsset
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	if dec.Value != nil {
+		c.Value = (*big.Int)(dec.Value)
+	}
+	if dec.Address != nil {
+		c.Address = *dec.Address
+	}
+	return nil
 }
 
 func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address) map[string]interface{} {
@@ -313,24 +506,24 @@ func riSDisplay(ris []*RedeemItem) map[string]interface{} {
 	return attrs
 }
 
-func lockValueDisplay(lv *types.LockedValue) []map[string]interface{} {
-	var attrs []map[string]interface{}
+func lockValueDisplay(lv *types.LockedValue) []*LockValue {
+	attrs := make([]*LockValue, 0)
 	for epoch, value := range lv.Value {
-		attrs = append(attrs, map[string]interface{}{
-			"epochID": epoch,
-			"amount":  value.Amount,
-			"locked":  value.Locked,
+		attrs = append(attrs, &LockValue{
+			EpochID: epoch,
+			Amount:  value.Amount,
+			Locked:  value.Locked,
 		})
 	}
 	return attrs
 }
 
-func stakingValueDisplay(sv *types.StakingValue) []map[string]interface{} {
-	var attrs []map[string]interface{}
+func stakingValueDisplay(sv *types.StakingValue) []*StakingValue {
+	attrs := make([]*StakingValue, 0)
 	for height, value := range sv.Value {
-		attrs = append(attrs, map[string]interface{}{
-			"height": height,
-			"amount": (*hexutil.Big)(value),
+		attrs = append(attrs, &StakingValue{
+			Height: height,
+			Amount: value,
 		})
 	}
 	return attrs
