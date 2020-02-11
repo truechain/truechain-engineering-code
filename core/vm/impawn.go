@@ -577,6 +577,16 @@ func (i *ImpawnImpl) getCurrentEpochInfo() []*types.EpochIDInfo {
 	}
 	return epochs
 }
+func (i *ImpawnImpl) repeatPK(addr common.Address,pk []byte) bool {
+	for _,v := range i.accounts {
+		for _,vv := range v {
+			if !bytes.Equal(addr.Bytes(),vv.Unit.Address.Bytes()) && bytes.Equal(pk,vv.Votepubkey) {
+				return true
+			}
+		}
+	}
+	return false
+}
 func (i *ImpawnImpl) GetStakingAccount(epochid uint64, addr common.Address) (*StakingAccount, error) {
 	if v, ok := i.accounts[epochid]; !ok {
 		return nil, types.ErrInvalidStaking
@@ -1009,6 +1019,10 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 	}
 	if err := types.ValidPk(pk); err != nil {
 		return err
+	}
+	if i.repeatPK(addr,pk) {
+		log.Error("Insert SA account repeat pk", "addr", addr, "pk", pk,)
+		return types.ErrRepeatPk
 	}
 	state := uint8(0)
 	if auto {
