@@ -138,7 +138,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	}
 
 	event := abiStaking.Events["Deposit"]
-	logData, err := event.Inputs.PackNonIndexed(args.Pubkey, contract.value)
+	logData, err := event.Inputs.PackNonIndexed(args.Pubkey, contract.value, args.Fee)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -174,6 +174,17 @@ func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err 
 		return nil, err
 	}
 
+	event := abiStaking.Events["Append"]
+	logData, err := event.Inputs.PackNonIndexed(contract.value)
+	if err != nil {
+		log.Error("Pack staking log error", "error", err)
+		return nil, err
+	}
+	topics := []common.Hash{
+		event.ID(),
+		common.BytesToHash(from[:]),
+	}
+	logN(evm, contract, topics, logData)
 	return nil, nil
 }
 
@@ -209,6 +220,17 @@ func setFeeRate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		return nil, err
 	}
 
+	event := abiStaking.Events["SetFee"]
+	logData, err := event.Inputs.PackNonIndexed(fee)
+	if err != nil {
+		log.Error("Pack staking log error", "error", err)
+		return nil, err
+	}
+	topics := []common.Hash{
+		event.ID(),
+		common.BytesToHash(from[:]),
+	}
+	logN(evm, contract, topics, logData)
 	return nil, nil
 }
 
@@ -291,6 +313,19 @@ func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+
+	event := abiStaking.Events["Undelegate"]
+	logData, err := event.Inputs.PackNonIndexed(args.Value)
+	if err != nil {
+		log.Error("Pack staking log error", "error", err)
+		return nil, err
+	}
+	topics := []common.Hash{
+		event.ID(),
+		common.BytesToHash(from[:]),
+		common.BytesToHash(args.Holder[:]),
+	}
+	logN(evm, contract, topics, logData)
 	return nil, nil
 }
 
@@ -324,6 +359,19 @@ func cancel(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) 
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+
+	event := abiStaking.Events["Cancel"]
+	logData, err := event.Inputs.PackNonIndexed(contract.value)
+	if err != nil {
+		log.Error("Pack staking log error", "error", err)
+		return nil, err
+	}
+	topics := []common.Hash{
+		event.ID(),
+		common.BytesToHash(from[:]),
+	}
+	logN(evm, contract, topics, logData)
+
 	return nil, nil
 }
 
@@ -365,6 +413,18 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+
+	event := abiStaking.Events["Withdraw"]
+	logData, err := event.Inputs.PackNonIndexed(amount)
+	if err != nil {
+		log.Error("Pack staking log error", "error", err)
+		return nil, err
+	}
+	topics := []common.Hash{
+		event.ID(),
+		common.BytesToHash(from[:]),
+	}
+	logN(evm, contract, topics, logData)
 	return nil, nil
 }
 
@@ -409,6 +469,19 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+
+	event := abiStaking.Events["WithdrawDelegate"]
+	logData, err := event.Inputs.PackNonIndexed(args.Value)
+	if err != nil {
+		log.Error("Pack staking log error", "error", err)
+		return nil, err
+	}
+	topics := []common.Hash{
+		event.ID(),
+		common.BytesToHash(from[:]),
+		common.BytesToHash(args.Holder[:]),
+	}
+	logN(evm, contract, topics, logData)
 	return nil, nil
 }
 
@@ -509,26 +582,31 @@ func getDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err er
 const StakeABIJSON = `
 [
   {
-	"name": "Deposit",
-	"inputs": [
-	  {
-		"type": "address",
-		"name": "from",
-		"indexed": true
-	  },
-	  {
-		"type": "bytes",
-		"name": "pubkey",
-		"indexed": false
-	  },
-	  {
-		"type": "uint256",
-		"name": "value",
-		"indexed": false
-	  }
-	],
-	"anonymous": false,
-	"type": "event"
+    "name": "Deposit",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "from",
+        "indexed": true
+      },
+      {
+        "type": "bytes",
+        "name": "pubkey",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "value",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "fee",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
   },
   {
     "name": "Delegate",
@@ -546,6 +624,118 @@ const StakeABIJSON = `
       {
         "type": "uint256",
         "name": "value",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "Undelegate",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "from",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "holder",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "value",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "WithdrawDelegate",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "from",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "holder",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "value",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "Cancel",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "from",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "value",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "Withdraw",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "from",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "value",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "Append",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "from",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "value",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "SetFee",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "from",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "fee",
         "indexed": false
       }
     ],
