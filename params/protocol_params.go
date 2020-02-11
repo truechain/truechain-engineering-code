@@ -137,7 +137,7 @@ var (
 )
 
 var (
-	CountInEpoch           = 31
+	CountInEpoch           = 20
 	MaxRedeemHeight uint64 = 1000
 	NewEpochLength  uint64 = 2000
 	ElectionPoint   uint64 = 200
