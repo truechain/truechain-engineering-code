@@ -445,12 +445,15 @@ func (vs saByAmount) getAllAmount() *big.Int {
 	}
 	return amount
 }
+func generatePK() []byte {
+	key0,_ := crypto.GenerateKey()
+	pk := crypto.FromECDSAPub(&key0.PublicKey)
+	return pk
+}
 
 func TestReward(t *testing.T) {
 	want := uint64(100)
 	params.DposForkPoint = want
-	key0,_ := crypto.GenerateKey()
-	pk := crypto.FromECDSAPub(&key0.PublicKey)
 
 	var (
 		accounts = []*sa {
@@ -459,7 +462,7 @@ func TestReward(t *testing.T) {
 				fee:		big.NewInt(20),
 				amount:		balance2,
 				reward:		big.NewInt(0),
-				pk:			pk,
+				pk:			generatePK(),
 				das:		[]*da{
 					&da{
 						address:	generateAddr(),
@@ -478,7 +481,7 @@ func TestReward(t *testing.T) {
 				fee:		big.NewInt(20),
 				amount:		balance2,
 				reward:		big.NewInt(0),
-				pk:			pk,
+				pk:			generatePK(),
 				das:		[]*da{
 					&da{
 						address:	generateAddr(),
@@ -494,7 +497,8 @@ func TestReward(t *testing.T) {
 			},
 		}
 	)
-
+	calcReward(accounts)
+	
 	impl := vm.NewImpawnImpl()
 	for _,val := range accounts {
 		impl.InsertSAccount2(want, val.address, val.pk, val.amount, val.fee, true)
@@ -513,12 +517,12 @@ func TestReward(t *testing.T) {
 	for i,v := range accounts {
 		wReward := getReward(v.address,rinfo)
 		if wReward.Sign() > 0 && wReward.Cmp(v.reward) != 0 {
-			fmt.Println("i:",i,"sa reward not match")
+			fmt.Println("i:",i,"sa reward not match","req:",v.reward,"res:",wReward)
 		}
 		for ii,vv := range v.das {
 			wReward2 := getReward(vv.address,rinfo)
 			if wReward2.Sign() > 0 && wReward2.Cmp(vv.reward) != 0 {
-				fmt.Println("i:",i,"j",ii,"da reward not match")
+				fmt.Println("i:",i,"j",ii,"da reward not match","req:",vv.reward,"res:",wReward2)
 			}
 		}
 	}
