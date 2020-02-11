@@ -39,6 +39,7 @@ var (
 	ErrDelegationSelf    = errors.New("Cann't delegation myself")
 	ErrRedeemAmount      = errors.New("wrong redeem amount")
 	ErrForbidAddress     = errors.New("Forbidding Address")
+	ErrRepeatPk     	 = errors.New("repeat PK on staking tx")
 )
 
 const (
