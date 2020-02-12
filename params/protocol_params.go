@@ -138,10 +138,10 @@ var (
 
 var (
 	CountInEpoch           = 20
-	MaxRedeemHeight uint64 = 1000
-	NewEpochLength  uint64 = 2000
+	MaxRedeemHeight uint64 = 259200			// about 15 days
+	NewEpochLength  uint64 = 34560			// about 2 days
 	ElectionPoint   uint64 = 200
 	FirstNewEpochID uint64 = 1
 	DposForkPoint   uint64 = 0
-	ElectionMinLimitForStaking  = new(big.Int).Mul(big.NewInt(10000),big.NewInt(1e18))
+	ElectionMinLimitForStaking  = new(big.Int).Mul(big.NewInt(50000),big.NewInt(1e18))
 )
