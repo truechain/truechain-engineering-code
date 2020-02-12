@@ -45,6 +45,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(1500000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
+		TIP9: &BlockConfig{SnailNumber: big.NewInt(640000)},
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -57,6 +58,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(450000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(4000)},
+		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -69,17 +71,20 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
+		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
 	}
 
 	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil}
+	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), 
+		TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil,TIP9: nil}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil}
+	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, 
+	TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil,TIP9: nil}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -97,6 +102,7 @@ type ChainConfig struct {
 	TIP3 *BlockConfig `json:"tip3"`
 
 	TIP5 *BlockConfig `json:"tip5"`
+	TIP9 *BlockConfig `json:"tip9"`
 }
 
 type BlockConfig struct {
@@ -326,4 +332,10 @@ func (c *ChainConfig) IsTIP5(num *big.Int) bool {
 		return false
 	}
 	return isForked(c.TIP5.SnailNumber, num)
+}
+func (c *ChainConfig) IsTIP9(num *big.Int) bool {
+	if c.TIP9 == nil {
+		return false
+	}
+	return isForked(c.TIP9.SnailNumber, num)
 }
