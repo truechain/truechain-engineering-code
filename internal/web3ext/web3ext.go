@@ -732,6 +732,7 @@ web3._extend({
 					if(sas[i].stakingValue !== null) {
 						for (var j = 0; j < sas[i].stakingValue.length; j++) {
 							sas[i].stakingValue[j].amount = web3._extend.utils.toBigNumber(sas[i].stakingValue[j].amount);
+							sas[i].stakingValue[j].height = web3._extend.utils.toDecimal(sas[i].stakingValue[j].height);
 						}						
 					}
 					formatted.push(sas[i]);
@@ -750,6 +751,8 @@ web3._extend({
 					if(las[i].lockValue !== null) {
 						for (var j = 0; j < las[i].lockValue.length; j++) {
 							las[i].lockValue[j].amount = web3._extend.utils.toBigNumber(las[i].lockValue[j].amount);
+							las[i].lockValue[j].epochID = web3._extend.utils.toDecimal(las[i].lockValue[j].epochID);
+							las[i].lockValue[j].height = web3._extend.utils.toBigNumber(las[i].lockValue[j].height);
 						}
 					}
 					formatted.push(las[i]);

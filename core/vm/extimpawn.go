@@ -323,6 +323,7 @@ type LockedAsset struct {
 type LockValue struct {
 	EpochID uint64
 	Amount  *big.Int
+	Height  *big.Int
 	Locked  bool
 }
 
@@ -331,12 +332,14 @@ func (l LockValue) MarshalJSON() ([]byte, error) {
 	type LockValue struct {
 		EpochID hexutil.Uint64 `json:"epochID"`
 		Amount  *hexutil.Big   `json:"amount"`
+		Height  *hexutil.Big   `json:"height"`
 		Locked  bool           `json:"locked"`
 	}
 	var enc LockValue
 	enc.EpochID = hexutil.Uint64(l.EpochID)
 
 	enc.Amount = (*hexutil.Big)(l.Amount)
+	enc.Height = (*hexutil.Big)(l.Height)
 	enc.Locked = l.Locked
 	return json.Marshal(&enc)
 }
@@ -346,6 +349,7 @@ func (l *LockValue) UnmarshalJSON(input []byte) error {
 	type LockValue struct {
 		EpochID *hexutil.Uint64 `json:"epochID"`
 		Amount  *hexutil.Big    `json:"amount"`
+		Height  *hexutil.Big    `json:"height"`
 		Locked  *bool           `json:"locked"`
 	}
 	var dec LockValue
@@ -357,6 +361,9 @@ func (l *LockValue) UnmarshalJSON(input []byte) error {
 	}
 	if dec.Amount != nil {
 		l.Amount = (*big.Int)(dec.Amount)
+	}
+	if dec.Height != nil {
+		l.Height = (*big.Int)(dec.Height)
 	}
 	if dec.Locked != nil {
 		l.Locked = *dec.Locked
@@ -512,6 +519,7 @@ func lockValueDisplay(lv *types.LockedValue) []*LockValue {
 		attrs = append(attrs, &LockValue{
 			EpochID: epoch,
 			Amount:  value.Amount,
+			Height:  new(big.Int).SetUint64(types.MinCalcRedeemHeight(epoch)),
 			Locked:  value.Locked,
 		})
 	}

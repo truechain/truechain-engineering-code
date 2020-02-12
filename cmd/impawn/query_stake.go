@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"gopkg.in/urfave/cli.v1"
 	"math/big"
@@ -26,7 +27,7 @@ func AppendImpawn(ctx *cli.Context) error {
 	input := packInput("append")
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
 
-	getResult(conn, txHash)
+	getResult(conn, txHash, true)
 
 	return nil
 }
@@ -52,7 +53,7 @@ func UpdateFeeImpawn(ctx *cli.Context) error {
 
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
 
-	getResult(conn, txHash)
+	getResult(conn, txHash, true)
 	return nil
 }
 
@@ -73,7 +74,7 @@ func cancelImpawn(ctx *cli.Context) error {
 	input := packInput("cancel", value)
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
 
-	getResult(conn, txHash)
+	getResult(conn, txHash, true)
 	return nil
 }
 
@@ -96,7 +97,7 @@ func withdrawImpawn(ctx *cli.Context) error {
 
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
 
-	getResult(conn, txHash)
+	getResult(conn, txHash, true)
 	PrintBalance(conn, from)
 	return nil
 }
@@ -114,5 +115,76 @@ func queryStakingImpawn(ctx *cli.Context) error {
 	printBaseInfo(conn, url)
 
 	queryStakingInfo(conn)
+	return nil
+}
+
+var sendCommand = cli.Command{
+	Name:   "send",
+	Usage:  "Send general transaction",
+	Action: utils.MigrateFlags(sendTX),
+	Flags:  append(ImpawnFlags, AddressFlag),
+}
+
+func sendTX(ctx *cli.Context) error {
+	loadPrivate(ctx)
+	conn, url := dialConn(ctx)
+	printBaseInfo(conn, url)
+	PrintBalance(conn, from)
+
+	address := ctx.GlobalString(AddressFlag.Name)
+	if !common.IsHexAddress(address) {
+		printError("Must input correct address")
+	}
+
+	value := trueToWei(ctx, false)
+	txHash := sendContractTransaction(conn, from, common.HexToAddress(address), value, priKey, nil)
+	getResult(conn, txHash, false)
+	return nil
+}
+
+var delegateCommand = cli.Command{
+	Name:   "delegate",
+	Usage:  "Delegate staking on a validator address",
+	Action: utils.MigrateFlags(delegateImpawn),
+	Flags:  append(ImpawnFlags, AddressFlag),
+}
+
+func delegateImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
+	conn, url := dialConn(ctx)
+	printBaseInfo(conn, url)
+
+	PrintBalance(conn, from)
+
+	value := trueToWei(ctx, false)
+
+	address := ctx.GlobalString(AddressFlag.Name)
+	if !common.IsHexAddress(address) {
+		printError("Must input correct address")
+	}
+
+	input := packInput("delegate", common.HexToAddress(address))
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
+
+	getResult(conn, txHash, true)
+	return nil
+}
+
+var queryTxCommand = cli.Command{
+	Name:   "querytx",
+	Usage:  "Query tx hash, get transaction result",
+	Action: utils.MigrateFlags(queryTxImpawn),
+	Flags:  append(ImpawnFlags, TxHashFlag),
+}
+
+func queryTxImpawn(ctx *cli.Context) error {
+	conn, url := dialConn(ctx)
+	printBaseInfo(conn, url)
+
+	txhash := ctx.GlobalString(TxHashFlag.Name)
+	if txhash == "" {
+		printError("Must input tx hash")
+	}
+	queryTx(conn, common.HexToHash(txhash), true)
 	return nil
 }

@@ -20,6 +20,7 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -74,7 +75,7 @@ func impawn(ctx *cli.Context) error {
 	input := packInput("deposit", pk, new(big.Int).SetUint64(fee))
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
 
-	getResult(conn, txHash)
+	getResult(conn, txHash, true)
 
 	return nil
 }
@@ -103,6 +104,10 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 	gasLimit, err = client.EstimateGas(context.Background(), msg)
 	if err != nil {
 		fmt.Println("err ", err)
+	}
+	if gasLimit < 1 {
+		println("gasLimit ", gasLimit)
+		gasLimit = 866328
 	}
 
 	// Create the transaction, sign it and schedule it for execution
@@ -218,20 +223,30 @@ func weiToTrue(value *big.Int) uint64 {
 	return valueT
 }
 
-func getResult(conn *etrueclient.Client, txHash common.Hash) {
+func getResult(conn *etrueclient.Client, txHash common.Hash, contract bool) {
 	fmt.Println("Please waiting ", " txHash ", txHash.String())
 
+	count := 0
 	for {
 		time.Sleep(5 * time.Millisecond)
 		_, isPending, err := conn.TransactionByHash(context.Background(), txHash)
 		if err != nil {
 			log.Fatal(err)
 		}
+		count++
 		if !isPending {
 			break
 		}
+		if count >= 24 {
+			println("Please query tx hash later.")
+			os.Exit(0)
+		}
 	}
 
+	queryTx(conn, txHash, contract)
+}
+
+func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool) {
 	receipt, err := conn.TransactionReceipt(context.Background(), txHash)
 	if err != nil {
 		log.Fatal(err)
@@ -243,9 +258,10 @@ func getResult(conn *etrueclient.Client, txHash common.Hash) {
 			log.Fatal(err)
 		}
 
-		fmt.Println("Transaction Success", " Block Number", receipt.BlockNumber.Uint64(), " Block contain txs", len(block.Transactions()))
-
-		queryStakingInfo(conn)
+		fmt.Println("Transaction Success", " block Number", receipt.BlockNumber.Uint64(), " block txs", len(block.Transactions()), "blockhash", block.Hash().Hex())
+		if contract && common.IsHexAddress(from.Hex()) {
+			queryStakingInfo(conn)
+		}
 	} else if receipt.Status == types.ReceiptStatusFailed {
 		fmt.Println("Transaction Failed ", " Block Number", receipt.BlockNumber.Uint64())
 	}
@@ -308,7 +324,12 @@ func printBaseInfo(conn *etrueclient.Client, url string) *types.Header {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Connect url ", url, " current number ", header.Number.String(), " address ", from.Hex())
+	if common.IsHexAddress(from.Hex()) {
+		fmt.Println("Connect url ", url, " current number ", header.Number.String(), " address ", from.Hex())
+	} else {
+		fmt.Println("Connect url ", url, " current number ", header.Number.String())
+	}
+
 	return header
 }
 
@@ -362,8 +383,8 @@ func queryStakingInfo(conn *etrueclient.Client) {
 			}
 			for k, v := range lockAssets {
 				for m, n := range v.LockValue {
-					if n.EpochID > 0 {
-						fmt.Println("Your can withdraw at height", types.MinCalcRedeemHeight(n.EpochID), " count value ", weiToTrue(n.Amount), " true  index", k+m, " lock ", n.Locked)
+					if n.EpochID > 0 || n.Amount.Sign() > 0 {
+						fmt.Println("Your can withdraw after height", n.Height.Uint64(), " count value ", weiToTrue(n.Amount), " true  index", k+m, " lock ", n.Locked)
 					}
 				}
 			}

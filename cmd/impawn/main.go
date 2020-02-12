@@ -36,6 +36,16 @@ var (
 		Usage: "Staking fee",
 		Value: 0,
 	}
+	AddressFlag = cli.StringFlag{
+		Name:  "address",
+		Usage: "Transfer address",
+		Value: "",
+	}
+	TxHashFlag = cli.StringFlag{
+		Name:  "txhash",
+		Usage: "Input transaction hash",
+		Value: "",
+	}
 	ImpawnFlags = []cli.Flag{
 		KeyFlag,
 		KeyStoreFlag,
@@ -59,6 +69,8 @@ func init() {
 		utils.RPCPortFlag,
 		TrueValueFlag,
 		FeeFlag,
+		AddressFlag,
+		TxHashFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {
@@ -72,6 +84,9 @@ func init() {
 		cancelCommand,
 		withdrawCommand,
 		queryStakingCommand,
+		sendCommand,
+		delegateCommand,
+		queryTxCommand,
 	}
 	cli.CommandHelpTemplate = utils.OriginCommandHelpTemplate
 	sort.Sort(cli.CommandsByName(app.Commands))
