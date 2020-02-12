@@ -222,6 +222,7 @@ func TestSnailAwardForHeight(t *testing.T) {
 	}
 }
 func TestReward2(t *testing.T) {
+	fmt.Println("addr:",types.FoundationAddress.String())
 	snailNum := NewRewardBegin
 	allReward := big.NewInt(0)
 	snailReward := big.NewInt(0)
