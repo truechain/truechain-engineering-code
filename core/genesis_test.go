@@ -459,7 +459,7 @@ func TestReward(t *testing.T) {
 		accounts = []*sa {
 			&sa{
 				address:	generateAddr(),
-				fee:		big.NewInt(20),
+				fee:		big.NewInt(50),
 				amount:		balance2,
 				reward:		big.NewInt(0),
 				pk:			generatePK(),
@@ -526,6 +526,7 @@ func TestReward(t *testing.T) {
 			}
 		}
 	}
+	fmt.Println("reward equal")
 	fmt.Println("finish")
 }
 func calcReward(accounts []*sa) {
@@ -585,4 +586,109 @@ func getReward(addr common.Address,infos []*types.SARewardInfos) *big.Int {
 		}
 	}
 	return reward
+}
+
+func TestRedeem(t *testing.T) {
+	want := uint64(100)
+	params.DposForkPoint = want
+
+	var (
+		accounts = []*sa {
+			&sa{
+				address:	generateAddr(),
+				fee:		big.NewInt(50),
+				amount:		balance2,
+				reward:		big.NewInt(0),
+				pk:			generatePK(),
+				das:		[]*da{
+					&da{
+						address:	generateAddr(),
+						amount:		balance1,
+						reward:		big.NewInt(0),
+					},
+					&da{
+						address:	generateAddr(),
+						amount:		balance1,
+						reward:		big.NewInt(0),
+					},
+				},
+			},
+			&sa{
+				address:	generateAddr(),
+				fee:		big.NewInt(20),
+				amount:		balance2,
+				reward:		big.NewInt(0),
+				pk:			generatePK(),
+				das:		[]*da{
+					&da{
+						address:	generateAddr(),
+						amount:		balance1,
+						reward:		big.NewInt(0),
+					},
+					&da{
+						address:	generateAddr(),
+						amount:		balance1,
+						reward:		big.NewInt(0),
+					},
+				},
+			},
+		}
+	)
+	
+	impl := vm.NewImpawnImpl()
+	for _,val := range accounts {
+		impl.InsertSAccount2(want, val.address, val.pk, val.amount, val.fee, true)
+		for _,val2 := range val.das {
+			impl.InsertDAccount2(want, val.address, val2.address, val2.amount)
+		}
+	}
+	
+	_, err := impl.DoElections(1, want)
+	if err != nil {
+		fmt.Println(err)
+	}
+	if err := impl.Shift(0); err != nil  {
+		fmt.Println("shift error:",err)
+	}
+	
+	for _,aa := range accounts {
+		res1 := impl.GetStakingAsset(aa.address)
+		displayStakingAsset(res1,false)
+		res2 := impl.GetLockedAsset2(aa.address,uint64(1000))
+		displayLockedAsset(res2,uint64(1000))
+	}
+
+	fmt.Println("finish")
+}
+
+func displayStakingAsset(infos map[common.Address]*types.StakingValue,lock bool) {
+	for k,v := range infos {
+		fmt.Println("address:",k.String(),"staking amount info.................")
+		for kk,vv := range v.Value {
+			if !lock {
+				fmt.Println("staking value:","height:",kk,"value:",vv)
+			} else {
+				fmt.Println("locked value:","epochid:",kk,"value:",vv)
+			}
+		}
+		fmt.Println("address:",k.String(),"staking amount info.................")
+	}
+}
+func displayLockedAsset(infos map[common.Address]*types.LockedValue,height uint64) {
+	for k,v := range infos {
+		fmt.Println("address:",k.String(),"staking amount info.................")
+		for kk,vv := range v.Value {
+			if vv.Locked {
+				e := types.GetEpochFromID(kk + 1)
+				last := e.BeginHeight+params.MaxRedeemHeight - height
+				last = last * 5
+				tt := new(big.Float).Quo(big.NewFloat(float64(last)),big.NewFloat(float64(86400)))
+				fmt.Println("locked value:","epochid:",kk,"value:",vv.Amount,"locked time:",
+				tt.Text('f',6),"days")
+				continue
+			}
+			fmt.Println("locked value:","epochid:",kk,"value:",vv.Amount,"locked:",vv.Locked)
+		}
+		fmt.Println("address:",k.String(),"staking amount info.................")
+	}
 }
