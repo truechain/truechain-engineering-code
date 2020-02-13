@@ -60,7 +60,7 @@ var (
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
 		TIP7: &BlockConfig{FastNumber: big.NewInt(100000)},
 		TIP8: &BlockConfig{FastNumber: big.NewInt(8000000), CID: big.NewInt(2000)},
-		TIP9: &BlockConfig{SnailNumber: big.NewInt(640000)},
+		TIP9: &BlockConfig{SnailNumber: big.NewInt(47000)},
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
