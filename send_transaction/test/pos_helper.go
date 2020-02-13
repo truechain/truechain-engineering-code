@@ -295,6 +295,14 @@ func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Addre
 	}
 }
 
+func sendDepositAppendTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 50 {
+		nonce, _ := getNonce(gen, from, state, "sendDepositAppendTransaction", txPool)
+		input := packInput(abiStaking, "append", "sendDepositAppendTransaction")
+		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
+	}
+}
+
 func sendDelegateTransaction(height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
 	if height == 60 {
 		nonce, _ := getNonce(gen, from, state, "sendDelegateTransaction", txPool)
