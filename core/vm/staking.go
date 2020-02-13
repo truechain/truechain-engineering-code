@@ -404,7 +404,7 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	_, left, err := evm.Call(contract.self, from, nil, evm.callGasTemp, amount, nil)
 	if err != nil {
 		log.Info("Staking withdraw transfer failed", "err", err)
-		return nil, nil
+		return nil, ErrStakingInsufficientBalance
 	}
 
 	log.Info("Staking withdraw", "gas", left)
@@ -460,7 +460,7 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 	_, left, err := evm.Call(contract.self, from, nil, evm.callGasTemp, args.Value, nil)
 	if err != nil {
 		log.Info("Staking withdraw delegate transfer failed", "err", err)
-		return nil, nil
+		return nil, ErrStakingInsufficientBalance
 	}
 
 	log.Info("Staking withdraw delegate", "gas", left)
