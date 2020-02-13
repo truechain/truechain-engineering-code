@@ -644,6 +644,12 @@ func TestRedeem(t *testing.T) {
 		}
 	}
 	
+	for i,val := range accounts {
+		if i % 2 == 0 {
+			impl.AppendSAAmount(want-2,val.address,balance2)
+		}
+	}
+
 	_, err := impl.DoElections(1, want)
 	if err != nil {
 		fmt.Println(err)
