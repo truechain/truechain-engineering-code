@@ -42,14 +42,17 @@ The impawn project comes with several Sub Command.
 ### Impawn
 
 ```
-$ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 10 --fee 100
+$ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 50000 --fee 100
 
 ```
 
 This command will:
 
  * Load private key in key/bftkey file, connect http://39.100.97.129:8545 node, this node should you run validator node, because of it will use your local bft pk to election.
- * deposit 10 true to staking address, fee(0-10000) set to 100.
+ * Deposit 50000 true to staking address, fee(0-10000) set to 100, feeRate = fee / 10000.
+ * If you want become a validator candidate, you must deposit balance > 50000(true). 
+ * If you need impawn again, need call **append** command.
+ 
 ### Cancel
 
 ```
