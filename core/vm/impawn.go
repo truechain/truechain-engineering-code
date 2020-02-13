@@ -357,7 +357,7 @@ func (s *StakingAccount) addAmount(height uint64, amount *big.Int) {
 		Value: []*PairstakingValue{&PairstakingValue{
 			Amount: new(big.Int).Set(amount),
 			Height: new(big.Int).SetUint64(height),
-			State:  0,
+			State:  types.StateStakingAuto,
 		}},
 		RedeemInof: make([]*RedeemItem, 0),
 	}
