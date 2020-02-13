@@ -45,7 +45,7 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(1500000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
-		TIP9: &BlockConfig{SnailNumber: big.NewInt(640000)},
+		TIP9: &BlockConfig{SnailNumber: big.NewInt(47000)},
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
