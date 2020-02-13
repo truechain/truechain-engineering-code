@@ -262,9 +262,15 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH]string, error) {
 
 	//var res [DATASETHEADLENGH][]byte
 	var res [DATASETHEADLENGH]string
+
 	if a.currentWork != nil {
 		block := a.currentWork.Block
-		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
+		blockNum := block.Number().Uint64()
+		tip9 := a.chain.Config().TIP9.SnailNumber.Uint64()
+		if tip9 < blockNum {
+			blockNum = tip9
+		}
+		epoch := uint64((blockNum - 1) / UPDATABLOCKLENGTH)
 		if epoch == 0 {
 			return res, errors.New("the epoch is zore not need dataset")
 		}
