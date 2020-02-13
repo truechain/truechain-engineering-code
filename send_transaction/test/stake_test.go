@@ -105,9 +105,9 @@ func TestDepositAppend(t *testing.T) {
 		sendTranction(number, gen, statedb, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
 
 		sendDepositTransaction(number, gen, saddr1, big.NewInt(4000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
-		sendGetDepositTransaction(number-41, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendGetDepositTransaction(number-31, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
 		sendDepositAppendTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
-		sendGetDepositTransaction(number-51, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendGetDepositTransaction(number-41, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
 		sendCancelTransaction(number-types.GetEpochFromID(2).BeginHeight, gen, saddr1, big.NewInt(3000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
 		sendGetDepositTransaction(number-types.GetEpochFromID(2).BeginHeight-11, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
 		sendWithdrawTransaction(number-types.MinCalcRedeemHeight(2), gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)

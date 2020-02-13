@@ -185,6 +185,6 @@ func queryTxImpawn(ctx *cli.Context) error {
 	if txhash == "" {
 		printError("Must input tx hash")
 	}
-	queryTx(conn, common.HexToHash(txhash), false)
+	queryTx(conn, common.HexToHash(txhash), false, true)
 	return nil
 }

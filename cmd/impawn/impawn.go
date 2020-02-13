@@ -103,10 +103,9 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 	msg := truechain.CallMsg{From: from, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
 	gasLimit, err = client.EstimateGas(context.Background(), msg)
 	if err != nil {
-		fmt.Println("err ", err)
+		fmt.Println("Contract exec failed", err)
 	}
 	if gasLimit < 1 {
-		println("gasLimit ", gasLimit)
 		gasLimit = 866328
 	}
 
@@ -228,7 +227,7 @@ func getResult(conn *etrueclient.Client, txHash common.Hash, contract bool) {
 
 	count := 0
 	for {
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(time.Millisecond * 200)
 		_, isPending, err := conn.TransactionByHash(context.Background(), txHash)
 		if err != nil {
 			log.Fatal(err)
@@ -237,16 +236,28 @@ func getResult(conn *etrueclient.Client, txHash common.Hash, contract bool) {
 		if !isPending {
 			break
 		}
-		if count >= 24 {
-			println("Please query tx hash later.")
+		if count >= 40 {
+			fmt.Println("Please use querytx sub command query later.")
 			os.Exit(0)
 		}
 	}
 
-	queryTx(conn, txHash, contract)
+	queryTx(conn, txHash, contract, false)
 }
 
-func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool) {
+func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool, pending bool) {
+
+	if pending {
+		_, isPending, err := conn.TransactionByHash(context.Background(), txHash)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if isPending {
+			println("In tx_pool no validator  process this, please query later")
+			os.Exit(0)
+		}
+	}
+
 	receipt, err := conn.TransactionReceipt(context.Background(), txHash)
 	if err != nil {
 		log.Fatal(err)
@@ -373,7 +384,7 @@ func queryStakingInfo(conn *etrueclient.Client) {
 		if err != nil {
 			printError("abi error", err)
 		}
-		println("Staked ", args.Staked.String(), "wei =", weiToTrue(args.Staked), "true Locked ",
+		fmt.Println("Staked ", args.Staked.String(), "wei =", weiToTrue(args.Staked), "true Locked ",
 			args.Locked.String(), " wei =", weiToTrue(args.Locked), "true",
 			"Unlocked ", args.Unlocked.String(), " wei =", weiToTrue(args.Unlocked), "true")
 		if args.Locked.Sign() > 0 {
@@ -390,6 +401,6 @@ func queryStakingInfo(conn *etrueclient.Client) {
 			}
 		}
 	} else {
-		println("Contract query failed result len == 0")
+		fmt.Println("Contract query failed result len == 0")
 	}
 }
