@@ -1354,6 +1354,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 			DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.MinervaHash.DatasetDir),
 			DatasetsInMem:  etrue.DefaultConfig.MinervaHash.DatasetsInMem,
 			DatasetsOnDisk: etrue.DefaultConfig.MinervaHash.DatasetsOnDisk,
+			Tip9: 			config.TIP9.SnailNumber.Uint64(),
 		})
 	}
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
