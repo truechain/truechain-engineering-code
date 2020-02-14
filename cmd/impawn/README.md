@@ -22,7 +22,7 @@ The impawn project comes with several Sub Command.
 | :-----------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 |  `append`   | After deposit, if you want continue to participate in deposit, you can use append command, no fix fee and pubkey.          |
 |   `cancel`    | If you want withdraw you money, First of all, you must cancel it. |
-|  `delegate`   | You can find a validator address to delegate.                                             |
+|  `delegate`   | You can find a validator address to delegate, contain sub command `deposit`,`cancel`,`withdraw`.                                             |
 |  `querystaking`     | If you want withdraw you money, you should send tx after lock height,which will print this height.                  |
 | `querytx` | If there no have validator to process your transaction, you can waiting some minutes and use it to query.              |
 |   `send`   | If you want send no contract transaction, you can use send command.       |
@@ -51,7 +51,6 @@ This command will:
  * Load private key in key/bftkey file, connect http://39.100.97.129:8545 node, this node should you run validator node, because of it will use your local bft pk to election.
  * Deposit 50000 true to staking address, fee(0-10000) set to 100, feeRate = fee / 10000.
  * If you want become a validator candidate, you must deposit balance > 50000(true). 
- * If you need impawn again, need call **append** command.
  
 ### Cancel
 
@@ -113,18 +112,6 @@ This command will:
  * Load private key in key/bftkey file, connect http://39.100.97.129:8545 node.
  * Sub command send is send normal transaction not contract,value is transfer value, address is To address.
 
-### Delegate
-
-```
-$ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 10 --address 0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2 delegate 
-
-```
-
-This command will:
-
- * Load private key in key/bftkey file, connect http://39.100.97.129:8545 node, and delegate 10 true to staking address.
- * Sub command delegate express this is delegate call, address is you select validator address.
-
 ### QueryStaking
 
 ```
@@ -148,3 +135,39 @@ $ impawn  --rpcaddr 39.100.97.129 --rpcport 8545 --txhash 0x40c78769add225421c45
 This command will:
 
  * Connect http://39.100.97.129:8545 node, and use querytx command specify txhash to query.
+ 
+### Delegate deposit
+ 
+ ```
+ $ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 10 --address 0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2 delegate deposit
+ 
+ ```
+ 
+ This command will:
+ 
+  * Load private key in key/bftkey file, connect http://39.100.97.129:8545 node, and delegate 10 true to staking address.
+  * Sub command delegate deposit express this is delegate call, address is you select validator address.
+  
+### Delegate cancel
+ 
+ ```
+ $ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 10 --address 0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2 delegate deposit
+ 
+ ```
+ 
+ This command will:
+ 
+  * Load private key in key/bftkey file, connect http://39.100.97.129:8545 node, and delegate 10 true to staking address.
+  * Sub command delegate cancel express this is cancel call, address is you select validator address.  
+  
+### Delegate withdraw
+ 
+ ```
+ $ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 10 --address 0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2 delegate withdraw
+ 
+ ```
+ 
+ This command will:
+ 
+  * Load private key in key/bftkey file, connect http://39.100.97.129:8545 node, and delegate 10 true to staking address.
+  * Sub command delegate withdraw express this is withdraw call, address is you select validator address.  
