@@ -27,7 +27,7 @@ func AppendImpawn(ctx *cli.Context) error {
 	input := packInput("append")
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
 
-	getResult(conn, txHash, true)
+	getResult(conn, txHash, true, false)
 
 	return nil
 }
@@ -53,7 +53,7 @@ func UpdateFeeImpawn(ctx *cli.Context) error {
 
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
 
-	getResult(conn, txHash, true)
+	getResult(conn, txHash, true, false)
 	return nil
 }
 
@@ -74,7 +74,7 @@ func cancelImpawn(ctx *cli.Context) error {
 	input := packInput("cancel", value)
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
 
-	getResult(conn, txHash, true)
+	getResult(conn, txHash, true, false)
 	return nil
 }
 
@@ -97,7 +97,7 @@ func withdrawImpawn(ctx *cli.Context) error {
 
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
 
-	getResult(conn, txHash, true)
+	getResult(conn, txHash, true, false)
 	PrintBalance(conn, from)
 	return nil
 }
@@ -114,7 +114,7 @@ func queryStakingImpawn(ctx *cli.Context) error {
 	conn, url := dialConn(ctx)
 	printBaseInfo(conn, url)
 
-	queryStakingInfo(conn)
+	queryStakingInfo(conn, true, false)
 	return nil
 }
 
@@ -138,15 +138,39 @@ func sendTX(ctx *cli.Context) error {
 
 	value := trueToWei(ctx, false)
 	txHash := sendContractTransaction(conn, from, common.HexToAddress(address), value, priKey, nil)
-	getResult(conn, txHash, false)
+	getResult(conn, txHash, false, false)
 	return nil
 }
 
-var delegateCommand = cli.Command{
-	Name:   "delegate",
-	Usage:  "Delegate staking on a validator address",
+var depositDCommand = cli.Command{
+	Name:   "deposit",
+	Usage:  "Deposit staking on a validator address",
 	Action: utils.MigrateFlags(delegateImpawn),
 	Flags:  append(ImpawnFlags, AddressFlag),
+}
+
+var cancelDCommand = cli.Command{
+	Name:   "cancel",
+	Usage:  "Call this staking will cancelled delegate at the next epoch",
+	Action: utils.MigrateFlags(cancelDImpawn),
+	Flags:  append(ImpawnFlags, AddressFlag),
+}
+
+var withdrawDCommand = cli.Command{
+	Name:   "withdraw",
+	Usage:  "Call this will instant receive your deposit money",
+	Action: utils.MigrateFlags(withdrawDImpawn),
+	Flags:  append(ImpawnFlags, AddressFlag),
+}
+
+var delegateCommand = cli.Command{
+	Name:  "delegate",
+	Usage: "Delegate staking on a validator address",
+	Subcommands: []cli.Command{
+		depositDCommand,
+		cancelDCommand,
+		withdrawDCommand,
+	},
 }
 
 func delegateImpawn(ctx *cli.Context) error {
@@ -162,11 +186,54 @@ func delegateImpawn(ctx *cli.Context) error {
 	if !common.IsHexAddress(address) {
 		printError("Must input correct address")
 	}
+	holder = common.HexToAddress(address)
 
-	input := packInput("delegate", common.HexToAddress(address))
+	input := packInput("delegate", holder)
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
 
-	getResult(conn, txHash, true)
+	getResult(conn, txHash, true, true)
+	return nil
+}
+
+func cancelDImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
+	conn, url := dialConn(ctx)
+	printBaseInfo(conn, url)
+
+	value := trueToWei(ctx, false)
+
+	address := ctx.GlobalString(AddressFlag.Name)
+	if !common.IsHexAddress(address) {
+		printError("Must input correct address")
+	}
+	holder = common.HexToAddress(address)
+
+	input := packInput("undelegate", holder, value)
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
+
+	getResult(conn, txHash, true, true)
+	return nil
+}
+
+func withdrawDImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
+	conn, url := dialConn(ctx)
+	printBaseInfo(conn, url)
+	PrintBalance(conn, from)
+
+	value := trueToWei(ctx, false)
+
+	address := ctx.GlobalString(AddressFlag.Name)
+	if !common.IsHexAddress(address) {
+		printError("Must input correct address")
+	}
+	holder = common.HexToAddress(address)
+	input := packInput("withdrawDelegate", holder, value)
+
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
+
+	getResult(conn, txHash, true, true)
+	PrintBalance(conn, from)
 	return nil
 }
 
@@ -185,6 +252,6 @@ func queryTxImpawn(ctx *cli.Context) error {
 	if txhash == "" {
 		printError("Must input tx hash")
 	}
-	queryTx(conn, common.HexToHash(txhash), false, true)
+	queryTx(conn, common.HexToHash(txhash), false, true, false)
 	return nil
 }

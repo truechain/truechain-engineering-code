@@ -39,6 +39,7 @@ var (
 	from          common.Address
 	trueValue     uint64
 	fee           uint64
+	holder        common.Address
 )
 
 const (
@@ -61,21 +62,13 @@ func impawn(ctx *cli.Context) error {
 	fee = ctx.GlobalUint64(FeeFlag.Name)
 	checkFee(new(big.Int).SetUint64(fee))
 
-	pubkey, err := conn.Pubkey(context.Background())
-
-	if err != nil {
-		printError("get pubkey error", err)
-	}
-	pk := common.Hex2Bytes(pubkey)
-	if err = types.ValidPk(pk); err != nil {
-		printError("ValidPk error", err)
-	}
+	pubkey, pk, _ := getPubKey(ctx, conn)
 
 	fmt.Println("Fee", fee, " Pubkey ", pubkey, " value ", value)
 	input := packInput("deposit", pk, new(big.Int).SetUint64(fee))
 	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
 
-	getResult(conn, txHash, true)
+	getResult(conn, txHash, true, false)
 
 	return nil
 }
@@ -84,6 +77,28 @@ func checkFee(fee *big.Int) {
 	if fee.Sign() < 0 || fee.Cmp(types.Base) > 0 {
 		printError("Please set correct fee value")
 	}
+}
+
+func getPubKey(ctx *cli.Context, conn *etrueclient.Client) (string, []byte, error) {
+	var (
+		pubkey string
+		err    error
+	)
+
+	if ctx.GlobalIsSet(PubKeyKeyFlag.Name) {
+		pubkey = ctx.GlobalString(PubKeyKeyFlag.Name)
+	} else {
+		pubkey, err = conn.Pubkey(context.Background())
+		if err != nil {
+			printError("get pubkey error", err)
+		}
+	}
+
+	pk := common.Hex2Bytes(pubkey)
+	if err = types.ValidPk(pk); err != nil {
+		printError("ValidPk error", err)
+	}
+	return pubkey, pk, err
 }
 
 func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte) common.Hash {
@@ -222,7 +237,7 @@ func weiToTrue(value *big.Int) uint64 {
 	return valueT
 }
 
-func getResult(conn *etrueclient.Client, txHash common.Hash, contract bool) {
+func getResult(conn *etrueclient.Client, txHash common.Hash, contract bool, delegate bool) {
 	fmt.Println("Please waiting ", " txHash ", txHash.String())
 
 	count := 0
@@ -242,10 +257,10 @@ func getResult(conn *etrueclient.Client, txHash common.Hash, contract bool) {
 		}
 	}
 
-	queryTx(conn, txHash, contract, false)
+	queryTx(conn, txHash, contract, false, delegate)
 }
 
-func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool, pending bool) {
+func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool, pending bool, delegate bool) {
 
 	if pending {
 		_, isPending, err := conn.TransactionByHash(context.Background(), txHash)
@@ -271,7 +286,7 @@ func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool, pendin
 
 		fmt.Println("Transaction Success", " block Number", receipt.BlockNumber.Uint64(), " block txs", len(block.Transactions()), "blockhash", block.Hash().Hex())
 		if contract && common.IsHexAddress(from.Hex()) {
-			queryStakingInfo(conn)
+			queryStakingInfo(conn, false, delegate)
 		}
 	} else if receipt.Status == types.ReceiptStatusFailed {
 		fmt.Println("Transaction Failed ", " Block Number", receipt.BlockNumber.Uint64())
@@ -362,13 +377,17 @@ func loadSigningKey(keyfile string) common.Address {
 	return from
 }
 
-func queryStakingInfo(conn *etrueclient.Client) {
+func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
 	header, err := conn.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	input := packInput("getDeposit", from)
+	var input []byte
+	if delegate {
+		input = packInput("getDelegate", from, holder)
+	} else {
+		input = packInput("getDeposit", from)
+	}
 	msg := truechain.CallMsg{From: from, To: &types.StakingAddress, Data: input}
 	output, err := conn.CallContract(context.Background(), msg, header.Number)
 	if err != nil {
@@ -387,15 +406,19 @@ func queryStakingInfo(conn *etrueclient.Client) {
 		fmt.Println("Staked ", args.Staked.String(), "wei =", weiToTrue(args.Staked), "true Locked ",
 			args.Locked.String(), " wei =", weiToTrue(args.Locked), "true",
 			"Unlocked ", args.Unlocked.String(), " wei =", weiToTrue(args.Unlocked), "true")
-		if args.Locked.Sign() > 0 {
+		if query && args.Locked.Sign() > 0 {
 			lockAssets, err := conn.GetLockedAsset(context.Background(), from, header.Number)
 			if err != nil {
 				printError("GetLockedAsset error", err)
 			}
 			for k, v := range lockAssets {
 				for m, n := range v.LockValue {
-					if n.EpochID > 0 || n.Amount.Sign() > 0 {
-						fmt.Println("Your can withdraw after height", n.Height.Uint64(), " count value ", weiToTrue(n.Amount), " true  index", k+m, " lock ", n.Locked)
+					if !n.Locked {
+						fmt.Println("Your can instant withdraw", " count value ", weiToTrue(n.Amount), " true")
+					} else {
+						if n.EpochID > 0 || n.Amount.Sign() > 0 {
+							fmt.Println("Your can withdraw after height", n.Height.Uint64(), " count value ", weiToTrue(n.Amount), " true  index", k+m, " lock ", n.Locked)
+						}
 					}
 				}
 			}
