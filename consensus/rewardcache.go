@@ -19,7 +19,7 @@ func newCacheChainReward() *CacheChainReward{
 	res := &CacheChainReward{
 		min:	0,
 		max:	0,
-		count:	100,
+		count:	200,
 	}
 	res.RewardCache = make(map[uint64]*types.ChainReward)
 	return res
@@ -38,15 +38,20 @@ func (c *CacheChainReward) minMax() (uint64,uint64,int) {
 	min,max := uint64(0),uint64(0)
 	c.lock.RLock()
 	defer c.lock.RUnlock()
+	pos := 0
 	for k,_ := range c.RewardCache {
+		if pos == 0 {
+			min = k
+		}
 		if min > k {
 			min = k
 		}		
 		if max < k {
 			max = k
 		}
+		pos++ 
 	}
-	return min,max,len(c.RewardCache)
+	return min,max,pos
 }
 func (c *CacheChainReward) AddChainReward(snailBlock uint64,infos *types.ChainReward) {
 	if infos == nil {
