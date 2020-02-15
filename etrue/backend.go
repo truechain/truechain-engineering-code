@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-
+	"github.com/truechain/truechain-engineering-code/consensus/tbft"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
@@ -560,7 +560,7 @@ func (s *Truechain) startPbftServer() error {
 		return err
 	}
 
-	cfg := config.DefaultConfig()
+	cfg := params.DefaultConfig()
 	cfg.P2P.ListenAddress1 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.Port)
 	cfg.P2P.ListenAddress2 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.StandbyPort)
 
