@@ -340,3 +340,8 @@ func (ma *MixedcaseAddress) ValidChecksum() bool {
 func (ma *MixedcaseAddress) Original() string {
 	return ma.original
 }
+// AddressWithBalance store account balance information.
+type AddressWithBalance struct {
+	Address Address
+	Balance *big.Int
+}
