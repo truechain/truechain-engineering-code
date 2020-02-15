@@ -90,6 +90,11 @@ func Crit(msg string, ctx ...interface{}) {
 	os.Exit(1)
 }
 
+// RedisLog is a convenient alias for Root().RedisLog
+func RedisLog(msg string, ctx ...interface{}) {
+	root.write(msg, LvlInfo, ctx, skipLevel)
+}
+
 // Output is a convenient alias for write, allowing for the modification of
 // the calldepth (number of stack frames to skip).
 // calldepth influences the reported line number of the log message.
