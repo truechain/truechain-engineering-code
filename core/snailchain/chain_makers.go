@@ -19,9 +19,6 @@ package snailchain
 import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/log"
-
 	"fmt"
 
 	"github.com/truechain/truechain-engineering-code/common"
