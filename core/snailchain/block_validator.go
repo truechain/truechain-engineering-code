@@ -19,9 +19,8 @@ package snailchain
 import (
 	"errors"
 	"fmt"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/core"
 
 	"math/big"
@@ -30,6 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
+	"time"
 )
 
 var (
@@ -53,6 +53,10 @@ var (
 
 	//ErrBlockTime is returned if the block's time less than the last fruit's time
 	ErrBlockTime = errors.New("invalid block time")
+)
+
+const (
+	maxTimeFutureFruit = 5
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -80,9 +84,9 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 }
 
 //ValidateRewarded verify whether the block has been rewarded.
-func (v *BlockValidator) ValidateRewarded(number uint64) error {
-	if br := v.fastchain.GetBlockReward(number); br != nil {
-		log.Info("err reward snail block", "number", number, "reward hash", br.SnailHash, "fast number", br.FastNumber, "fast hash", br.FastHash)
+func (v *BlockValidator) ValidateRewarded(number uint64, hash common.Hash) error {
+	if br := v.fastchain.GetBlockReward(number); br != nil && br.SnailHash != hash {
+		log.Info("err reward snail block", "number", number, "reward hash", br.SnailHash, "this snail hash", hash, "fast number", br.FastNumber, "fast hash", br.FastHash)
 		return ErrRewardedBlock
 	}
 	return nil
@@ -169,7 +173,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock, verifyFruits bool
 		}
 		return consensus.ErrPrunedAncestor
 	}
-	log.Info("Validate new snail body", "block", block.Number(), "hash", block.Hash(), "fruits", header.FruitsHash, "first", fruits[0].FastNumber(), "count", len(fruits))
 	return nil
 }
 
@@ -180,7 +183,7 @@ func (v *BlockValidator) VerifySnailSeal(chain consensus.SnailChainReader, heade
 }
 
 //ValidateFruit is to verify if the fruit is legal
-func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
+func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock, headerNumber *big.Int, canonical bool) error {
 	//check number(fb)
 	//
 	currentNumber := v.fastchain.CurrentHeader().Number
@@ -193,9 +196,10 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	if fb == nil {
 		return ErrInvalidFast
 	}
-
+	max := big.NewInt(time.Now().Unix() + maxTimeFutureFruit)
 	//check fruit's time
-	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 {
+	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 || fruit.Time().Cmp(max) > 0 {
+		log.Info("ValidateFruit", "fruit time", fruit.Time(), "max", max, "err", ErrFruitTime)
 		return ErrFruitTime
 	}
 
@@ -207,11 +211,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	}
 
 	// check freshness
-	var blockHeader *types.SnailHeader
-	if block != nil {
-		blockHeader = block.Header()
-	}
-	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), blockHeader, canonical)
+	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), headerNumber, canonical)
 	if err != nil {
 		log.Debug("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
 		return err
@@ -282,7 +282,7 @@ func (v *BlockValidator) parallelValidateFruit(fruit, block *types.SnailBlock, w
 	if block != nil {
 		blockHeader = block.Header()
 	}
-	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), blockHeader, false)
+	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), blockHeader.Number, false)
 	if err != nil {
 		log.Debug("parallelValidateFruit verify freshness error.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "err", err)
 		ch <- err

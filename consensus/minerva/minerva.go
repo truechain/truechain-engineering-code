@@ -23,20 +23,23 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/hashicorp/golang-lru/simplelru"
-	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/metrics"
-	"github.com/truechain/truechain-engineering-code/rpc"
-	"golang.org/x/crypto/sha3"
 	"math/big"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/metrics"
+	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/rpc"
+	"golang.org/x/crypto/sha3"
 )
 
 // ErrInvalidDumpMagic errorinfo
@@ -76,6 +79,11 @@ var (
 
 	//SqrtMax ...
 	SqrtMax = 6400
+
+	RewardMinerDecayEpoch = 50000
+	NewRewardBegin = 58441
+	NewRewardCoin = new(big.Int).Mul(big.NewInt(80),BaseBig)
+	RewardEndSnailHeight = 1000000
 )
 
 // ConstSqrt ...
@@ -222,6 +230,7 @@ type Minerva struct {
 
 	sbc      consensus.SnailChainReader
 	election consensus.CommitteeElection
+	chainDB  etruedb.Database
 }
 
 //var MinervaLocal *Minerva
@@ -249,7 +258,6 @@ func New(config Config) *Minerva {
 
 	//MinervaLocal.CheckDataSetState(1)
 	minerva.getDataset(1)
-
 	return minerva
 }
 
@@ -283,7 +291,21 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 		for i := 0; i < STARTUPDATENUM; i++ {
 			header := m.sbc.GetHeaderByNumber(uint64(i) + st_block_num)
 			if header == nil {
-				log.Error(" getDataset function getHead hash fail ", "blockNum is:  ", (uint64(i) + st_block_num))
+				if m.chainDB != nil {
+					num := rawdb.ReadLightCheckPoint(m.chainDB)
+					if uint64(i) < num {
+						headSet := rawdb.ReadLastDataSet(m.chainDB, epoch-1)
+						if len(headSet) > 0 {
+							for j := 0; j < len(headSet); j++ {
+								headerHash[j] = headSet[j]
+							}
+							i = i + len(headerHash) - 1
+							log.Debug("getHashList", "count", len(headSet), "num", num, "epoch", epoch, "block", block)
+							continue
+						}
+					}
+				}
+				log.Error(" getDataset function getHead hash fail", "blockNum", uint64(i)+st_block_num, "block", block)
 				return false
 			}
 			headerHash[i] = header.Hash().Bytes()
@@ -292,8 +314,20 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 	}
 
 	if current.dateInit == 0 && epoch > 0 {
-		if !getHashList(&headerHash, epoch) {
-			return nil
+		if m.chainDB != nil {
+			headSet := rawdb.ReadLastDataSet(m.chainDB, epoch-1)
+			log.Debug("getDataset", "block", block, "count", len(headSet))
+			if len(headSet) != STARTUPDATENUM && !getHashList(&headerHash, epoch) {
+				return nil
+			} else {
+				for i := 0; i < len(headSet); i++ {
+					headerHash[i] = headSet[i]
+				}
+			}
+		} else {
+			if !getHashList(&headerHash, epoch) {
+				return nil
+			}
 		}
 	}
 
@@ -334,7 +368,7 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 				d.datasetHash = d.GetDatasetSeedhash(d.dataset)
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
-				log.Info("updateLookupTBL is start", "epoch", epoch)
+				log.Debug("updateLookupTBL is start", "epoch", epoch, "hash", len(headershash))
 				flag, _, cont := d.updateLookupTBL(d.dataset, headershash)
 				if flag {
 					// consistent is make sure the algorithm is current and not change
@@ -355,6 +389,10 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 //SetSnailChainReader Append interface SnailChainReader after instantiations
 func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
 	m.sbc = scr
+}
+
+func (m *Minerva) SetSnailHeaderHash(db etruedb.Database) {
+	m.chainDB = db
 }
 
 //SetElection Append interface CommitteeElection after instantiation

@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
@@ -87,8 +88,8 @@ type SyncProgress struct {
 	StartingSnailBlock uint64 // Block number where sync began
 	CurrentSnailBlock  uint64 // Current block number where sync is at
 	HighestSnailBlock  uint64 // Highest alleged block number in the chain
-	PulledStates  uint64 // Number of state trie entries already downloaded
-	KnownStates   uint64 // Total number of state trie entries known about
+	PulledStates       uint64 // Number of state trie entries already downloaded
+	KnownStates        uint64 // Total number of state trie entries known about
 }
 
 // ChainSyncReader wraps access to the node's current sync status. If there's no
@@ -132,9 +133,9 @@ type FilterQuery struct {
 	// Examples:
 	// {} or nil          matches any topic list
 	// {{A}}              matches topic A in first position
-	// {{}, {B}}          matches any topic in first position, B in second position
-	// {{A}, {B}}         matches topic A in first position, B in second position
-	// {{A, B}}, {C, D}}  matches topic (A OR B) in first position, (C OR D) in second position
+	// {{}, {B}}          matches any topic in first position AND B in second position
+	// {{A}, {B}}         matches topic A in first position AND B in second position
+	// {{A, B}, {C, D}}   matches topic (A OR B) in first position AND (C OR D) in second position
 	Topics [][]common.Hash
 }
 

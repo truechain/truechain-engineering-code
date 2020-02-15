@@ -31,7 +31,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/mohae/deepcopy"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/p2p"
@@ -171,6 +171,7 @@ func (db *Dashboard) Start(server *p2p.Server) error {
 	go db.collectFruitpoolData()
 	go db.collectChainData()
 	go db.collectMinerData()
+	go db.collectCommitteeData()
 
 	http.HandleFunc("/", db.webHandler)
 	http.Handle("/api", websocket.Handler(db.apiHandler))

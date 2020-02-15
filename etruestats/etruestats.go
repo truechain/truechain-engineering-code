@@ -30,9 +30,9 @@ import (
 	"time"
 
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/mclock"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue"
@@ -73,7 +73,6 @@ type blockChain interface {
 
 type snailBlockChain interface {
 	SubscribeChainHeadEvent(ch chan<- types.SnailChainHeadEvent) event.Subscription
-	SubscribeNewFruitEvent(ch chan<- types.NewMinedFruitEvent) event.Subscription
 }
 
 // Service implements an Truechain netstats reporting daemon that pushes local
@@ -158,6 +157,7 @@ func (s *Service) loop() {
 	} else {
 		blockchain = s.les.BlockChain()
 		txpool = s.les.TxPool()
+		snailBlockChain = s.les.SnailBlockChain()
 	}
 	//fastBlock
 	chainHeadCh := make(chan types.FastChainHeadEvent, chainHeadChanSize)
@@ -605,7 +605,7 @@ func (s *Service) reportBlock(conn *websocket.Conn, block *types.Block) error {
 // reportBlock retrieves the current chain head and reports it to the stats server.
 func (s *Service) reportSnailBlock(conn *websocket.Conn, block *types.SnailBlock) error {
 	// Gather the block details from the header or block chain
-	details := s.assembleSnaiBlockStats(block)
+	details := s.assembleSnailBlockStats(block)
 
 	// Assemble the block report and send it to the server
 	log.Trace("Sending new snailBlock to etruestats", "number", details.Number, "hash", details.Hash)
@@ -663,12 +663,14 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 
 // assembleBlockStats retrieves any required metadata to report a single block
 // and assembles the block stats. If block is nil, the current head is processed.
-func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockStats {
+func (s *Service) assembleSnailBlockStats(block *types.SnailBlock) *snailBlockStats {
 	// Gather the block infos from the local blockchain
 	var (
 		header      *types.SnailHeader
 		td          *big.Int
 		fruitNumber *big.Int
+		diff        string
+		maxFruit    *big.Int
 	)
 	if s.etrue != nil {
 		// Full nodes have all needed information available
@@ -677,16 +679,23 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 		}
 		header = block.Header()
 		td = s.etrue.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
-		fruitNumber = big.NewInt(int64(len((block.Fruits()))))
+		fruitNumber = big.NewInt(int64(len(block.Fruits())))
+		diff = block.Difficulty().String()
+		maxFruit = block.MaxFruitNumber()
 	} else {
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
 		if block != nil {
 			header = block.Header()
+			fruitNumber = big.NewInt(int64(len(block.Fruits())))
 		} else {
-			log.Error("assembleSnaiBlockStats receive block nil ")
-			//header = s.les.SnailBlockChain().CurrentBlock()
+			header = s.les.SnailBlockChain().CurrentHeader()
 		}
-		//td = s.les.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
+		td = s.les.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
+		heads := s.les.SnailBlockChain().GetFruitsHead(header.Number.Uint64())
+		if len(heads) > 0 {
+			fruitNumber = big.NewInt(int64(len(heads)))
+			maxFruit = heads[len(heads)-1].FastNumber
+		}
 	}
 	// Assemble and return the block stats
 	author, _ := s.engine.AuthorSnail(header)
@@ -696,11 +705,11 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 		ParentHash:  header.ParentHash,
 		Timestamp:   header.Time,
 		Miner:       author,
-		Diff:        block.Difficulty().String(),
+		Diff:        diff,
 		TotalDiff:   td.String(),
 		Uncles:      nil,
 		FruitNumber: fruitNumber,
-		LastFruit:   block.MaxFruitNumber(),
+		LastFruit:   maxFruit,
 	}
 }
 
@@ -776,7 +785,7 @@ func (s *Service) reportSnailHistory(conn *websocket.Conn, list []uint64) error 
 		if s.etrue != nil {
 			head = s.etrue.SnailBlockChain().CurrentHeader().Number.Int64()
 		} else {
-			//head = s.les.SnailBlockChain().CurrentHeader().Number.Int64()
+			head = s.les.SnailBlockChain().CurrentHeader().Number.Int64()
 		}
 		start := head - historyUpdateRange + 1
 		if start < 0 {
@@ -794,13 +803,13 @@ func (s *Service) reportSnailHistory(conn *websocket.Conn, list []uint64) error 
 		if s.etrue != nil {
 			snailBlock = s.etrue.SnailBlockChain().GetBlockByNumber(number)
 		} else {
-			/*if header := s.les.BlockChain().GetHeaderByNumber(number); header != nil {
-				snailBlock = types.NewBlockWithHeader(header)
-			}*/
+			if header := s.les.SnailBlockChain().GetHeaderByNumber(number); header != nil {
+				snailBlock = types.NewSnailBlockWithHeader(header)
+			}
 		}
 		// If we do have the block, add to the history and continue
 		if snailBlock != nil {
-			history[len(history)-1-i] = s.assembleSnaiBlockStats(snailBlock)
+			history[len(history)-1-i] = s.assembleSnailBlockStats(snailBlock)
 			continue
 		}
 		// Ran out of blocks, cut the report short and send

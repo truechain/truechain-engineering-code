@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/console"
@@ -122,6 +122,7 @@ The export-preimages command export hash preimages to an RLP encoded stream`,
 			utils.FakePoWFlag,
 			utils.TestnetFlag,
 			utils.DevnetFlag,
+			utils.SingleNodeFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -397,7 +398,7 @@ func copyDb(ctx *cli.Context) error {
 
 	fdl := fastdownloader.New(fsyncmode, chainDb, new(event.TypeMux), fchain, nil, nil)
 
-	sdl := downloader.New(syncmode, chainDb, new(event.TypeMux), schain, nil, nil, fdl)
+	sdl := downloader.New(syncmode, 0, chainDb, new(event.TypeMux), schain, nil, nil, fdl)
 
 	// Create a source peer to satisfy downloader requests from
 	db, err := etruedb.NewLDBDatabase(ctx.Args().First(), ctx.GlobalInt(utils.CacheFlag.Name), 256)

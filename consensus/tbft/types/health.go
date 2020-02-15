@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
-	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/params"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
+	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 const (
@@ -213,6 +214,27 @@ func (h *HealthMgr) PutBackHealth(he *Health) {
 	}
 }
 
+func (h *HealthMgr) GetHealthTick(pid tp2p.ID) int32 {
+	for _, v := range h.Work {
+		if v.ID == pid {
+			return atomic.LoadInt32(&v.Tick)
+		}
+	}
+
+	for _, v := range h.Back {
+		if v.ID == pid {
+			return atomic.LoadInt32(&v.Tick)
+		}
+	}
+
+	for _, v := range h.seed {
+		if v.ID == pid {
+			return atomic.LoadInt32(&v.Tick)
+		}
+	}
+	return -1
+}
+
 //UpdataHealthInfo update one health
 func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint32, pk []byte) {
 	enter := h.GetHealth(pk)
@@ -234,8 +256,8 @@ func (h *HealthMgr) ChanTo() chan *SwitchValidator {
 
 //OnStart mgr start
 func (h *HealthMgr) OnStart() error {
-	EnableHealthMgr = true
-	if h.healthTick == nil {
+	EnableHealthMgr = false
+	if h.healthTick == nil && EnableHealthMgr {
 		h.healthTick = time.NewTicker(1 * time.Second)
 		go h.healthGoroutine()
 	}
@@ -244,11 +266,13 @@ func (h *HealthMgr) OnStart() error {
 
 //OnStop mgr stop
 func (h *HealthMgr) OnStop() {
+	log.Info("Begin HealthMgr finish")
 	EnableHealthMgr = false
 	if h.healthTick != nil {
 		h.healthTick.Stop()
 	}
 	help.CheckAndPrintError(h.Stop())
+	log.Info("End HealthMgr finish")
 }
 func (h *HealthMgr) getCurSV() *SwitchValidator {
 	h.lock.Lock()
@@ -314,28 +338,28 @@ func (h *HealthMgr) work(sshift bool) {
 
 func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 	if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
+
 		val := atomic.AddInt32(&v.Tick, 1)
 		log.Debug("Health", "id", v.ID, "val", val)
-		if sshift && (val > HealthOut-60) && v.State == ctypes.StateUsedFlag && !v.Self {
+		if sshift && (val > HealthOut+60) && v.State == ctypes.StateUsedFlag && !v.Self {
 			if sv0 := h.getCurSV(); sv0 == nil {
 				log.Warn("Health", "id", v.ID, "val", val)
 				back := h.pickUnuseValidator()
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
 				atomic.StoreUint32(&v.State, ctypes.StateSwitchingFlag)
 				h.setCurSV(cur)
-				log.Debug("CheckSwitchValidator(remove,add)", "info:", cur, "cid", h.cid)
+				log.Warn("CheckSwitchValidator(remove,add)", "info:", cur, "cid", h.cid)
 				go h.Switch(cur)
 			}
 		}
-
-		if sv0 := h.getCurSV(); sv0 != nil {
-			val0 := atomic.LoadInt32(&sv0.Remove.Tick)
-			if val0 < HealthOut && sv0.From == 0 {
-				sv1 := *sv0
-				sv1.From = 1
-				log.Debug("Restore SwitchValidator", "info", sv1, "cid", h.cid)
-				go h.Switch(&sv1)
-			}
+	}
+	if sv0 := h.getCurSV(); sv0 != nil {
+		val0 := atomic.LoadInt32(&sv0.Remove.Tick)
+		if val0 < HealthOut && sv0.From == 0 {
+			sv1 := *sv0
+			sv1.From = 1
+			log.Info("Restore SwitchValidator", "info", sv1, "cid", h.cid)
+			go h.Switch(&sv1)
 		}
 	}
 }
@@ -402,8 +426,12 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	}
 
 	if res.From == 0 {
-		if len(res.Infos) > 2 {
-			enter1, enter2 := res.Infos[0], res.Infos[1]
+		if len(res.Infos) > 0 && len(res.Infos) < 3 {
+			var enter1, enter2 *ctypes.CommitteeMember
+			enter1 = res.Infos[0]
+			if len(res.Infos) == 2 {
+				enter2 = res.Infos[1]
+			}
 			var add, remove *Health
 			if enter1.Flag == ctypes.StateAppendFlag {
 				add = h.GetHealth(enter1.CommitteeBase.Bytes())
@@ -411,11 +439,10 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 					remove = h.GetHealth(enter2.CommitteeBase.Bytes())
 				}
 			} else if enter1.Flag == ctypes.StateRemovedFlag {
-
 				remove = h.GetHealth(enter1.CommitteeBase.Bytes())
 			}
 			if !remove.Equal(res.Remove) || !add.Equal(res.Add) {
-				log.Debug("switchResult item not match", "cid", h.cid, "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)
+				log.Warn("switchResult item not match", "cid", h.cid, "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)
 			}
 			if remove != nil {
 
@@ -495,7 +522,6 @@ func (h *HealthMgr) getHealthFromPart(address []byte, part int) *Health {
 }
 
 //GetHealth get a Health for mgr
-
 func (h *HealthMgr) GetHealth(adress []byte) *Health {
 	enter := h.getHealthFromPart(adress, SwitchPartWork)
 	if enter == nil {

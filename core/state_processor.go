@@ -17,9 +17,11 @@
 package core
 
 import (
-	//"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	//"github.com/ethereum/go-ethereum/log"
+	//"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"math"
+
+	//"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -93,9 +95,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	if err != nil {
 		return nil, 0, err
 	}
-
+	if err := types.ForbidAddress(msg.From()); err != nil {
+		return nil, 0, err
+	}
 	// Create a new context to be used in the EVM environment
-	context := NewEVMContext(msg, header, bc,nil,nil)
+	context := NewEVMContext(msg, header, bc, nil, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
@@ -128,6 +132,41 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	receipt.BlockHash = statedb.BlockHash()
+	receipt.BlockNumber = header.Number
+	receipt.TransactionIndex = uint(statedb.TxIndex())
 
 	return receipt, gas, err
+}
+
+// ReadTransaction attempts to apply a transaction to the given state database
+// and uses the input parameters for its environment. It returns the result
+// for the transaction, gas used and an error if the transaction failed,
+// indicating the block was invalid.
+func ReadTransaction(config *params.ChainConfig, bc ChainContext,
+	statedb *state.StateDB, header *types.Header, tx *types.Transaction, cfg vm.Config) ([]byte, uint64, error) {
+
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
+
+	msgCopy := types.NewMessage(msg.From(), msg.To(), msg.Payment(), 0, msg.Value(), msg.Fee(), msg.Gas(), msg.GasPrice(), msg.Data(), false)
+
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := types.ForbidAddress(msgCopy.From()); err != nil {
+		return nil, 0, err
+	}
+	// Create a new context to be used in the EVM environment
+	context := NewEVMContext(msgCopy, header, bc, nil, nil)
+	// Create a new environment which holds all relevant information
+	// about the transaction and calling mechanisms.
+	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	// Apply the transaction to the current state (included in the env)
+	gp := new(GasPool).AddGas(math.MaxUint64)
+	result, gas, _, err := ApplyMessage(vmenv, msgCopy, gp)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return result, gas, err
 }

@@ -14,13 +14,12 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package les implements the Light Ethereum Subprotocol.
 package les
 
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"io"
 	"math"
 	"math/rand"
@@ -29,9 +28,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common/mclock"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discv5"
@@ -176,6 +175,7 @@ func (pool *serverPool) start(server *p2p.Server, topic discv5.Topic) {
 		pool.discSetPeriod = make(chan time.Duration, 1)
 		pool.discNodes = make(chan *enode.Node, 100)
 		pool.discLookups = make(chan bool, 100)
+		log.Info("serverPool start")
 		go pool.discoverNodes()
 	}
 	pool.checkDial()
@@ -506,7 +506,7 @@ func parseTrustedNodes(trustedNodes []string) map[enode.ID]*enode.Node {
 	nodes := make(map[enode.ID]*enode.Node)
 
 	for _, node := range trustedNodes {
-		node, err := enode.ParseV4(node)
+		node, err := enode.Parse(enode.ValidSchemes, node)
 		if err != nil {
 			log.Warn("Trusted node URL invalid", "enode", node, "err", err)
 			continue

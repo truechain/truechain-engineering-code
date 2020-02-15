@@ -17,14 +17,16 @@
 package etrue
 
 import (
+	"crypto/ecdsa"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/state"
 	"io"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 // Constants to match up protocol versions and messages
@@ -117,6 +119,7 @@ type txPool interface {
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
 	SubscribeNewTxsEvent(chan<- types.NewTxsEvent) event.Subscription
+	State() *state.ManagedState
 }
 
 type SnailPool interface {
@@ -144,6 +147,8 @@ type AgentNetworkProxy interface {
 	AddRemoteNodeInfo(*types.EncryptNodeMessage) error
 	//GetNodeInfoByHash get crypto nodeInfo  by hash
 	GetNodeInfoByHash(nodeInfoHash common.Hash) (*types.EncryptNodeMessage, bool)
+	//GetPrivateKey get crypto privateKey
+	GetPrivateKey() *ecdsa.PrivateKey
 }
 
 // statusData is the network packet for the status message.

@@ -19,18 +19,18 @@ package light
 import (
 	"bytes"
 	"context"
+	"github.com/truechain/truechain-engineering-code/log"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 var sha3_nil = crypto.Keccak256Hash(nil)
 
-func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*types.Header, error) {
+func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*types.SnailHeader, error) {
 	db := odr.Database()
 	hash := rawdb.ReadCanonicalHash(db, number)
 	if (hash != common.Hash{}) {
@@ -45,28 +45,44 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 	var (
 		chtCount, sectionHeadNum uint64
 		sectionHead              common.Hash
+		start                    bool
 	)
 	if odr.ChtIndexer() != nil {
 		chtCount, sectionHeadNum, sectionHead = odr.ChtIndexer().Sections()
 		canonicalHash := rawdb.ReadCanonicalHash(db, sectionHeadNum)
+		log.Info("GetHeaderByNumber", "chtCount", chtCount, "sectionHeadNum", sectionHeadNum, "sectionHead", sectionHead, "canonicalHash", canonicalHash)
 		// if the CHT was injected as a trusted checkpoint, we have no canonical hash yet so we accept zero hash too
 		for chtCount > 0 && canonicalHash != sectionHead && canonicalHash != (common.Hash{}) {
 			chtCount--
 			if chtCount > 0 {
-				sectionHeadNum = chtCount*CHTFrequencyClient - 1
+				sectionHeadNum = chtCount*odr.IndexerConfig().ChtSize - 1
 				sectionHead = odr.ChtIndexer().SectionHead(chtCount - 1)
 				canonicalHash = rawdb.ReadCanonicalHash(db, sectionHeadNum)
 			}
 		}
 	}
-	if number >= chtCount*CHTFrequencyClient {
+	if number >= chtCount*odr.IndexerConfig().ChtSize {
 		return nil, ErrNoTrustedCht
 	}
-	r := &ChtRequest{ChtRoot: GetChtRoot(db, chtCount-1, sectionHead), ChtNum: chtCount - 1, BlockNum: number}
+	if hash == (common.Hash{}) {
+		start = true
+	}
+	log.Info("GetHeaderByNumber", "number", number, "chtCount", chtCount, "ChtSize", odr.IndexerConfig().ChtSize)
+	r := &ChtRequest{ChtRoot: GetChtRoot(db, chtCount-1, sectionHead), ChtNum: chtCount - 1, BlockNum: number, Config: odr.IndexerConfig(), Start: start, DatasetRoot: odr.IndexerConfig().Hash}
 	if err := odr.Retrieve(ctx, r); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return r.Header, nil
+}
+
+// GetUntrustedHeaderByNumber fetches specified block header without correctness checking.
+// Note this function should only be used in light client checkpoint syncing.
+func GetUntrustedHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64, peerId string) (*types.Header, error) {
+	r := &ChtRequest{BlockNum: number, ChtNum: number / odr.IndexerConfig().ChtSize, Untrusted: true, PeerId: peerId, Config: odr.IndexerConfig()}
+	if err := odr.Retrieve(ctx, r); err != nil {
+		return nil, err
+	}
+	return r.FHeader, nil
 }
 
 func GetCanonicalHash(ctx context.Context, odr OdrBackend, number uint64) (common.Hash, error) {
@@ -96,12 +112,12 @@ func GetBodyRLP(ctx context.Context, odr OdrBackend, hash common.Hash, number ui
 
 // GetBody retrieves the block body (transactons, uncles) corresponding to the
 // hash.
-func GetBody(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (*types.Body, error) {
+func GetBody(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (*types.SnailBody, error) {
 	data, err := GetBodyRLP(ctx, odr, hash, number)
 	if err != nil {
 		return nil, err
 	}
-	body := new(types.Body)
+	body := new(types.SnailBody)
 	if err := rlp.Decode(bytes.NewReader(data), body); err != nil {
 		return nil, err
 	}
@@ -110,8 +126,8 @@ func GetBody(ctx context.Context, odr OdrBackend, hash common.Hash, number uint6
 
 // GetBlock retrieves an entire block corresponding to the hash, assembling it
 // back from the stored header and body.
-func GetBlock(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (*types.Block, error) {
-	// Retrieve the block header and body contents
+func GetBlock(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (*types.SnailBlock, error) {
+	// FastRetrieve the block header and body contents
 	header := rawdb.ReadHeader(odr.Database(), hash, number)
 	if header == nil {
 		return nil, ErrNoHeader
@@ -121,112 +137,35 @@ func GetBlock(ctx context.Context, odr OdrBackend, hash common.Hash, number uint
 		return nil, err
 	}
 	// Reassemble the block and return
-	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Signs, body.Infos), nil
+	return types.NewSnailBlockWithHeader(header).WithBody(body.Fruits, nil), nil
 }
 
-// GetBlockReceipts retrieves the receipts generated by the transactions included
-// in a block given by its hash.
-func GetBlockReceipts(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (types.Receipts, error) {
-	// Retrieve the potentially incomplete receipts from disk or network
-	receipts := rawdb.ReadReceipts(odr.Database(), hash, number)
-	if receipts == nil {
-		r := &ReceiptsRequest{Hash: hash, Number: number}
-		if err := odr.Retrieve(ctx, r); err != nil {
-			return nil, err
-		}
-		receipts = r.Receipts
-	}
-	// If the receipts are incomplete, fill the derived fields
-	if len(receipts) > 0 && receipts[0].TxHash == (common.Hash{}) {
-		block, err := GetBlock(ctx, odr, hash, number)
-		if err != nil {
-			return nil, err
-		}
-		genesis := rawdb.ReadCanonicalHash(odr.Database(), 0)
-		config := rawdb.ReadChainConfig(odr.Database(), genesis)
-
-		if err := core.SetReceiptsData(config, block, receipts); err != nil {
-			return nil, err
-		}
-		rawdb.WriteReceipts(odr.Database(), hash, number, receipts)
-	}
-	return receipts, nil
-}
-
-// GetBlockLogs retrieves the logs generated by the transactions included in a
-// block given by its hash.
-func GetBlockLogs(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) ([][]*types.Log, error) {
-	// Retrieve the potentially incomplete receipts from disk or network
-	receipts := rawdb.ReadReceipts(odr.Database(), hash, number)
-	if receipts == nil {
-		r := &ReceiptsRequest{Hash: hash, Number: number}
-		if err := odr.Retrieve(ctx, r); err != nil {
-			return nil, err
-		}
-		receipts = r.Receipts
-	}
-	// Return the logs without deriving any computed fields on the receipts
-	logs := make([][]*types.Log, len(receipts))
-	for i, receipt := range receipts {
-		logs[i] = receipt.Logs
-	}
-	return logs, nil
-}
-
-// GetBloomBits retrieves a batch of compressed bloomBits vectors belonging to the given bit index and section indexes
-func GetBloomBits(ctx context.Context, odr OdrBackend, bitIdx uint, sectionIdxList []uint64) ([][]byte, error) {
-	db := odr.Database()
-	result := make([][]byte, len(sectionIdxList))
-	var (
-		reqList []uint64
-		reqIdx  []int
-	)
-
-	var (
-		bloomTrieCount, sectionHeadNum uint64
-		sectionHead                    common.Hash
-	)
-	if odr.BloomTrieIndexer() != nil {
-		bloomTrieCount, sectionHeadNum, sectionHead = odr.BloomTrieIndexer().Sections()
-		canonicalHash := rawdb.ReadCanonicalHash(db, sectionHeadNum)
-		// if the BloomTrie was injected as a trusted checkpoint, we have no canonical hash yet so we accept zero hash too
-		for bloomTrieCount > 0 && canonicalHash != sectionHead && canonicalHash != (common.Hash{}) {
-			bloomTrieCount--
-			if bloomTrieCount > 0 {
-				sectionHeadNum = bloomTrieCount*BloomTrieFrequency - 1
-				sectionHead = odr.BloomTrieIndexer().SectionHead(bloomTrieCount - 1)
-				canonicalHash = rawdb.ReadCanonicalHash(db, sectionHeadNum)
-			}
-		}
-	}
-
-	for i, sectionIdx := range sectionIdxList {
-		sectionHead := rawdb.ReadCanonicalHash(db, (sectionIdx+1)*BloomTrieFrequency-1)
-		// if we don't have the canonical hash stored for this section head number, we'll still look for
-		// an entry with a zero sectionHead (we store it with zero section head too if we don't know it
-		// at the time of the retrieval)
-		bloomBits, err := rawdb.ReadBloomBits(db, bitIdx, sectionIdx, sectionHead)
-		if err == nil {
-			result[i] = bloomBits
-		} else {
-			if sectionIdx >= bloomTrieCount {
-				return nil, ErrNoTrustedBloomTrie
-			}
-			reqList = append(reqList, sectionIdx)
-			reqIdx = append(reqIdx, i)
-		}
-	}
-	if reqList == nil {
-		return result, nil
-	}
-
-	r := &BloomRequest{BloomTrieRoot: GetBloomTrieRoot(db, bloomTrieCount-1, sectionHead), BloomTrieNum: bloomTrieCount - 1, BitIdx: bitIdx, SectionIdxList: reqList}
-	if err := odr.Retrieve(ctx, r); err != nil {
+// GetFruitBody retrieves the fruit body (transactons, uncles) corresponding to the
+// hash.
+func GetFruitBody(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (*types.SnailBody, error) {
+	data, err := GetBodyRLP(ctx, odr, hash, number)
+	if err != nil {
 		return nil, err
-	} else {
-		for i, idx := range reqIdx {
-			result[idx] = r.BloomBits[i]
-		}
-		return result, nil
 	}
+	body := new(types.SnailBody)
+	if err := rlp.Decode(bytes.NewReader(data), body); err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+// GetFruit retrieves an entire fruit corresponding to the hash, assembling it
+// back from the stored header and body.
+func GetFruit(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (*types.SnailBlock, error) {
+	// FastRetrieve the block header and body contents
+	header := rawdb.ReadHeader(odr.Database(), hash, number)
+	if header == nil {
+		return nil, ErrNoHeader
+	}
+	body, err := GetFruitBody(ctx, odr, hash, number)
+	if err != nil {
+		return nil, err
+	}
+	// Reassemble the block and return
+	return types.NewSnailBlockWithHeader(header).WithBody(body.Fruits, nil), nil
 }

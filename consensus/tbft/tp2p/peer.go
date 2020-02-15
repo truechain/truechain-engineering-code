@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/testlog"
 	"net"
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
@@ -144,6 +145,7 @@ func newOutboundPeerConn(
 
 	pc, err := newPeerConn(conn, config, true, persistent, ourNodePrivKey, addr)
 	if err != nil {
+		testlog.AddLog("newPeerConnError", err.Error())
 		if cerr := conn.Close(); cerr != nil {
 			return peerConn{}, errors.New(fmt.Sprint(err, cerr.Error()))
 		}

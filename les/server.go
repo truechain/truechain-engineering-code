@@ -14,101 +14,234 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package les implements the Light Truechain Subprotocol.
 package les
 
 import (
 	"crypto/ecdsa"
-	"encoding/binary"
-	"math"
+	"github.com/truechain/truechain-engineering-code/common/mclock"
+	"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
+	"github.com/truechain/truechain-engineering-code/light/fast"
+	"github.com/truechain/truechain-engineering-code/light/public"
+	"github.com/truechain/truechain-engineering-code/p2p/enode"
+	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rpc"
+	"math/big"
 	"sync"
+	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue"
-	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/les/flowcontrol"
 	"github.com/truechain/truechain-engineering-code/light"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 )
 
-type LesServer struct {
-	config          *etrue.Config
-	protocolManager *ProtocolManager
-	fcManager       *flowcontrol.ClientManager // nil if our node is client only
-	fcCostStats     *requestCostStats
-	defParams       *flowcontrol.ServerParams
-	lesTopics       []discv5.Topic
-	privateKey      *ecdsa.PrivateKey
-	quitSync        chan struct{}
+const bufLimitRatio = 6000 // fixed bufLimit/MRR ratio
 
-	chtIndexer, bloomTrieIndexer *core.ChainIndexer
+type LesServer struct {
+	lesCommons
+
+	archiveMode bool // Flag whether the ethereum node runs in archive mode.
+
+	fcManager    *flowcontrol.ClientManager // nil if our node is client only
+	costTracker  *costTracker
+	testCost     uint64
+	defParams    flowcontrol.ServerParams
+	lesTopics    []discv5.Topic
+	privateKey   *ecdsa.PrivateKey
+	quitSync     chan struct{}
+	onlyAnnounce bool
+
+	thcNormal, thcBlockProcessing int // serving thread count for normal operation and block processing mode
+
+	maxPeers                                int
+	minCapacity, maxCapacity, freeClientCap uint64
+	clientPool                              *clientPool
 }
 
 func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, error) {
+	lesTopics := make([]discv5.Topic, len(AdvertiseProtocolVersions))
+	for i, pv := range AdvertiseProtocolVersions {
+		lesTopics[i] = lesTopic(etrue.SnailBlockChain().Genesis().Hash(), pv)
+	}
 	quitSync := make(chan struct{})
-	pm, err := NewProtocolManager(etrue.BlockChain().Config(), false, ServerProtocolVersions, config.NetworkId, etrue.EventMux(), etrue.Engine(), newPeerSet(), nil, etrue.TxPool(), etrue.ChainDb(), nil, nil, nil, quitSync, new(sync.WaitGroup))
+	srv := &LesServer{
+		lesCommons: lesCommons{
+			config:           config,
+			iConfig:          public.DefaultServerIndexerConfig,
+			chainDb:          etrue.ChainDb(),
+			chtIndexer:       light.NewChtIndexer(etrue.ChainDb(), nil, params.CHTFrequency, params.HelperTrieProcessConfirmations),
+			bloomTrieIndexer: fast.NewBloomTrieIndexer(etrue.ChainDb(), nil, params.BloomBitsBlocks, params.BloomTrieFrequency),
+		},
+		archiveMode:  etrue.ArchiveMode(),
+		quitSync:     quitSync,
+		lesTopics:    lesTopics,
+		onlyAnnounce: false,
+	}
+	srv.costTracker, srv.minCapacity = newCostTracker(etrue.ChainDb(), config)
+
+	logger := log.New()
+	srv.thcNormal = config.LightServ * 4 / 100
+	if srv.thcNormal < 4 {
+		srv.thcNormal = 4
+	}
+	srv.thcBlockProcessing = config.LightServ/100 + 1
+	srv.fcManager = flowcontrol.NewClientManager(nil, &mclock.System{})
+
+	checkpoint := srv.latestLocalCheckpoint()
+	if !checkpoint.Empty() {
+		logger.Info("Loaded latest checkpoint", "section", checkpoint.SectionIndex, "head", checkpoint.SectionHead,
+			"chtroot", checkpoint.CHTRoot, "bloomroot", checkpoint.BloomRoot)
+	}
+
+	srv.chtIndexer.Start(etrue.SnailBlockChain())
+
+	registrar := newCheckpointOracle(nil, srv.getLocalCheckpoint)
+	// TODO(rjl493456442) Checkpoint is useless for les server, separate handler for client and server.
+	pm, err := NewProtocolManager(etrue.BlockChain().Config(), nil, public.DefaultServerIndexerConfig, nil, 0, false, config.NetworkId, etrue.EventMux(), etrue.Engine(), newPeerSet(), etrue.BlockChain(), etrue.SnailBlockChain(), etrue.TxPool(), etrue.ChainDb(), nil, nil, registrar, quitSync, new(sync.WaitGroup), nil, etrue.Synced)
 	if err != nil {
 		return nil, err
 	}
-
-	lesTopics := make([]discv5.Topic, len(AdvertiseProtocolVersions))
-	for i, pv := range AdvertiseProtocolVersions {
-		lesTopics[i] = lesTopic(etrue.BlockChain().Genesis().Hash(), pv)
-	}
-
-	srv := &LesServer{
-		config:           config,
-		protocolManager:  pm,
-		quitSync:         quitSync,
-		lesTopics:        lesTopics,
-		chtIndexer:       light.NewChtIndexer(etrue.ChainDb(), false),
-		bloomTrieIndexer: light.NewBloomTrieIndexer(etrue.ChainDb(), false),
-	}
-	logger := log.New()
-
-	chtV1SectionCount, _, _ := srv.chtIndexer.Sections() // indexer still uses LES/1 4k section size for backwards server compatibility
-	chtV2SectionCount := chtV1SectionCount / (light.CHTFrequencyClient / light.CHTFrequencyServer)
-	if chtV2SectionCount != 0 {
-		// convert to LES/2 section
-		chtLastSection := chtV2SectionCount - 1
-		// convert last LES/2 section index back to LES/1 index for chtIndexer.SectionHead
-		chtLastSectionV1 := (chtLastSection+1)*(light.CHTFrequencyClient/light.CHTFrequencyServer) - 1
-		chtSectionHead := srv.chtIndexer.SectionHead(chtLastSectionV1)
-		chtRoot := light.GetChtV2Root(pm.chainDb, chtLastSection, chtSectionHead)
-		logger.Info("Loaded CHT", "section", chtLastSection, "head", chtSectionHead, "root", chtRoot)
-	}
-	bloomTrieSectionCount, _, _ := srv.bloomTrieIndexer.Sections()
-	if bloomTrieSectionCount != 0 {
-		bloomTrieLastSection := bloomTrieSectionCount - 1
-		bloomTrieSectionHead := srv.bloomTrieIndexer.SectionHead(bloomTrieLastSection)
-		bloomTrieRoot := light.GetBloomTrieRoot(pm.chainDb, bloomTrieLastSection, bloomTrieSectionHead)
-		logger.Info("Loaded bloom trie", "section", bloomTrieLastSection, "head", bloomTrieSectionHead, "root", bloomTrieRoot)
-	}
-
-	srv.chtIndexer.Start(etrue.BlockChain())
+	srv.protocolManager = pm
+	pm.servingQueue = newServingQueue(int64(time.Millisecond*10), float64(config.LightServ)/100)
 	pm.server = srv
 
-	srv.defParams = &flowcontrol.ServerParams{
-		BufLimit:    300000000,
-		MinRecharge: 50000,
+	chtSection, height, _ := srv.chtIndexer.Sections()
+	if chtSection != 0 {
+		for i := chtSection; i > chtSection-3; i-- {
+			chtSectionCurrent := i - 1
+			chtSectionHead := srv.chtIndexer.SectionHead(chtSectionCurrent)
+			if chtSectionHead == (common.Hash{}) {
+				break
+			}
+			chtTrieRoot := light.GetChtRoot(pm.chainDb, chtSectionCurrent, chtSectionHead)
+			logger.Info("Loaded recent CHT", "section", chtSectionCurrent, "head", chtSectionHead.String(), "root", chtTrieRoot.String(),
+				"height", height, "current", etrue.SnailBlockChain().GetHeaderByHash(chtSectionHead).Number)
+		}
 	}
-	srv.fcManager = flowcontrol.NewClientManager(uint64(config.LightServ), 10, 1000000000)
-	srv.fcCostStats = newCostStats(etrue.ChainDb())
+
+	bloomSection, height, _ := srv.bloomTrieIndexer.Sections()
+	if bloomSection != 0 {
+		for i := bloomSection; i > bloomSection-3; i-- {
+			bloomSectionCurrent := i - 1
+			bloomSectionHead := srv.bloomTrieIndexer.SectionHead(bloomSectionCurrent)
+			if bloomSectionHead == (common.Hash{}) {
+				break
+			}
+			bloomTrieRoot := fast.GetBloomTrieRoot(pm.chainDb, bloomSectionCurrent, bloomSectionHead)
+			logger.Info("Loaded bloom trie", "section", bloomSectionCurrent, "head", bloomSectionHead.String(), "root", bloomTrieRoot.String(),
+				"height", height, "current", etrue.BlockChain().GetHeaderByHash(bloomSectionHead).Number)
+		}
+	}
+
 	return srv, nil
 }
 
+func (s *LesServer) APIs() []rpc.API {
+	return []rpc.API{
+		{
+			Namespace: "les",
+			Version:   "1.0",
+			Service:   NewPrivateLightAPI(&s.lesCommons, s.protocolManager.reg),
+			Public:    false,
+		},
+	}
+}
+
+// startEventLoop starts an event handler loop that updates the recharge curve of
+// the client manager and adjusts the client pool's size according to the total
+// capacity updates coming from the client manager
+func (s *LesServer) startEventLoop() {
+	s.protocolManager.wg.Add(1)
+
+	var (
+		processing, procLast bool
+		procStarted          time.Time
+	)
+	blockProcFeed := make(chan bool, 100)
+	s.protocolManager.fblockchain.(*core.BlockChain).SubscribeBlockProcessingEvent(blockProcFeed)
+	totalRechargeCh := make(chan uint64, 100)
+	totalRecharge := s.costTracker.subscribeTotalRecharge(totalRechargeCh)
+	totalCapacityCh := make(chan uint64, 100)
+	updateRecharge := func() {
+		if processing {
+			if !procLast {
+				procStarted = time.Now()
+			}
+			s.protocolManager.servingQueue.setThreads(s.thcBlockProcessing)
+			s.fcManager.SetRechargeCurve(flowcontrol.PieceWiseLinear{{0, 0}, {totalRecharge, totalRecharge}})
+		} else {
+			if procLast {
+				blockProcessingTimer.UpdateSince(procStarted)
+			}
+			s.protocolManager.servingQueue.setThreads(s.thcNormal)
+			s.fcManager.SetRechargeCurve(flowcontrol.PieceWiseLinear{{0, 0}, {totalRecharge / 16, totalRecharge / 2}, {totalRecharge / 2, totalRecharge / 2}, {totalRecharge, totalRecharge}})
+		}
+		procLast = processing
+	}
+	updateRecharge()
+	totalCapacity := s.fcManager.SubscribeTotalCapacity(totalCapacityCh)
+	s.clientPool.setLimits(s.maxPeers, totalCapacity)
+
+	var maxFreePeers uint64
+	go func() {
+		for {
+			select {
+			case processing = <-blockProcFeed:
+				updateRecharge()
+			case totalRecharge = <-totalRechargeCh:
+				updateRecharge()
+			case totalCapacity = <-totalCapacityCh:
+				totalCapacityGauge.Update(int64(totalCapacity))
+				newFreePeers := totalCapacity / s.freeClientCap
+				if newFreePeers < maxFreePeers && newFreePeers < uint64(s.maxPeers) {
+					log.Warn("Reduced total capacity", "maxFreePeers", newFreePeers, "maxFreePeers", maxFreePeers, "maxPeers", s.maxPeers)
+				}
+				maxFreePeers = newFreePeers
+				s.clientPool.setLimits(s.maxPeers, totalCapacity)
+			case <-s.protocolManager.quitSync:
+				s.protocolManager.wg.Done()
+				return
+			}
+		}
+	}()
+}
+
 func (s *LesServer) Protocols() []p2p.Protocol {
-	return s.protocolManager.SubProtocols
+	return s.makeProtocols(ServerProtocolVersions)
 }
 
 // Start starts the LES server
 func (s *LesServer) Start(srvr *p2p.Server) {
+	s.maxPeers = s.config.LightPeers
+	totalRecharge := s.costTracker.totalRecharge()
+	if s.maxPeers > 0 {
+		s.freeClientCap = s.minCapacity //totalRecharge / uint64(s.maxPeers)
+		if s.freeClientCap < s.minCapacity {
+			s.freeClientCap = s.minCapacity
+		}
+		if s.freeClientCap > 0 {
+			s.defParams = flowcontrol.ServerParams{
+				BufLimit:    s.freeClientCap * bufLimitRatio,
+				MinRecharge: s.freeClientCap,
+			}
+		}
+	}
+
+	s.maxCapacity = s.freeClientCap * uint64(s.maxPeers)
+	if totalRecharge > s.maxCapacity {
+		s.maxCapacity = totalRecharge
+	}
+	s.fcManager.SetCapacityLimits(s.freeClientCap, s.maxCapacity, s.freeClientCap*2)
+	s.clientPool = newClientPool(s.chainDb, s.freeClientCap, 10000, mclock.System{}, func(id enode.ID, call uint32) { go s.protocolManager.removePeer(peerIdToString(id), call) })
+	s.clientPool.setPriceFactors(priceFactors{0, 1, 1}, priceFactors{0, 1, 1})
+	s.protocolManager.peers.notify(s.clientPool)
+	s.startEventLoop()
 	s.protocolManager.Start(s.config.LightPeers)
 	if srvr.DiscV5 != nil {
 		for _, topic := range s.lesTopics {
@@ -130,216 +263,60 @@ func (s *LesServer) SetBloomBitsIndexer(bloomIndexer *core.ChainIndexer) {
 	bloomIndexer.AddChildIndexer(s.bloomTrieIndexer)
 }
 
+// SetClient sets the rpc client and starts running checkpoint contract if it is not yet watched.
+func (s *LesServer) SetContractBackend(backend bind.ContractBackend) {
+	if s.protocolManager.reg != nil {
+		s.protocolManager.reg.start(backend)
+	}
+}
+
 // Stop stops the LES service
 func (s *LesServer) Stop() {
+	s.fcManager.Stop()
 	s.chtIndexer.Close()
 	// bloom trie indexer is closed by parent bloombits indexer
-	s.fcCostStats.store()
-	s.fcManager.Stop()
 	go func() {
 		<-s.protocolManager.noMorePeers
 	}()
+	s.clientPool.stop()
+	s.costTracker.stop()
 	s.protocolManager.Stop()
 }
 
-type requestCosts struct {
-	baseCost, reqCost uint64
-}
-
-type requestCostTable map[uint64]*requestCosts
-
-type RequestCostList []struct {
-	MsgCode, BaseCost, ReqCost uint64
-}
-
-func (list RequestCostList) decode() requestCostTable {
-	table := make(requestCostTable)
-	for _, e := range list {
-		table[e.MsgCode] = &requestCosts{
-			baseCost: e.BaseCost,
-			reqCost:  e.ReqCost,
-		}
-	}
-	return table
-}
-
-type linReg struct {
-	sumX, sumY, sumXX, sumXY float64
-	cnt                      uint64
-}
-
-const linRegMaxCnt = 100000
-
-func (l *linReg) add(x, y float64) {
-	if l.cnt >= linRegMaxCnt {
-		sub := float64(l.cnt+1-linRegMaxCnt) / linRegMaxCnt
-		l.sumX -= l.sumX * sub
-		l.sumY -= l.sumY * sub
-		l.sumXX -= l.sumXX * sub
-		l.sumXY -= l.sumXY * sub
-		l.cnt = linRegMaxCnt - 1
-	}
-	l.cnt++
-	l.sumX += x
-	l.sumY += y
-	l.sumXX += x * x
-	l.sumXY += x * y
-}
-
-func (l *linReg) calc() (b, m float64) {
-	if l.cnt == 0 {
-		return 0, 0
-	}
-	cnt := float64(l.cnt)
-	d := cnt*l.sumXX - l.sumX*l.sumX
-	if d < 0.001 {
-		return l.sumY / cnt, 0
-	}
-	m = (cnt*l.sumXY - l.sumX*l.sumY) / d
-	b = (l.sumY / cnt) - (m * l.sumX / cnt)
-	return b, m
-}
-
-func (l *linReg) toBytes() []byte {
-	var arr [40]byte
-	binary.BigEndian.PutUint64(arr[0:8], math.Float64bits(l.sumX))
-	binary.BigEndian.PutUint64(arr[8:16], math.Float64bits(l.sumY))
-	binary.BigEndian.PutUint64(arr[16:24], math.Float64bits(l.sumXX))
-	binary.BigEndian.PutUint64(arr[24:32], math.Float64bits(l.sumXY))
-	binary.BigEndian.PutUint64(arr[32:40], l.cnt)
-	return arr[:]
-}
-
-func linRegFromBytes(data []byte) *linReg {
-	if len(data) != 40 {
-		return nil
-	}
-	l := &linReg{}
-	l.sumX = math.Float64frombits(binary.BigEndian.Uint64(data[0:8]))
-	l.sumY = math.Float64frombits(binary.BigEndian.Uint64(data[8:16]))
-	l.sumXX = math.Float64frombits(binary.BigEndian.Uint64(data[16:24]))
-	l.sumXY = math.Float64frombits(binary.BigEndian.Uint64(data[24:32]))
-	l.cnt = binary.BigEndian.Uint64(data[32:40])
-	return l
-}
-
-type requestCostStats struct {
-	lock  sync.RWMutex
-	db    etruedb.Database
-	stats map[uint64]*linReg
-}
-
-type requestCostStatsRlp []struct {
-	MsgCode uint64
-	Data    []byte
-}
-
-var rcStatsKey = []byte("_requestCostStats")
-
-func newCostStats(db etruedb.Database) *requestCostStats {
-	stats := make(map[uint64]*linReg)
-	for _, code := range reqList {
-		stats[code] = &linReg{cnt: 100}
-	}
-
-	if db != nil {
-		data, err := db.Get(rcStatsKey)
-		var statsRlp requestCostStatsRlp
-		if err == nil {
-			err = rlp.DecodeBytes(data, &statsRlp)
-		}
-		if err == nil {
-			for _, r := range statsRlp {
-				if stats[r.MsgCode] != nil {
-					if l := linRegFromBytes(r.Data); l != nil {
-						stats[r.MsgCode] = l
-					}
-				}
-			}
-		}
-	}
-
-	return &requestCostStats{
-		db:    db,
-		stats: stats,
-	}
-}
-
-func (s *requestCostStats) store() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	statsRlp := make(requestCostStatsRlp, len(reqList))
-	for i, code := range reqList {
-		statsRlp[i].MsgCode = code
-		statsRlp[i].Data = s.stats[code].toBytes()
-	}
-
-	if data, err := rlp.EncodeToBytes(statsRlp); err == nil {
-		s.db.Put(rcStatsKey, data)
-	}
-}
-
-func (s *requestCostStats) getCurrentList() RequestCostList {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	list := make(RequestCostList, len(reqList))
-	//fmt.Println("RequestCostList")
-	for idx, code := range reqList {
-		b, m := s.stats[code].calc()
-		//fmt.Println(code, s.stats[code].cnt, b/1000000, m/1000000)
-		if m < 0 {
-			b += m
-			m = 0
-		}
-		if b < 0 {
-			b = 0
-		}
-
-		list[idx].MsgCode = code
-		list[idx].BaseCost = uint64(b * 2)
-		list[idx].ReqCost = uint64(m * 2)
-	}
-	return list
-}
-
-func (s *requestCostStats) update(msgCode, reqCnt, cost uint64) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	c, ok := s.stats[msgCode]
-	if !ok || reqCnt == 0 {
-		return
-	}
-	c.add(float64(reqCnt), float64(cost))
-}
-
+// todo(rjl493456442) separate client and server implementation.
 func (pm *ProtocolManager) blockLoop() {
 	pm.wg.Add(1)
 	headCh := make(chan types.FastChainHeadEvent, 10)
-	headSub := pm.blockchain.SubscribeChainHeadEvent(headCh)
+	headSub := pm.fblockchain.SubscribeChainHeadEvent(headCh)
+
+	sheadCh := make(chan types.SnailChainHeadEvent, 10)
+	sheadSub := pm.blockchain.SubscribeChainHeadEvent(sheadCh)
+
 	go func() {
-		var lastHead *types.Header
+		var lastHead *types.SnailHeader
 		lastBroadcastTd := common.Big0
+		lastBroadcastNumber := uint64(0)
+		lock := new(sync.Mutex)
+
 		for {
 			select {
-			case ev := <-headCh:
+			case ev := <-sheadCh:
 				peers := pm.peers.AllPeers()
+
 				if len(peers) > 0 {
 					header := ev.Block.Header()
 					hash := header.Hash()
 					number := header.Number.Uint64()
 					td := rawdb.ReadTd(pm.chainDb, hash, number)
+					lock.Lock()
 					if td != nil && td.Cmp(lastBroadcastTd) > 0 {
+						lastBroadcastTd = new(big.Int).Set(td)
 						var reorg uint64
 						if lastHead != nil {
 							reorg = lastHead.Number.Uint64() - rawdb.FindCommonAncestor(pm.chainDb, header, lastHead).Number.Uint64()
 						}
 						lastHead = header
-						lastBroadcastTd = td
-
-						log.Debug("Announcing block to peers", "number", number, "hash", hash, "td", td, "reorg", reorg)
+						log.Debug("Announcing snail block to peers", "number", number, "hash", hash, "td", td, "reorg", reorg)
 
 						announce := announceData{Hash: hash, Number: number, Td: td, ReorgDepth: reorg}
 						var (
@@ -348,32 +325,60 @@ func (pm *ProtocolManager) blockLoop() {
 						)
 
 						for _, p := range peers {
+							p := p
 							switch p.announceType {
-
 							case announceTypeSimple:
-								select {
-								case p.announceChn <- announce:
-								default:
-									pm.removePeer(p.id)
-								}
-
+								p.queueSend(func() { p.SendAnnounce(announce) })
 							case announceTypeSigned:
 								if !signed {
 									signedAnnounce = announce
 									signedAnnounce.sign(pm.server.privateKey)
 									signed = true
 								}
-
-								select {
-								case p.announceChn <- signedAnnounce:
-								default:
-									pm.removePeer(p.id)
-								}
+								p.queueSend(func() { p.SendAnnounce(signedAnnounce) })
 							}
 						}
 					}
+					lock.Unlock()
+				}
+			case ev := <-headCh:
+				peers := pm.peers.AllPeers()
+				if len(peers) > 0 {
+					header := ev.Block.Header()
+					hash := header.Hash()
+					number := header.Number.Uint64()
+					lock.Lock()
+					if number > lastBroadcastNumber {
+						lastBroadcastNumber = header.Number.Uint64()
+						if number%10 == 0 {
+							log.Debug("Announcing fast block to peers", "number", number, "hash", hash, "lastBroadcastNumber", lastBroadcastNumber)
+						}
+
+						announce := announceData{FastHash: hash, FastNumber: number}
+						var (
+							signed         bool
+							signedAnnounce announceData
+						)
+
+						for _, p := range peers {
+							p := p
+							switch p.announceType {
+							case announceTypeSimple:
+								p.queueSend(func() { p.SendAnnounce(announce) })
+							case announceTypeSigned:
+								if !signed {
+									signedAnnounce = announce
+									signedAnnounce.sign(pm.server.privateKey)
+									signed = true
+								}
+								p.queueSend(func() { p.SendAnnounce(signedAnnounce) })
+							}
+						}
+					}
+					lock.Unlock()
 				}
 			case <-pm.quitSync:
+				sheadSub.Unsubscribe()
 				headSub.Unsubscribe()
 				pm.wg.Done()
 				return

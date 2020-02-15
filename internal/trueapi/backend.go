@@ -21,8 +21,8 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -65,6 +65,7 @@ type Backend interface {
 	GetReward(number int64) *types.BlockReward
 	GetCommittee(id rpc.BlockNumber) (map[string]interface{}, error)
 	GetSnailRewardContent(blockNr rpc.BlockNumber) *types.SnailRewardContenet
+	GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
@@ -77,6 +78,7 @@ type Backend interface {
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
+	CurrentSnailBlock() *types.SnailBlock
 
 	// SnailPool API
 	SnailPoolContent() []*types.SnailBlock
@@ -138,6 +140,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
 			Public:    false,
+		}, {
+			Namespace: "impawn",
+			Version:   "1.0",
+			Service:   NewPublicImpawnAPI(apiBackend),
+			Public:    true,
 		},
 	}...)
 	return apis

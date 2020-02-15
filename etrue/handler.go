@@ -28,9 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -41,9 +39,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher/snail"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 const (
@@ -78,9 +78,11 @@ type ProtocolManager struct {
 	fastSync uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	snapSync uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 
-	acceptTxs    uint32 // Flag whether we're considered synchronised (enables transaction processing)
-	acceptFruits uint32
-	//acceptSnailBlocks uint32
+	acceptTxs        uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	acceptFruits     uint32
+	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
+	checkpointHash   common.Hash // Block hash for the sync progress validator to cross reference
+
 	txpool      txPool
 	SnailPool   SnailPool
 	blockchain  *core.BlockChain
@@ -171,6 +173,12 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		manager.snapSync = uint32(1)
 	}
 
+	// If we have trusted checkpoints, enforce them on the chain
+	if checkpoint, ok := params.TrustedCheckpoints[blockchain.Genesis().Hash()]; ok {
+		manager.checkpointNumber = (checkpoint.SectionIndex+1)*params.CHTFrequency - 1
+		manager.checkpointHash = checkpoint.SectionHead
+	}
+
 	// Initiate a sub-protocol for every implemented version we can handle
 	manager.SubProtocols = make([]p2p.Protocol, 0, len(ProtocolVersions))
 	for i, version := range ProtocolVersions {
@@ -209,7 +217,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// TODO: support downloader func.
 	fmode := fastdownloader.SyncMode(mode)
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
-	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
+	manager.downloader = downloader.New(mode, manager.checkpointNumber, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
 	manager.fdownloader.SetSD(manager.downloader)
 
 	fastValidator := func(header *types.Header) error {
@@ -225,8 +233,11 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
-		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
-		return manager.blockchain.InsertChain(blocks)
+		n, err := manager.blockchain.InsertChain(blocks)
+		if err == nil {
+			atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
+		}
+		return n, err
 	}
 
 	snailValidator := func(header *types.SnailHeader) error {
@@ -870,7 +881,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 
-		log.Debug("NodeData node state data", "data", data)
+		log.Debug("NodeData node state data", "data", len(data))
 		// Deliver all to the downloader
 		if err := pm.downloader.DeliverNodeData(p.id, data); err != nil {
 			log.Debug("Failed to deliver node state data", "err", err)
@@ -1088,6 +1099,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, block := range request.SnailBlock {
 			block.ReceivedAt = msg.ReceivedAt
 			block.ReceivedFrom = p
+			block.SetSnailBlockSigns(nil)
 
 			log.Debug("Enqueue snail block", "number", block.Number())
 			p.MarkSnailBlock(block.Hash())
@@ -1134,6 +1146,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool) {
 	hash := block.Hash()
 	peers := pm.peers.PeersWithoutFastBlock(hash)
+
+	if pm.chainconfig.ChainID.Uint64() == 100 {
+		//test.SendTX(block.Header(), propagate, pm.blockchain, pm.txpool, pm.chainconfig, nil, nil, pm.agentProxy.GetPrivateKey())
+	}
 
 	// If propagation is requested, send to a subset of the peer
 	if propagate {
@@ -1294,7 +1310,7 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
 		case signEvent := <-pm.minedFastCh:
-			log.Info("Broadcast fast block", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash(), "recipients", len(pm.peers.peers))
+			log.Info("Broadcast fast block", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.FastHash, "recipients", len(pm.peers.peers))
 			atomic.StoreUint32(&pm.acceptTxs, 1)
 			pm.BroadcastFastBlock(signEvent.Block, true)  // Only then announce to the rest
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
@@ -1311,7 +1327,7 @@ func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
 		select {
 		case nodeInfoEvent := <-pm.pbNodeInfoCh:
 			pm.BroadcastPbNodeInfo(nodeInfoEvent.NodeInfo)
-		// Err() channel will be closed when unsubscribing.
+			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbNodeInfoSub.Err():
 			return
 		}

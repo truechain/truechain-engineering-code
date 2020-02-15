@@ -26,7 +26,7 @@ import (
 
 	"github.com/fjl/memsize/memsizeui"
 	colorable "github.com/mattn/go-colorable"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/metrics/exp"
 	"github.com/mattn/go-isatty"

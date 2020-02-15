@@ -21,10 +21,10 @@ import (
 	"encoding/binary"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -108,9 +108,9 @@ func WriteHeadFastBlockHash(db DatabaseWriter, hash common.Hash) {
 	}
 }
 
-// ReadFastTrieProgress retrieves the number of tries nodes fast synced to allow
+// ReadLightCheckPoint retrieves the number of tries nodes fast synced to allow
 // reporting correct numbers across restarts.
-func ReadFastTrieProgress(db DatabaseReader) uint64 {
+func ReadLightCheckPoint(db DatabaseReader) uint64 {
 	data, _ := db.Get(fastTrieProgressKey)
 	if len(data) == 0 {
 		return 0
@@ -118,9 +118,9 @@ func ReadFastTrieProgress(db DatabaseReader) uint64 {
 	return new(big.Int).SetBytes(data).Uint64()
 }
 
-// WriteFastTrieProgress stores the fast sync trie process counter to support
+// WriteLightCheckPoint stores the fast sync trie process counter to support
 // retrieving it across restarts.
-func WriteFastTrieProgress(db DatabaseWriter, count uint64) {
+func WriteLightCheckPoint(db DatabaseWriter, count uint64) {
 	if err := db.Put(fastTrieProgressKey, new(big.Int).SetUint64(count).Bytes()); err != nil {
 		log.Crit("Failed to store snail fast sync trie progress", "err", err)
 	}
@@ -293,6 +293,11 @@ func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.SnailB
 func WriteBlock(db DatabaseWriter, block *types.SnailBlock) {
 	WriteBody(db, block.Hash(), block.NumberU64(), block.Body())
 	WriteHeader(db, block.Header())
+	fruitsHead := block.Body().FruitsHeaders()
+	if len(fruitsHead) > 0 {
+		WriteFruitsHead(db, block.Hash(), block.NumberU64(), fruitsHead)
+		WriteFtHeadLookupEntries(db, block.Header(), fruitsHead)
+	}
 }
 
 // DeleteBlock removes all block data associated with a hash.
@@ -343,14 +348,6 @@ func ReadCommitteeStates(db DatabaseReader, committee uint64) []*big.Int {
 	return changes
 }
 
-// HasCommitteeStates indicates whether committee changes stored
-func HasCommitteeStates(db DatabaseReader, committee uint64) bool {
-	if has, err := db.Has(committeeStateKey(committee)); !has || err != nil {
-		return false
-	}
-	return true
-}
-
 // WriteCommitteeStates store the all committee members sepecified with fastblock height
 func WriteCommitteeStates(db DatabaseWriter, committee uint64, changes []*big.Int) {
 	data, err := rlp.EncodeToBytes(changes)
@@ -361,5 +358,87 @@ func WriteCommitteeStates(db DatabaseWriter, committee uint64, changes []*big.In
 	key := committeeStateKey(committee)
 	if err := db.Put(key, data); err != nil {
 		log.Crit("Failed to store committee change numbers", "err", err)
+	}
+}
+
+// ReadFHsRLP retrieves the fruits head in RLP encoding.
+func ReadFHsRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
+	data, _ := db.Get(fruitHeadsKey(number, hash))
+	return data
+}
+
+// WriteBodyRLP stores an RLP encoded block body into the database.
+func WriteFHsRLP(db DatabaseWriter, hash common.Hash, number uint64, rlp rlp.RawValue) {
+	if err := db.Put(fruitHeadsKey(number, hash), rlp); err != nil {
+		log.Crit("Failed to store snail block body", "err", err)
+	}
+}
+
+// HasBody verifies the existence of a block body corresponding to the hash.
+func HasFruitsHead(db DatabaseReader, hash common.Hash, number uint64) bool {
+	if has, err := db.Has(fruitHeadsKey(number, hash)); !has || err != nil {
+		return false
+	}
+	return true
+}
+
+// ReadBody retrieves the block body corresponding to the hash.
+func ReadFruitsHead(db DatabaseReader, hash common.Hash, number uint64) []*types.SnailHeader {
+	data := ReadFHsRLP(db, hash, number)
+	if len(data) == 0 {
+		return nil
+	}
+	var heads []*types.SnailHeader
+	if err := rlp.Decode(bytes.NewReader(data), &heads); err != nil {
+		log.Error("Invalid snail fruits RLP", "hash", hash, "err", err)
+		return nil
+	}
+	return heads
+}
+
+// WriteBody storea a block body into the database.
+func WriteFruitsHead(db DatabaseWriter, hash common.Hash, number uint64, heads []*types.SnailHeader) {
+	data, err := rlp.EncodeToBytes(heads)
+	if err != nil {
+		log.Crit("Failed to RLP encode snail body", "err", err)
+	}
+	WriteFHsRLP(db, hash, number, data)
+}
+
+// DeleteBody removes all block body data associated with a hash.
+func DeleteFruitsHead(db DatabaseDeleter, hash common.Hash, number uint64) {
+	if err := db.Delete(fruitHeadsKey(number, hash)); err != nil {
+		log.Crit("Failed to delete snail block body", "err", err)
+	}
+}
+
+// ReadLastDataSet retrieves the number of tries nodes fast synced to allow
+// reporting correct numbers across restarts.
+func ReadLastDataSet(db DatabaseReader, epoch uint64) [][]byte {
+	data, _ := db.Get(headHashEpochKey(epoch))
+	if len(data) == 0 {
+		return nil
+	}
+
+	var dataSet [][]byte
+	if err := rlp.Decode(bytes.NewReader(data), &dataSet); err != nil {
+		log.Error("Invalid last data set RLP", "epoch", epoch, "err", err)
+		return nil
+	}
+	return dataSet
+
+}
+
+// WriteLastDataSet stores the fast sync trie process counter to support
+// retrieving it across restarts.
+func WriteLastDataSet(db DatabaseWriter, epoch uint64, dataSet [][]byte) {
+	data, err := rlp.EncodeToBytes(dataSet)
+	if err != nil {
+		log.Crit("Failed to RLP encode last data set", "err", err)
+	}
+
+	key := headHashEpochKey(epoch)
+	if err := db.Put(key, data); err != nil {
+		log.Crit("Failed to store last data set", "err", err)
 	}
 }

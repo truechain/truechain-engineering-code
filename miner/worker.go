@@ -24,17 +24,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	//"github.com/truechain/truechain-engineering-code/core/vm"
 	//"crypto/rand"
-	"github.com/ethereum/go-ethereum/log"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/fatih/set.v0"
 )
@@ -359,6 +359,9 @@ func (w *worker) update() {
 
 		case ev := <-w.fruitCh:
 			// if only fruit only not need care about fruit event
+			if w.current.Block == nil || ev.Fruits[0].FastNumber() == nil {
+				return
+			}
 			if (w.fruitOnly || len(w.current.Block.Fruits()) == 0) && (w.current.Block.FastNumber().Cmp(ev.Fruits[0].FastNumber()) == 0) {
 				// after get the fruit event should star mining if have not mining
 				log.Debug("star commit new work  fruitCh")
@@ -406,7 +409,7 @@ func (w *worker) wait() {
 			}
 
 			block := result.Block
-
+			log.Debug("Worker get wait fond block or fruit")
 			if block.IsFruit() {
 				if block.FastNumber() == nil {
 					// if it does't include a fast block signs, it's not a fruit
@@ -579,7 +582,11 @@ func (w *worker) commitNewWork() {
 
 	// only miner fruit if not fruit set only miner the fruit
 	if !w.fruitOnly {
-		w.CommitFruits(pendingFruits, w.chain, w.fastchain, w.engine)
+		err := w.CommitFruits(pendingFruits, w.chain, w.fastchain, w.engine)
+		if err != nil {
+			log.Error("Failed to commit fruits", "err", err)
+			return
+		}
 	}
 
 	if work.fruits != nil {
@@ -590,6 +597,15 @@ func (w *worker) commitNewWork() {
 			log.Info("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits)-1].FastNumber())
 			work.fruits = work.fruits[:params.MaximumFruits]
 		}
+
+		// make sure the time
+		if work.fruits != nil {
+			if work.fruits[len(work.fruits)-1].Time() == nil || work.header.Time == nil || work.header.Time.Cmp(work.fruits[len(work.fruits)-1].Time()) < 0 {
+				log.Error("validate time", "block.Time()", work.header.Time, "fruits[len(fruits)-1].Time()", work.fruits[len(work.fruits)-1].Time(), "block number", work.header.Number, "fruit fast number", work.fruits[len(work.fruits)-1].FastNumber())
+				work.fruits = nil
+			}
+		}
+
 	}
 
 	// Set the pointerHash
@@ -658,7 +674,7 @@ func (w *worker) commitNewWork() {
 		log.Info("____Commit new mining work", "number", work.Block.Number(), "uncles", len(uncles), "fruits", len(work.Block.Fruits()), " fastblock", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty(), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		w.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
-
+	work.Block.Time()
 	w.push(work)
 	w.updateSnapshot()
 }
@@ -694,7 +710,7 @@ func (w *worker) updateSnapshot() {
 
 func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) error {
 
-	err := engine.VerifyFreshness(bc, fruit.Header(), env.header, true)
+	err := engine.VerifyFreshness(bc, fruit.Header(), env.header.Number, true)
 	if err != nil {
 		log.Debug("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
 		return err
@@ -704,7 +720,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 }
 
 // CommitFruits find all fruits and start to the last parent fruits number and end continue fruit list
-func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) {
+func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) error {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
 
@@ -722,7 +738,7 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	}
 
 	if fruits == nil {
-		return
+		return nil
 	}
 
 	log.Debug("commitFruits fruit pool list", "f min fb", fruits[0].FastNumber(), "f max fb", fruits[len(fruits)-1].FastNumber())
@@ -754,6 +770,13 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 					//need del the fruit
 					log.Debug("commitFruits  remove unVerifyFreshness fruit", "fb num", fruit.FastNumber())
 					w.etrue.SnailPool().RemovePendingFruitByFastHash(fruit.FastHash())
+
+					//post a event to start a new commitwork
+					var (
+						events []interface{}
+					)
+					events = append(events, types.NewMinedFruitEvent{Block: nil})
+					w.chain.PostChainEvents(events)
 					break
 				}
 			} else {
@@ -763,8 +786,13 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		}
 		if len(fruitset) >= params.MinimumFruits {
 			// need add the time interval
-			startTime := fc.GetHeaderByNumber(fruitset[0].FastNumber().Uint64()).Time
-			endTime := fc.GetHeaderByNumber(fruitset[len(fruitset)-1].FastNumber().Uint64()).Time
+			startFb := fc.GetHeaderByNumber(fruitset[0].FastNumber().Uint64())
+			endFb := fc.GetHeaderByNumber(fruitset[len(fruitset)-1].FastNumber().Uint64())
+			if startFb == nil || endFb == nil {
+				return fmt.Errorf("the fast chain have not exist")
+			}
+			startTime := startFb.Time
+			endTime := endFb.Time
 			timeinterval := new(big.Int).Sub(endTime, startTime)
 
 			unmineFruitLen := new(big.Int).Sub(fastHight, fruits[len(fruits)-1].FastNumber())
@@ -784,6 +812,7 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		// make the fruits to nil if not find the fruitset
 		w.current.fruits = nil
 	}
+	return nil
 }
 
 //create a new list that maye add one fruit who just mined but not add in to pending list

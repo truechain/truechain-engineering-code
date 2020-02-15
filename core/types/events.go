@@ -17,9 +17,8 @@
 package types
 
 import (
+	"github.com/truechain/truechain-engineering-code/common"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.

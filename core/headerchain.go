@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
@@ -55,10 +55,12 @@ type HeaderChain struct {
 
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
+	currentReward    atomic.Value // Current head of the currentReward
 
 	headerCache *lru.Cache // Cache for the most recent block headers
 	tdCache     *lru.Cache // Cache for the most recent block total difficulties
 	numberCache *lru.Cache // Cache for the most recent block numbers
+	rewardCache *lru.Cache // Cache for the most recent block rewards
 
 	procInterrupt func() bool
 
@@ -74,7 +76,7 @@ func NewHeaderChain(chainDb etruedb.Database, config *params.ChainConfig, engine
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
-
+	rewardCache, _ := lru.New(headerCacheLimit)
 	// Seed a fast but crypto originating random generator
 	seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
@@ -87,6 +89,7 @@ func NewHeaderChain(chainDb etruedb.Database, config *params.ChainConfig, engine
 		headerCache:   headerCache,
 		tdCache:       tdCache,
 		numberCache:   numberCache,
+		rewardCache:   rewardCache,
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
 		engine:        engine,
@@ -140,6 +143,19 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	rawdb.WriteHeader(hc.chainDb, header)
 
+	if header.SnailNumber.Int64() != 0 {
+		//create BlockReward
+		br := &types.BlockReward{
+			FastHash:    header.Hash(),
+			FastNumber:  header.Number,
+			SnailHash:   header.SnailHash,
+			SnailNumber: header.SnailNumber,
+		}
+		//insert BlockReward to db
+		rawdb.WriteBlockReward(hc.chainDb, br)
+		rawdb.WriteHeadRewardNumber(hc.chainDb, header.SnailNumber.Uint64())
+		hc.currentReward.Store(br)
+	}
 
 	// Extend the canonical chain with the new header
 	rawdb.WriteCanonicalHash(hc.chainDb, hash, number)
@@ -150,7 +166,6 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	status = CanonStatTy
 
-	log.Debug("headerCache", "hash", hash.String(), "number", number)
 	hc.headerCache.Add(hash, header)
 	hc.numberCache.Add(hash, number)
 
@@ -222,17 +237,13 @@ func (fhc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int
 func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader FastWhCallback, start time.Time) (int, error) {
 	// Collect some import statistics to report on
 	stats := struct{ processed, ignored int }{}
+
 	// All headers passed verification, import them into the database
 	for i, header := range chain {
 		// Short circuit insertion if shutting down
 		if fhc.procInterrupt() {
 			log.Debug("Premature abort during headers import")
 			return i, errors.New("aborted")
-		}
-		// If the header's already known, skip it, otherwise store
-		if fhc.HasHeader(header.Hash(), header.Number.Uint64()) {
-			stats.ignored++
-			continue
 		}
 		if err := writeHeader(header); err != nil {
 			return i, err
@@ -252,7 +263,7 @@ func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader Fas
 	if stats.ignored > 0 {
 		context = append(context, []interface{}{"ignored", stats.ignored}...)
 	}
-	log.Info("Imported new block headers", context...)
+	log.Info("Imported new fast block headers", context...)
 
 	return 0, nil
 }
@@ -316,7 +327,6 @@ func (fhc *HeaderChain) GetAncestor(hash common.Hash, number, ancestor uint64, m
 	}
 	return hash, number
 }
-
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
@@ -409,6 +419,7 @@ func (fhc *HeaderChain) SetHead(head uint64, delFn FastDeleteCallback) {
 	fhc.headerCache.Purge()
 	fhc.tdCache.Purge()
 	fhc.numberCache.Purge()
+	fhc.rewardCache.Purge()
 
 	if fhc.CurrentHeader() == nil {
 		fhc.currentHeader.Store(fhc.genesisHeader)
@@ -432,5 +443,26 @@ func (fhc *HeaderChain) Engine() consensus.Engine { return fhc.engine }
 // GetBlock implements consensus.ChainReader, and returns nil for every input as
 // a header chain does not have blocks available for retrieval.
 func (fhc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.Block {
+	return nil
+}
+
+// Get BlockReward for HeaderChain
+func (fhc *HeaderChain) GetBlockReward(snumber uint64) *types.BlockReward {
+
+	if rewards_, ok := fhc.rewardCache.Get(snumber); ok {
+		rewards := rewards_.(*types.BlockReward)
+		if fhc.CurrentHeader().Number.Uint64() >= rewards.FastNumber.Uint64() {
+			return rewards
+		}
+		return nil
+	}
+
+	rewards := rawdb.ReadBlockReward(fhc.chainDb, snumber)
+
+	if rewards != nil && fhc.CurrentHeader().Number.Uint64() >= rewards.FastNumber.Uint64() {
+		fhc.rewardCache.Add(snumber, rewards)
+		return rewards
+	}
+
 	return nil
 }

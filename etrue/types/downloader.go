@@ -2,8 +2,8 @@ package types
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"math/big"
@@ -29,13 +29,13 @@ type LightPeer interface {
 	Head() (common.Hash, *big.Int)
 	RequestHeadersByHash(common.Hash, int, int, bool, bool) error
 	RequestHeadersByNumber(uint64, int, int, bool, bool) error
+	RequestBodies([]common.Hash, bool, uint32) error
 }
 
 // Peer encapsulates the methods required to synchronise with a remote full peer.
 type Peer interface {
 	LightPeer
 
-	RequestBodies([]common.Hash, bool, uint32) error
 	RequestReceipts([]common.Hash, bool) error
 	RequestNodeData([]common.Hash, bool) error
 }

@@ -20,7 +20,7 @@ package rawdb
 import (
 	"encoding/binary"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
@@ -50,6 +50,7 @@ var (
 	headerTDSuffix     = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
 	headerHashSuffix   = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
 	headerNumberPrefix = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
+	headerCISuffix     = []byte("c") // headerPrefix + num (uint64 big endian) + hash + headerCISuffix -> committee info
 
 	blockRewardPrefix = []byte("reward-")
 
@@ -142,4 +143,9 @@ func preimageKey(hash common.Hash) []byte {
 // configKey = configPrefix + hash
 func configKey(hash common.Hash) []byte {
 	return append(configPrefix, hash.Bytes()...)
+}
+
+// headerCIKey = headerPrefix + num (uint64 big endian) + hash + headerTDSuffix
+func headerCIKey(number uint64, hash common.Hash) []byte {
+	return append(headerKey(number, hash), headerCISuffix...)
 }

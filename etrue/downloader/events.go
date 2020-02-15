@@ -16,6 +16,11 @@
 
 package downloader
 
-type DoneEvent struct{}
+import "github.com/truechain/truechain-engineering-code/core/types"
+
+
+type DoneEvent struct{
+	Latest *types.SnailHeader
+}
 type StartEvent struct{}
 type FailedEvent struct{ Err error }

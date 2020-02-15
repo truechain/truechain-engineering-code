@@ -29,11 +29,11 @@ import (
 
 	"bytes"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -41,6 +41,8 @@ var (
 	EmptyRootHash  = DeriveSha(Transactions{})
 	EmptyUncleHash = CalcUncleHash(nil)
 	EmptySignHash  = CalcSignHash(nil)
+
+	maxUint128 = new(big.Int).Exp(big.NewInt(2), big.NewInt(128), big.NewInt(0))
 )
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
@@ -611,6 +613,20 @@ func (h *SnailHeader) HashNoNonce() common.Hash {
 	})
 }
 
+// GetDifficulty get difficulty by header
+func (h *SnailHeader) GetDifficulty(isFruit bool) (*big.Int, *big.Int) {
+	result := h.MixDigest
+
+	if isFruit {
+		last := result[16:]
+		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
+
+		return actDiff, h.FruitDifficulty
+	}
+	actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(result[:16]))
+	return actDiff, h.Difficulty
+}
+
 // Size returns the approximate memory used by all internal contents. It is used
 // to approximate and limit the memory consumption of various caches.
 func (h *SnailHeader) Size() common.StorageSize {
@@ -817,6 +833,12 @@ func (b *SnailBlock) MaxFruitNumber() *big.Int {
 	}
 	return nil
 }
+func (b *SnailBlock) MinFruitNumber() *big.Int {
+	if len(b.Fruits()) > 0 {
+		return b.Fruits()[0].FastNumber()
+	}
+	return nil
+}
 
 // Body returns the non-header content of the snailblock.
 //func (b *SnailBlock) Body() *SnailBody { return b.body }
@@ -916,4 +938,5 @@ type SnailRewardContenet struct {
 	BlockMinerReward map[common.Address]*big.Int
 	FruitMinerReward []map[common.Address]*big.Int
 	CommitteeReward  map[common.Address]*big.Int
+	FoundationReward map[common.Address]*big.Int
 }

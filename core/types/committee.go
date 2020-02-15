@@ -5,16 +5,17 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
-	"golang.org/x/crypto/sha3"
 	"io"
 	"math/big"
 	"strings"
 	"sync/atomic"
+
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -170,6 +171,7 @@ func (c *CommitteeNode) String() string {
 
 type PbftSigns []*PbftSign
 
+//go:generate gencodec -type PbftSign -field-override pbftSignMarshaling -out gen_pbftSign_json.go
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
@@ -178,6 +180,12 @@ type PbftSign struct {
 
 	// caches
 	size atomic.Value
+}
+
+// field type overrides for gencodec
+type pbftSignMarshaling struct {
+	FastHeight *hexutil.Big
+	Sign       hexutil.Bytes
 }
 
 // "external" PbftSign encoding. used for etrue protocol, etc.
@@ -277,10 +285,10 @@ func (c *CommitteeInfo) String() string {
 				backMemStrings[i] = m.String()
 			}
 		}
-		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s},BM:{%s}}", c.Id, c.StartHeight,
+		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,EH:%s,M:{%s},BM:{%s}}", c.Id, c.StartHeight, c.EndHeight,
 			strings.Join(memStrings, "\n  "), strings.Join(backMemStrings, "\n  "))
 	}
-	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}", c.Id, c.StartHeight)
+	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,EH:%s}", c.Id, c.StartHeight, c.EndHeight)
 }
 
 //EncryptCommitteeNode represent a committee member encrypt info

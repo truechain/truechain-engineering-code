@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -202,7 +202,7 @@ func (pool *SnailPool) updateFruit(fruit *types.SnailBlock) bool {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
-	if err := pool.validator.ValidateFruit(fruit, nil, true); err != nil {
+	if err := pool.validator.ValidateFruit(fruit, new(big.Int).Add(pool.chain.CurrentBlock().Number(), big.NewInt(1)), true); err != nil {
 		log.Info("update fruit validation error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 		allReplaceCounter.Inc(1)
 		fruitpendingReplaceCounter.Inc(1)
@@ -290,7 +290,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) (error, bool) {
 	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
-		if err := pool.validator.ValidateFruit(fruit, nil, true); err != nil {
+		if err := pool.validator.ValidateFruit(fruit, new(big.Int).Add(pool.chain.CurrentBlock().Number(), big.NewInt(1)), true); err != nil {
 			log.Trace("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 			return err, false
 		}
@@ -312,7 +312,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) (error, bool) {
 			return pool.appendFruit(fruit, true)
 		}
 	} else {
-		if err := pool.validator.ValidateFruit(fruit, nil, true); err != nil {
+		if err := pool.validator.ValidateFruit(fruit, new(big.Int).Add(pool.chain.CurrentBlock().Number(), big.NewInt(1)), true); err != nil {
 			if err == types.ErrSnailHeightNotYet {
 				return pool.appendFruit(fruit, false)
 			}
@@ -535,11 +535,13 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 
 	log.Debug("begininsertRestFruits", "len(reinject)", len(reinject))
 	for _, fruit := range reinject {
-		pool.allFruits[fruit.FastHash()] = fruit
-		pool.fruitPending[fruit.FastHash()] = fruit
 		fb := pool.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
 		if fb == nil {
 			continue
+		}
+		if err := pool.validator.ValidateFruit(fruit, new(big.Int).Add(pool.chain.CurrentBlock().Number(), big.NewInt(1)), true); err == nil {
+			pool.allFruits[fruit.FastHash()] = fruit
+			pool.fruitPending[fruit.FastHash()] = fruit
 		}
 	}
 
@@ -551,7 +553,7 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 func (pool *SnailPool) removeUnfreshFruit() {
 	for _, fruit := range pool.allFruits {
 		// check freshness
-		err := pool.engine.VerifyFreshness(pool.chain, fruit.Header(), nil, false)
+		err := pool.engine.VerifyFreshness(pool.chain, fruit.Header(), new(big.Int).Add(pool.chain.CurrentBlock().Number(), big.NewInt(1)), false)
 		if err != nil {
 			if err != types.ErrSnailHeightNotYet {
 				log.Debug(" removeUnfreshFruit del fruit", "fb number", fruit.FastNumber())
@@ -701,9 +703,10 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 			return consensus.ErrTooOldBlock
 		}
 	}
-	currentNumber := pool.fastchain.CurrentHeader().Number
-	if new(big.Int).Sub(fruit.FastNumber(), currentNumber).Cmp(fruitHightGap) > 0 {
-		log.Trace("validateFruit", "currentHeaderNumber", pool.fastchain.CurrentHeader().Number, "currentBlockNumber", pool.fastchain.CurrentBlock().Number(), "fruit.FastNumber()", fruit.FastNumber())
+	currentHeaderNumber := pool.fastchain.CurrentHeader().Number
+	currentBlockNumber := pool.fastchain.CurrentBlock().Number()
+	if new(big.Int).Sub(fruit.FastNumber(), currentHeaderNumber).Cmp(fruitHightGap) > 0 || new(big.Int).Sub(fruit.FastNumber(), currentBlockNumber).Cmp(fruitHightGap) > 0 {
+		log.Debug("validateFruit", "currentHeaderNumber", pool.fastchain.CurrentHeader().Number, "currentBlockNumber", pool.fastchain.CurrentBlock().Number(), "fruit.FastNumber()", fruit.FastNumber())
 		return consensus.ErrTooFutureBlock
 	}
 	//check integrity

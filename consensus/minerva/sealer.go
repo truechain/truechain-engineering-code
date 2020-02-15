@@ -24,10 +24,10 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
@@ -160,7 +160,7 @@ mineloop:
 		case result = <-found:
 			// One of the threads found a block or fruit return it
 			send <- result
-
+			log.Debug("seal conseal found fruit or block to Agent")
 			if block.Fruits() != nil {
 				if !result.IsFruit() {
 					// stop threads when get a block, wait for outside abort when result is fruit
@@ -206,6 +206,12 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 		attempts = int64(0)
 		nonce    = seed
 	)
+
+	if dataset == nil {
+		log.Error("get dataset is nil")
+		return
+	}
+
 	logger := log.New("miner", id)
 	log.Trace("mineSnail", "miner", id, "block num", block.Number(), "fb num", block.FastNumber())
 	logger.Trace("Started truehash search for new nonces", "seed", seed)

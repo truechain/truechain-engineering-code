@@ -24,13 +24,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/crypto"
-	"golang.org/x/crypto/sha3"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/mclock"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/p2p/netutil"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -252,6 +252,7 @@ func (net *Network) lookup(target common.Hash, stopOnMatch bool) []*Node {
 			if !asked[n.ID] {
 				asked[n.ID] = true
 				pendingQueries++
+				log.Debug("lookup", "i", i, "n", n.IP, "entries", len(result.entries))
 				net.reqQueryFindnode(n, target, reply)
 			}
 		}
@@ -272,7 +273,7 @@ func (net *Network) lookup(target common.Hash, stopOnMatch bool) []*Node {
 				}
 			}
 			pendingQueries--
-		case <-time.After(respTimeout):
+		case <-time.After(lookupTimeout):
 			// forget all pending requests, start new ones
 			pendingQueries = 0
 			reply = make(chan []*Node, alpha)
@@ -419,7 +420,6 @@ loop:
 
 		// Ingress packet handling.
 		case pkt := <-net.read:
-			//fmt.Println("read", pkt.ev)
 			log.Trace("<-net.read")
 			n := net.internNode(&pkt)
 			prestate := n.state
@@ -427,7 +427,7 @@ loop:
 			if err := net.handle(n, pkt.ev, &pkt); err != nil {
 				status = err.Error()
 			}
-			log.Trace("", "msg", log.Lazy{Fn: func() string {
+			log.Trace("<-net.read", "n", n.IP, "msg", log.Lazy{Fn: func() string {
 				return fmt.Sprintf("<<< (%d) %v from %x@%v: %v -> %v (%v)",
 					net.tab.count, pkt.ev, pkt.remoteID[:8], pkt.remoteAddr, prestate, n.state, status)
 			}})
@@ -446,7 +446,7 @@ loop:
 			if err := net.handle(timeout.node, timeout.ev, nil); err != nil {
 				status = err.Error()
 			}
-			log.Trace("", "msg", log.Lazy{Fn: func() string {
+			log.Trace("<-net.timeout", "msg", log.Lazy{Fn: func() string {
 				return fmt.Sprintf("--- (%d) %v for %x@%v: %v -> %v (%v)",
 					net.tab.count, timeout.ev, timeout.node.ID[:8], timeout.node.addr(), prestate, timeout.node.state, status)
 			}})
@@ -455,6 +455,7 @@ loop:
 		case q := <-net.queryReq:
 			log.Trace("<-net.queryReq")
 			if !q.start(net) {
+				log.Trace("<-net.queryReq deferQuery")
 				q.remote.deferQuery(q)
 			}
 
@@ -560,6 +561,7 @@ loop:
 			}
 
 		case res := <-topicSearchLookupDone:
+			log.Trace("<-net.topicSearchLookupDone")
 			activeSearchCount--
 			if lookupChn := searchInfo[res.target.topic].lookupChn; lookupChn != nil {
 				lookupChn <- net.ticketStore.radius[res.target.topic].converged
@@ -568,6 +570,7 @@ loop:
 				if n.state != nil && n.state.canQuery {
 					return net.conn.send(n, topicQueryPacket, topicQuery{Topic: topic}) // TODO: set expiration
 				}
+				log.Trace("<-net.topicSearchLookupDone", "n", n.IP)
 				if n.state == unknown {
 					net.ping(n, n.addr())
 				}
@@ -618,7 +621,7 @@ loop:
 				bucketRefreshTimer.Reset(bucketRefreshInterval)
 			}()
 		case newNursery := <-net.refreshReq:
-			log.Trace("<-net.refreshReq")
+			log.Trace("<-net.refreshReq", "refreshDone", refreshDone, "newNursery", len(newNursery))
 			if newNursery != nil {
 				net.nursery = newNursery
 			}
@@ -681,7 +684,7 @@ func (net *Network) refresh(done chan<- struct{}) {
 		return
 	}
 	for _, n := range seeds {
-		log.Debug("", "msg", log.Lazy{Fn: func() string {
+		log.Debug("", "seeds", len(seeds), "msg", log.Lazy{Fn: func() string {
 			var age string
 			if net.db != nil {
 				age = time.Since(net.db.lastPong(n.ID)).String()
@@ -701,6 +704,7 @@ func (net *Network) refresh(done chan<- struct{}) {
 	// Start self lookup to fill up the buckets.
 	go func() {
 		net.Lookup(net.tab.self.ID)
+		log.Info("refresh done")
 		close(done)
 	}()
 }
@@ -873,7 +877,15 @@ func init() {
 	unknown = &nodeState{
 		name: "unknown",
 		enter: func(net *Network, n *Node) {
-			net.tab.delete(n)
+			find := false
+			for _, node := range net.nursery {
+				if node.ID == n.ID {
+					find = true
+				}
+			}
+			if !find {
+				net.tab.delete(n)
+			}
 			n.pingEcho = nil
 			// Abort active queries.
 			for _, q := range n.deferredQueries {
@@ -889,6 +901,7 @@ func init() {
 		handle: func(net *Network, n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
 			switch ev {
 			case pingPacket:
+				log.Trace("Pinging remote node unknown ", "node", n.ID)
 				net.handlePing(n, pkt)
 				net.ping(n, pkt.remoteAddr)
 				return verifywait, nil
@@ -901,6 +914,7 @@ func init() {
 	verifyinit = &nodeState{
 		name: "verifyinit",
 		enter: func(net *Network, n *Node) {
+			log.Trace("Pinging remote node verifyinit", "node", n.ID)
 			net.ping(n, n.addr())
 		},
 		handle: func(net *Network, n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
@@ -964,6 +978,7 @@ func init() {
 			// Insert into the table and start revalidation of the last node
 			// in the bucket if it is full.
 			last := net.tab.add(n)
+			log.Debug("Pinging remote node known", "last", last, "n", n.IP)
 			if last != nil && last.state == known {
 				// TODO: do this asynchronously
 				net.transition(last, contested)
@@ -987,6 +1002,7 @@ func init() {
 		name:     "contested",
 		canQuery: true,
 		enter: func(net *Network, n *Node) {
+			log.Trace("Pinging remote node contested", "node", n.ID)
 			net.ping(n, n.addr())
 		},
 		handle: func(net *Network, n *Node, ev nodeEvent, pkt *ingressPacket) (*nodeState, error) {
@@ -996,7 +1012,7 @@ func init() {
 				err := net.handleKnownPong(n, pkt)
 				return known, err
 			case pongTimeout:
-				net.tab.deleteReplace(n)
+				//net.tab.deleteReplace(n)
 				return unresponsive, nil
 			case pingPacket:
 				net.handlePing(n, pkt)
@@ -1110,6 +1126,9 @@ func (net *Network) ping(n *Node, addr *net.UDPAddr) {
 	}
 	log.Trace("Pinging remote node", "node", n.ID)
 	n.pingTopics = net.ticketStore.regTopicSet()
+	for _, topic := range n.pingTopics {
+		log.Trace("Pinging remote node", "topic", topic)
+	}
 	n.pingEcho = net.conn.sendPing(n, addr, n.pingTopics)
 	net.timedEvent(respTimeout, n, pongTimeout)
 }
@@ -1130,7 +1149,7 @@ func (net *Network) handlePing(n *Node, pkt *ingressPacket) {
 }
 
 func (net *Network) handleKnownPong(n *Node, pkt *ingressPacket) error {
-	log.Trace("Handling known pong", "node", n.ID)
+	log.Trace("Handling known pong", "node", n.ID, "pingTopics", len(n.pingTopics), "ip", n.IP)
 	net.abortTimedEvent(n, pongTimeout)
 	now := mclock.Now()
 	ticket, err := pongToTicket(now, n.pingTopics, n, pkt)
@@ -1150,6 +1169,7 @@ func (net *Network) handleQueryEvent(n *Node, ev nodeEvent, pkt *ingressPacket) 
 	case findnodePacket:
 		target := crypto.Keccak256Hash(pkt.data.(*findnode).Target[:])
 		results := net.tab.closest(target, bucketSize).entries
+		log.Debug("handleQueryEvent", "results", len(results), "pkt", pkt.remoteAddr.IP, "name", n.state.name)
 		net.conn.sendNeighbours(n, results)
 		return n.state, nil
 	case neighborsPacket:
@@ -1227,7 +1247,7 @@ func (net *Network) checkTopicRegister(data *topicRegister) (*pong, error) {
 	if rlpHash(data.Topics) != pongpkt.data.(*pong).TopicHash {
 		return nil, errors.New("topic hash mismatch")
 	}
-	if int(data.Idx) < 0 || int(data.Idx) >= len(data.Topics) {
+	if data.Idx >= uint(len(data.Topics)) {
 		return nil, errors.New("topic index out of range")
 	}
 	return pongpkt.data.(*pong), nil
@@ -1248,6 +1268,7 @@ func (net *Network) handleNeighboursPacket(n *Node, pkt *ingressPacket) error {
 
 	req := pkt.data.(*neighbors)
 	nodes := make([]*Node, len(req.Nodes))
+	log.Debug("handleNeighboursPacket", "Nodes", len(req.Nodes), "pkt", pkt.remoteAddr.IP, "name", n.state.name)
 	for i, rn := range req.Nodes {
 		nn, err := net.internNodeFromNeighbours(pkt.remoteAddr, rn)
 		if err != nil {

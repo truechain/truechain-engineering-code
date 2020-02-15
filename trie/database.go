@@ -17,16 +17,17 @@
 package trie
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
 	"github.com/allegro/bigcache"
-	"github.com/ethereum/go-ethereum/common"
-	//"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
+	//"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/metrics"
 )
@@ -392,6 +393,10 @@ func (db *Database) node(hash common.Hash, cachegen uint16) node {
 // Node retrieves an encoded cached trie node from memory. If it cannot be found
 // cached, the method queries the persistent database for the content.
 func (db *Database) Node(hash common.Hash) ([]byte, error) {
+	// It doens't make sense to retrieve the metaroot
+	if hash == (common.Hash{}) {
+		return nil, errors.New("not found")
+	}
 	// Retrieve the node from the clean cache if available
 	if db.cleans != nil {
 		if enc, err := db.cleans.Get(string(hash[:])); err == nil && enc != nil {
@@ -680,7 +685,6 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 		}
 		if batch.ValueSize() > etruedb.IdealBatchSize {
 			if err := batch.Write(); err != nil {
-				db.lock.RUnlock()
 				return err
 			}
 			batch.Reset()
@@ -810,7 +814,7 @@ func (db *Database) verifyIntegrity() {
 		db.accumulate(child, reachable)
 	}
 	// Find any unreachable but cached nodes
-	var unreachable []string
+	unreachable := []string{}
 	for hash, node := range db.dirties {
 		if _, ok := reachable[hash]; !ok {
 			unreachable = append(unreachable, fmt.Sprintf("%x: {Node: %v, Parents: %d, Prev: %x, Next: %x}",

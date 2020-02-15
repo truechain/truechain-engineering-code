@@ -24,11 +24,11 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
 
@@ -276,12 +276,22 @@ func (self *StateDB) GetBalance(addr common.Address) *big.Int {
 }
 
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
-	stateObject := self.getStateObject(addr)
+	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		return stateObject.Nonce()
 	}
 
 	return 0
+}
+
+// TxIndex returns the current transaction index set by Prepare.
+func (self *StateDB) TxIndex() int {
+	return self.txIndex
+}
+
+// BlockHash returns the current block hash set by Prepare.
+func (self *StateDB) BlockHash() common.Hash {
+	return self.bhash
 }
 
 func (self *StateDB) GetCode(addr common.Address) []byte {
@@ -322,6 +332,14 @@ func (self *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash
 		return stateObject.GetState(self.db, hash)
 	}
 	return common.Hash{}
+}
+
+func (self *StateDB) GetPOSState(a common.Address, b common.Hash) []byte {
+	stateObject := self.GetOrNewStateObject(a)
+	if stateObject != nil {
+		return stateObject.GetPOSState(self.db, b)
+	}
+	return nil
 }
 
 // GetProof returns the MerkleProof for a given Account
@@ -428,6 +446,13 @@ func (self *StateDB) SetCode(addr common.Address, code []byte) {
 	}
 }
 
+func (self *StateDB) SetPOSState(addr common.Address, key common.Hash, value []byte) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetPOSState(self.db, key, value)
+	}
+}
+
 func (self *StateDB) SetState(addr common.Address, key, value common.Hash) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
@@ -472,6 +497,7 @@ func (self *StateDB) updateStateObject(stateObject *stateObject) {
 
 // deleteStateObject removes the given object from the state trie.
 func (self *StateDB) deleteStateObject(stateObject *stateObject) {
+	log.Debug("deleteStateObject", "addr", stateObject.address.String())
 	stateObject.deleted = true
 	addr := stateObject.Address()
 	self.setError(self.trie.TryDelete(addr[:]))
@@ -480,11 +506,13 @@ func (self *StateDB) deleteStateObject(stateObject *stateObject) {
 // Retrieve a state object given by the address. Returns nil if not found.
 func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObject) {
 	// Prefer 'live' objects.
-	if obj := self.stateObjects[addr]; obj != nil {
-		if obj.deleted {
-			return nil
+	if self.stateObjects != nil {
+		if obj := self.stateObjects[addr]; obj != nil {
+			if obj.deleted {
+				return nil
+			}
+			return obj
 		}
-		return obj
 	}
 
 	// Load the object from the database.
@@ -546,6 +574,28 @@ func (self *StateDB) CreateAccount(addr common.Address) {
 	newObj, prev := self.createObject(addr)
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
+	}
+}
+
+// ForEachPOSStorage is callback function. cb return true indicating like to continue, return false indicating stop
+func (self *StateDB) ForEachPOSStorage(addr common.Address, cb func(key common.Hash, value []byte) bool) {
+	stateObject := self.getStateObject(addr)
+	if stateObject == nil {
+		return
+	}
+	it := trie.NewIterator(stateObject.getTrie(self.db).NodeIterator(nil))
+	for it.Next() {
+		// ignore cached values
+		key := common.BytesToHash(self.trie.GetKey(it.Key))
+		if value, dirty := stateObject.originPOSStorage[key]; dirty {
+			if !cb(key, value) {
+				return
+			}
+			continue
+		}
+		if !cb(key, it.Value) {
+			return
+		}
 	}
 }
 
@@ -650,6 +700,7 @@ func (self *StateDB) GetRefund() uint64 {
 // Finalise finalises the state by removing the self destructed objects
 // and clears the journal as well as the refunds.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
+	log.Debug("Finalise", "count", len(s.journal.dirties), "deleteEmptyObjects", deleteEmptyObjects)
 	for addr := range s.journal.dirties {
 		stateObject, exist := s.stateObjects[addr]
 		if !exist {
@@ -679,6 +730,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 // goes into transaction receipts.
 func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	s.Finalise(deleteEmptyObjects)
+	log.Debug("IntermediateRoot", "hash", s.trie.Hash().String(), "deleteEmptyObjects", deleteEmptyObjects)
 	return s.trie.Hash()
 }
 

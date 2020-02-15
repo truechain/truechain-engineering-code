@@ -27,10 +27,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/mclock"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -252,6 +252,10 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 		log.Error("the height can't set,because it is higher than current height", "height", head, "current height", bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64())
 		return errors.New("the height you give is too high,can not be set")
 	}
+	if head == bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64() {
+		log.Error("the height is current height", "height", head, "current height", bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64())
+		return errors.New("the height you want to set is current height")
+	}
 	/*	err := bc.Validator().ValidateRewarded(head + 1)
 		if err != nil {
 			log.Error("the hight can't set,because it's next block is already rewarded", "hight", head)
@@ -388,6 +392,7 @@ func (bc *SnailBlockChain) ExportN(w io.Writer, first uint64, last uint64) error
 	}
 	log.Info("Exporting batch of blocks", "count", last-first+1)
 
+	start, reported := time.Now(), time.Now()
 	for nr := first; nr <= last; nr++ {
 		block := bc.GetBlockByNumber(nr)
 		if block == nil {
@@ -397,8 +402,11 @@ func (bc *SnailBlockChain) ExportN(w io.Writer, first uint64, last uint64) error
 		if err := block.EncodeRLP(w); err != nil {
 			return err
 		}
+		if time.Since(reported) >= statsSnailReportLimit {
+			log.Info("Exporting blocks", "exported", block.NumberU64()-first, "elapsed", common.PrettyDuration(time.Since(start)))
+			reported = time.Now()
+		}
 	}
-
 	return nil
 }
 
@@ -490,7 +498,9 @@ func (bc *SnailBlockChain) HasConfirmedBlock(hash common.Hash, number uint64) bo
 	if bc.blockCache.Contains(hash) {
 		return true
 	}
-	return rawdb.HasBody(bc.db, hash, number)
+	//use ReadCanonicalHash instead HasBody to avoid find common ancestor are not in Canonical chain,and if this ancestor is rewarded,this can avoid invalidate fork which may cost unnecessary time
+	getHash := rawdb.ReadCanonicalHash(bc.db, number)
+	return getHash == hash
 }
 
 // IsCanonicalBlock checks if a block on the Canonical block chain
@@ -618,6 +628,7 @@ func (bc *SnailBlockChain) procFutureBlocks() {
 
 		// Insert one by one as chain insertion needs contiguous ancestry between blocks
 		for i := range blocks {
+			log.Info("procFutureBlocks", "number", blocks[i].Number(), "hash", blocks[i].Hash())
 			bc.InsertChain(blocks[i : i+1])
 		}
 	}
@@ -691,7 +702,6 @@ func (bc *SnailBlockChain) writeCanonicalBlock(block *types.SnailBlock) (status 
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	log.Info("Write new snail canonical block...", "number", block.Number(), "hash", block.Hash())
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
@@ -902,6 +912,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 
 		// Some other error occurred, abort
 	case err != nil:
+		bc.futureBlocks.Remove(block.Hash())
 		stats.ignored += len(it.chain)
 		bc.reportBlock(block, err)
 		return it.index, events, err
@@ -1277,9 +1288,13 @@ Error: %v
 // should be done or not. The reason behind the optional check is because some
 // of the header retrieval mechanisms already need to verify nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
-func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
+func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int) (int, error) {
+	if len(chain) != len(fruits) {
+		log.Error("invalid len", "len(snailHeader)", len(chain), "len(fruits)", len(fruits))
+		return 0, fmt.Errorf("invalid len: len(snailHeader) (%d) not equal len([]fruitHeaders) (%d)", len(chain), len(fruits))
+	}
 	start := time.Now()
-	if i, err := bc.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
+	if i, err := bc.hc.ValidateHeaderChain(chain, fruits, checkFreq, nil, 0); err != nil {
 		return i, err
 	}
 
@@ -1290,12 +1305,12 @@ func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, checkFr
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	whFunc := func(header *types.SnailHeader) error {
-		_, err := bc.hc.WriteHeader(header)
+	whFunc := func(header *types.SnailHeader, fruitHeads []*types.SnailHeader) error {
+		_, err := bc.hc.WriteHeader(header, nil)
 		return err
 	}
 
-	return bc.hc.InsertHeaderChain(chain, whFunc, start)
+	return bc.hc.InsertHeaderChain(chain, nil, whFunc, start)
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
@@ -1370,6 +1385,16 @@ func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.Snai
 	block := bc.GetBlock(hash, number)
 
 	return block, index
+}
+
+// GetFruitsHead retrieves fruits included in the snail block
+func (bc *SnailBlockChain) GetFruitsHead(number uint64) []*types.SnailHeader {
+	hash := rawdb.ReadCanonicalHash(bc.db, number)
+	if hash == (common.Hash{}) {
+		return nil
+	}
+	heads := rawdb.ReadFruitsHead(bc.db, hash, number)
+	return heads
 }
 
 // GetFruit retrieves a fruit from the database by FastHash

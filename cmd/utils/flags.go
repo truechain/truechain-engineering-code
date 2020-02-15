@@ -29,22 +29,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/fdlimit"
+	"github.com/truechain/truechain-engineering-code/p2p/discv5"
+
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/fdlimit"
 	"github.com/truechain/truechain-engineering-code/consensus"
 
 	//"github.com/truechain/truechain-engineering-code/consensus/clique"
 	"bytes"
-
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/dashboard"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
@@ -52,6 +52,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/etruestats"
 	"github.com/truechain/truechain-engineering-code/les"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/metrics/influxdb"
 	"github.com/truechain/truechain-engineering-code/node"
@@ -74,6 +75,17 @@ SUBCOMMANDS:
 {{range $categorized.Flags}}{{"\t"}}{{.}}
 {{end}}
 {{end}}{{end}}`
+
+	OriginCommandHelpTemplate = `{{.Name}}{{if .Subcommands}} command{{end}}{{if .Flags}} [command options]{{end}} [arguments...]
+{{if .Description}}{{.Description}}
+{{end}}{{if .Subcommands}}
+SUBCOMMANDS:
+	{{range .Subcommands}}{{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}
+	{{end}}{{end}}{{if .Flags}}
+OPTIONS:
+{{range $.Flags}}{{"\t"}}{{.}}
+{{end}}
+{{end}}`
 )
 
 func init() {
@@ -94,16 +106,12 @@ GLOBAL OPTIONS:
 }
 
 // NewApp creates an app with sane defaults.
-func NewApp(gitCommit, usage string) *cli.App {
+func NewApp(gitCommit, gitDate, usage string) *cli.App {
 	app := cli.NewApp()
 	app.Name = filepath.Base(os.Args[0])
 	app.Author = ""
-	//app.Authors = nil
 	app.Email = ""
-	app.Version = params.Version
-	if len(gitCommit) >= 8 {
-		app.Version += "-" + gitCommit[:8]
-	}
+	app.Version = params.VersionWithCommit(gitCommit, gitDate)
 	app.Usage = usage
 	return app
 }
@@ -529,6 +537,16 @@ var (
 		Usage: "Comma separated enode URLs for P2P discovery bootstrap (set v4+v5 instead for light servers)",
 		Value: "",
 	}
+	BootnodesV4Flag = cli.StringFlag{
+		Name:  "bootnodesv4",
+		Usage: "Comma separated enode URLs for P2P v4 discovery bootstrap (light server, full nodes)",
+		Value: "",
+	}
+	BootnodesV5Flag = cli.StringFlag{
+		Name:  "bootnodesv5",
+		Usage: "Comma separated enode URLs for P2P v5 discovery bootstrap (light server, light nodes)",
+		Value: "",
+	}
 	NodeKeyFileFlag = cli.StringFlag{
 		Name:  "nodekey",
 		Usage: "P2P node key file",
@@ -636,6 +654,9 @@ func MakeDataDir(ctx *cli.Context) string {
 		if ctx.GlobalBool(DevnetFlag.Name) {
 			return filepath.Join(path, "devnet")
 		}
+		if ctx.GlobalBool(SingleNodeFlag.Name) {
+			return filepath.Join(path, "singlenode")
+		}
 		return path
 	}
 	Fatalf("Cannot determine default data directory, please set manually (--datadir)")
@@ -710,7 +731,7 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		urls = params.TestnetBootnodes
 	case ctx.GlobalBool(DevnetFlag.Name):
 		urls = params.DevnetBootnodes
-	case cfg.BootstrapNodes != nil:
+	case cfg.BootstrapNodes != nil || ctx.GlobalBool(SingleNodeFlag.Name):
 		return // already set, don't apply defaults.
 	}
 
@@ -722,6 +743,32 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 			continue
 		}
 		cfg.BootstrapNodes = append(cfg.BootstrapNodes, node)
+	}
+}
+
+// setBootstrapNodesV5 creates a list of bootstrap nodes from the command line
+// flags, reverting to pre-configured ones if none have been specified.
+func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
+	urls := params.DiscoveryV5Bootnodes
+	switch {
+	case ctx.GlobalIsSet(BootnodesFlag.Name) || ctx.GlobalIsSet(BootnodesV5Flag.Name):
+		if ctx.GlobalIsSet(BootnodesV5Flag.Name) {
+			urls = strings.Split(ctx.GlobalString(BootnodesV5Flag.Name), ",")
+		} else {
+			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
+		}
+	case cfg.BootstrapNodesV5 != nil || ctx.GlobalBool(SingleNodeFlag.Name):
+		return // already set, don't apply defaults.
+	}
+
+	cfg.BootstrapNodesV5 = make([]*discv5.Node, 0, len(urls))
+	for _, url := range urls {
+		node, err := discv5.ParseNode(url)
+		if err != nil {
+			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
+			continue
+		}
+		cfg.BootstrapNodesV5 = append(cfg.BootstrapNodesV5, node)
 	}
 }
 
@@ -764,6 +811,11 @@ func setHTTP(ctx *cli.Context, cfg *node.Config) {
 		}
 	}
 
+	//when singlenode start, can point ipaddr
+	if ctx.GlobalBool(RPCListenAddrFlag.Name) && ctx.GlobalBool(SingleNodeFlag.Name) {
+		cfg.HTTPHost = ctx.GlobalString(RPCListenAddrFlag.Name)
+	}
+
 	if ctx.GlobalIsSet(RPCPortFlag.Name) {
 		cfg.HTTPPort = ctx.GlobalInt(RPCPortFlag.Name)
 	}
@@ -802,7 +854,7 @@ func setWS(ctx *cli.Context, cfg *node.Config) {
 // setIPC creates an IPC path configuration from the set command line flags,
 // returning an empty string if IPC was explicitly disabled, or the set path.
 func setIPC(ctx *cli.Context, cfg *node.Config) {
-	checkExclusive(ctx, IPCDisabledFlag, IPCPathFlag)
+	CheckExclusive(ctx, IPCDisabledFlag, IPCPathFlag)
 	switch {
 	case ctx.GlobalBool(IPCDisabledFlag.Name):
 		cfg.IPCPath = ""
@@ -891,7 +943,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setNAT(ctx, cfg)
 	setListenAddress(ctx, cfg)
 	setBootstrapNodes(ctx, cfg)
-	//setBootstrapNodesV5(ctx, cfg)
+	setBootstrapNodesV5(ctx, cfg)
 
 	lightClient := ctx.GlobalString(SyncModeFlag.Name) == "light"
 	lightServer := ctx.GlobalInt(LightServFlag.Name) != 0
@@ -964,8 +1016,9 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "testnet")
 	case ctx.GlobalBool(DevnetFlag.Name):
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "devnet")
+	case ctx.GlobalBool(SingleNodeFlag.Name):
+		cfg.DataDir = ctx.GlobalString(DataDirFlag.Name)
 	}
-
 	if ctx.GlobalIsSet(KeyStoreDirFlag.Name) {
 		cfg.KeyStoreDir = ctx.GlobalString(KeyStoreDirFlag.Name)
 	}
@@ -1036,10 +1089,10 @@ func setSnailPool(ctx *cli.Context, cfg *snailchain.SnailPoolConfig) {
 
 }
 
-// checkExclusive verifies that only a single isntance of the provided flags was
+// CheckExclusive verifies that only a single instance of the provided flags was
 // set by the user. Each flag might optionally be followed by a string type to
 // specialize it further.
-func checkExclusive(ctx *cli.Context, args ...interface{}) {
+func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 	set := make([]string, 0, 1)
 	for i := 0; i < len(args); i++ {
 		// Make sure the next argument is a flag and skip if not set
@@ -1053,11 +1106,14 @@ func checkExclusive(ctx *cli.Context, args ...interface{}) {
 		if i+1 < len(args) {
 			switch option := args[i+1].(type) {
 			case string:
-				// Extended flag, expand the name and shift the arguments
+				// Extended flag check, make sure value set doesn't conflict with passed in option
 				if ctx.GlobalString(flag.GetName()) == option {
 					name += "=" + option
+					set = append(set, "--"+name)
 				}
+				// shift arguments and continue
 				i++
+				continue
 
 			case cli.Flag:
 			default:
@@ -1077,9 +1133,9 @@ func checkExclusive(ctx *cli.Context, args ...interface{}) {
 // SetTruechainConfig applies etrue-related command line flags to the config.
 func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	// Avoid conflicting network flags
-	checkExclusive(ctx, TestnetFlag, DevnetFlag)
-	//checkExclusive(ctx, LightServFlag, LightModeFlag)
-	checkExclusive(ctx, LightServFlag, SyncModeFlag, "light")
+	CheckExclusive(ctx, TestnetFlag, DevnetFlag, SingleNodeFlag)
+	//CheckExclusive(ctx, LightServFlag, LightModeFlag)
+	CheckExclusive(ctx, LightServFlag, SyncModeFlag, "light")
 
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 	setEtherbase(ctx, ks, cfg)
@@ -1161,7 +1217,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
-	cfg.NoPruning = ctx.GlobalString(GCModeFlag.Name) == "archive"
+
+	if ctx.GlobalIsSet(GCModeFlag.Name) {
+		cfg.NoPruning = ctx.GlobalString(GCModeFlag.Name) == "archive"
+	}
 
 	if ctx.GlobalIsSet(StateGCFlag.Name) || cfg.SyncMode == downloader.SnapShotSync {
 		cfg.DeletedState = true
@@ -1206,6 +1265,11 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 			cfg.NetworkId = 100
 		}
 		cfg.Genesis = core.DefaultDevGenesisBlock()
+	case ctx.GlobalBool(SingleNodeFlag.Name):
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 400
+		}
+		cfg.Genesis = core.DefaultSingleNodeGenesisBlock()
 	}
 	// TODO(fjl): move trie cache generations into config
 	if gen := ctx.GlobalInt(TrieCacheGenFlag.Name); gen > 0 {
@@ -1327,6 +1391,8 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 		genesis = core.DefaultTestnetGenesisBlock()
 	case ctx.GlobalBool(DevnetFlag.Name):
 		genesis = core.DefaultDevGenesisBlock()
+	case ctx.GlobalBool(SingleNodeFlag.Name):
+		genesis = core.DefaultSingleNodeGenesisBlock()
 	}
 	return genesis
 }

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/elastic/gosigar"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
@@ -21,6 +20,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etrueclient"
 	"github.com/truechain/truechain-engineering-code/internal/debug"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/node"
 	"gopkg.in/urfave/cli.v1"
@@ -33,14 +33,16 @@ const (
 var (
 	// Git SHA1 commit hash of the release (set via linker flags)
 	gitCommit = ""
+	gitDate   = ""
 	// The app that holds all commands and flags.
-	app = utils.NewApp(gitCommit, "the truechain command line interface")
+	app = utils.NewApp(gitCommit, gitDate, "the truechain command line interface")
 	// flags that configure the node
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
 		utils.BootnodesFlag,
+		utils.BootnodesV5Flag,
 		utils.DataDirFlag,
 		utils.KeyStoreDirFlag,
 		utils.NoUSBFlag,
@@ -179,7 +181,6 @@ func init() {
 		//makecacheCommand,
 		//makedagCommand,
 		versionCommand,
-		bugCommand,
 		licenseCommand,
 		// See config.go
 		dumpConfigCommand,

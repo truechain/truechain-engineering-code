@@ -24,15 +24,15 @@ import (
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/p2p/nat"
 	"github.com/truechain/truechain-engineering-code/p2p/netutil"
 )
 
-const Version = 4
+const Version = 520
 
 // Errors
 var (
@@ -47,6 +47,7 @@ const (
 	expiration  = 20 * time.Second
 
 	driftThreshold = 10 * time.Second // Allowed clock drift before warning user
+	lookupTimeout  = 2 * time.Millisecond
 )
 
 // RPC request structures
@@ -84,6 +85,7 @@ type (
 
 	// findnode is a query for nodes close to the given target.
 	findnode struct {
+		Version    uint
 		Target     NodeID // doesn't need to be an actual public key
 		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
@@ -240,7 +242,7 @@ func ListenUDP(priv *ecdsa.PrivateKey, conn conn, nodeDBPath string, netrestrict
 	if err != nil {
 		return nil, err
 	}
-	log.Info("UDP listener up", "net", net.tab.self)
+	log.Info("UDP listener up v5", "net", net.tab.self)
 	transport.net = net
 	go transport.readLoop()
 	return net, nil
@@ -276,6 +278,7 @@ func (t *udp) sendPing(remote *Node, toaddr *net.UDPAddr, topics []Topic) (hash 
 
 func (t *udp) sendFindnode(remote *Node, target NodeID) {
 	t.sendPacket(remote.ID, remote.addr(), byte(findnodePacket), findnode{
+		Version:    Version,
 		Target:     target,
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	})

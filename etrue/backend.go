@@ -26,15 +26,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/truechain/truechain-engineering-code/consensus/tbft"
-	config "github.com/truechain/truechain-engineering-code/params"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	elect "github.com/truechain/truechain-engineering-code/consensus/election"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
@@ -44,16 +38,19 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/filters"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/miner"
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
@@ -157,10 +154,10 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		gasPrice:       config.GasPrice,
 		etherbase:      config.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
-		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
+		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 	}
 
-	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId)
+	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId, "syncmode", config.SyncMode)
 
 	if !config.SkipBcVersionCheck {
 		bcVersion := rawdb.ReadDatabaseVersion(chainDb)
@@ -178,8 +175,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if err != nil {
 		return nil, err
 	}
-	bl := etrue.blockchain.GetBlockByNumber(0)
-	fmt.Print(bl)
 
 	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, etrue.chainConfig, etrue.engine, etrue.blockchain)
 	if err != nil {
@@ -202,6 +197,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.bloomIndexer.Start(etrue.blockchain)
 
+	consensus.InitTIP8(chainConfig, etrue.snailblockchain)
 	//sv := chain.NewBlockValidator(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 	//etrue.snailblockchain.SetValidator(sv)
 
@@ -218,7 +214,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	//etrue.snailPool = chain.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
 	etrue.snailPool = chain.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 
-	etrue.election = elect.NewElection(etrue.blockchain, etrue.snailblockchain, etrue.config)
+	etrue.election = elect.NewElection(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.config)
 
 	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
@@ -473,6 +469,8 @@ func (s *Truechain) IsListening() bool                  { return true } // Alway
 func (s *Truechain) EthVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
 func (s *Truechain) NetVersion() uint64                 { return s.networkID }
 func (s *Truechain) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
+func (s *Truechain) Synced() bool                       { return atomic.LoadUint32(&s.protocolManager.acceptTxs) == 1 }
+func (s *Truechain) ArchiveMode() bool                  { return s.config.NoPruning }
 
 // Protocols implements node.Service, returning all the currently configured
 // network protocols to start.

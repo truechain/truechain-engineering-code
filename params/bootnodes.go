@@ -40,6 +40,12 @@ var TestnetBootnodes = []string{
 // DevnetBootnodes are the enode URLs of the P2P bootstrap nodes running on
 // the dev Truechain network.
 var DevnetBootnodes = []string{
-	"enode://f1ce2725b0e5cf403293be25ce94c222d8f4e6e7e4e2881559382a8fbfb64934923467ca182985f8391c6f65d79a717c13df4fb2a53ccd8aba51e5638d6da6a7@39.98.202.190:30314",
-	"enode://5f8f37510d880693e3b8f68f76c2d12fa11074bdf0f11695743af4546b374065fb1dc2ec83dc0f31e1ae7d5304102d429c664869aa7f6b2b70bda45d2a1716ee@39.98.240.34:30314",
+	"enode://ec1e13e3d0177196a55570dfc1c810b2ea05109cb310c4dc7397ae6f3109467ec0d13a5f28ebdfb553511d492a4892ffa3a8283ce69bc5f93fce079dbfbfa5f4@39.100.120.25:30310",
+}
+
+// DiscoveryV5Bootnodes are the enode URLs of the P2P bootstrap nodes for the
+// experimental RLPx v5 topic-discovery network.
+var DiscoveryV5Bootnodes = []string{
+	"enode://ebb007b1efeea668d888157df36cf8fe49aa3f6fd63a0a67c45e4745dc081feea031f49de87fa8524ca29343a21a249d5f656e6daeda55cbe5800d973b75e061@39.98.171.41:30315",
+	"enode://b5062c25dc78f8d2a8a216cebd23658f170a8f6595df16a63adfabbbc76b81b849569145a2629a65fe50bfd034e38821880f93697648991ba786021cb65fb2ec@39.98.43.179:30312",
 }

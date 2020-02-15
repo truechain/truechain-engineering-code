@@ -26,22 +26,23 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/common/prque"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/mclock"
+	"github.com/truechain/truechain-engineering-code/common/prque"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
 
@@ -61,7 +62,7 @@ const (
 	maxFutureBlocks         = 256
 	maxTimeFutureBlocks     = 30
 	badBlockLimit           = 10
-	triesInMemory           = 128
+	TriesInMemory           = 128
 	triesInMemoryDownloader = 16
 
 	fastBlockStateInternal = 6
@@ -111,6 +112,7 @@ type BlockChain struct {
 	chainSideFeed    event.Feed
 	chainHeadFeed    event.Feed
 	logsFeed         event.Feed
+	blockProcFeed    event.Feed
 	RewardNumberFeed event.Feed
 	stateChangeFeed  event.Feed
 	rewardsFeed      event.Feed
@@ -263,7 +265,6 @@ func (bc *BlockChain) loadLastState() error {
 	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
-
 		// Send a message to the committee if you find a chain backtracking
 		if err := bc.repair(&currentBlock); err != nil {
 			return err
@@ -290,9 +291,14 @@ func (bc *BlockChain) loadLastState() error {
 	}
 	// Restore the last known currentReward
 	rewardHead := bc.GetLastRowByFastCurrentBlock()
+
 	if rewardHead != nil {
 		bc.currentReward.Store(rewardHead)
 		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
+	} else {
+		reward := &types.BlockReward{SnailNumber: big.NewInt(0)}
+		bc.currentReward.Store(reward)
+		rawdb.WriteHeadRewardNumber(bc.db, 0)
 	}
 
 	// Restore the last known currentReward
@@ -320,7 +326,6 @@ func (bc *BlockChain) loadLastState() error {
 //Gets the nearest reward block based on the current height of the fast chain
 func (bc *BlockChain) GetLastRowByFastCurrentBlock() *types.BlockReward {
 	block := bc.CurrentBlock()
-
 	for i := block.NumberU64(); i > 0; i-- {
 		if block.SnailNumber().Uint64() != 0 {
 			return &types.BlockReward{
@@ -332,6 +337,7 @@ func (bc *BlockChain) GetLastRowByFastCurrentBlock() *types.BlockReward {
 		}
 		block = bc.GetBlockByNumber(i)
 	}
+
 	return nil
 }
 
@@ -361,36 +367,33 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.signCache.Purge()
 	bc.rewardCache.Purge()
 
+	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
+		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
+			// Rewound state missing, rolled back to before pivot, reset to genesis
+			bc.currentBlock.Store(currentBlock)
+		}
+	}
+
 	// Rewind the block chain, ensuring we don't end up with a stateless head block
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil && currentHeader.Number.Uint64() < currentBlock.NumberU64() {
 		bc.currentBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
 	}
+
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
-		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
-			// Rewound state missing, rolled back to before pivot, reset to genesis
-			bc.currentBlock.Store(bc.genesisBlock)
-		}
+		bc.currentFastBlock.Store(currentBlock)
 	}
+
 	// Rewind the fast block in a simpleton way to the target head
 	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock != nil && currentHeader.Number.Uint64() < currentFastBlock.NumberU64() {
 		bc.currentFastBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
 	}
+
 	// If either blocks reached nil, reset to the genesis state
 	if currentBlock := bc.CurrentBlock(); currentBlock == nil {
 		bc.currentBlock.Store(bc.genesisBlock)
 	}
 	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock == nil {
 		bc.currentFastBlock.Store(bc.genesisBlock)
-	}
-
-	rawdb.WriteHeadRewardNumber(bc.db, 0)
-	// Restore the last known currentReward
-	if bc.CurrentBlock().NumberU64() != 0 {
-		currentReward := bc.GetLastRowByFastCurrentBlock()
-		if currentReward != nil {
-			bc.currentReward.Store(currentReward)
-			rawdb.WriteHeadRewardNumber(bc.db, currentReward.SnailNumber.Uint64())
-		}
 	}
 
 	currentBlock := bc.CurrentBlock()
@@ -816,7 +819,7 @@ func (bc *BlockChain) Stop() {
 	if !bc.cacheConfig.Disabled {
 		triedb := bc.stateCache.TrieDB()
 
-		for _, offset := range []uint64{0, 1, triesInMemoryDownloader - 1, triesInMemory - 1} {
+		for _, offset := range []uint64{0, 1, triesInMemoryDownloader - 1, TriesInMemory - 1} {
 			if number := bc.CurrentBlock().NumberU64(); number > offset {
 				recent := bc.GetBlockByNumber(number - offset)
 
@@ -900,6 +903,11 @@ func SetReceiptsData(config *params.ChainConfig, block *types.Block, receipts ty
 	for j := 0; j < len(receipts); j++ {
 		// The transaction hash can be retrieved from the transaction itself
 		receipts[j].TxHash = transactions[j].Hash()
+
+		// block location fields
+		receipts[j].BlockHash = block.Hash()
+		receipts[j].BlockNumber = block.Number()
+		receipts[j].TransactionIndex = uint(j)
 
 		// The contract address can be derived from the transaction itself
 		if transactions[j].To() == nil {
@@ -1083,7 +1091,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -int64(block.NumberU64()))
-		if current := block.NumberU64(); current > triesInMemory {
+		if current := block.NumberU64(); current > TriesInMemory {
 			// If we exceeded our memory allowance, flush matured singleton nodes to disk
 			var (
 				nodes, imgs = triedb.Size()
@@ -1093,15 +1101,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 				triedb.Cap(limit - etruedb.IdealBatchSize)
 			}
 			// Find the next state trie we need to commit
-			header := bc.GetHeaderByNumber(current - triesInMemory)
+			header := bc.GetHeaderByNumber(current - TriesInMemory)
 			chosen := header.Number.Uint64()
 
 			// If we exceeded out time allowance, flush an entire trie to disk
 			if bc.gcproc > bc.cacheConfig.TrieTimeLimit || header.Number.Int64()%blockDeleteHeight == 0 {
 				// If we're exceeding limits but haven't reached a large enough memory gap,
 				// warn the user that the system is becoming unstable.
-				if chosen < lastWrite+triesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
-					log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/triesInMemory)
+				if chosen < lastWrite+TriesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
+					log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/TriesInMemory)
 				}
 				// Flush an entire trie and restart the counters
 				triedb.Commit(header.Root, true)
@@ -1173,6 +1181,8 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	if len(chain) == 0 {
 		return 0, nil
 	}
+	bc.blockProcFeed.Send(true)
+	defer bc.blockProcFeed.Send(false)
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].NumberU64() != chain[i-1].NumberU64()+1 || chain[i].ParentHash() != chain[i-1].Hash() {
@@ -1877,4 +1887,14 @@ func (bc *BlockChain) stateGcBodyAndReceipt(gcNumber uint64) {
 	log.Info("stateGcBodyAndReceipt", "height", height, "number", gcNumber+blockDeleteOnce)
 	bc.cacheConfig.HeightGcState.Store(gcNumber + blockDeleteOnce)
 	rawdb.WriteStateGcBR(bc.db, gcNumber+blockDeleteOnce)
+}
+
+// SetCommitteeInfo write committee info in rawdb for light client
+func (bc *BlockChain) SetCommitteeInfo(hash common.Hash, number uint64, infos []*types.CommitteeMember) {
+}
+
+// SubscribeBlockProcessingEvent registers a subscription of bool where true means
+// block processing has started while false means it has stopped.
+func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {
+	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
 }

@@ -26,25 +26,25 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/common/math"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/metrics"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
+	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
 const (
@@ -209,14 +209,14 @@ func (s *PublicAccountAPI) Accounts() []common.Address {
 
 // RPCFruits represents a fruit that will serialize to the RPC representation of a fruit
 type RPCFruit struct {
-	Number          *big.Int    `json:"number"`
-	FruitDifficulty *big.Int    `json:"fruitDifficulty"`
-	FruitHash       common.Hash `json:"fruitHash"`
-	FastHash        common.Hash `json:"fastHash"`
-	FastNumber      *big.Int    `json:"fastNumber"`
-	SignHash        common.Hash `json:"signHash"`
-	PointerHash     common.Hash `json:"pointerHash"`
-	PointerNumber   *big.Int    `json:"pointerNumber"`
+	Number          *hexutil.Big `json:"number"`
+	FruitDifficulty *hexutil.Big `json:"fruitDifficulty"`
+	FruitHash       common.Hash  `json:"fruitHash"`
+	FastHash        common.Hash  `json:"fastHash"`
+	FastNumber      *hexutil.Big `json:"fastNumber"`
+	SignHash        common.Hash  `json:"signHash"`
+	PointerHash     common.Hash  `json:"pointerHash"`
+	PointerNumber   *hexutil.Big `json:"pointerNumber"`
 }
 
 // newRPCFruit returns a fruit that will serialize to the RPC
@@ -224,14 +224,14 @@ type RPCFruit struct {
 func newRPCFruit(fruit *types.SnailBlock) *RPCFruit {
 
 	result := &RPCFruit{
-		Number:          fruit.Header().Number,
-		FruitDifficulty: fruit.Header().FruitDifficulty,
+		Number:          (*hexutil.Big)(fruit.Header().Number),
+		FruitDifficulty: (*hexutil.Big)(fruit.Header().FruitDifficulty),
 		FruitHash:       fruit.Hash(),
 		FastHash:        fruit.FastHash(),
-		FastNumber:      fruit.Header().FastNumber,
+		FastNumber:      (*hexutil.Big)(fruit.Header().FastNumber),
 		SignHash:        fruit.Header().SignHash,
 		PointerHash:     fruit.Header().PointerHash,
-		PointerNumber:   fruit.Header().PointerNumber,
+		PointerNumber:   (*hexutil.Big)(fruit.Header().PointerNumber),
 	}
 	return result
 }
@@ -623,12 +623,12 @@ func (s *PublicBlockChainAPI) GetBlockByNumber(ctx context.Context, blockNr rpc.
 	block, err := s.b.BlockByNumber(ctx, blockNr)
 	if block != nil {
 		response, err := s.rpcOutputBlock(block, true, fullTx)
-		if err == nil && blockNr == rpc.PendingBlockNumber {
+		/*if err == nil && blockNr == rpc.PendingBlockNumber {
 			// Pending blocks need to nil out a few fields
 			for _, field := range []string{"hash", "nonce", "miner"} {
 				response[field] = nil
 			}
-		}
+		}*/
 		return response, err
 	}
 	return nil, err
@@ -690,6 +690,10 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 }
 
 func (s *PublicBlockChainAPI) GetFruitByNumber(ctx context.Context, fastblockNr rpc.BlockNumber, fullSigns bool) (map[string]interface{}, error) {
+	if fastblockNr == rpc.LatestBlockNumber {
+		fastHash := s.b.CurrentSnailBlock().Fruits()[len(s.b.CurrentSnailBlock().Fruits())-1].FastHash()
+		return s.GetFruitByHash(ctx, fastHash, fullSigns)
+	}
 	block, err := s.b.BlockByNumber(ctx, fastblockNr)
 	if block != nil {
 		if err == nil {
@@ -964,11 +968,12 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"number":           (*hexutil.Big)(head.Number),
 		"hash":             b.Hash(),
 		"parentHash":       head.ParentHash,
-		"CommitteeHash":    head.CommitteeHash,
+		"committeeRoot":    head.CommitteeHash,
+		"maker":            head.Proposer,
 		"logsBloom":        head.Bloom,
 		"stateRoot":        head.Root,
 		"SnailHash":        head.SnailHash,
-		"SnailNumber":      head.SnailNumber,
+		"SnailNumber":      (*hexutil.Big)(head.SnailNumber),
 		"extraData":        hexutil.Bytes(head.Extra),
 		"size":             hexutil.Uint64(b.Size()),
 		"gasLimit":         hexutil.Uint64(head.GasLimit),
@@ -1056,20 +1061,17 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]interface{}, error) {
 	head := b.Header() // copies the header once
 	fields := map[string]interface{}{
-		"number":        (*hexutil.Big)(head.Number),
-		"hash":          b.Hash(),
-		"parentHash":    head.ParentHash,
-		"fruitsHash":    head.FruitsHash,
-		"nonce":         head.Nonce,
-		"mixHash":       head.MixDigest,
-		"miner":         head.Coinbase,
-		"difficulty":    (*hexutil.Big)(head.Difficulty),
-		"extraData":     hexutil.Bytes(head.Extra),
-		"publicKey":     hexutil.Bytes(head.Publickey),
-		"pointerNumber": head.PointerNumber,
-		"fastNumber":    head.FastNumber,
-		"size":          hexutil.Uint64(b.Size()),
-		"timestamp":     (*hexutil.Big)(head.Time),
+		"number":     (*hexutil.Big)(head.Number),
+		"hash":       b.Hash(),
+		"parentHash": head.ParentHash,
+		"fruitsHash": head.FruitsHash,
+		"nonce":      head.Nonce,
+		"mixHash":    head.MixDigest,
+		"miner":      head.Coinbase,
+		"difficulty": (*hexutil.Big)(head.Difficulty),
+		"extraData":  hexutil.Bytes(head.Extra),
+		"size":       hexutil.Uint64(b.Size()),
+		"timestamp":  (*hexutil.Big)(head.Time),
 	}
 
 	fs := b.Fruits()
@@ -1099,18 +1101,20 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interface{}, error) {
 	head := fruit.Header() // copies the header once
 	fields := map[string]interface{}{
-		"number":          head.Number,
+		"number":          (*hexutil.Big)(head.Number),
 		"hash":            fruit.Hash(),
 		"fastHash":        head.FastHash,
-		"fastNumber":      head.FastNumber,
+		"fastNumber":      (*hexutil.Big)(head.FastNumber),
 		"nonce":           head.Nonce,
 		"mixHash":         head.MixDigest,
 		"miner":           head.Coinbase,
 		"publicKey":       hexutil.Bytes(head.Publickey),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
-		"size":            fruit.Size(),
+		"size":            hexutil.Uint64(fruit.Size()),
 		"timestamp":       (*hexutil.Big)(head.Time),
+		"PointerHash":     head.PointerHash,
+		"pointerNumber":   (*hexutil.Big)(head.PointerNumber),
 	}
 	signs := fruit.Signs()
 	if fullSigns {
@@ -1118,7 +1122,7 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		for i, sign := range signs {
 			signInfo := map[string]interface{}{
 				"fastHash":   sign.FastHash,
-				"fastHeight": sign.FastHeight,
+				"fastHeight": (*hexutil.Big)(sign.FastHeight),
 				"result":     sign.Result,
 				"sign":       hexutil.Bytes(sign.Sign),
 			}
@@ -1186,9 +1190,10 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 		return nil
 	}
 	fields := map[string]interface{}{
-		"blockminer":     content.BlockMinerReward,
-		"fruitminer":     content.FruitMinerReward,
-		"committeReward": content.CommitteeReward,
+		"blockminer":       content.BlockMinerReward,
+		"fruitminer":       content.FruitMinerReward,
+		"committeReward":   content.CommitteeReward,
+		"foundationReward": content.FoundationReward,
 	}
 	/*log.Warn("api", "blockminer", content.BlockMinerReward)
 	log.Warn("api", "committeReward", content.CommitteeReward)
@@ -1198,6 +1203,19 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 			log.Warn("api", hex.EncodeToString(k[:]), v)
 		}
 	}*/
+	return fields
+}
+func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map[string]interface{} {
+	content := s.b.GetChainRewardContent(blockNr)
+	if content == nil {
+		return nil
+	}
+	fields := map[string]interface{}{
+		"foundationReward": content.Foundation,
+		"blockminer":       content.CoinBase,
+		"fruitminer":       content.FruitBase,
+		"committeReward":   content.CommitteeBase,
+	}
 	return fields
 }
 
@@ -1276,6 +1294,15 @@ func newRPCTransactionFromBlockIndex(b *types.Block, index uint64) *RPCTransacti
 	return newRPCTransaction(txs[index], b.Hash(), b.NumberU64(), index)
 }
 
+// newRPCFruitFromBlockIndex returns a fruit that will serialize to the RPC representation.
+func (s *PublicBlockChainAPI) newRPCFruitFromBlockIndex(ctx context.Context, b *types.SnailBlock, index uint64, fullSigns bool) (map[string]interface{}, error) {
+	fts := b.Fruits()
+	if index >= uint64(len(fts)) {
+		return nil, fmt.Errorf("the index you give (%d) is higher than len(fruits) (%d)", index, len(fts))
+	}
+	return s.GetFruitByHash(ctx, fts[index].FastHash(), fullSigns)
+}
+
 // newRPCRawTransactionFromBlockIndex returns the bytes of a transaction given a block and a transaction index.
 func newRPCRawTransactionFromBlockIndex(b *types.Block, index uint64) hexutil.Bytes {
 	txs := b.Transactions()
@@ -1325,6 +1352,24 @@ func (s *PublicTransactionPoolAPI) GetBlockTransactionCountByHash(ctx context.Co
 	return nil
 }
 
+// GetBlockFruitCountByNumber returns the number of fruits in the block with the given block number.
+func (s *PublicBlockChainAPI) GetBlockFruitCountByNumber(ctx context.Context, blockNr rpc.BlockNumber) *hexutil.Uint {
+	if block, _ := s.b.SnailBlockByNumber(ctx, blockNr); block != nil {
+		n := hexutil.Uint(len(block.Fruits()))
+		return &n
+	}
+	return nil
+}
+
+// GetBlockFruitCountByHash returns the number of fruits in the block with the given hash.
+func (s *PublicBlockChainAPI) GetBlockFruitCountByHash(ctx context.Context, blockHash common.Hash) *hexutil.Uint {
+	if block, _ := s.b.GetSnailBlock(ctx, blockHash); block != nil {
+		n := hexutil.Uint(len(block.Fruits()))
+		return &n
+	}
+	return nil
+}
+
 // GetTransactionByBlockNumberAndIndex returns the transaction for the given block number and index.
 func (s *PublicTransactionPoolAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) *RPCTransaction {
 	if block, _ := s.b.BlockByNumber(ctx, blockNr); block != nil {
@@ -1339,6 +1384,22 @@ func (s *PublicTransactionPoolAPI) GetTransactionByBlockHashAndIndex(ctx context
 		return newRPCTransactionFromBlockIndex(block, uint64(index))
 	}
 	return nil
+}
+
+// GetFruitByBlockNumberAndIndex returns the fruit for the given block number and index.
+func (s *PublicBlockChainAPI) GetFruitByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint, fullSigns bool) (map[string]interface{}, error) {
+	if block, _ := s.b.SnailBlockByNumber(ctx, blockNr); block != nil {
+		return s.newRPCFruitFromBlockIndex(ctx, block, uint64(index), fullSigns)
+	}
+	return nil, nil
+}
+
+// GetFruitByBlockHashAndIndex returns the fruit for the given block hash and index.
+func (s *PublicBlockChainAPI) GetFruitByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint, fullSigns bool) (map[string]interface{}, error) {
+	if block, _ := s.b.GetSnailBlock(ctx, blockHash); block != nil {
+		return s.newRPCFruitFromBlockIndex(ctx, block, uint64(index), fullSigns)
+	}
+	return nil, nil
 }
 
 // GetRawTransactionByBlockNumberAndIndex returns the bytes of the transaction for the given block number and index.
@@ -1942,4 +2003,94 @@ func (s *PublicNetAPI) PeerCount() hexutil.Uint {
 // Version returns the current True protocol version.
 func (s *PublicNetAPI) Version() string {
 	return fmt.Sprintf("%d", s.networkVersion)
+}
+
+// PublicImpawnAPI offers and API for the snail pool. It only operates on data that is non confidential.
+type PublicImpawnAPI struct {
+	b Backend
+}
+
+// NewPublicFruitPoolAPI creates a new snail pool service that gives information about the snail pool.
+func NewPublicImpawnAPI(b Backend) *PublicImpawnAPI {
+	return &PublicImpawnAPI{b}
+}
+
+// GetAllStakingAccount returns the pendingFruits contained within the snail pool.
+func (s *PublicImpawnAPI) GetAllStakingAccount(ctx context.Context, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetAllStakingAccountRPC(uint64(blockNr)), nil
+}
+
+// GetStakingAsset returns the pendingFruits contained within the snail pool.
+func (s *PublicImpawnAPI) GetStakingAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) ([]vm.StakingAsset, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetStakingAssetRPC(addr), nil
+}
+
+// GetLockedAsset returns the pendingFruits contained within the snail pool.
+func (s *PublicImpawnAPI) GetLockedAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) ([]vm.LockedAsset, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetLockedAssetRPC(addr, uint64(blockNr)), nil
+}
+
+// GetAllCancelableAsset returns the pendingFruits contained within the snail pool.
+func (s *PublicImpawnAPI) GetAllCancelableAsset(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) ([]vm.CancelableAsset, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetAllCancelableAssetRPC(addr), nil
+}
+
+// GetStakingAccount returns the addr staking account.
+func (s *PublicImpawnAPI) GetStakingAccount(ctx context.Context, addr common.Address, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return impawn.GetStakingAccountRPC(uint64(blockNr), addr), nil
 }

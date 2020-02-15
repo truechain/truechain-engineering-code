@@ -22,10 +22,11 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // NewTransactor is a utility method to easily create a transaction signer from
@@ -40,6 +41,24 @@ func NewTransactor(keyin io.Reader, passphrase string) (*TransactOpts, error) {
 		return nil, err
 	}
 	return NewKeyedTransactor(key.PrivateKey), nil
+}
+
+// NewKeyStoreTransactor is a utility method to easily create a transaction signer from
+// an decrypted key from a keystore
+func NewKeyStoreTransactor(keystore *keystore.KeyStore, account accounts.Account) (*TransactOpts, error) {
+	return &TransactOpts{
+		From: account.Address,
+		Signer: func(signer types.Signer, address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+			if address != account.Address {
+				return nil, errors.New("not authorized to sign this account")
+			}
+			signature, err := keystore.SignHash(account, signer.Hash(tx).Bytes())
+			if err != nil {
+				return nil, err
+			}
+			return tx.WithSignature(signer, signature)
+		},
+	}, nil
 }
 
 // NewKeyedTransactor is a utility method to easily create a transaction signer
@@ -60,3 +79,17 @@ func NewKeyedTransactor(key *ecdsa.PrivateKey) *TransactOpts {
 		},
 	}
 }
+
+// NewClefTransactor is a utility method to easily create a transaction signer
+// with a clef backend.
+// func NewClefTransactor(clef *external.ExternalSigner, account accounts.Account) *TransactOpts {
+// 	return &TransactOpts{
+// 		From: account.Address,
+// 		Signer: func(signer types.Signer, address common.Address, transaction *types.Transaction) (*types.Transaction, error) {
+// 			if address != account.Address {
+// 				return nil, errors.New("not authorized to sign this account")
+// 			}
+// 			return clef.SignTx(account, transaction, nil) // Clef enforces its own chain id
+// 		},
+// 	}
+// }

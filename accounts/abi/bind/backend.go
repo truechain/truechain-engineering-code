@@ -21,7 +21,7 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 	truechain "github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )

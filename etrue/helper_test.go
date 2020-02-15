@@ -23,6 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core/state"
 
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
@@ -31,11 +32,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -156,6 +157,9 @@ func (p *testTxPool) Pending() (map[common.Address]types.Transactions, error) {
 
 func (p *testTxPool) SubscribeNewTxsEvent(ch chan<- types.NewTxsEvent) event.Subscription {
 	return p.txFeed.Subscribe(ch)
+}
+func (p *testTxPool) State() *state.ManagedState {
+	return nil
 }
 
 // testSnailPool is a fake, helper fruit pool for testing purposes

@@ -20,13 +20,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 	"io"
 	"io/ioutil"
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
 )
@@ -40,9 +40,13 @@ import (
 // separate Msg with a bytes.Reader as Payload for each send.
 type Msg struct {
 	Code       uint64
-	Size       uint32 // size of the paylod
+	Size       uint32 // Size of the raw payload
 	Payload    io.Reader
 	ReceivedAt time.Time
+
+	meterCap  Cap    // Protocol name and version for egress metering
+	meterCode uint64 // Message within protocol for egress metering
+	meterSize uint32 // Compressed message size for ingress metering
 }
 
 // Decode parses the RLP content of a message into
@@ -177,7 +181,7 @@ type MsgPipeRW struct {
 	closed  *int32
 }
 
-// WriteMsg sends a messsage on the pipe.
+// WriteMsg sends a message on the pipe.
 // It blocks until the receiver has consumed the message payload.
 func (p *MsgPipeRW) WriteMsg(msg Msg) error {
 	if atomic.LoadInt32(p.closed) == 0 {
@@ -260,19 +264,23 @@ func ExpectMsg(r MsgReader, code uint64, content interface{}) error {
 type msgEventer struct {
 	MsgReadWriter
 
-	feed     *event.Feed
-	peerID   enode.ID
-	Protocol string
+	feed          *event.Feed
+	peerID        enode.ID
+	Protocol      string
+	localAddress  string
+	remoteAddress string
 }
 
 // newMsgEventer returns a msgEventer which sends message events to the given
 // feed
-func newMsgEventer(rw MsgReadWriter, feed *event.Feed, peerID enode.ID, proto string) *msgEventer {
+func newMsgEventer(rw MsgReadWriter, feed *event.Feed, peerID enode.ID, proto, remote, local string) *msgEventer {
 	return &msgEventer{
 		MsgReadWriter: rw,
 		feed:          feed,
 		peerID:        peerID,
 		Protocol:      proto,
+		remoteAddress: remote,
+		localAddress:  local,
 	}
 }
 
@@ -284,11 +292,13 @@ func (ev *msgEventer) ReadMsg() (Msg, error) {
 		return msg, err
 	}
 	ev.feed.Send(&PeerEvent{
-		Type:     PeerEventTypeMsgRecv,
-		Peer:     ev.peerID,
-		Protocol: ev.Protocol,
-		MsgCode:  &msg.Code,
-		MsgSize:  &msg.Size,
+		Type:          PeerEventTypeMsgRecv,
+		Peer:          ev.peerID,
+		Protocol:      ev.Protocol,
+		MsgCode:       &msg.Code,
+		MsgSize:       &msg.Size,
+		LocalAddress:  ev.localAddress,
+		RemoteAddress: ev.remoteAddress,
 	})
 	return msg, nil
 }
@@ -301,11 +311,13 @@ func (ev *msgEventer) WriteMsg(msg Msg) error {
 		return err
 	}
 	ev.feed.Send(&PeerEvent{
-		Type:     PeerEventTypeMsgSend,
-		Peer:     ev.peerID,
-		Protocol: ev.Protocol,
-		MsgCode:  &msg.Code,
-		MsgSize:  &msg.Size,
+		Type:          PeerEventTypeMsgSend,
+		Peer:          ev.peerID,
+		Protocol:      ev.Protocol,
+		MsgCode:       &msg.Code,
+		MsgSize:       &msg.Size,
+		LocalAddress:  ev.localAddress,
+		RemoteAddress: ev.remoteAddress,
 	})
 	return nil
 }

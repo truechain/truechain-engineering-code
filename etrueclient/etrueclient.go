@@ -22,13 +22,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
@@ -59,6 +60,150 @@ func (ec *Client) Close() {
 	ec.c.Close()
 }
 
+// SnailBlockchain Access
+// ChainId retrieves the current chain ID for transaction replay protection.
+func (ec *Client) ChainID(ctx context.Context) (*big.Int, error) {
+	var result hexutil.Big
+	err := ec.c.CallContext(ctx, &result, "eth_chainId")
+	if err != nil {
+		return nil, err
+	}
+	return (*big.Int)(&result), err
+}
+
+// SnailBlockByHash returns the given full block.
+//
+// Note that loading full blocks requires two requests.
+func (ec *Client) SnailBlockByHash(ctx context.Context, hash common.Hash) (*rpcSnailBlock, error) {
+	return ec.getSnailBlock(ctx, "etrue_getSnailBlockByHash", hash, true)
+}
+
+// SnailBlockByNumber returns a block from the current canonical chain. If number is nil, the
+// latest known block is returned.
+//
+// Note that loading full blocks requires two requests.
+func (ec *Client) SnailBlockByNumber(ctx context.Context, number *big.Int) (*rpcSnailBlock, error) {
+	return ec.getSnailBlock(ctx, "etrue_getSnailBlockByNumber", toBlockNumArg(number), true)
+}
+
+type rpcSnailBlock struct {
+	Hash             common.Hash      `json:"hash"`
+	Number           *hexutil.Big     `json:"number"`
+	ParentHash       common.Hash      `json:"parentHash"`
+	FruitsHash       common.Hash      `json:"fruitsHash"`
+	Nonce            types.BlockNonce `json:"nonce"`
+	MixHash          common.Hash      `json:"mixHash"`
+	Miner            common.Address   `json:"miner"`
+	Difficulty       *hexutil.Big     `json:"difficulty"`
+	ExtraData        hexutil.Bytes    `json:"extraData"`
+	Size             hexutil.Uint64   `json:"size"`
+	Timestamp        *hexutil.Big     `json:"timestamp"`
+	Fruits           interface{}      `json:"fruits"`
+	BeginFruitNumber *hexutil.Big     `json:"beginFruitNumber"`
+	EndFruitNumber   *hexutil.Big     `json:"endFruitNumber"`
+}
+
+func (ec *Client) getSnailBlock(ctx context.Context, method string, args ...interface{}) (*rpcSnailBlock, error) {
+	var raw json.RawMessage
+	err := ec.c.CallContext(ctx, &raw, method, args...)
+	if err != nil {
+		return nil, err
+	} else if len(raw) == 0 {
+		return nil, truechain.NotFound
+	}
+	// Decode snail block
+	var block rpcSnailBlock
+	if err := json.Unmarshal(raw, &block); err != nil {
+		return nil, err
+	}
+
+	return &block, nil
+}
+
+// FruitByHash returns the given fruit.
+//
+// Note that loading full blocks requires three requests.
+func (ec *Client) FruitByHash(ctx context.Context, hash common.Hash, fullSigns bool) (*rpcFruit, error) {
+	return ec.getFruit(ctx, "etrue_getFruitByHash", hash, fullSigns)
+}
+
+// FruitByNumber returns a block from the current canonical chain. If number is nil, the
+// latest known fruit is returned.
+//
+// Note that loading full blocks requires three requests.
+func (ec *Client) FruitByNumber(ctx context.Context, number *big.Int, fullSigns bool) (*rpcFruit, error) {
+	return ec.getFruit(ctx, "etrue_getFruitByNumber", toBlockNumArg(number), fullSigns)
+}
+
+type rpcFruit struct {
+	Hash            common.Hash      `json:"hash"`
+	Number          *hexutil.Big     `json:"number"`
+	FastHash        common.Hash      `json:"fastHash"`
+	FastNumber      *hexutil.Big     `json:"fastNumber"`
+	Nonce           types.BlockNonce `json:"nonce"`
+	MixHash         common.Hash      `json:"mixHash"`
+	Miner           common.Address   `json:"miner"`
+	FruitDifficulty *hexutil.Big     `json:"fruitDifficulty"`
+	ExtraData       hexutil.Bytes    `json:"extraData"`
+	Size            hexutil.Uint64   `json:"size"`
+	Timestamp       *hexutil.Big     `json:"timestamp"`
+	PointerHash     common.Hash      `json:"pointerHash"`
+	PointerNumber   *hexutil.Big     `json:"pointerNumber"`
+	Signs           interface{}      `json:"signs"`
+}
+
+func (ec *Client) getFruit(ctx context.Context, method string, args ...interface{}) (*rpcFruit, error) {
+	var raw json.RawMessage
+	err := ec.c.CallContext(ctx, &raw, method, args...)
+	if err != nil {
+		return nil, err
+	} else if len(raw) == 0 {
+		return nil, truechain.NotFound
+	}
+	// Decode fruit
+	var block rpcFruit
+	if err := json.Unmarshal(raw, &block); err != nil {
+		return nil, err
+	}
+
+	return &block, nil
+}
+
+type rpcSnailHeader struct {
+	Hash       common.Hash      `json:"hash"`
+	Number     *hexutil.Big     `json:"number"`
+	ParentHash common.Hash      `json:"parentHash"`
+	FruitsHash common.Hash      `json:"fruitsHash"`
+	Nonce      types.BlockNonce `json:"nonce"`
+	MixHash    common.Hash      `json:"mixHash"`
+	Miner      common.Address   `json:"miner"`
+	Difficulty *hexutil.Big     `json:"difficulty"`
+	ExtraData  hexutil.Bytes    `json:"extraData"`
+	Size       hexutil.Uint64   `json:"size"`
+	Timestamp  *hexutil.Big     `json:"timestamp"`
+}
+
+// SnailHeaderByHash returns the block header with the given hash.
+func (ec *Client) SnailHeaderByHash(ctx context.Context, hash common.Hash) (*rpcSnailHeader, error) {
+	var head *rpcSnailHeader
+	err := ec.c.CallContext(ctx, &head, "etrue_getSnailBlockByHash", hash, false)
+	if err == nil && head == nil {
+		err = truechain.NotFound
+	}
+	return head, err
+}
+
+// SnailHeaderByNumber returns a block header from the current canonical chain. If number is
+// nil, the latest known header is returned.
+func (ec *Client) SnailHeaderByNumber(ctx context.Context, number *big.Int) (*rpcSnailHeader, error) {
+	var head *rpcSnailHeader
+	err := ec.c.CallContext(ctx, &head, "etrue_getSnailBlockByNumber", toBlockNumArg(number), false)
+	if err == nil && head == nil {
+		err = truechain.NotFound
+	}
+	return head, err
+}
+
 // Blockchain Access
 
 // BlockByHash returns the given full block.
@@ -79,9 +224,10 @@ func (ec *Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Bl
 }
 
 type rpcBlock struct {
-	Hash         common.Hash      `json:"hash"`
-	Transactions []rpcTransaction `json:"transactions"`
-	UncleHashes  []common.Hash    `json:"uncles"`
+	Hash         common.Hash              `json:"hash"`
+	Transactions []rpcTransaction         `json:"transactions"`
+	SwitchInfos  []*types.CommitteeMember `json:"switchInfos"`
+	Signs        []*types.PbftSign        `json:"signs"`
 }
 
 func (ec *Client) getBlock(ctx context.Context, method string, args ...interface{}) (*types.Block, error) {
@@ -116,30 +262,6 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 	if head.TxHash != types.EmptyRootHash && len(body.Transactions) == 0 {
 		return nil, fmt.Errorf("server returned empty transaction list but block header indicates transactions")
 	}
-	// Load uncles because they are not included in the block response.
-	var uncles []*types.Header
-	if len(body.UncleHashes) > 0 {
-		uncles = make([]*types.Header, len(body.UncleHashes))
-		reqs := make([]rpc.BatchElem, len(body.UncleHashes))
-		for i := range reqs {
-			reqs[i] = rpc.BatchElem{
-				Method: "etrue_getUncleByBlockHashAndIndex",
-				Args:   []interface{}{body.Hash, hexutil.EncodeUint64(uint64(i))},
-				Result: &uncles[i],
-			}
-		}
-		if err := ec.c.BatchCallContext(ctx, reqs); err != nil {
-			return nil, err
-		}
-		for i := range reqs {
-			if reqs[i].Error != nil {
-				return nil, reqs[i].Error
-			}
-			if uncles[i] == nil {
-				return nil, fmt.Errorf("got null header for uncle %d of block %x", i, body.Hash[:])
-			}
-		}
-	}
 	// Fill the sender cache of transactions in the block.
 	txs := make([]*types.Transaction, len(body.Transactions))
 	for i, tx := range body.Transactions {
@@ -148,7 +270,7 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 		}
 		txs[i] = tx.tx
 	}
-	return types.NewBlockWithHeader(head).WithBody(txs, nil, nil), nil
+	return types.NewBlockWithHeader(head).WithBody(txs, body.Signs, body.SwitchInfos), nil
 }
 
 // HeaderByHash returns the block header with the given hash.
@@ -214,8 +336,10 @@ func (ec *Client) TransactionByHash(ctx context.Context, hash common.Hash) (tx *
 // There is a fast-path for transactions retrieved by TransactionByHash and
 // TransactionInBlock. Getting their sender address can be done without an RPC interaction.
 func (ec *Client) TransactionSender(ctx context.Context, tx *types.Transaction, block common.Hash, index uint) (common.Address, error) {
+	byteHash := block.Bytes()
+	hash := common.BytesToHash(byteHash)
 	// Try to load the address from the cache.
-	sender, err := types.Sender(&senderFromServer{blockhash: block}, tx)
+	sender, err := types.Sender(&senderFromServer{blockhash: hash}, tx)
 	if err == nil {
 		return sender, nil
 	}
@@ -239,6 +363,13 @@ func (ec *Client) TransactionCount(ctx context.Context, blockHash common.Hash) (
 	return uint(num), err
 }
 
+// FruitCount returns the total number of fruits in the given block.
+func (ec *Client) FruitCount(ctx context.Context, blockHash common.Hash) (uint, error) {
+	var num hexutil.Uint
+	err := ec.c.CallContext(ctx, &num, "etrue_getBlockFruitCountByHash", blockHash)
+	return uint(num), err
+}
+
 // TransactionInBlock returns a single transaction at index in the given block.
 func (ec *Client) TransactionInBlock(ctx context.Context, blockHash common.Hash, index uint) (*types.Transaction, error) {
 	var json *rpcTransaction
@@ -254,6 +385,20 @@ func (ec *Client) TransactionInBlock(ctx context.Context, blockHash common.Hash,
 		setSenderFromServer(json.tx, *json.From, *json.BlockHash)
 	}
 	return json.tx, err
+}
+
+// FruitInBlockByHash returns a single fruit at index in the given block.
+func (ec *Client) FruitInBlockByHash(ctx context.Context, snailBlockHash common.Hash, index uint, fullSigns bool) (*rpcFruit, error) {
+	var json *rpcFruit
+	err := ec.c.CallContext(ctx, &json, "etrue_getFruitByBlockHashAndIndex", snailBlockHash, hexutil.Uint64(index), fullSigns)
+	return json, err
+}
+
+// FruitInBlockByNumber returns a single fruit at index in the given block.
+func (ec *Client) FruitInBlockByNumber(ctx context.Context, snailBlockNumber *big.Int, index uint, fullSigns bool) (*rpcFruit, error) {
+	var json *rpcFruit
+	err := ec.c.CallContext(ctx, &json, "etrue_getFruitByBlockNumberAndIndex", toBlockNumArg(snailBlockNumber), hexutil.Uint64(index), fullSigns)
+	return json, err
 }
 
 // TransactionReceipt returns the receipt of a transaction by transaction hash.
@@ -346,6 +491,14 @@ func (ec *Client) BalanceAt(ctx context.Context, account common.Address, blockNu
 	return (*big.Int)(&result), err
 }
 
+// GetBalanceAtBlockNumber returns the wei balance of the given account.
+// The block number can be nil, in which case the balance is taken from the latest known block.
+func (ec *Client) GetBalanceAtBlockNumber(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
+	var result hexutil.Big
+	err := ec.c.CallContext(ctx, &result, "etrue_getBalance", account, toBlockNumArg(blockNumber))
+	return (*big.Int)(&result), err
+}
+
 // StorageAt returns the value of key in the contract storage of the given account.
 // The block number can be nil, in which case the value is taken from the latest known block.
 func (ec *Client) StorageAt(ctx context.Context, account common.Address, key common.Hash, blockNumber *big.Int) ([]byte, error) {
@@ -370,31 +523,55 @@ func (ec *Client) NonceAt(ctx context.Context, account common.Address, blockNumb
 	return uint64(result), err
 }
 
+// GetNonceAtBlockNumber returns the account nonce of the given account.
+// The block number can be nil, in which case the nonce is taken from the latest known block.
+func (ec *Client) GetNonceAtBlockNumber(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	var result hexutil.Uint64
+	err := ec.c.CallContext(ctx, &result, "etrue_getTransactionCount", account, toBlockNumArg(blockNumber))
+	return uint64(result), err
+}
+
 // Filters
 
 // FilterLogs executes a filter query.
 func (ec *Client) FilterLogs(ctx context.Context, q truechain.FilterQuery) ([]types.Log, error) {
 	var result []types.Log
-	err := ec.c.CallContext(ctx, &result, "etrue_getLogs", toFilterArg(q))
+	arg, err := toFilterArg(q)
+	if err != nil {
+		return nil, err
+	}
+	err = ec.c.CallContext(ctx, &result, "etrue_getLogs", arg)
 	return result, err
 }
 
 // SubscribeFilterLogs subscribes to the results of a streaming filter query.
 func (ec *Client) SubscribeFilterLogs(ctx context.Context, q truechain.FilterQuery, ch chan<- types.Log) (truechain.Subscription, error) {
-	return ec.c.EthSubscribe(ctx, ch, "logs", toFilterArg(q))
+	arg, err := toFilterArg(q)
+	if err != nil {
+		return nil, err
+	}
+	return ec.c.EthSubscribe(ctx, ch, "logs", arg)
 }
 
-func toFilterArg(q truechain.FilterQuery) interface{} {
+func toFilterArg(q truechain.FilterQuery) (interface{}, error) {
 	arg := map[string]interface{}{
-		"fromBlock": toBlockNumArg(q.FromBlock),
-		"toBlock":   toBlockNumArg(q.ToBlock),
-		"address":   q.Addresses,
-		"topics":    q.Topics,
+		"address": q.Addresses,
+		"topics":  q.Topics,
 	}
-	if q.FromBlock == nil {
-		arg["fromBlock"] = "0x0"
+	if q.BlockHash != nil {
+		arg["blockHash"] = *q.BlockHash
+		if q.FromBlock != nil || q.ToBlock != nil {
+			return nil, fmt.Errorf("cannot specify both BlockHash and FromBlock/ToBlock")
+		}
+	} else {
+		if q.FromBlock == nil {
+			arg["fromBlock"] = "0x0"
+		} else {
+			arg["fromBlock"] = toBlockNumArg(q.FromBlock)
+		}
+		arg["toBlock"] = toBlockNumArg(q.ToBlock)
 	}
-	return arg
+	return arg, nil
 }
 
 // Pending State
@@ -432,6 +609,13 @@ func (ec *Client) PendingNonceAt(ctx context.Context, account common.Address) (u
 func (ec *Client) PendingTransactionCount(ctx context.Context) (uint, error) {
 	var num hexutil.Uint
 	err := ec.c.CallContext(ctx, &num, "etrue_getBlockTransactionCountByNumber", "pending")
+	return uint(num), err
+}
+
+// PendingFruitCount returns the total number of fruits in the pending state.
+func (ec *Client) PendingFruitCount(ctx context.Context) (uint, error) {
+	var num hexutil.Uint
+	err := ec.c.CallContext(ctx, &num, "etrue_getBlockFruitCountByNumber", "pending")
 	return uint(num), err
 }
 
@@ -497,7 +681,19 @@ func (ec *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	if err != nil {
 		return err
 	}
-	return ec.c.CallContext(ctx, nil, "etrue_sendRawTransaction", common.ToHex(data))
+	return ec.c.CallContext(ctx, nil, "etrue_sendTrueRawTransaction", common.ToHex(data))
+}
+
+// SendPayTransaction injects a signed transaction(both sender and payer) into the pending pool for execution.
+//
+// If the transaction was a contract creation use the TransactionReceipt method to get the
+// contract address after the transaction has been mined.
+func (ec *Client) SendPayTransaction(ctx context.Context, tx *types.Transaction) error {
+	data, err := rlp.EncodeToBytes(tx)
+	if err != nil {
+		return err
+	}
+	return ec.c.CallContext(ctx, nil, "etrue_sendTrueRawTransaction", common.ToHex(data))
 }
 
 func toCallArg(msg truechain.CallMsg) interface{} {
@@ -543,10 +739,80 @@ func (ec *Client) Coinbase(ctx context.Context) (string, error) {
 	return result, nil
 }
 
+//etrue_pubkey
+func (ec *Client) Pubkey(ctx context.Context) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "etrue_pubkey", nil)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 //etrue_mining
 func (ec *Client) IsMining(ctx context.Context) (bool, error) {
 	var result bool
 	err := ec.c.CallContext(ctx, &result, "etrue_mining", nil)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//personal_listAccounts
+func (ec *Client) ListAccounts(ctx context.Context) ([]common.Address, error) {
+	var result []common.Address
+	err := ec.c.CallContext(ctx, &result, "personal_listAccounts", nil)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//impawn_getAllStakingAccount
+func (ec *Client) GetAllStakingAccount(ctx context.Context, number *big.Int) (json.RawMessage, error) {
+	var result json.RawMessage
+	err := ec.c.CallContext(ctx, &result, "impawn_getAllStakingAccount", toBlockNumArg(number))
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//impawn_getStakingAsset
+func (ec *Client) GetStakingAsset(ctx context.Context, account common.Address, number *big.Int) ([]vm.StakingAsset, error) {
+	var result []vm.StakingAsset
+	err := ec.c.CallContext(ctx, &result, "impawn_getStakingAsset", account, toBlockNumArg(number))
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//impawn_getLockedAsset
+func (ec *Client) GetLockedAsset(ctx context.Context, account common.Address, number *big.Int) ([]vm.LockedAsset, error) {
+	var result []vm.LockedAsset
+	err := ec.c.CallContext(ctx, &result, "impawn_getLockedAsset", account, toBlockNumArg(number))
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//impawn_getAllCancelableAsset
+func (ec *Client) GetAllCancelableAsset(ctx context.Context, account common.Address, number *big.Int) ([]vm.CancelableAsset, error) {
+	var result []vm.CancelableAsset
+	err := ec.c.CallContext(ctx, &result, "impawn_getAllCancelableAsset", account, toBlockNumArg(number))
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//impawn_getStakingAccount
+func (ec *Client) GetStakingAccount(ctx context.Context, account common.Address, number *big.Int) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	err := ec.c.CallContext(ctx, &result, "impawn_getStakingAccount", account, toBlockNumArg(number))
 	if err != nil {
 		return result, err
 	}

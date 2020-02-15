@@ -23,7 +23,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/metrics"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 )
 
@@ -330,7 +330,10 @@ type peerAttempt struct {
 	Disconnected time.Time `json:"disconnected"`
 }
 
+// RemovedPeerType contains three kind of remove peer type.
 type RemovedPeerType string
+
+// ActivityType is to show a peer is active or inactive.
 type ActivityType string
 
 const (

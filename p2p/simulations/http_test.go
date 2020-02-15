@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/mattn/go-colorable"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/node"

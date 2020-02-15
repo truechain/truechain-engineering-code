@@ -3,8 +3,8 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/core/types"

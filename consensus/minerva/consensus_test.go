@@ -18,6 +18,7 @@ package minerva
 
 import (
 	"encoding/json"
+	"github.com/truechain/truechain-engineering-code/common"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -26,9 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"fmt"
-	osMath "math"
-
-	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
 )
@@ -222,4 +221,44 @@ func TestSnailAwardForHeight(t *testing.T) {
 		committeeAward, minerAward, minerFruitAward, _ := GetBlockReward(snailBlockNumber)
 		fmt.Println("committeeAward:", committeeAward, "minerAward:", minerAward, "minerFruitAward:", minerFruitAward)
 	}
+}
+func TestReward2(t *testing.T) {
+	fmt.Println("addr:",types.FoundationAddress.String())
+	snailNum := NewRewardBegin
+	allReward := big.NewInt(0)
+	snailReward := big.NewInt(0)
+	rewardLimit := new(big.Int).Mul(big.NewInt(20000000),BaseBig)
+
+	for i := 1; i < 2000000; i++ {
+		num := big.NewInt(int64(i+snailNum))
+		snailReward1 := getRewardCoin(num)
+		if num.Cmp(big.NewInt(int64(NewRewardBegin+RewardEndSnailHeight))) >= 0{
+			fmt.Println("last pos1:",i+1)
+			break
+		}
+		allReward = new(big.Int).Add(allReward,snailReward1)
+		if allReward.Cmp(rewardLimit) >= 0 {
+			fmt.Println("last pos2:",i+1)
+			break
+		}
+		if snailReward1.Cmp(snailReward) != 0 {
+			fmt.Println("pos:",i+1,"preReward:",snailReward,"reward:",snailReward1)
+			fmt.Println("pos:",i+1,"preReward:",toTrueCoin(snailReward).Text('f',6),
+			"reward:",toTrueCoin(snailReward1).Text('f',6))
+			snailReward = snailReward1
+
+			cc, mm, mf,fc,_ := GetBlockReward3(num)
+			fmt.Println("committeeAward:", cc, "minerAward:", mm, 
+				"minerFruitAward:", mf,"found",fc)
+			fmt.Println("committeeAward:", toTrueCoin(cc).Text('f',6), "minerAward:", toTrueCoin(mm).Text('f',6), 
+				"minerFruitAward:", toTrueCoin(mf).Text('f',6),"found",toTrueCoin(fc).Text('f',6))
+		}
+	}
+	fmt.Println("allReward",allReward)
+	fmt.Println("allReward",toTrueCoin(allReward).Text('f',10))
+
+	fmt.Println("finish")
+}
+func toTrueCoin(val *big.Int) *big.Float {
+	return new(big.Float).Quo(new(big.Float).SetInt(val),new(big.Float).SetInt(BaseBig))
 }

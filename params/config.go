@@ -17,12 +17,15 @@
 package params
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/truechain/truechain-engineering-code/crypto"
+
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/math"
 )
 
 // Genesis hashes to enforce below configs on.
@@ -32,7 +35,17 @@ var (
 
 	TestnetGenesisHash      = common.HexToHash("0x4b82a68ebbf32f2e816754f2b50eda0ae2c0a71dd5f4e0ecd93ccbfb7dba00b8")
 	TestnetSnailGenesisHash = common.HexToHash("0x4ab1748c057b744de202d6ebea64e8d3a0b2ec4c19abbc59e8639967b14b7c96")
+
+	DevnetSnailGenesisHash = common.HexToHash("0xdf819f11beead767f91a6c05d74e5f902fc2988e9039a969a023bc75e467cdeb")
 )
+
+// TrustedCheckpoints associates each known checkpoint with the genesis hash of
+// the chain it belongs to.
+var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
+	MainnetSnailGenesisHash: MainnetTrustedCheckpoint,
+	TestnetSnailGenesisHash: TestnetTrustedCheckpoint,
+	DevnetSnailGenesisHash:  DevnetTrustedCheckpoint,
+}
 
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
@@ -45,7 +58,30 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(1500000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
+		TIP7: &BlockConfig{FastNumber: big.NewInt(100000)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(2000)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(47000)},
+	}
+
+	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
+	MainnetTrustedCheckpoint = &TrustedCheckpoint{
+		SectionIndex: 227,
+		SectionHead:  common.HexToHash("0xa2e0b25d72c2fc6e35a7f853cdacb193b4b4f95c606accf7f8fa8415283582c7"),
+		CHTRoot:      common.HexToHash("0xf69bdd4053b95b61a27b106a0e86103d791edd8574950dc96aa351ab9b9f1aa0"),
+		BloomRoot:    common.HexToHash("0xec1b454d4c6322c78ccedf76ac922a8698c3cac4d98748a84af4995b7bd3d744"),
+	}
+
+	// MainnetCheckpointOracle contains a set of configs for the main network oracle.
+	MainnetCheckpointOracle = &CheckpointOracleConfig{
+		Address: common.HexToAddress("0x9a9070028361F7AAbeB3f2F2Dc07F82C4a98A02a"),
+		Signers: []common.Address{
+			common.HexToAddress("0x1b2C260efc720BE89101890E4Db589b44E950527"), // Peter
+			common.HexToAddress("0x78d1aD571A1A09D60D9BBf25894b44e4C8859595"), // Martin
+			common.HexToAddress("0x286834935f4A8Cfb4FF4C77D5770C2775aE2b0E7"), // Zsolt
+			common.HexToAddress("0xb86e2B0Ab5A4B1373e40c51A7C712c70Ba2f9f8E"), // Gary
+			common.HexToAddress("0x0DF8fa387C602AE62559cC4aFa4972A7045d6707"), // Guillaume
+		},
+		Threshold: 2,
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -58,7 +94,30 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(450000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(4000)},
-		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
+		TIP7: &BlockConfig{FastNumber: big.NewInt(4666000)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(215)},
+		TIP9: &BlockConfig{SnailNumber: big.NewInt(38648)},
+	}
+
+	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
+	TestnetTrustedCheckpoint = &TrustedCheckpoint{
+		SectionIndex: 161,
+		SectionHead:  common.HexToHash("0x5378afa734e1feafb34bcca1534c4d96952b754579b96a4afb23d5301ecececc"),
+		CHTRoot:      common.HexToHash("0x1cf2b071e7443a62914362486b613ff30f60cea0d9c268ed8c545f876a3ee60c"),
+		BloomRoot:    common.HexToHash("0x5ac25c84bd18a9cbe878d4609a80220f57f85037a112644532412ba0d498a31b"),
+	}
+
+	// TestnetCheckpointOracle contains a set of configs for the Ropsten test network oracle.
+	TestnetCheckpointOracle = &CheckpointOracleConfig{
+		Address: common.HexToAddress("0xEF79475013f154E6A65b54cB2742867791bf0B84"),
+		Signers: []common.Address{
+			common.HexToAddress("0x32162F3581E88a5f62e8A61892B42C46E2c18f7b"), // Peter
+			common.HexToAddress("0x78d1aD571A1A09D60D9BBf25894b44e4C8859595"), // Martin
+			common.HexToAddress("0x286834935f4A8Cfb4FF4C77D5770C2775aE2b0E7"), // Zsolt
+			common.HexToAddress("0xb86e2B0Ab5A4B1373e40c51A7C712c70Ba2f9f8E"), // Gary
+			common.HexToAddress("0x0DF8fa387C602AE62559cC4aFa4972A7045d6707"), // Guillaume
+		},
+		Threshold: 2,
 	}
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -71,21 +130,93 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
+		TIP7: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(0)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
+	}
+
+	SingleNodeChainConfig = &ChainConfig{
+		ChainID: big.NewInt(400),
+		Minerva: &(MinervaConfig{
+			MinimumDifficulty:      big.NewInt(200),
+			MinimumFruitDifficulty: big.NewInt(2),
+			DurationLimit:          big.NewInt(120),
+		}),
+		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
+		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
+		TIP7: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(100), CID: big.NewInt(-1)},
+		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
+	}
+
+	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
+	DevnetTrustedCheckpoint = &TrustedCheckpoint{
+		SectionIndex:  12,
+		SectionHead:   common.HexToHash("0xa672246bf631e2ea05977c8720a7c318564e4f2251436a5edd9ea6a0ea31e423"),
+		CHTRoot:       common.HexToHash("0x4f234caa182b92a792929fe6ff9aa85fe30c81b8525a1c8f73f044de1b31b2cf"),
+		SectionBIndex: 34,
+		SectionBHead:  common.HexToHash("0xd455c656df21d60886b45b16f28ee017bd9e48ba7d8df0997ebf282c703aca9c"),
+		BloomRoot:     common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"),
+		DSRoot:        common.HexToHash("0x4f234caa182b92a792929fe6ff9aa85fe30c81b8525a1c8f73f044de1b31b2cf"),
 	}
 
 	chainId = big.NewInt(9223372036854775790)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), 
-		TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil,TIP9: nil}
+	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP5: nil, TIP7: nil,TIP8: nil, TIP9: nil}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, 
-	TIP3: &BlockConfig{FastNumber: big.NewInt(0)}, TIP5: nil,TIP9: nil}
+	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP5: nil, TIP7: nil,TIP8: nil, TIP9: nil}
 )
+
+// TrustedCheckpoint represents a set of post-processed trie roots (CHT and
+// BloomTrie) associated with the appropriate section index and head hash. It is
+// used to start light syncing from this checkpoint and avoid downloading the
+// entire header chain while still being able to securely access old headers/logs.
+type TrustedCheckpoint struct {
+	SectionIndex  uint64      `json:"sectionIndex"`
+	SectionHead   common.Hash `json:"sectionHead"`
+	CHTRoot       common.Hash `json:"chtRoot"`
+	SectionBIndex uint64      `json:"sectionBIndex"`
+	SectionBHead  common.Hash `json:"sectionBHead"`
+	BloomRoot     common.Hash `json:"bloomRoot"`
+	DSRoot        common.Hash `json:"datasetRoot"`
+}
+
+// HashEqual returns an indicator comparing the itself hash with given one.
+func (c *TrustedCheckpoint) HashEqual(hash common.Hash) bool {
+	if c.Empty() {
+		return hash == common.Hash{}
+	}
+	return c.Hash() == hash
+}
+
+// Hash returns the hash of checkpoint's four key fields(index, sectionHead, chtRoot and bloomTrieRoot).
+func (c *TrustedCheckpoint) Hash() common.Hash {
+	buf := make([]byte, 8+3*common.HashLength)
+	binary.BigEndian.PutUint64(buf, c.SectionIndex)
+	copy(buf[8:], c.SectionHead.Bytes())
+	copy(buf[8+common.HashLength:], c.CHTRoot.Bytes())
+	copy(buf[8+2*common.HashLength:], c.BloomRoot.Bytes())
+	return crypto.Keccak256Hash(buf)
+}
+
+// Empty returns an indicator whether the checkpoint is regarded as empty.
+func (c *TrustedCheckpoint) Empty() bool {
+	return c.SectionHead == (common.Hash{}) || c.CHTRoot == (common.Hash{}) || c.BloomRoot == (common.Hash{})
+}
+
+// CheckpointOracleConfig represents a set of checkpoint contract(which acts as an oracle)
+// config which used for light client checkpoint syncing.
+type CheckpointOracleConfig struct {
+	Address   common.Address   `json:"address"`
+	Signers   []common.Address `json:"signers"`
+	Threshold uint64           `json:"threshold"`
+}
 
 // ChainConfig is the core config which determines the blockchain settings.
 //
@@ -102,12 +233,17 @@ type ChainConfig struct {
 	TIP3 *BlockConfig `json:"tip3"`
 
 	TIP5 *BlockConfig `json:"tip5"`
+	TIP7 *BlockConfig `json:"tip7"`
+	TIP8 *BlockConfig `json:"tip8"`
 	TIP9 *BlockConfig `json:"tip9"`
+
+	TIPStake *BlockConfig `json:"tipstake"`
 }
 
 type BlockConfig struct {
 	FastNumber  *big.Int
 	SnailNumber *big.Int
+	CID         *big.Int
 }
 
 func (c *ChainConfig) UnmarshalJSON(input []byte) error {
@@ -333,6 +469,24 @@ func (c *ChainConfig) IsTIP5(num *big.Int) bool {
 	}
 	return isForked(c.TIP5.SnailNumber, num)
 }
+func (c *ChainConfig) IsTIP7(num *big.Int) bool {
+	if c.TIP7 == nil {
+		return false
+	}
+	return isForked(c.TIP7.FastNumber, num)
+}
+
+func (c *ChainConfig) IsTIP8(cid, num *big.Int) bool {
+	if c.TIP8 == nil {
+		return false
+	}
+	res := cid.Cmp(c.TIP8.CID)
+	if res > 0 || (res == 0 && num.Cmp(c.TIP8.FastNumber) >= 0) {
+		return true
+	}
+	return false
+}
+
 func (c *ChainConfig) IsTIP9(num *big.Int) bool {
 	if c.TIP9 == nil {
 		return false

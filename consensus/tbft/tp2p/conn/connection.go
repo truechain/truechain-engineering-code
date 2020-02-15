@@ -5,7 +5,7 @@ import (
 	"crypto/elliptic"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/tendermint/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	flow "github.com/truechain/truechain-engineering-code/consensus/tbft/help/flowrate"

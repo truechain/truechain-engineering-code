@@ -32,13 +32,8 @@ const (
 	// considered probably final and its rotated bits are calculated.
 	BloomConfirms = 256
 
-	// CHTFrequencyClient is the block frequency for creating CHTs on the client side.
-	CHTFrequencyClient = 32768
-
-	// CHTFrequencyServer is the block frequency for creating CHTs on the server side.
-	// Eventually this can be merged back with the client version, but that requires a
-	// full database upgrade, so that should be left for a suitable moment.
-	CHTFrequencyServer = 4096
+	// CHTFrequency is the block frequency for creating CHTs
+	CHTFrequency = 1080
 
 	// BloomTrieFrequency is the block frequency for creating BloomTrie on both
 	// server/client sides.
@@ -46,9 +41,9 @@ const (
 
 	// HelperTrieConfirmations is the number of confirmations before a client is expected
 	// to have the given HelperTrie available.
-	HelperTrieConfirmations = 2048
+	HelperTrieConfirmations = 128
 
 	// HelperTrieProcessConfirmations is the number of confirmations before a HelperTrie
 	// is generated
-	HelperTrieProcessConfirmations = 256
+	HelperTrieProcessConfirmations = 16
 )

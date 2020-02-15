@@ -13,6 +13,7 @@ import (
 
 	"github.com/naoina/toml"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/dashboard"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/node"
@@ -82,8 +83,8 @@ func loadConfig(file string, cfg *gethConfig) error {
 func defaultNodeConfig() node.Config {
 	cfg := node.DefaultConfig
 	cfg.Name = clientIdentifier
-	cfg.Version = params.VersionWithCommit(gitCommit)
-	cfg.HTTPModules = append(cfg.HTTPModules, "etrue", "eth", "shh")
+	cfg.Version = params.VersionWithCommit(gitCommit, gitDate)
+	cfg.HTTPModules = append(cfg.HTTPModules, "etrue", "eth", "impawn", "shh")
 	cfg.WSModules = append(cfg.WSModules, "etrue")
 	cfg.IPCPath = "getrue.ipc"
 	return cfg
@@ -96,7 +97,23 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 		Node:      defaultNodeConfig(),
 		Dashboard: dashboard.DefaultConfig,
 	}
+	if ctx.GlobalBool(utils.SingleNodeFlag.Name) {
+		// set etrueconfig
+		prikey, _ := crypto.HexToECDSA("c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc")
+		cfg.Etrue.PrivateKey = prikey
+		cfg.Etrue.CommitteeKey = crypto.FromECDSA(prikey)
 
+		//cfg.Etrue.MineFruit = true
+		cfg.Etrue.Mine = true
+		cfg.Etrue.Etherbase = crypto.PubkeyToAddress(prikey.PublicKey)
+		//cfg.Etrue.NetworkId =400
+		//set node config
+		cfg.Node.HTTPPort = 8888
+		cfg.Node.HTTPHost = "127.0.0.1"
+		cfg.Node.HTTPModules = []string{"db", "etrue", "net", "web3", "personal", "admin", "miner", "eth"}
+
+		ctx.GlobalSet("datadir", "./data")
+	}
 	// Load config file.
 	if file := ctx.GlobalString(configFileFlag.Name); file != "" {
 		if err := loadConfig(file, &cfg); err != nil {

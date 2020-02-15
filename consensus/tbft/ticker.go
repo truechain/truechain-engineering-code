@@ -1,7 +1,7 @@
 package tbft
 
 import (
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"time"
 )

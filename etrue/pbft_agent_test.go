@@ -7,9 +7,9 @@ import (
 
 	"bytes"
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -207,85 +207,3 @@ func printNodeWork(t *testing.T, nodeWork *nodeInfoWork, str string) {
 		", nodeWork1=", agent.nodeInfoWorks[0].isCurrent, ", nodeWork2=", agent.nodeInfoWorks[1].isCurrent,
 		", committeeId=", nodeWork.committeeInfo.Id, ", committeeInfoMembers=", len(nodeWork.committeeInfo.Members))
 }
-
-//////////////////////////////////////////////////////////////////////////////////
-/*func (self *PbftAgent) sendSubScribedEvent() {
-	self.electionSub = self.election.SubscribeElectionEvent(self.electionCh)
-}
-
-func (self *PbftAgent) sendElectionEvent() {
-	e := self.election
-	go func() {
-		members := e.snailchain.GetGenesisCommittee()[:3]
-		fmt.Println("loop")
-		if self.singleNode {
-			time.Sleep(time.Second * 10)
-			fmt.Println("len(members)", len(members))
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeSwitchover,
-				CommitteeID:      big.NewInt(0),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeStart,
-				CommitteeID:      big.NewInt(0),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeSwitchover,
-				CommitteeID:      big.NewInt(1),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeStop,
-				CommitteeID:      big.NewInt(0),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeStart,
-				CommitteeID:      big.NewInt(1),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeSwitchover,
-				CommitteeID:      big.NewInt(2),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeStop,
-				CommitteeID:      big.NewInt(1),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeStart,
-				CommitteeID:      big.NewInt(2),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeSwitchover,
-				CommitteeID:      big.NewInt(3),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeStop,
-				CommitteeID:      big.NewInt(2),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(types.ElectionEvent{
-				Option:           types.CommitteeStart,
-				CommitteeID:      big.NewInt(3),
-				CommitteeMembers: members,
-			})
-		}
-	}()
-}*/

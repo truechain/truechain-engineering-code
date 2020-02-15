@@ -28,4 +28,7 @@ var (
 	ErrInsufficientBalanceForAll = errors.New("insufficient balance for transfer and fee ")
 	ErrContractAddressCollision  = errors.New("contract address collision")
 	ErrNoCompatibleInterpreter  = errors.New("no compatible interpreter")
+
+	ErrStakingInvalidInput      = errors.New("invalid input for staking")
+	ErrStakingInsufficientBalance = errors.New("insufficient balance for staking transfer")
 )

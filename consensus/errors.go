@@ -23,8 +23,12 @@ var (
 	// that is unknown.
 	ErrUnknownAncestor = errors.New("unknown ancestor")
 
+	//ErrBlockOnChain is returned when validating a block but it is
+	//already on the fast chain.
 	ErrBlockOnChain = errors.New("block already insert fastchain")
 
+	// ErrForkFastBlock is returned when validating a block but the same number other
+	// block already in the chain.
 	ErrForkFastBlock = errors.New("fork fastBlock")
 
 	// ErrPrunedAncestor is returned when validating a block requires an ancestor
@@ -45,9 +49,10 @@ var (
 	// plus one.
 	ErrInvalidNumber = errors.New("invalid block number")
 
-	//If the number of returned committees and the results are inconsistent, return ErrInvalidSignsLength
+	//ErrInvalidSignsLength If the number of returned committees and the results are inconsistent, return ErrInvalidSignsLength
 	ErrInvalidSignsLength = errors.New("invalid signs length")
 
+	// ErrValidSignsZero is returned if a block's signs length is zero
 	ErrValidSignsZero = errors.New("valid signs length equal zero in fruit")
 
 	ErrInvalidBlock = errors.New("invalid snail block")
@@ -61,4 +66,10 @@ var (
 	ErrInvalidSwitchInfo = errors.New("invalid switch info")
 
 	ErrUnknownFast = errors.New("unknown fast block")
+
+	//ErrInvalidFast is returned if the fastchain not have the hash
+	ErrInvalidFast = errors.New("invalid fast hash")
+
+	//ErrFruitTime is returned if the fruit's time less than fastblock's time
+	ErrFruitTime = errors.New("invalid fruit time")
 )

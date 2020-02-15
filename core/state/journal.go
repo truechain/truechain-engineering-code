@@ -19,7 +19,7 @@ package state
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 )
 
 // journalEntry is a modification entry in the state change journal that can be
@@ -111,6 +111,11 @@ type (
 		account       *common.Address
 		key, prevalue common.Hash
 	}
+	posStorageChange struct {
+		account  *common.Address
+		key      common.Hash
+		prevalue []byte
+	}
 	codeChange struct {
 		account            *common.Address
 		prevcode, prevhash []byte
@@ -200,6 +205,14 @@ func (ch storageChange) revert(s *StateDB) {
 }
 
 func (ch storageChange) dirtied() *common.Address {
+	return ch.account
+}
+
+func (ch posStorageChange) revert(s *StateDB) {
+	s.getStateObject(*ch.account).setStateByteArray(ch.key, ch.prevalue)
+}
+
+func (ch posStorageChange) dirtied() *common.Address {
 	return ch.account
 }
 

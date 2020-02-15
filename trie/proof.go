@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 )
 
@@ -37,7 +37,7 @@ import (
 func (t *Trie) Prove(key []byte, fromLevel uint, proofDb etruedb.Putter) error {
 	// Collect all nodes on the path to key.
 	key = keybytesToHex(key)
-	var nodes []node
+	nodes := []node{}
 	tn := t.root
 	for len(key) > 0 && tn != nil {
 		switch n := tn.(type) {

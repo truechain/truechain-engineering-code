@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
-	truechain "github.com/truechain/truechain-engineering-code"
+	"github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/math"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
@@ -29,8 +29,10 @@ import (
 // This nil assignment ensures compile time that SimulatedBackend implements bind.ContractBackend.
 var _ bind.ContractBackend = (*SimulatedBackend)(nil)
 
-var errBlockNumberUnsupported = errors.New("SimulatedBackend cannot access blocks other than the latest block")
-var errGasEstimationFailed = errors.New("gas required exceeds allowance or always failing transaction")
+var (
+	errBlockNumberUnsupported = errors.New("simulatedBackend cannot access blocks other than the latest block")
+	errGasEstimationFailed    = errors.New("gas required exceeds allowance or always failing transaction")
+)
 
 // SimulatedBackend implements bind.ContractBackend, simulating a blockchain in
 // the background. Its main purpose is to allow easily testing contract bindings.
@@ -47,10 +49,9 @@ type SimulatedBackend struct {
 	config *params.ChainConfig
 }
 
-// NewSimulatedBackend creates a new binding backend using a simulated blockchain
+// NewSimulatedBackendWithDatabase creates a new binding backend based on the given database
 // for testing purposes. for fast blockchain
-func NewSimulatedBackend(alloc types.GenesisAlloc, gasLimit uint64) *SimulatedBackend {
-	database := etruedb.NewMemDatabase()
+func NewSimulatedBackendWithDatabase(database etruedb.Database, alloc types.GenesisAlloc, gasLimit uint64) *SimulatedBackend {
 	genesis := core.Genesis{Config: params.AllMinervaProtocolChanges, GasLimit: gasLimit, Alloc: alloc}
 	genesis.MustFastCommit(database)
 	// genesis.MustSnailCommit(database)
@@ -64,6 +65,18 @@ func NewSimulatedBackend(alloc types.GenesisAlloc, gasLimit uint64) *SimulatedBa
 	}
 	backend.rollback()
 	return backend
+}
+
+// NewSimulatedBackend creates a new binding backend using a simulated blockchain
+// for testing purposes.
+func NewSimulatedBackend(alloc types.GenesisAlloc, gasLimit uint64) *SimulatedBackend {
+	return NewSimulatedBackendWithDatabase(etruedb.NewMemDatabase(), alloc, gasLimit)
+}
+
+// Close terminates the underlying blockchain's update loop.
+func (b *SimulatedBackend) Close() error {
+	b.blockchain.Stop()
+	return nil
 }
 
 // Commit imports all the pending transactions as a single block and starts a
@@ -147,6 +160,25 @@ func (b *SimulatedBackend) StorageAt(ctx context.Context, contract common.Addres
 func (b *SimulatedBackend) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	receipt, _, _, _ := rawdb.ReadReceipt(b.database, txHash)
 	return receipt, nil
+}
+
+// TransactionByHash checks the pool of pending transactions in addition to the
+// blockchain. The isPending return value indicates whether the transaction has been
+// mined yet. Note that the transaction may not be part of the canonical chain even if
+// it's not pending.
+func (b *SimulatedBackend) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	tx := b.pendingBlock.Transaction(txHash)
+	if tx != nil {
+		return tx, true, nil
+	}
+	tx, _, _, _ = rawdb.ReadTransaction(b.database, txHash)
+	if tx != nil {
+		return tx, false, nil
+	}
+	return nil, false, truechain.NotFound
 }
 
 // PendingCodeAt returns the code associated with an account in the pending state.
@@ -267,7 +299,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call truechain.Call
 	// Execute the call.
 	msg := callmsg{call}
 
-	evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain,nil,nil)
+	evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain, nil, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(evmContext, statedb, b.config, vm.Config{})
@@ -388,6 +420,11 @@ func (b *SimulatedBackend) AdjustTime(adjustment time.Duration) error {
 	b.pendingState, _ = state.New(b.pendingBlock.Root(), statedb.Database())
 
 	return nil
+}
+
+// Blockchain returns the underlying blockchain.
+func (b *SimulatedBackend) Blockchain() *core.BlockChain {
+	return b.blockchain
 }
 
 // callmsg implements core.Message to allow passing it as a transaction simulator.

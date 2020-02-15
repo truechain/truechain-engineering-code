@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/truechain/truechain-engineering-code/p2p/enr"
 )

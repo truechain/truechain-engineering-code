@@ -29,8 +29,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -102,7 +102,7 @@ func newTester() *downloadTester {
 	tester.stateDb = etruedb.NewMemDatabase()
 	tester.ftester = fastdownloader.NewTester(testdb, tester.stateDb)
 
-	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer, tester.ftester.GetDownloader())
+	tester.downloader = New(FullSync, 0, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer, tester.ftester.GetDownloader())
 	tester.fdownloader = tester.ftester.GetDownloader()
 
 	return tester
@@ -362,7 +362,7 @@ func (dl *downloadTester) GetTd(hash common.Hash, number uint64) *big.Int {
 }
 
 // InsertHeaderChain injects a new batch of headers into the simulated chain.
-func (dl *downloadTester) InsertHeaderChain(headers []*types.SnailHeader, checkFreq int) (int, error) {
+func (dl *downloadTester) InsertHeaderChain(headers []*types.SnailHeader, fruits [][]*types.SnailHeader, checkFreq int) (int, error) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
 

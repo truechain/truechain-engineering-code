@@ -17,10 +17,10 @@
 package les
 
 import (
+	"github.com/truechain/truechain-engineering-code/light/fast"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/bitutil"
-	"github.com/truechain/truechain-engineering-code/light"
+	"github.com/truechain/truechain-engineering-code/common/bitutil"
 )
 
 const (
@@ -43,7 +43,7 @@ const (
 
 // startBloomHandlers starts a batch of goroutines to accept bloom bit database
 // retrievals from possibly a range of filters and serving the data to satisfy.
-func (etrue *LightEtrue) startBloomHandlers() {
+func (etrue *LightEtrue) startBloomHandlers(sectionSize uint64) {
 	for i := 0; i < bloomServiceThreads; i++ {
 		go func() {
 			for {
@@ -54,10 +54,10 @@ func (etrue *LightEtrue) startBloomHandlers() {
 				case request := <-etrue.bloomRequests:
 					task := <-request
 					task.Bitsets = make([][]byte, len(task.Sections))
-					compVectors, err := light.GetBloomBits(task.Context, etrue.odr, task.Bit, task.Sections)
+					compVectors, err := fast.GetBloomBits(task.Context, etrue.odr, task.Bit, task.Sections)
 					if err == nil {
 						for i := range task.Sections {
-							if blob, err := bitutil.DecompressBytes(compVectors[i], int(light.BloomTrieFrequency/8)); err == nil {
+							if blob, err := bitutil.DecompressBytes(compVectors[i], int(sectionSize/8)); err == nil {
 								task.Bitsets[i] = blob
 							} else {
 								task.Error = err

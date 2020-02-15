@@ -19,7 +19,7 @@ package core
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -71,13 +71,12 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 			log.Error("validateRewardError", "rewardFastNumber", blockReward.FastNumber.Uint64(),
 				"currentNumber", block.NumberU64(), "err", ErrSnailNumberAlreadyRewarded)
 			return ErrSnailNumberAlreadyRewarded
-		} else {
-			supposedRewardedNumber := fv.bc.NextSnailNumberReward()
-			if supposedRewardedNumber.Uint64() != snailNumber {
-				log.Error("validateRewardError", "snailNumber", snailNumber,
-					"supposedRewardedNumber", supposedRewardedNumber, "err", ErrRewardSnailNumberWrong)
-				return ErrRewardSnailNumberWrong
-			}
+		}
+		supposedRewardedNumber := fv.bc.NextSnailNumberReward()
+		if supposedRewardedNumber.Uint64() != snailNumber {
+			log.Error("validateRewardError", "snailNumber", snailNumber,
+				"supposedRewardedNumber", supposedRewardedNumber, "err", ErrRewardSnailNumberWrong)
+			return ErrRewardSnailNumberWrong
 		}
 	}
 
@@ -133,7 +132,7 @@ func (fv *BlockValidator) ValidateState(block, parent *types.Block, statedb *sta
 	return nil
 }
 
-// CalcGasLimit computes the gas limit of the next block after parent.
+// FastCalcGasLimit computes the gas limit of the next block after parent.
 // This is miner strategy, not consensus protocol.
 func FastCalcGasLimit(parent *types.Block, gasFloor, gasCeil uint64) uint64 {
 	// contrib = (parentGasUsed * 3 / 2) / 1024

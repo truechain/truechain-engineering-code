@@ -1,7 +1,7 @@
 package tp2p
 
 import (
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"net"
 	"sync"
 )

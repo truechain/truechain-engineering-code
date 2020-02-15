@@ -19,7 +19,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math"
 	"math/big"
 	"sort"
@@ -27,11 +26,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
@@ -414,7 +415,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	// If we're reorging an old state, reinject all dropped transactions
 	var reinject types.Transactions
 
-	if oldHead != nil && oldHead.Hash() != newHead.ParentHash {
+	if oldHead != nil && oldHead.Hash() != newHead.ParentHash && oldHead.Number.Uint64() <= newHead.Number.Uint64() {
 		// If the reorg is too deep, avoid doing it (will happen during fast sync)
 		oldNum := oldHead.Number.Uint64()
 		newNum := newHead.Number.Uint64()
@@ -632,6 +633,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Heuristic limit, reject transactions over 32KB to prevent DOS attacks
 	if tx.Size() > 32*1024 {
 		return ErrOversizedData
+		//return fmt.Errorf("%v your txSize:%d;limitSize:%d", ErrOversizedData, tx.Size(), 32*1024)
 	}
 	// Transactions can't be negative. This may never happen using RLP decoded
 	// transactions but may occur if you create a transaction using the RPC.
@@ -644,26 +646,34 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Ensure the transaction doesn't exceed the current block limit gas.
 	if pool.currentMaxGas < tx.Gas() {
 		return ErrGasLimit
+		//return fmt.Errorf("%v currentMaxGas:%d;tx.Gas():%d", ErrGasLimit, pool.currentMaxGas, tx.Gas())
 	}
 	// Make sure the transaction is signed properly
 	from, err := types.Sender(pool.signer, tx)
 	if err != nil {
 		return ErrInvalidSender
+		//return fmt.Errorf("%v err is:%v", ErrInvalidSender, err)
+	}
+	if err := types.ForbidAddress(from); err != nil {
+		return err
 	}
 	// Make sure the transaction is psigned properly
 	payer, err := types.Payer(pool.signer, tx)
 	if err != nil {
 		log.Error("validateTx method get address", "payer", payer)
 		return ErrInvalidPayer
+		//return fmt.Errorf("%v err is:%v", ErrInvalidPayer, err)
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
 	if pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
+		//return fmt.Errorf("%v pool.gasPrice:%d;tx.GasPrice():%d", ErrUnderpriced, pool.gasPrice, tx.GasPrice())
 	}
 	// Ensure the transaction adheres to nonce ordering
 	if pool.currentState.GetNonce(from) > tx.Nonce() {
 		return ErrNonceTooLow
+		//return fmt.Errorf("%v current pool nonce:%d;tx.Nonce():%d", ErrNonceTooLow, pool.currentState.GetNonce(from), tx.Nonce())
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
@@ -671,14 +681,17 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		if pool.currentState.GetBalance(payer).Cmp(tx.GasCost()) < 0 {
 			log.Error("insufficientFundsForPayer", "balance", pool.currentState.GetBalance(payer), "gasCost", tx.GasCost())
 			return ErrInsufficientFundsForPayer
+			//return fmt.Errorf("%v payer balance:%d;tx.Cost():%d", ErrInsufficientFundsForPayer, pool.currentState.GetBalance(payer), tx.Cost())
 		}
 		if pool.currentState.GetBalance(from).Cmp(tx.AmountCost()) < 0 {
 			return ErrInsufficientFundsForSender
+			//return fmt.Errorf("%v your balance:%d;tx.AmountCost():%d", ErrInsufficientFundsForSender, pool.currentState.GetBalance(from), tx.AmountCost())
 		}
 	} else {
 		if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
 			log.Trace("validate balance", "from", from, "to", tx.To(), "balance", pool.currentState.GetBalance(from), "cost", tx.Cost())
 			return ErrInsufficientFunds
+			//return fmt.Errorf("%v your balance:%d;tx.Cost():%d", ErrInsufficientFunds, pool.currentState.GetBalance(from), tx.Cost())
 		}
 	}
 	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, true)
@@ -687,6 +700,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	if tx.Gas() < intrGas {
 		return ErrIntrinsicGas
+		//return fmt.Errorf("%v your intrGas:%d;tx.Gas():%d", ErrIntrinsicGas, intrGas, tx.Gas())
 	}
 	return nil
 }

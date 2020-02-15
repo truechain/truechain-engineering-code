@@ -28,11 +28,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/utils"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"fmt"
+
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	elect "github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -40,9 +38,13 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 const (
@@ -50,7 +52,7 @@ const (
 	nextCommittee           //next committee
 )
 const (
-	chainHeadSize       = 256
+	chainHeadSize       = 512
 	electionChanSize    = 64
 	nodeSize            = 50
 	committeeIDChanSize = 3
@@ -108,7 +110,7 @@ type PbftAgent struct {
 
 	electionCh    chan types.ElectionEvent
 	cryNodeInfoCh chan *types.EncryptNodeMessage
-	chainHeadCh   chan types.FastChainHeadEvent
+	chainHeadCh   chan types.FastChainEvent
 
 	electionSub       event.Subscription
 	chainHeadAgentSub event.Subscription
@@ -160,7 +162,7 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		committeeIds:         make([]*big.Int, committeeIDChanSize),
 		endFastNumber:        make(map[uint64]*big.Int),
 		electionCh:           make(chan types.ElectionEvent, electionChanSize),
-		chainHeadCh:          make(chan types.FastChainHeadEvent, chainHeadSize),
+		chainHeadCh:          make(chan types.FastChainEvent, chainHeadSize),
 		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage, nodeSize),
 		election:             election,
 		mux:                  new(event.TypeMux),
@@ -175,7 +177,9 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		markNodeMu:           new(sync.Mutex),
 		broadcastNodeTag:     utils.NewOrderedMap(),
 	}
+
 	agent.initNodeInfo(etrue)
+
 	if !agent.singleNode {
 		agent.subScribeEvent()
 	}
@@ -246,7 +250,7 @@ func (agent *PbftAgent) stop() {
 
 func (agent *PbftAgent) subScribeEvent() {
 	agent.electionSub = agent.election.SubscribeElectionEvent(agent.electionCh)
-	agent.chainHeadAgentSub = agent.fastChain.SubscribeChainHeadEvent(agent.chainHeadCh)
+	agent.chainHeadAgentSub = agent.fastChain.SubscribeChainEvent(agent.chainHeadCh)
 }
 
 type nodeInfoWork struct {
@@ -326,6 +330,40 @@ func (agent *PbftAgent) stopSend() {
 	nodeWork.loadNodeWork(new(types.CommitteeInfo), false)
 }
 
+func (agent *PbftAgent) getValidators(epochId uint64) []*types.CommitteeMember {
+	epoch := types.GetEpochFromID(epochId)
+	current := agent.fastChain.CurrentBlock().Number()
+	if current.Uint64() >= epoch.BeginHeight {
+		// Read committee from block body
+		block := agent.fastChain.GetBlockByNumber(epoch.BeginHeight)
+		if block != nil {
+			var (
+				members []*types.CommitteeMember
+				backups []*types.CommitteeMember
+			)
+			for _, m := range agent.fastChain.GetBlockByNumber(epoch.BeginHeight).SwitchInfos() {
+				if m.Flag == types.StateUsedFlag {
+					members = append(members, m)
+				}
+				if m.Flag == types.StateUnusedFlag {
+					backups = append(backups, m)
+				}
+			}
+			committee := &types.ElectionCommittee{Members: members, Backups: backups}
+			return committee.Members
+		}
+	}
+	block := agent.fastChain.CurrentBlock()
+	stateDb, err := agent.fastChain.StateAt(block.Root())
+	if err != nil {
+		log.Warn("Fetch validator from state failed", "block", block.Number(), "err", err)
+		return nil
+	}
+	validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, block.Number().Uint64())
+
+	return validators
+}
+
 func (agent *PbftAgent) verifyCommitteeID(electionEventType uint, committeeID *big.Int) bool {
 	switch electionEventType {
 	case types.CommitteeStart:
@@ -352,6 +390,58 @@ func (agent *PbftAgent) verifyCommitteeID(electionEventType uint, committeeID *b
 
 func (agent *PbftAgent) loop() {
 	defer agent.stop()
+
+	current := agent.fastChain.CurrentBlock()
+	if agent.election.IsTIP8(new(big.Int).Add(current.Number(), common.Big1)) {
+		first := types.GetFirstEpoch()
+		epoch := first
+		if current.Number().Uint64()+1 > epoch.BeginHeight {
+			epoch = types.GetEpochFromHeight(current.Number().Uint64())
+		}
+		if current.Number().Uint64() >= epoch.BeginHeight || current.Number().Uint64() == first.BeginHeight-1 {
+			if current.Number().Uint64() == epoch.EndHeight {
+				epoch = types.GetEpochFromHeight(current.Number().Uint64() + 1)
+			}
+			log.Info("Epoch id at launch", "id", epoch.EpochID, "start", epoch.BeginHeight, "stop", epoch.EndHeight)
+			committee := &types.CommitteeInfo{
+				Id:          new(big.Int).SetUint64(epoch.EpochID),
+				StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
+				EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
+			}
+
+			stateDb, _ := agent.fastChain.StateAt(current.Root())
+			validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, current.Number().Uint64())
+			committee.Members = validators
+
+			// Switch to new epoch
+			agent.setCommitteeInfo(nextCommittee, committee)
+			if agent.IsUsedOrUnusedMember(committee, agent.committeeNode.Publickey) {
+				agent.startSend(committee, true)
+				help.CheckAndPrintError(agent.server.PutCommittee(committee))
+				help.CheckAndPrintError(agent.server.PutNodes(committee.Id, []*types.CommitteeNode{agent.committeeNode}))
+			} else {
+				agent.startSend(committee, false)
+			}
+
+			// Set new bft and start committee
+			if agent.verifyCommitteeID(types.CommitteeStart, committee.Id) {
+				agent.setCommitteeInfo(currentCommittee, types.CopyCommitteeInfo(agent.nextCommitteeInfo))
+				if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+					log.Info("Notyfy bft server start")
+					agent.isCurrentCommitteeMember = true
+					go help.CheckAndPrintError(agent.server.Notify(committee.Id, int(types.CommitteeStart)))
+				} else {
+					log.Info("Is not committee member at epoch", "epoch", epoch.EpochID)
+					agent.isCurrentCommitteeMember = false
+				}
+			}
+
+			agent.endFastNumber[epoch.EpochID] = new(big.Int).SetUint64(epoch.EndHeight)
+			agent.clearEndFastNumber(committee.Id)
+			help.CheckAndPrintError(agent.server.SetCommitteeStop(new(big.Int).SetUint64(epoch.EpochID), epoch.EndHeight))
+		}
+	}
+
 	for {
 		select {
 		case ch := <-agent.electionCh:
@@ -478,6 +568,113 @@ func (agent *PbftAgent) loop() {
 
 		case ch := <-agent.chainHeadCh:
 			go agent.putCacheInsertChain(ch.Block)
+
+			num := ch.Block.Number()
+			if agent.election.IsTIP8(new(big.Int).Add(num, common.Big1)) {
+				epoch := types.GetFirstEpoch()
+				if num.Uint64()+1 == epoch.BeginHeight {
+					log.Info("Prepare new epoch", "id", epoch.EpochID, "block", num)
+					committee := &types.CommitteeInfo{
+						Id:          new(big.Int).SetUint64(epoch.EpochID),
+						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
+						EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
+					}
+					validators := agent.getValidators(epoch.EpochID)
+					if len(validators) == 0 {
+						log.Error("Prepare new epoch wrong,the validators was empty", "id", epoch.EpochID, "block", num)
+					}
+					committee.Members = validators
+					// Switch to new epoch
+					agent.setCommitteeInfo(nextCommittee, committee)
+					if agent.IsUsedOrUnusedMember(committee, agent.committeeNode.Publickey) {
+						agent.startSend(committee, true)
+						help.CheckAndPrintError(agent.server.PutCommittee(committee))
+						help.CheckAndPrintError(agent.server.PutNodes(committee.Id, []*types.CommitteeNode{agent.committeeNode}))
+					} else {
+						agent.startSend(committee, false)
+					}
+				}
+			}
+
+			if agent.election.IsTIP8(new(big.Int).Add(num, common.Big1)) {
+				next := num.Uint64() + 1
+				epoch := types.GetEpochFromHeight(next)
+
+				if next == epoch.EndHeight-params.ElectionPoint+1 {
+					epoch := types.GetEpochFromHeight(next + params.NewEpochLength)
+					log.Info("Prepare new epoch", "id", epoch.EpochID, "block", num)
+					committee := &types.CommitteeInfo{
+						Id:          new(big.Int).SetUint64(epoch.EpochID),
+						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
+						EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
+					}
+					validators := agent.getValidators(epoch.EpochID)
+
+					if len(validators) == 0 {
+						log.Error("Prepare new epoch wrong,the validators was empty", "id", epoch.EpochID, "block", num)
+					}
+					committee.Members = validators
+					// Switch to new epoch
+					agent.setCommitteeInfo(nextCommittee, committee)
+					if agent.IsUsedOrUnusedMember(committee, agent.committeeNode.Publickey) {
+						agent.startSend(committee, true)
+						help.CheckAndPrintError(agent.server.PutCommittee(committee))
+						help.CheckAndPrintError(agent.server.PutNodes(committee.Id, []*types.CommitteeNode{agent.committeeNode}))
+					} else {
+						agent.startSend(committee, false)
+					}
+				}
+
+				if next == epoch.BeginHeight {
+					// Stop current epoch and bft
+					epoch := types.GetEpochFromHeight(num.Uint64())
+					log.Info("Stop epoch", "id", epoch.EpochID, "block", num)
+					committeeID := new(big.Int).SetUint64(epoch.EpochID)
+					if !agent.verifyCommitteeID(types.CommitteeStop, committeeID) {
+						continue
+					}
+					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+						log.Info("Notyfy bft server stop")
+						help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
+					}
+					agent.stopSend()
+				}
+
+				if next == epoch.BeginHeight {
+					// Start New Epoch
+					log.Info("New epoch id", "id", epoch.EpochID, "block", num)
+					committee := &types.CommitteeInfo{
+						Id:          new(big.Int).SetUint64(epoch.EpochID),
+						StartHeight: new(big.Int).SetUint64(epoch.BeginHeight),
+						EndHeight:   new(big.Int).SetUint64(epoch.EndHeight),
+					}
+
+					validators := agent.getValidators(epoch.EpochID)
+					if len(validators) == 0 {
+						log.Error("Start new epoch wrong,the validators was empty", "id", epoch.EpochID, "block", num)
+					}
+					committee.Members = validators
+
+					// Set new bft and start committee
+					if !agent.verifyCommitteeID(types.CommitteeStart, committee.Id) {
+						continue
+					}
+					agent.setCommitteeInfo(currentCommittee, types.CopyCommitteeInfo(agent.nextCommitteeInfo))
+					if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+						log.Info("Notyfy bft server start")
+						agent.isCurrentCommitteeMember = true
+						help.CheckAndPrintError(agent.server.Notify(committee.Id, int(types.CommitteeStart)))
+					} else {
+						log.Info("Is not committee member at epoch", "epoch", epoch.EpochID)
+						agent.isCurrentCommitteeMember = false
+					}
+
+					// Set bft stop block Number
+					agent.endFastNumber[epoch.EpochID] = new(big.Int).SetUint64(epoch.EndHeight)
+					agent.clearEndFastNumber(committee.Id)
+					help.CheckAndPrintError(agent.server.SetCommitteeStop(committee.Id, epoch.EndHeight))
+				}
+			}
 		}
 	}
 }
@@ -751,11 +948,6 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		return nil, err
 	}
 
-	if infos != nil {
-		header.CommitteeHash = types.RlpHash(infos)
-	} else {
-		header.CommitteeHash = params.EmptyHash
-	}
 	//assign Proposer
 	pubKey, _ := crypto.UnmarshalPubkey(agent.committeeNode.Publickey)
 	header.Proposer = crypto.PubkeyToAddress(*pubKey)
@@ -1319,4 +1511,31 @@ func (agent *PbftAgent) singleloop() {
 			log.Error("BroadcastConsensus error", "err", err)
 		}
 	}
+}
+
+//GetCurrentCommittee return committee member's pubkey information
+func (agent *PbftAgent) GetCurrentCommittee() []string {
+	members := agent.currentCommitteeInfo.Members
+	memberKeys := make([]string, 0)
+	for _, member := range members {
+		pubKeyStr := fmt.Sprintf("%x", member.Publickey)
+		memberKeys = append(memberKeys, pubKeyStr)
+	}
+	return memberKeys
+}
+
+//GetAlternativeCommittee return received back committee member's pubkey information
+func (agent *PbftAgent) GetAlternativeCommittee() []string {
+	members := agent.currentCommitteeInfo.BackMembers
+	memberKeys := make([]string, 0)
+	for _, member := range members {
+		pubKeyStr := fmt.Sprintf("%x", member.Publickey)
+		memberKeys = append(memberKeys, pubKeyStr)
+	}
+	return memberKeys
+}
+
+//GetAlternativeCommittee return received back committee member's pubkey information
+func (agent *PbftAgent) GetPrivateKey() *ecdsa.PrivateKey {
+	return agent.privateKey
 }

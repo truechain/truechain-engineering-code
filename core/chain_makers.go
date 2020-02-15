@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -93,17 +93,38 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
+		b.feeAmout = big.NewInt(0)
 	}
-	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
+	b.statedb.Prepare(tx.Hash(), b.header.Hash(), len(b.txs))
 
-	feeAmount := big.NewInt(0)
-	receipt, _, err := ApplyTransaction(b.config, bc, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, feeAmount, vm.Config{})
+	receipt, _, err := ApplyTransaction(b.config, bc, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, b.feeAmout, vm.Config{})
 	if err != nil {
 		panic(err)
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
-	b.feeAmout  =feeAmount
+}
+
+// ReadTxWithChain read a transaction to the generated block. If no coinbase has
+// been set, the block's coinbase is set to the zero address.
+//
+// AddTxWithChain panics if the transaction cannot be executed. In addition to
+// the protocol-imposed limitations (gas limit, etc.), there are some
+// further limitations on the content of transactions that can be
+// added. If contract code relies on the BLOCKHASH instruction,
+// the block in chain will be returned.
+func (b *BlockGen) ReadTxWithChain(bc *BlockChain, tx *types.Transaction) ([]byte, uint64) {
+	if b.gasPool == nil {
+		b.SetCoinbase(common.Address{})
+		b.feeAmout = big.NewInt(0)
+	}
+	stateDb, err := bc.StateAt(b.parent.Root())
+
+	result, gas, err := ReadTransaction(b.config, bc, stateDb, b.header, tx, vm.Config{})
+	if err != nil {
+		panic(err)
+	}
+	return result, gas
 }
 
 // Number returns the block number of the block being generated.
@@ -157,6 +178,14 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	}
 }
 
+func (b *BlockGen) GetHeader() *types.Header {
+	return b.header
+}
+
+func (b *BlockGen) GetStateDB() *state.StateDB {
+	return b.statedb
+}
+
 // GenerateChain creates a chain of n blocks. The first block's
 // parent will be the provided parent. db is used to store
 // intermediate states and should contain the parent's state trie.
@@ -175,12 +204,12 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	}
 
 	if n <= 0 {
-		return nil,nil
+		return nil, nil
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	chainreader := &fakeChainReader{config: config}
+	chainreader := &fakeChainReader{config: config, genesis: parent}
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
-		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
+		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine, feeAmout: big.NewInt(0)}
 		b.header = makeHeader(chainreader, parent, statedb, b.engine)
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
@@ -188,10 +217,14 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		if b.engine != nil {
-			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, b.feeAmout)
+			block, err := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, b.feeAmout)
+			if err != nil {
+				fmt.Println(" err ", err.Error())
+			}
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
 			block.SetSign(sign)
+
 			// Write state changes to db
 			root, err := statedb.Commit(true)
 			if err != nil {
@@ -276,13 +309,12 @@ func GenerateChainWithReward(config *params.ChainConfig, parent *types.Block, re
 func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
 	var time *big.Int
 	if parent.Time() == nil {
-		time = big.NewInt(10)
+		time = big.NewInt(5)
 	} else {
 		time = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
 	}
 
 	return &types.Header{
-		Root:       state.IntermediateRoot(true),
 		ParentHash: parent.Hash(),
 		GasLimit:   FastCalcGasLimit(parent, parent.GasLimit(), parent.GasLimit()),
 		Number:     new(big.Int).Add(parent.Number(), common.Big1),
@@ -325,6 +357,7 @@ func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header       
 func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
 func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }
+func (cr *fakeChainReader) GetBlockReward(snumber uint64) *types.BlockReward        { return nil }
 
 func NewCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *BlockChain, error) {
 	db, blockchain, err := newCanonical(engine, n, full)

@@ -19,10 +19,10 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"math/big"
 )
 
@@ -122,8 +122,6 @@ func WriteLastBlockHash(db DatabaseWriter, hash common.Hash) {
 		log.Crit("Failed to store last block's hash", "err", err)
 	}
 }
-
-
 
 // ReadHeadFastBlockHash retrieves the hash of the current fast-sync head block.
 func ReadHeadFastBlockHash(db DatabaseReader) common.Hash {
@@ -316,7 +314,6 @@ func WriteTd(db DatabaseWriter, hash common.Hash, number uint64, td *big.Int) {
 	}
 }
 
-
 // HasReceipts verifies the existence of all the transaction receipts belonging
 // to a block.
 func HasReceipts(db DatabaseReader, hash common.Hash, number uint64) bool {
@@ -352,6 +349,9 @@ func ReadReceipts(db DatabaseReader, hash common.Hash, number uint64) types.Rece
 			logIndex += 1
 		}
 		receipts[i] = (*types.Receipt)(receipt)
+		receipts[i].BlockHash = hash
+		receipts[i].BlockNumber = big.NewInt(0).SetUint64(number)
+		receipts[i].TransactionIndex = uint(i)
 	}
 	return receipts
 }
@@ -494,4 +494,29 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
 		}
 	}
 	return a
+}
+
+// ReadTd retrieves a block's total difficulty corresponding to the hash.
+func ReadCommitteeInfo(db DatabaseReader, hash common.Hash, number uint64) []*types.CommitteeMember {
+	data, _ := db.Get(headerCIKey(number, hash))
+	if len(data) == 0 {
+		return nil
+	}
+	var infos []*types.CommitteeMember
+	if err := rlp.Decode(bytes.NewReader(data), &infos); err != nil {
+		log.Error("Invalid block total difficulty RLP", "hash", hash, "err", err)
+		return nil
+	}
+	return infos
+}
+
+// WriteTd stores the total difficulty of a block into the database.
+func WriteCommitteeInfo(db DatabaseWriter, hash common.Hash, number uint64, info []*types.CommitteeMember) {
+	data, err := rlp.EncodeToBytes(info)
+	if err != nil {
+		log.Crit("Failed to RLP encode block total difficulty", "err", err)
+	}
+	if err := db.Put(headerCIKey(number, hash), data); err != nil {
+		log.Crit("Failed to store block total difficulty", "err", err)
+	}
 }

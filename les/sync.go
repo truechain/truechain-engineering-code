@@ -17,8 +17,13 @@
 package les
 
 import (
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"context"
+	"github.com/truechain/truechain-engineering-code/log"
+	"time"
+
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
+	"github.com/truechain/truechain-engineering-code/light"
 )
 
 // syncer is responsible for periodically synchronising with the network, both
@@ -50,12 +55,6 @@ func (pm *ProtocolManager) syncer() {
 	}
 }
 
-func (pm *ProtocolManager) needToSync(peerHead blockInfo) bool {
-	head := pm.blockchain.CurrentHeader()
-	currentTd := rawdb.ReadTd(pm.chainDb, head.Hash(), head.Number.Uint64())
-	return currentTd != nil && peerHead.Td.Cmp(currentTd) > 0
-}
-
 // synchronise tries to sync up our local block chain with a remote peer.
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
@@ -64,12 +63,32 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	}
 
 	// Make sure the peer's TD is higher than our own.
-	if !pm.needToSync(peer.headBlockInfo()) {
+	head := pm.blockchain.CurrentHeader()
+	currentTd := rawdb.ReadTd(pm.chainDb, head.Hash(), head.Number.Uint64())
+	headBlockInfo := peer.headBlockInfo()
+	pTd := headBlockInfo.Td
+
+	fhead := pm.fblockchain.CurrentHeader()
+	currentNumber := fhead.Number.Uint64()
+	fastHeight := headBlockInfo.FastNumber
+	pHead := headBlockInfo.FastHash
+
+	if currentTd == nil {
 		return
 	}
 
-	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	//defer cancel()
-	//pm.blockchain.(*light.LightChain).SyncCht(ctx)
+	if pTd.Cmp(currentTd) <= 0 {
+		log.Info("synchronise fast", "fastHeight", fastHeight, "currentNumber", currentNumber)
+		if fastHeight > currentNumber {
+			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.LightSync); err != nil {
+				log.Error("ProtocolManager fast sync: ", "err", err)
+				return
+			}
+		}
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	pm.blockchain.(*light.LightChain).SyncCht(ctx)
 	pm.downloader.Synchronise(peer.id, peer.Head(), peer.Td(), downloader.LightSync)
 }

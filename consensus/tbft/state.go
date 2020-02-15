@@ -4,18 +4,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
+	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	cfg "github.com/truechain/truechain-engineering-code/params"
 	"reflect"
 	"runtime/debug"
 	"sync"
 	"time"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	cfg "github.com/truechain/truechain-engineering-code/params"
 )
 
 //-----------------------------------------------------------------------------
@@ -593,6 +592,8 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 
 	var err error
 	msg, peerID := mi.Msg, mi.PeerID
+	////have a message update health tick to zero
+	//cs.hm.Update(tp2p.ID(mi.PeerID))
 	switch msg := msg.(type) {
 	case *ProposalMessage:
 		// will not cause transition.
@@ -612,6 +613,10 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
 		log.Trace("VoteMessage", "peerID", peerID, "round", msg.Vote.Round, "height", msg.Vote.Height, "type", msg.Vote.Type)
+
+		//log.Info("clear", "peerid", tp2p.ID(msg.Vote.ValidatorAddress))
+		//cs.hm.Update(tp2p.ID(msg.Vote.ValidatorAddress))
+
 		err := cs.tryAddVote(msg.Vote, peerID)
 		if err == ErrAddingVote {
 			// TODO: punish peer
@@ -905,7 +910,7 @@ func (cs *ConsensusState) createProposalBlock(round int) (*types.Block, *ttypes.
 	if (cs.state.GetLastBlockHeight() + 1) == cs.cm.StartHeight.Uint64() {
 		//make all committee
 		memers := append(cs.cm.Members, cs.cm.BackMembers...)
-
+		
 		v = &ttypes.SwitchValidator{
 			Infos: memers,
 		}
@@ -1468,7 +1473,6 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 
 func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool, err error) {
 	log.Debug("addVote", "voteHeight", vote.Height, "voteType", vote.Type, "valIndex", vote.ValidatorIndex, "csHeight", cs.Height)
-
 	// A precommit for the previous height?
 	// These come in while we wait timeoutCommit
 	if vote.Height+1 == cs.Height {
@@ -1723,7 +1727,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		remove = cs.hm.GetHealth(aEnter.CommitteeBase.Bytes())
 	}
 	if remove == nil {
-		log.Debug("swithResult,remove is nil")
+		log.Warn("swithResult,remove is nil")
 		return
 	}
 	sv := &ttypes.SwitchValidator{
@@ -1759,7 +1763,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 				}
 			}
 			if !have {
-				log.Debug("switchVerify", v.CommitteeBase, "false")
+				log.Warn("switchVerify", v.CommitteeBase, "false")
 				return false
 			}
 		}
@@ -1784,7 +1788,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		}
 
 		if remove == nil {
-			log.Debug("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
+			log.Warn("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
 			return false
 		}
 		sv := &ttypes.SwitchValidator{
@@ -1797,7 +1801,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		if err == nil {
 			return true
 		}
-		log.Debug("switchVerify", "result", err, "info", sv)
+		log.Warn("switchVerify", "result", err, "info", sv)
 	}
 	return false
 }
@@ -1809,7 +1813,7 @@ func (cs *ConsensusState) pickSwitchValidator(sv *ttypes.SwitchValidator, id boo
 			cs.svs = append(cs.svs[:0], cs.svs[1:]...)
 			return tmp
 		}
-		log.Debug("pickSV not match", "sv", sv, "item0", tmp)
+		log.Warn("pickSV not match", "sv", sv, "item0", tmp, "id", id)
 	}
 	return sv
 }

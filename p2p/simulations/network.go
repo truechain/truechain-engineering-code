@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
@@ -844,7 +844,8 @@ func (net *Network) snapshot(addServices []string, removeServices []string) (*Sn
 	return snap, nil
 }
 
-var snapshotLoadTimeout = 120 * time.Second
+// longrunning tests may need a longer timeout
+var snapshotLoadTimeout = 900 * time.Second
 
 // Load loads a network snapshot
 func (net *Network) Load(snap *Snapshot) error {
