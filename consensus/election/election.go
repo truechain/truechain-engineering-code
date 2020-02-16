@@ -1250,6 +1250,7 @@ func (e *Election) FinalizeCommittee(block *types.Block) error {
 
 	if e.committee.endFastNumber.Cmp(block.Number()) == 0 {
 		// Current committee completed, switch next
+		log.Info("****switchNext on Last fastblock in current epoch")
 		e.initCurrent()
 		e.switchNext <- struct{}{}
 	}
@@ -1436,7 +1437,7 @@ func (e *Election) loop() {
 				e.mu.Unlock()
 				e.startSwitchover = false
 
-				if e.isTIP8FromCID(e.committee.id.Uint64()) {
+				if e.committee.id.Cmp(e.chainConfig.TIP8.CID) > 0 {
 					continue
 				}
 				log.Info("Election start new BFT committee", "id", e.committee.id)
