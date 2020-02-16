@@ -46,6 +46,11 @@ var (
 		Usage: "Input transaction hash",
 		Value: "",
 	}
+	PubKeyKeyFlag = cli.StringFlag{
+		Name:  "pubkey",
+		Usage: "Committee public key for BFT",
+		Value: "",
+	}
 	ImpawnFlags = []cli.Flag{
 		KeyFlag,
 		KeyStoreFlag,
@@ -71,6 +76,7 @@ func init() {
 		FeeFlag,
 		AddressFlag,
 		TxHashFlag,
+		PubKeyKeyFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {

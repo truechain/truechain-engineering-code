@@ -1147,10 +1147,6 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 	hash := block.Hash()
 	peers := pm.peers.PeersWithoutFastBlock(hash)
 
-	if pm.chainconfig.ChainID.Uint64() == 100 {
-		//test.SendTX(block.Header(), propagate, pm.blockchain, pm.txpool, pm.chainconfig, nil, nil, pm.agentProxy.GetPrivateKey())
-	}
-
 	// If propagation is requested, send to a subset of the peer
 	if propagate {
 		if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent == nil {

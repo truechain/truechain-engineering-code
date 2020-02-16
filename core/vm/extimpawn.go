@@ -453,6 +453,9 @@ func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address)
 	sas := i.GetAllStakingAccount()
 	sa := sas.getSA(address)
 	attr := make(map[string]interface{})
+	if sa == nil {
+		return attr
+	}
 	attr["id"] = i
 	attr["unit"] = unitDisplay(sa.Unit)
 	attr["votePubKey"] = hexutil.Bytes(sa.Votepubkey)
