@@ -17,7 +17,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etrueclient"
 	tlog "github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/urfave/cli.v1"
 	"io/ioutil"
 	"log"
@@ -26,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -49,16 +49,24 @@ var (
 	first        = false
 	firstNumber  = uint64(0)
 	epoch        = uint64(0)
-	send         = false
 	delegateNum  = 0
+	delegateToal = 0
 	delegateKey  []*ecdsa.PrivateKey
 	delegateAddr []common.Address
+	delegateTx   map[common.Address]common.Hash
+	delegateSu   map[common.Address]bool
+	delegateFail map[common.Address]bool
 	seed         = new(big.Int).SetInt64(0)
-	concurrence  = delegateNum / int(params.NewEpochLength)
 	deleValue    = new(big.Int).SetInt64(0)
 	sendValue    = new(big.Int).SetInt64(0)
 	deleEValue   = new(big.Int).SetInt64(0)
 	chainID      *big.Int
+	nonce        uint64
+	nonceEpoch   = uint64(0)
+	loopCount    = uint64(0)
+	count        = uint64(0)
+	blockMutex   = new(sync.Mutex)
+	loopMutex    = new(sync.Mutex)
 )
 
 const (
@@ -76,37 +84,36 @@ func impawn(ctx *cli.Context) error {
 	PrintBalance(conn, from)
 
 	delegateNum = int(ctx.GlobalUint64(DelegateFlag.Name))
+	delegateToal = int(ctx.GlobalUint64(CountFlag.Name))
 
 	if !first {
 		first = true
 		firstNumber = header.Number.Uint64()
 		epoch = types.GetEpochFromHeight(firstNumber).EpochID
-		send = true
 		delegateKey = make([]*ecdsa.PrivateKey, delegateNum)
 		delegateAddr = make([]common.Address, delegateNum)
+		delegateTx = make(map[common.Address]common.Hash)
+		delegateSu = make(map[common.Address]bool)
+		delegateFail = make(map[common.Address]bool)
 		for i := 0; i < delegateNum; i++ {
 			delegateKey[i], _ = crypto.GenerateKey()
 			delegateAddr[i] = crypto.PubkeyToAddress(delegateKey[i].PublicKey)
 		}
 		deleValue = getBalance(conn, from)
 		if delegateNum > 0 {
-			sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*100)))
+			sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10000)))
 			deleEValue = new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
 		}
 		seed, _ = rand.Int(rand.Reader, big.NewInt(9))
-		fmt.Println("seed ", seed, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
+		fmt.Println("seed ", seed, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1), "first", firstNumber)
 	}
-
 	loop(conn, header, ctx)
-	currentNum := firstNumber
-
+	count = count + delegate
 	for {
-		time.Sleep(time.Millisecond * 500)
-		header, err := conn.HeaderByNumber(context.Background(), nil)
-		if header.Number.Uint64() > currentNum {
-			loop(conn, header, ctx)
-			currentNum = header.Number.Uint64()
-		}
+		header1, err := conn.HeaderByNumber(context.Background(), nil)
+		querySendTx(conn)
+		loop(conn, header1, ctx)
+		time.Sleep(time.Millisecond * 1000)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -116,55 +123,92 @@ func impawn(ctx *cli.Context) error {
 }
 
 func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
+	loopMutex.Lock()
+	defer loopMutex.Unlock()
 	number := header.Number.Uint64()
-	diff := number - firstNumber - seed.Uint64()
-	cEpoch := types.GetEpochFromHeight(number).EpochID
-	if cEpoch != epoch && cEpoch-epoch == 4 {
-		send = true
-		firstNumber = types.GetEpochFromID(cEpoch).BeginHeight
-		seed, _ = rand.Int(rand.Reader, big.NewInt(8))
-		epoch = cEpoch
-		fmt.Println("firstNumber", firstNumber, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1))
+	diff := loopCount
+	loopCount = loopCount + 1
+	if nonceEpoch < 1 {
+		nonce, _ = conn.PendingNonceAt(context.Background(), from)
 	}
-	if send {
-		value := trueToWei(ctx, false)
-		if diff == 5 {
-			deposit(ctx, conn, value)
-		}
-		if diff == types.GetEpochFromID(epoch+1).BeginHeight-firstNumber {
-			cancel(conn, value)
-		}
-		if diff == types.MinCalcRedeemHeight(epoch+1)-firstNumber {
-			withdrawImpawn(conn, value)
-		}
-		for i := 0; i < int(params.NewEpochLength); i++ {
-			for j := 0; j < concurrence+1; j++ {
-				if j*int(params.NewEpochLength)+i > len(delegateKey)-1 {
-					continue
-				}
-				if delegateKey[j*int(params.NewEpochLength)+i] == nil {
-					continue
-				}
-				addr := delegateAddr[j*int(params.NewEpochLength)+i]
-				key := delegateKey[j*int(params.NewEpochLength)+i]
+	nonceEpoch = 0
+	fmt.Println("number", number, "diff", diff, "send", "nonce", nonce, "tx", len(delegateTx), "su", len(delegateSu), "fail", len(delegateFail))
+	value := trueToWei(ctx, false)
+	if diff == 1 {
+		deposit(ctx, conn, value)
+	}
+	if number == types.GetEpochFromID(epoch+1).BeginHeight {
+		cancel(conn, value)
+	}
+	if number == types.MinCalcRedeemHeight(epoch+1) {
+		withdrawImpawn(conn, value)
+	}
+	for i := 0; i < delegateNum; i++ {
+		addr := delegateAddr[i]
+		key := delegateKey[i]
 
-				if diff == uint64(i)+1 {
-					sendContractTransaction(conn, from, addr, sendValue, priKey, nil)
-				}
-				if diff == uint64(i)+14 {
-					delegateImpawn(conn, deleEValue, addr, key)
-				}
-				if diff == types.GetEpochFromID(epoch+1).BeginHeight-firstNumber+uint64(i) {
-					cancelDImpawn(conn, deleEValue, addr, key)
-				}
-				if diff == types.MinCalcRedeemHeight(epoch+1)-firstNumber+uint64(i) {
-					withdrawDImpawn(conn, deleEValue, addr, key)
+		if v, ok := delegateFail[addr]; ok {
+			if v {
+				txhash, err := sendContractTransaction(conn, from, addr, sendValue, priKey, nil, "sendtx")
+				if err != nil {
+					delegateFail[addr] = true
+				} else {
+					delegateTx[addr] = txhash
+					delete(delegateFail, addr)
 				}
 			}
 		}
-		if diff-types.MinCalcRedeemHeight(epoch+1)+firstNumber-uint64(params.NewEpochLength) == 0 {
-			fmt.Println("diff", diff, " epoch ", types.MinCalcRedeemHeight(epoch+1))
-			send = false
+
+		if diff == uint64(i) {
+			txhash, err := sendContractTransaction(conn, from, addr, sendValue, priKey, nil, "sendtx")
+			if err != nil {
+				delegateFail[addr] = true
+			} else {
+				delegateTx[addr] = txhash
+				delete(delegateFail, addr)
+			}
+		}
+
+		if v, ok := delegateSu[addr]; ok {
+			if v {
+				delegateImpawn(conn, deleEValue, addr, key)
+				delegateSu[addr] = false
+			}
+		}
+
+		if number == types.GetEpochFromID(epoch+1).BeginHeight {
+			cancelDImpawn(conn, deleEValue, addr, key)
+		}
+		if number == types.MinCalcRedeemHeight(epoch+1) {
+			withdrawDImpawn(conn, deleEValue, addr, key)
+		}
+	}
+	if len(delegateSu) == int(delegateNum) {
+		if delegateToal > 0 {
+			if count > uint64(delegateToal) {
+				fmt.Println("Tx send Over.")
+				os.Exit(0)
+			}
+		} else {
+			if count > 1000 {
+				fmt.Println("Tx send Over.")
+				os.Exit(0)
+			}
+		}
+		fmt.Println("count", count, " create account")
+		for k, _ := range delegateSu {
+			delete(delegateSu, k)
+		}
+		loopCount = 0
+		count = count + delegate
+		for i := 0; i < delegateNum; i++ {
+			delegateKey[i], _ = crypto.GenerateKey()
+			delegateAddr[i] = crypto.PubkeyToAddress(delegateKey[i].PublicKey)
+		}
+		deleValue = getBalance(conn, from)
+		if delegateNum > 0 {
+			sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10000)))
+			deleEValue = new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
 		}
 	}
 }
@@ -175,7 +219,7 @@ func deposit(ctx *cli.Context, conn *etrueclient.Client, value *big.Int) {
 
 	fmt.Println("Fee", fee, " Pubkey ", pubkey, " value ", value)
 	input := packInput("deposit", pk, new(big.Int).SetUint64(delegate))
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
+	txHash, _ := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input, "deposit")
 	getResult(conn, txHash, true, false)
 }
 
@@ -205,13 +249,33 @@ func getPubKey(ctx *cli.Context, conn *etrueclient.Client) (string, []byte, erro
 	return pubkey, pk, err
 }
 
-func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte) common.Hash {
-	// Ensure a valid value field and resolve the account nonce
-	nonce, err := client.PendingNonceAt(context.Background(), from)
+func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte, method string) common.Hash {
+	blockMutex.Lock()
+	defer blockMutex.Unlock()
+	nonceOther, _ := client.PendingNonceAt(context.Background(), f)
+	gasPrice, err := client.SuggestGasPrice(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	gasLimit := uint64(866328) // in units
+
+	// Create the transaction, sign it and schedule it for execution
+	tx := types.NewTransaction(nonceOther, toAddress, value, gasLimit, gasPrice, input)
+
+	signedTx, err := types.SignTx(tx, types.NewTIP1Signer(chainID), privateKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = client.SendTransaction(context.Background(), signedTx)
+	fmt.Println("TX other data nonce ", nonceOther, " method ", method, " transfer value ", value, " gasPrice ", gasPrice, "err", err, " from ", f.Hex())
+	return signedTx.Hash()
+}
+
+func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte, method string) (common.Hash, error) {
+	blockMutex.Lock()
+	defer blockMutex.Unlock()
 	gasPrice, err := client.SuggestGasPrice(context.Background())
 	if err != nil {
 		log.Fatal(err)
@@ -222,19 +286,16 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, input)
 
-	fmt.Println("TX data nonce ", nonce, " transfer value ", value, " gasPrice ", gasPrice, " from ", from.Hex())
-
 	signedTx, err := types.SignTx(tx, types.NewTIP1Signer(chainID), privateKey)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	err = client.SendTransaction(context.Background(), signedTx)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return signedTx.Hash()
+	fmt.Println("TX data nonce ", nonce, " method ", method, " transfer value ", value, " gasPrice ", gasPrice, "err", err, " to ", toAddress.Hex(), "from", from.Hex())
+	nonce = nonce + 1
+	nonceEpoch = nonceEpoch + 1
+	return signedTx.Hash(), err
 }
 
 func createKs() {
@@ -340,7 +401,6 @@ func weiToTrue(value *big.Int) uint64 {
 
 func getResult(conn *etrueclient.Client, txHash common.Hash, contract bool, delegate bool) {
 	fmt.Println("Please waiting ", " txHash ", txHash.String())
-
 	//count := 0
 	//for {
 	//	time.Sleep(time.Millisecond * 200)
@@ -361,12 +421,28 @@ func getResult(conn *etrueclient.Client, txHash common.Hash, contract bool, dele
 	//queryTx(conn, txHash, contract, false, delegate)
 }
 
-func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool, pending bool, delegate bool) {
+func querySendTx(conn *etrueclient.Client) {
+	for addr, v := range delegateTx {
+		_, isPending, err := conn.TransactionByHash(context.Background(), v)
+		if err != nil {
+			delete(delegateTx, addr)
+			continue
+		}
+		if !isPending {
+			if queryTx(conn, v, false, false, false) {
+				fmt.Println("delegateAddr[i]", addr.Hex(), "v", v.Hex())
+				delegateSu[addr] = true
+				delete(delegateTx, addr)
+			}
+		}
+	}
+}
 
+func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool, pending bool, delegate bool) bool {
 	if pending {
 		_, isPending, err := conn.TransactionByHash(context.Background(), txHash)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println("queryTx", "txHash", txHash.Hex(), "err", err)
 		}
 		if isPending {
 			println("In tx_pool no validator  process this, please query later")
@@ -389,9 +465,11 @@ func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool, pendin
 		if contract && common.IsHexAddress(from.Hex()) {
 			queryStakingInfo(conn, false, delegate)
 		}
+		return true
 	} else if receipt.Status == types.ReceiptStatusFailed {
 		fmt.Println("Transaction Failed ", " Block Number", receipt.BlockNumber.Uint64())
 	}
+	return false
 }
 
 func packInput(abiMethod string, params ...interface{}) []byte {

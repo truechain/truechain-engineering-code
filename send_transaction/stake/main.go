@@ -40,6 +40,11 @@ var (
 		Usage: "Delegate num",
 		Value: 0,
 	}
+	CountFlag = cli.Uint64Flag{
+		Name:  "count",
+		Usage: "Delegate count",
+		Value: 0,
+	}
 	FeeFlag = cli.Uint64Flag{
 		Name:  "fee",
 		Usage: "Staking fee",
@@ -80,6 +85,7 @@ func init() {
 		TxHashFlag,
 		DelegateFlag,
 		FeeFlag,
+		CountFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {
