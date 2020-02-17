@@ -108,7 +108,7 @@ func impawn(ctx *cli.Context) error {
 		fmt.Println("seed ", seed, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1), "first", firstNumber)
 	}
 	loop(conn, header, ctx)
-	count = count + delegate
+	count = count + uint64(delegateNum)
 	for {
 		header1, err := conn.HeaderByNumber(context.Background(), nil)
 		querySendTx(conn)
@@ -200,7 +200,7 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 			delete(delegateSu, k)
 		}
 		loopCount = 0
-		count = count + delegate
+		count = count + uint64(delegateNum)
 		for i := 0; i < delegateNum; i++ {
 			delegateKey[i], _ = crypto.GenerateKey()
 			delegateAddr[i] = crypto.PubkeyToAddress(delegateKey[i].PublicKey)
@@ -218,7 +218,7 @@ func deposit(ctx *cli.Context, conn *etrueclient.Client, value *big.Int) {
 	pubkey, pk, _ := getPubKey(ctx, conn)
 
 	fmt.Println("Fee", fee, " Pubkey ", pubkey, " value ", value)
-	input := packInput("deposit", pk, new(big.Int).SetUint64(delegate))
+	input := packInput("deposit", pk, new(big.Int).SetUint64(fee))
 	txHash, _ := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input, "deposit")
 	getResult(conn, txHash, true, false)
 }
@@ -430,7 +430,6 @@ func querySendTx(conn *etrueclient.Client) {
 		}
 		if !isPending {
 			if queryTx(conn, v, false, false, false) {
-				fmt.Println("delegateAddr[i]", addr.Hex(), "v", v.Hex())
 				delegateSu[addr] = true
 				delete(delegateTx, addr)
 			}
