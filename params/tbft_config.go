@@ -262,17 +262,17 @@ func DefaultConsensusConfig() *ConsensusConfig {
 // TestConsensusConfig returns a configuration for testing the consensus service
 func TestConsensusConfig() *ConsensusConfig {
 	cfg := DefaultConsensusConfig()
-	cfg.TimeoutPropose = 100
-	cfg.TimeoutProposeDelta = 1
-	cfg.TimeoutPrevote = 10
-	cfg.TimeoutPrevoteDelta = 1
-	cfg.TimeoutPrecommit = 10
-	cfg.TimeoutPrecommitDelta = 1
-	cfg.TimeoutCommit = 10
-	cfg.TimeoutCatchup = 500
-	cfg.SkipTimeoutCommit = true
-	cfg.PeerGossipSleepDuration = 5
-	cfg.PeerQueryMaj23SleepDuration = 250
+	// cfg.TimeoutPropose = 100
+	// cfg.TimeoutProposeDelta = 1
+	// cfg.TimeoutPrevote = 10
+	// cfg.TimeoutPrevoteDelta = 1
+	// cfg.TimeoutPrecommit = 10
+	// cfg.TimeoutPrecommitDelta = 1
+	// cfg.TimeoutCommit = 10
+	// cfg.TimeoutCatchup = 500
+	// cfg.SkipTimeoutCommit = true
+	// cfg.PeerGossipSleepDuration = 5
+	// cfg.PeerQueryMaj23SleepDuration = 250
 
 	return cfg
 }

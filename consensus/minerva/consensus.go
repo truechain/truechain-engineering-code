@@ -940,7 +940,7 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 	if consensus.IsTIP8(next, chain.Config(), m.sbc) {
 		// init the first epoch in the fork
 		first := types.GetFirstEpoch()
-		fmt.Println("first.BeginHeight", first.BeginHeight, "next", next)
+		// fmt.Println("first.BeginHeight", first.BeginHeight, "next", next)
 		if first.BeginHeight == next.Uint64() {
 			i := vm.NewImpawnImpl()
 			error := i.Load(state, types.StakingAddress)
