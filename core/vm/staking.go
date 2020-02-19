@@ -151,11 +151,12 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	}
 	logN(evm, contract, topics, logData)
 	context := []interface{}{
+		"number", evm.Context.BlockNumber.Uint64(), "address", from, "value", contract.value,
 		"input", common.PrettyDuration(t1.Sub(t0)), "load", common.PrettyDuration(t2.Sub(t1)),
 		"insert", common.PrettyDuration(t3.Sub(t2)), "save", common.PrettyDuration(t4.Sub(t3)),
 		"log", common.PrettyDuration(time.Since(t4)), "elapsed", common.PrettyDuration(time.Since(t0)),
 	}
-	log.Info("Staking deposit", "number", evm.Context.BlockNumber.Uint64(), "address", from, "value", contract.value, context)
+	log.Info("Staking deposit", context...)
 	return nil, nil
 }
 
@@ -285,11 +286,12 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	}
 	logN(evm, contract, topics, logData)
 	context := []interface{}{
+		"number", evm.Context.BlockNumber.Uint64(), "address", from, "holder", holder, "value", contract.value,
 		"input", common.PrettyDuration(t1.Sub(t0)), "load", common.PrettyDuration(t2.Sub(t1)),
 		"insert", common.PrettyDuration(t3.Sub(t2)), "save", common.PrettyDuration(t4.Sub(t3)),
 		"log", common.PrettyDuration(time.Since(t4)), "elapsed", common.PrettyDuration(time.Since(t0)),
 	}
-	log.Info("Staking delegate", "number", evm.Context.BlockNumber.Uint64(), "address", from, "holder", holder, "value", contract.value, context)
+	log.Info("Staking delegate", context...)
 	return nil, nil
 }
 
