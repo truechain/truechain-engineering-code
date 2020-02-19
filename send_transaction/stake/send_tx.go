@@ -67,6 +67,7 @@ var (
 	count        = uint64(0)
 	blockMutex   = new(sync.Mutex)
 	loopMutex    = new(sync.Mutex)
+	interval     = uint64(1)
 )
 
 const (
@@ -85,6 +86,7 @@ func impawn(ctx *cli.Context) error {
 
 	delegateNum = int(ctx.GlobalUint64(DelegateFlag.Name))
 	delegateToal = int(ctx.GlobalUint64(CountFlag.Name))
+	interval = ctx.GlobalUint64(IntervalFlag.Name)
 
 	if !first {
 		first = true
@@ -113,7 +115,7 @@ func impawn(ctx *cli.Context) error {
 		header1, err := conn.HeaderByNumber(context.Background(), nil)
 		querySendTx(conn)
 		loop(conn, header1, ctx)
-		time.Sleep(time.Millisecond * 1000)
+		time.Sleep(time.Second * time.Duration(interval))
 		if err != nil {
 			log.Fatal(err)
 		}

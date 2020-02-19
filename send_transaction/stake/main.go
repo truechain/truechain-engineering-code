@@ -50,6 +50,11 @@ var (
 		Usage: "Staking fee",
 		Value: 0,
 	}
+	IntervalFlag = cli.Uint64Flag{
+		Name:  "interval",
+		Usage: "Interval transaction time",
+		Value: 1,
+	}
 	AddressFlag = cli.StringFlag{
 		Name:  "address",
 		Usage: "Transfer address",
@@ -86,6 +91,7 @@ func init() {
 		DelegateFlag,
 		FeeFlag,
 		CountFlag,
+		IntervalFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {
