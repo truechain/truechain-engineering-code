@@ -54,18 +54,18 @@ func (c *CacheChainReward) minMax() (uint64,uint64,int) {
 	return min,max,pos
 }
 func (c *CacheChainReward) AddChainReward(snailBlock uint64,infos *types.ChainReward) {
-	if infos == nil {
-		log.Error("AddChainReward: infos is nil","height",snailBlock)
-	}
-	c.lock.Lock()
-	sum := len(c.RewardCache)
-	if sum > c.count {
-		delete(c.RewardCache,c.min)
-	}
-	c.RewardCache[snailBlock] = infos
-	c.lock.Unlock()
-	c.min,c.max,sum = c.minMax()	
-	log.Info("AddChainReward","height",snailBlock,"min",c.min,"max",c.max,"count",sum)
+	// if infos == nil {
+	// 	log.Error("AddChainReward: infos is nil","height",snailBlock)
+	// }
+	// c.lock.Lock()
+	// sum := len(c.RewardCache)
+	// if sum > c.count {
+	// 	delete(c.RewardCache,c.min)
+	// }
+	// c.RewardCache[snailBlock] = infos
+	// c.lock.Unlock()
+	// c.min,c.max,sum = c.minMax()	
+	// log.Info("AddChainReward","height",snailBlock,"min",c.min,"max",c.max,"count",sum)
 }
 
 func (c *CacheChainReward) GetChainReward(snailBlock uint64) *types.ChainReward {
