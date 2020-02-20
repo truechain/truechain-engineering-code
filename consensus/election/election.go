@@ -494,6 +494,7 @@ func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
 			return committee.Members
 		}
 	}
+	log.Info("getValidators in state", "number", fastNumber, "current", current)
 	block := e.fastchain.CurrentBlock()
 	stateDb, err := e.fastchain.StateAt(block.Root())
 	if err != nil {
