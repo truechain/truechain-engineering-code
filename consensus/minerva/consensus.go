@@ -34,6 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 // Minerva protocol constants.
@@ -856,7 +857,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
 		
 	consensus.OnceInitImpawnState(chain.Config(),state,new(big.Int).Set(header.Number))
-
+	watch1 := help.NewTWatch(3, "Finalize if1")
 	if header != nil && header.SnailHash != (common.Hash{}) && header.SnailNumber != nil {
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
 		if sBlockHeader == nil {
@@ -887,15 +888,23 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 			}
 		}
 	}
+	watch1.EndWatch()
+	watch1.Finish(header.Number)
 
+	watch2 := help.NewTWatch(3, "Finalize if2")
 	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
 		return nil, err
 	}
+	watch2.EndWatch()
+	watch2.Finish(header.Number)
 
+	watch3 := help.NewTWatch(3, "Finalize if2")
 	if err := m.finalizeValidators(chain, state, header.Number); err != nil {
 		return nil, err
 	}
-
+	watch3.EndWatch()
+	watch3.Finish(header.Number)
+	
 	header.Root = state.IntermediateRoot(true)
 	return types.NewBlock(header, txs, receipts, nil, nil), nil
 }
