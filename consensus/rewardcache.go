@@ -3,6 +3,7 @@ package consensus
 import (
 	// "math/big"
 	"sync"
+	"time"
 	// "github.com/truechain/truechain-engineering-code/common"
 	// "github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -20,18 +21,25 @@ func newCacheChainReward() *CacheChainReward{
 		min:	0,
 		max:	0,
 		count:	200,
+		stop: 	false,
+		chanReward: make(chan *rewardInfo,10),
 	}
 	res.RewardCache = make(map[uint64]*types.ChainReward)
+	go res.loop()
 	return res
 }
-
-
+type rewardInfo struct {
+	height 	uint64
+	infos 	*types.ChainReward
+}
 
 type CacheChainReward struct {
 	RewardCache		map[uint64]*types.ChainReward
 	min 		uint64
 	max 		uint64
 	count 		int
+	chanReward  chan *rewardInfo
+	stop 		bool
 	lock sync.RWMutex
 }
 func (c *CacheChainReward) minMax() (uint64,uint64,int) {
@@ -53,19 +61,45 @@ func (c *CacheChainReward) minMax() (uint64,uint64,int) {
 	}
 	return min,max,pos
 }
+func (c *CacheChainReward) Stop() {
+	c.stop = true
+}
 func (c *CacheChainReward) AddChainReward(snailBlock uint64,infos *types.ChainReward) {
-	// if infos == nil {
-	// 	log.Error("AddChainReward: infos is nil","height",snailBlock)
-	// }
-	// c.lock.Lock()
-	// sum := len(c.RewardCache)
-	// if sum > c.count {
-	// 	delete(c.RewardCache,c.min)
-	// }
-	// c.RewardCache[snailBlock] = infos
-	// c.lock.Unlock()
-	// c.min,c.max,sum = c.minMax()	
-	// log.Info("AddChainReward","height",snailBlock,"min",c.min,"max",c.max,"count",sum)
+	item := &rewardInfo{
+		height:		snailBlock,
+		infos:		infos,
+	}
+	select {
+	case c.chanReward <- item:
+	default:
+	}
+}
+func (c *CacheChainReward) loop() {
+	for {
+		if c.stop {
+			return 
+		}
+		select {
+		case item := <- c.chanReward:
+			c.insertChainReward(item.height,item.infos)
+		default:
+		}
+		time.Sleep(time.Millisecond * time.Duration(500))
+	}
+}
+func (c *CacheChainReward) insertChainReward(snailBlock uint64,infos *types.ChainReward) {
+	if infos == nil {
+		log.Error("AddChainReward: infos is nil","height",snailBlock)
+	}
+	c.lock.Lock()
+	sum := len(c.RewardCache)
+	if sum > c.count {
+		delete(c.RewardCache,c.min)
+	}
+	c.RewardCache[snailBlock] = infos
+	c.lock.Unlock()
+	c.min,c.max,sum = c.minMax()	
+	log.Info("AddChainReward","height",snailBlock,"min",c.min,"max",c.max,"count",sum)
 }
 
 func (c *CacheChainReward) GetChainReward(snailBlock uint64) *types.ChainReward {
