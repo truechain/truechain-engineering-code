@@ -1063,13 +1063,15 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 	return nil
 }
 func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fast uint64) error {
-	committeeCoin, minerCoin, minerFruitCoin,fundCoin, e := GetBlockReward3(sBlock.Header().Number)
+	sHeight := sBlock.Header().Number
+	committeeCoin, minerCoin, minerFruitCoin,fundCoin, e := GetBlockReward3(sHeight)
 	if e == ErrRewardEnd {
 		return nil
 	}
 	if e != nil {
 		return e
 	}
+	log.Info("accumulateRewardsFast2","height",sHeight)
 	impawn := vm.NewImpawnImpl()
 	watch1 := help.NewTWatch(3, "Reward1")
 	impawn.Load(stateDB, types.StakingAddress)
@@ -1128,11 +1130,6 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 	if err != nil {
 		return err
 	}
-	// var ss string
-	// for _, v := range infos {
-	// 	ss += v.String()
-	// }
-	// log.Info("[Consensus AddBalance]TIP8 Reward", "fast number", fast, "SnailHeight:", sBlock.NumberU64(), "reward", ss)
 	watch4 := help.NewTWatch(3, "Reward4")
 	for _, v := range infos {
 		for _, vv := range v.Items {
