@@ -1219,7 +1219,8 @@ func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	key := common.BytesToHash(preAddress[:])
 	data := state.GetPOSState(preAddress, key)
-	if len(data) == 0 {
+	lenght := len(data)
+	if lenght == 0 {
 		return errors.New("Load data = 0")
 	}
 	var temp ImpawnImpl
@@ -1227,6 +1228,7 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 		log.Error("Invalid ImpawnImpl entry RLP", "err", err)
 		return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
 	}
+	log.Info("-----Load impawn,len:",lenght,"count:",i.Counts())
 	i.curEpochID, i.accounts, i.lastReward = temp.curEpochID, temp.accounts, temp.lastReward
 	return nil
 }
@@ -1271,7 +1273,16 @@ func GetValidatorsByEpoch(state StateDB, eid, hh uint64) []*types.CommitteeMembe
 	}
 	return vv
 }
-
+func (i *ImpawnImpl) Counts() int {
+	pos := 0
+	for _,val := range i.accounts {
+		for _, vv := range val {
+			pos = pos + len(vv.Delegation)
+		}
+		pos = pos + len(val)
+	}
+	return pos
+}
 /////////////////////////////////////////////////////////////////////////////////
 type valuesByHeight []*PairstakingValue
 
