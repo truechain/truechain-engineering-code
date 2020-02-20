@@ -129,6 +129,7 @@ type Election struct {
 	defaultMembers   []*types.CommitteeMember
 
 	commiteeCache *lru.Cache
+	epochCache    *lru.Cache
 
 	electionMode    ElectMode
 	committee       *committee
@@ -213,6 +214,7 @@ func NewElection(chainConfig *params.ChainConfig, fastBlockChain BlockChain, sna
 	}
 
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
+	election.epochCache, _ = lru.New(committeeCacheLimit)
 
 	if election.singleNode {
 		committeeMember := election.getGenesisCommittee()
@@ -474,6 +476,12 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
 	epoch := types.GetEpochFromHeight(fastNumber.Uint64())
 	current := e.fastchain.CurrentBlock().Number()
+
+	if cache, ok := e.epochCache.Get(epoch.EpochID); ok {
+		members := cache.(*[]*types.CommitteeMember)
+		return *members
+	}
+
 	if current.Cmp(fastNumber) > 0 {
 		// Read committee from block body
 		block := e.fastchain.GetBlockByNumber(epoch.BeginHeight)
@@ -491,6 +499,8 @@ func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
 				}
 			}
 			committee := &types.ElectionCommittee{Members: members, Backups: backups}
+			// cache validators by epoch
+			e.epochCache.Add(epoch.EpochID, &committee.Members)
 			return committee.Members
 		}
 	}
@@ -502,7 +512,9 @@ func (e *Election) getValidators(fastNumber *big.Int) []*types.CommitteeMember {
 		return nil
 	}
 	validators := vm.GetValidatorsByEpoch(stateDb, epoch.EpochID, fastNumber.Uint64())
-
+	if len(validators) > 0 {
+		e.epochCache.Add(epoch.EpochID, &validators)
+	}
 	return validators
 }
 
@@ -785,7 +797,7 @@ func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
 		if beginElectionNumber.Cmp(common.Big0) <= 0 {
 			beginElectionNumber = new(big.Int).Set(common.Big1)
 		}
-	
+
 		elected := e.getElectionMembers(beginElectionNumber, endElectionNumber)
 		if elected != nil {
 			info["id"] = id.Uint64()
