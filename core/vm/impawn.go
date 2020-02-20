@@ -1228,7 +1228,7 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 		log.Error("Invalid ImpawnImpl entry RLP", "err", err)
 		return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
 	}
-	log.Info("-----Load impawn---","len:",lenght,"count:",i.Counts())
+	log.Info("-----Load impawn---","len:",lenght,"count:",temp.Counts())
 	i.curEpochID, i.accounts, i.lastReward = temp.curEpochID, temp.accounts, temp.lastReward
 	return nil
 }
