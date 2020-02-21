@@ -20,7 +20,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"io/ioutil"
 	"time"
-
+	"fmt"
 	//"math/big"
 	"math/rand"
 	"os"
@@ -126,4 +126,31 @@ func TestAwardTest(t *testing.T) {
 	//	t.Error("sealing result timeout")
 	//}
 
+}
+
+func TestNewAlgorithm(t *testing.T) {
+	config := Config{
+		CacheDir:       "minerva",
+		CachesInMem:    2,
+		CachesOnDisk:   3,
+		DatasetsInMem:  1,
+		DatasetsOnDisk: 2,
+		Tip9:	 uint64(47000),
+	}
+	minerva := &Minerva{
+		config: config,
+		datasets: newlru("dataset", config.DatasetsInMem, NewDataset),
+		update:   make(chan struct{}),
+	}
+	minerva.getDataset(1)
+
+	block := uint64(47000)
+	for i:= 0;i<1000;i++ {
+		block = block + uint64(i)
+		ds := minerva.getDataset(block)
+		if ds != nil {
+			fmt.Println("len:",len(ds.dataset))
+		}
+	}
+	fmt.Println("finish")
 }

@@ -249,7 +249,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		TimeoutPrevoteDelta:         500,
 		TimeoutPrecommit:            3000,
 		TimeoutPrecommitDelta:       500,
-		TimeoutCommit:               1000,
+		TimeoutCommit:               4500,
 		TimeoutCatchup:              1000,
 		SkipTimeoutCommit:           false,
 		CreateEmptyBlocks:           true,
@@ -262,14 +262,14 @@ func DefaultConsensusConfig() *ConsensusConfig {
 // TestConsensusConfig returns a configuration for testing the consensus service
 func TestConsensusConfig() *ConsensusConfig {
 	cfg := DefaultConsensusConfig()
-	cfg.TimeoutPropose = 100
+	cfg.TimeoutPropose = 40000
 	cfg.TimeoutProposeDelta = 1
-	cfg.TimeoutPrevote = 10
-	cfg.TimeoutPrevoteDelta = 1
-	cfg.TimeoutPrecommit = 10
-	cfg.TimeoutPrecommitDelta = 1
-	cfg.TimeoutCommit = 10
-	cfg.TimeoutCatchup = 500
+	cfg.TimeoutPrevote = 30000
+	cfg.TimeoutPrevoteDelta = 1000
+	cfg.TimeoutPrecommit = 30000
+	cfg.TimeoutPrecommitDelta = 1000
+	cfg.TimeoutCommit = 1000
+	cfg.TimeoutCatchup = 1000
 	cfg.SkipTimeoutCommit = true
 	cfg.PeerGossipSleepDuration = 5
 	cfg.PeerQueryMaj23SleepDuration = 250
