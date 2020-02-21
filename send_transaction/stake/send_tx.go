@@ -310,7 +310,7 @@ func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress commo
 
 	gasLimit := uint64(2100000) // in units
 	// If the contract surely has code (or code is not needed), estimate the transaction
-	msg := truechain.CallMsg{From: from, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
+	msg := truechain.CallMsg{From: f, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
 	gasLimit, err = client.EstimateGas(context.Background(), msg)
 	if err != nil {
 		fmt.Println("Contract exec failed", err)
