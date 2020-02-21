@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code"
@@ -41,38 +42,41 @@ var (
 	priKey        *ecdsa.PrivateKey
 	from          common.Address
 	trueValue     uint64
-	delegate      uint64
 	holder        common.Address
 )
 
 var (
-	first        = false
-	firstNumber  = uint64(0)
-	epoch        = uint64(0)
-	delegateNum  = 0
-	delegateToal = 0
-	delegateKey  []*ecdsa.PrivateKey
-	delegateAddr []common.Address
-	delegateTx   map[common.Address]common.Hash
-	delegateSu   map[common.Address]bool
-	delegateFail map[common.Address]bool
-	seed         = new(big.Int).SetInt64(0)
-	deleValue    = new(big.Int).SetInt64(0)
-	sendValue    = new(big.Int).SetInt64(0)
-	deleEValue   = new(big.Int).SetInt64(0)
-	chainID      *big.Int
-	nonce        uint64
-	nonceEpoch   = uint64(0)
-	loopCount    = uint64(0)
-	count        = uint64(0)
-	blockMutex   = new(sync.Mutex)
-	loopMutex    = new(sync.Mutex)
-	interval     = uint64(1)
+	first         = false
+	firstNumber   = uint64(0)
+	epoch         = uint64(0)
+	delegateNum   = 10
+	delegateToal  = 0
+	delegateKey   []*ecdsa.PrivateKey
+	delegateAddr  []common.Address
+	delegateTx    map[common.Address]common.Hash
+	delegateSu    map[common.Address]bool
+	delegateFail  map[common.Address]bool
+	deleValue     = new(big.Int).SetInt64(0)
+	sendValue     = new(big.Int).SetInt64(0)
+	deleEValue    = new(big.Int).SetInt64(0)
+	chainID       *big.Int
+	nonce         uint64
+	nonceEpoch    = uint64(0)
+	loopCount     = uint64(0)
+	count         = uint64(0)
+	blockMutex    = new(sync.Mutex)
+	loopMutex     = new(sync.Mutex)
+	interval      = uint64(1)
+	keyAccounts   KeyAccount
+	startDelegate bool
+	startCancel   bool
+	load          bool
 )
 
 const (
 	datadirPrivateKey      = "key"
 	datadirDefaultKeyStore = "keystore"
+	defaultKeyAccount      = "accounts"
 )
 
 func impawn(ctx *cli.Context) error {
@@ -89,32 +93,23 @@ func impawn(ctx *cli.Context) error {
 	interval = ctx.GlobalUint64(IntervalFlag.Name)
 
 	if !first {
-		first = true
 		firstNumber = header.Number.Uint64()
 		epoch = types.GetEpochFromHeight(firstNumber).EpochID
-		delegateKey = make([]*ecdsa.PrivateKey, delegateNum)
-		delegateAddr = make([]common.Address, delegateNum)
 		delegateTx = make(map[common.Address]common.Hash)
 		delegateSu = make(map[common.Address]bool)
 		delegateFail = make(map[common.Address]bool)
-		for i := 0; i < delegateNum; i++ {
-			delegateKey[i], _ = crypto.GenerateKey()
-			delegateAddr[i] = crypto.PubkeyToAddress(delegateKey[i].PublicKey)
-		}
-		deleValue = getBalance(conn, from)
-		if delegateNum > 0 {
-			sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10000)))
-			deleEValue = new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
-		}
-		seed, _ = rand.Int(rand.Reader, big.NewInt(9))
-		fmt.Println("seed ", seed, "cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1), "first", firstNumber)
+		redistributionDelegate(conn)
+		fmt.Println("cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1), "first", firstNumber)
+		first = true
+		startDelegate = true
+		startCancel = false
+		load = false
 	}
-	loop(conn, header, ctx)
-	count = count + uint64(delegateNum)
+	var err error
 	for {
-		header1, err := conn.HeaderByNumber(context.Background(), nil)
+		loop(conn, header, ctx)
+		header, err = conn.HeaderByNumber(context.Background(), nil)
 		querySendTx(conn)
-		loop(conn, header1, ctx)
 		time.Sleep(time.Second * time.Duration(interval))
 		if err != nil {
 			log.Fatal(err)
@@ -145,6 +140,70 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 	if number == types.MinCalcRedeemHeight(epoch+1) {
 		withdrawImpawn(conn, value)
 	}
+
+	if startDelegate {
+		startDelegateTx(conn, diff, number)
+	}
+
+	if startCancel {
+		if load {
+			loadKeyAccounts()
+		}
+
+		for i := 0; i < len(delegateAddr); i++ {
+			addr := delegateAddr[i]
+			key := delegateKey[i]
+			if diff == uint64(i) {
+				value := queryDelegateInfo(conn, addr)
+				if value > 0 {
+					cancelDImpawn(conn, new(big.Int).SetUint64(value), addr, key)
+				}
+			}
+			//if number == types.MinCalcRedeemHeight(epoch+1) {
+			//	withdrawDImpawn(conn, deleEValue, addr, key)
+			//}
+			if loopCount == uint64(len(delegateAddr)) {
+				fmt.Println("Tx send Over.")
+				os.Exit(0)
+			}
+		}
+	}
+
+	if len(delegateSu) == delegateNum {
+		if delegateToal > 0 || count > 1000 {
+			if count >= uint64(delegateToal) {
+				loopCount = 0
+				for k, _ := range delegateSu {
+					delete(delegateSu, k)
+				}
+				load = true
+				startDelegate = false
+				startCancel = true
+				return
+			}
+		}
+		fmt.Println("count", count, " create account", " delegateToal ", delegateToal)
+		for k, _ := range delegateSu {
+			delete(delegateSu, k)
+		}
+		redistributionDelegate(conn)
+	}
+}
+
+func loadKeyAccounts() {
+	keyAccounts = loadNodesJSON(defaultKeyAccount)
+	fmt.Println("LoadKeyAccounts from local ", len(keyAccounts))
+	delegateKey = append(delegateKey[:0], delegateKey[len(delegateKey):]...)
+	delegateAddr = append(delegateAddr[:0], delegateAddr[len(delegateAddr):]...)
+	for addr, key := range keyAccounts {
+		delegatePV, _ := crypto.HexToECDSA(key)
+		delegateKey = append(delegateKey, delegatePV)
+		delegateAddr = append(delegateAddr, addr)
+	}
+	load = false
+}
+
+func startDelegateTx(conn *etrueclient.Client, diff, number uint64) {
 	for i := 0; i < delegateNum; i++ {
 		addr := delegateAddr[i]
 		key := delegateKey[i]
@@ -177,41 +236,30 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 				delegateSu[addr] = false
 			}
 		}
-
-		if number == types.GetEpochFromID(epoch+1).BeginHeight {
-			cancelDImpawn(conn, deleEValue, addr, key)
-		}
-		if number == types.MinCalcRedeemHeight(epoch+1) {
-			withdrawDImpawn(conn, deleEValue, addr, key)
-		}
 	}
-	if len(delegateSu) == int(delegateNum) {
-		if delegateToal > 0 {
-			if count > uint64(delegateToal) {
-				fmt.Println("Tx send Over.")
-				os.Exit(0)
-			}
-		} else {
-			if count > 1000 {
-				fmt.Println("Tx send Over.")
-				os.Exit(0)
-			}
-		}
-		fmt.Println("count", count, " create account")
-		for k, _ := range delegateSu {
-			delete(delegateSu, k)
-		}
-		loopCount = 0
-		count = count + uint64(delegateNum)
-		for i := 0; i < delegateNum; i++ {
-			delegateKey[i], _ = crypto.GenerateKey()
-			delegateAddr[i] = crypto.PubkeyToAddress(delegateKey[i].PublicKey)
-		}
-		deleValue = getBalance(conn, from)
-		if delegateNum > 0 {
-			sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10000)))
-			deleEValue = new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
-		}
+}
+
+func redistributionDelegate(conn *etrueclient.Client) {
+	loopCount = 0
+	count = count + uint64(delegateNum)
+	if !first {
+		count = count + uint64(len(loadNodesJSON(defaultKeyAccount)))
+	}
+
+	kas := make(KeyAccount, delegateNum)
+	delegateKey = make([]*ecdsa.PrivateKey, delegateNum)
+	delegateAddr = make([]common.Address, delegateNum)
+	for i := 0; i < delegateNum; i++ {
+		delegateKey[i], _ = crypto.GenerateKey()
+		delegateAddr[i] = crypto.PubkeyToAddress(delegateKey[i].PublicKey)
+		kas[delegateAddr[i]] = hex.EncodeToString(crypto.FromECDSA(delegateKey[i]))
+	}
+	writeNodesJSON(defaultKeyAccount, kas)
+
+	deleValue = getBalance(conn, from)
+	if delegateNum > 0 {
+		sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10000)))
+		deleEValue = new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
 	}
 }
 
@@ -610,6 +658,76 @@ func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
 	}
 }
 
+func queryDelegateInfo(conn *etrueclient.Client, from common.Address) uint64 {
+	header, err := conn.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	input := packInput("getDelegate", from, holder)
+	msg := truechain.CallMsg{From: from, To: &types.StakingAddress, Data: input}
+	output, err := conn.CallContract(context.Background(), msg, header.Number)
+	if err != nil {
+		printError("method CallContract error", err)
+	}
+	if len(output) != 0 {
+		args := struct {
+			Delegated *big.Int
+			Locked    *big.Int
+			Unlocked  *big.Int
+		}{}
+		err = abiStaking.Unpack(&args, "getDelegate", output)
+		if err != nil {
+			printError("abi error", err)
+		}
+		fmt.Println("Staked ", args.Delegated.String(), "wei =", weiToTrue(args.Delegated), "true Locked ",
+			args.Locked.String(), " wei =", weiToTrue(args.Locked), "true",
+			"Unlocked ", args.Unlocked.String(), " wei =", weiToTrue(args.Unlocked), "true")
+		return args.Delegated.Uint64()
+	} else {
+		fmt.Println("Contract query failed result len == 0")
+	}
+	return 0
+}
+
 func printTest(a ...interface{}) {
 	tlog.Info("test", "SendTX", a)
+}
+
+const jsonIndent = "    "
+
+// nodeSet is the nodes.json file format. It holds a set of node records
+// as a JSON object.
+type KeyAccount map[common.Address]string
+
+func loadNodesJSON(file string) KeyAccount {
+	var nodes KeyAccount
+	if isExist(file) {
+		if err := common.LoadJSON(file, &nodes); err != nil {
+			printError("loadNodesJSON error", err)
+		}
+	}
+	return nodes
+}
+
+func writeNodesJSON(file string, nodes KeyAccount) {
+	for k, v := range loadNodesJSON(file) {
+		nodes[k] = v
+	}
+
+	nodesJSON, err := json.MarshalIndent(nodes, "", jsonIndent)
+	if err != nil {
+		printError("MarshalIndent error", err)
+	}
+	if file == "-" {
+		os.Stdout.Write(nodesJSON)
+		return
+	}
+	if err := ioutil.WriteFile(file, nodesJSON, 0644); err != nil {
+		printError("writeFile error", err)
+	}
+}
+
+func isExist(f string) bool {
+	_, err := os.Stat(f)
+	return err == nil || os.IsExist(err)
 }
