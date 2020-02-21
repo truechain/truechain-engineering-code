@@ -561,7 +561,25 @@ func NewImpawnImpl() *ImpawnImpl {
 		accounts:   make(map[uint64]SAImpawns),
 	}
 }
-
+func CloneImpawnImpl(ori *ImpawnImpl) *ImpawnImpl {
+	if ori == nil {
+		return nil
+	}
+	tmp := &ImpawnImpl{
+		curEpochID: ori.curEpochID,
+		lastReward: ori.lastReward,
+		accounts:   make(map[uint64]SAImpawns),
+	}
+	for k,val := range ori.accounts {
+		items := SAImpawns{}
+		for _, v := range val {
+			vv := v.clone()
+			items = append(items,vv)
+		}
+		tmp.accounts[k] = items
+	}
+	return tmp
+}
 /////////////////////////////////////////////////////////////////////////////////
 ///////////  auxiliary function ////////////////////////////////////////////
 func (i *ImpawnImpl) getCurrentEpoch() uint64 {
@@ -1238,8 +1256,11 @@ func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 		log.Crit("Failed to RLP encode ImpawnImpl", "err", err)
 	}
 	hash := types.RlpHash(data)
-	IC.Cache.Add(hash, i)
 	state.SetPOSState(preAddress, key, data)
+	tmp := CloneImpawnImpl(i)
+	if tmp != nil {
+		IC.Cache.Add(hash, i)
+	}
 	return err
 }
 func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
@@ -1262,8 +1283,11 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 			watch1.Finish("DecodeBytes")
 			log.Error("Invalid ImpawnImpl entry RLP", "err", err)
 			return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
-		}		
-		IC.Cache.Add(hash, &temp)
+		}	
+		tmp := CloneImpawnImpl(&temp)	
+		if tmp != nil {
+			IC.Cache.Add(hash, tmp)
+		}
 		cache = false
 	}
 	watch1.EndWatch()
