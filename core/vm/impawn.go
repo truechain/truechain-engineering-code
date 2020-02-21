@@ -1229,7 +1229,7 @@ func (i *ImpawnImpl) GetRoot() common.Hash {
 }
 func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 	key := common.BytesToHash(preAddress[:])
-	watch1 := help.NewTWatch(0.1, "Save impawn")
+	watch1 := help.NewTWatch(0.005, "Save impawn")
 	data, err := rlp.EncodeToBytes(i)
 	watch1.EndWatch()
 	watch1.Finish("EncodeToBytes")
@@ -1252,7 +1252,7 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	cache := true
 	hash := types.RlpHash(data)
 	var temp ImpawnImpl
-	watch1 := help.NewTWatch(0.1, "Load impawn")
+	watch1 := help.NewTWatch(0.005, "Load impawn")
 	if cc, ok := IC.Cache.Get(hash); ok {
 		impawn := cc.(*ImpawnImpl)
 		temp = *impawn
