@@ -419,7 +419,10 @@ func getNonce(gen *core.BlockGen, from common.Address, state1 *state.StateDB, me
 }
 
 func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value *big.Int, input []byte, txPool txPool, priKey *ecdsa.PrivateKey, signer types.TIP1Signer) {
-	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 866328, big.NewInt(1000000), input), signer, priKey)
+	//2426392 1000000000
+	//866328  1000000
+	//2400000
+	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 2446392, big.NewInt(1000000000), input), signer, priKey)
 	if gen != nil {
 		gen.AddTxWithChain(blockchain, tx)
 	} else {
