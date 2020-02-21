@@ -200,10 +200,16 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC(height uint64) map[string]interface
 		attr["fee"] = sa.Fee.Uint64()
 		attr["committee"] = sa.Committee
 		attr["delegation"] = daSDisplay(sa.Delegation, height)
-		ai := make(map[string]interface{})
-		ai["fee"] = sa.Modify.Fee.Uint64()
-		ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
-		attr["modify"] = ai
+		if sa.Modify != nil {
+			ai := make(map[string]interface{})
+			if sa.Modify.Fee != nil {
+				ai["fee"] = sa.Modify.Fee.Uint64()
+			}
+			if sa.Modify.VotePubkey != nil {
+				ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
+			}
+			attr["modify"] = ai
+		}
 		attr["staking"] = sa.getAllStaking(height)
 		attr["validStaking"] = sa.getValidStaking(height)
 		attrs = append(attrs, attr)
@@ -462,10 +468,16 @@ func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address)
 	attr["fee"] = sa.Fee.Uint64()
 	attr["committee"] = sa.Committee
 	attr["delegation"] = daSDisplay(sa.Delegation, height)
-	ai := make(map[string]interface{})
-	ai["fee"] = sa.Modify.Fee.Uint64()
-	ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
-	attr["modify"] = ai
+	if sa.Modify != nil {
+		ai := make(map[string]interface{})
+		if sa.Modify.Fee != nil {
+			ai["fee"] = sa.Modify.Fee.Uint64()
+		}
+		if sa.Modify.VotePubkey != nil {
+			ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
+		}
+		attr["modify"] = ai
+	}
 	attr["staking"] = sa.getAllStaking(height)
 	attr["validStaking"] = sa.getValidStaking(height)
 	return attr

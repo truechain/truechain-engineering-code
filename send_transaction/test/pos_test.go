@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"math/big"
 	"os"
 	"testing"
@@ -133,5 +134,48 @@ func TestSendTX(t *testing.T) {
 	})
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		panic(err)
+	}
+}
+
+///////////////////////////////////////////////////////////////////////
+func TestRewardTime(t *testing.T) {
+	params.MinTimeGap = big.NewInt(0)
+	params.SnailRewardInterval = big.NewInt(3)
+	params.ElectionMinLimitForStaking = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e18))
+	gspec.Config.TIP7 = &params.BlockConfig{FastNumber: big.NewInt(0)}
+	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)}
+	gspec.Config.TIP9 = &params.BlockConfig{SnailNumber: big.NewInt(20)}
+
+	genesis := gspec.MustFastCommit(db)
+	blockchain, _ := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
+	snailGenesis := gspec.MustSnailCommit(db)
+	snailChainTest, _ := snailchain.NewSnailBlockChain(db, gspec.Config, engine, blockchain)
+	engine.SetSnailChainReader(snailChainTest)
+	parentFast := genesis
+	parentSnail := []*types.SnailBlock{snailGenesis}
+	delegateNum = 50000
+
+	for i := 0; i < 505; i++ {
+
+		chain, _ := core.GenerateChain(gspec.Config, parentFast, engine, db, 60, func(i int, gen *core.BlockGen) {
+			header := gen.GetHeader()
+			stateDB := gen.GetStateDB()
+			if header.Number.Uint64() > 60 {
+				SendTX(header, true, blockchain, nil, gspec.Config, gen, stateDB, nil)
+			}
+			switch i {
+			case 0:
+				rewardSnailBlock(snailChainTest, blockchain, header)
+			}
+		})
+		if _, err := blockchain.InsertChain(chain); err != nil {
+			panic(err)
+		}
+		parentFast = blockchain.CurrentBlock()
+		schain := snailchain.GenerateChain(gspec.Config, blockchain, parentSnail, 1, 7, nil)
+		if _, err := snailChainTest.InsertChain(schain); err != nil {
+			panic(err)
+		}
+		parentSnail = snailChainTest.GetBlocksFromNumber(0)
 	}
 }
