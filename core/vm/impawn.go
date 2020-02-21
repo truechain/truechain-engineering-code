@@ -1259,7 +1259,7 @@ func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 	state.SetPOSState(preAddress, key, data)
 	tmp := CloneImpawnImpl(i)
 	if tmp != nil {
-		IC.Cache.Add(hash, i)
+		IC.Cache.Add(hash, tmp)
 	}
 	return err
 }
@@ -1276,7 +1276,7 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	watch1 := help.NewTWatch(0.005, "Load impawn")
 	if cc, ok := IC.Cache.Get(hash); ok {
 		impawn := cc.(*ImpawnImpl)
-		temp = *impawn
+		temp = *(CloneImpawnImpl(impawn))
 	} else {
 		if err := rlp.DecodeBytes(data, &temp); err != nil {
 			watch1.EndWatch()
