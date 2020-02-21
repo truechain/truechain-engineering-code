@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"sync"
+	// "sync"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -15,8 +15,28 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	lru "github.com/hashicorp/golang-lru"
 )
 
+/////////////////////////////////////////////////////////////////////////////////
+var IC *ImpawnCache
+
+func init() {
+	IC = newImpawnCache()
+}
+
+type ImpawnCache struct {
+	Cache 		*lru.Cache
+	size 		int
+}
+
+func newImpawnCache() *ImpawnCache {
+	cc := &ImpawnCache{
+		size:	5,
+	}
+	cc.Cache,_ = lru.New(cc.size)
+	return cc
+}
 /////////////////////////////////////////////////////////////////////////////////
 type PairstakingValue struct {
 	Amount *big.Int
@@ -528,7 +548,6 @@ func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next, move bool) {
 /////////////////////////////////////////////////////////////////////////////////
 // be thread-safe for caller locked
 type ImpawnImpl struct {
-	lock       sync.RWMutex
 	accounts   map[uint64]SAImpawns // key is epoch id,value is SA set
 	curEpochID uint64               // the new epochid of the current state
 	lastReward uint64               // the curnent reward height block
@@ -1218,6 +1237,8 @@ func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 	if err != nil {
 		log.Crit("Failed to RLP encode ImpawnImpl", "err", err)
 	}
+	hash := types.RlpHash(data)
+	IC.Cache.Add(hash, i)
 	state.SetPOSState(preAddress, key, data)
 	return err
 }
@@ -1228,16 +1249,26 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	if lenght == 0 {
 		return errors.New("Load data = 0")
 	}
-	watch1 := help.NewTWatch(0.1, "Load impawn")
+	cache := true
+	hash := types.RlpHash(data)
 	var temp ImpawnImpl
-	if err := rlp.DecodeBytes(data, &temp); err != nil {
-		log.Error("Invalid ImpawnImpl entry RLP", "err", err)
-		return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
+	watch1 := help.NewTWatch(0.1, "Load impawn")
+	if cc, ok := IC.Cache.Get(hash); ok {
+		impawn := cc.(*ImpawnImpl)
+		temp = *impawn
+	} else {
+		if err := rlp.DecodeBytes(data, &temp); err != nil {
+			watch1.EndWatch()
+			watch1.Finish("DecodeBytes")
+			log.Error("Invalid ImpawnImpl entry RLP", "err", err)
+			return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
+		}		
+		IC.Cache.Add(hash, &temp)
+		cache = false
 	}
 	watch1.EndWatch()
 	watch1.Finish("DecodeBytes")
-
-	log.Info("-----Load impawn---","len:",lenght,"count:",temp.Counts())
+	log.Info("-----Load impawn---","len:",lenght,"count:",temp.Counts(),"cache",cache)
 	i.curEpochID, i.accounts, i.lastReward = temp.curEpochID, temp.accounts, temp.lastReward
 	return nil
 }
