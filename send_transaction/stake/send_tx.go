@@ -308,8 +308,13 @@ func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress commo
 		log.Fatal(err)
 	}
 
-	gasLimit := uint64(866328) // in units
-
+	gasLimit := uint64(2100000) // in units
+	// If the contract surely has code (or code is not needed), estimate the transaction
+	msg := truechain.CallMsg{From: from, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
+	gasLimit, err = client.EstimateGas(context.Background(), msg)
+	if err != nil {
+		fmt.Println("Contract exec failed", err)
+	}
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonceOther, toAddress, value, gasLimit, gasPrice, input)
 
@@ -319,7 +324,7 @@ func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress commo
 	}
 
 	err = client.SendTransaction(context.Background(), signedTx)
-	fmt.Println("TX other data nonce ", nonceOther, " method ", method, " transfer value ", value, " gasPrice ", gasPrice, "err", err, " from ", f.Hex())
+	fmt.Println("TX other data nonce ", nonceOther, " method ", method, " transfer value ", value, " gasPrice ", gasPrice, " gasLimit ", gasLimit, "err", err, " from ", f.Hex())
 	return signedTx.Hash()
 }
 
@@ -331,8 +336,13 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 		log.Fatal(err)
 	}
 
-	gasLimit := uint64(866328) // in units
-
+	gasLimit := uint64(2100000) // in units
+	// If the contract surely has code (or code is not needed), estimate the transaction
+	msg := truechain.CallMsg{From: from, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
+	gasLimit, err = client.EstimateGas(context.Background(), msg)
+	if err != nil {
+		fmt.Println("Contract exec failed", err)
+	}
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, input)
 
@@ -342,7 +352,7 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 	}
 
 	err = client.SendTransaction(context.Background(), signedTx)
-	fmt.Println("TX data nonce ", nonce, " method ", method, " transfer value ", value, " gasPrice ", gasPrice, "err", err, " to ", toAddress.Hex(), "from", from.Hex())
+	fmt.Println("TX data nonce ", nonce, " method ", method, " transfer value ", value, " gasPrice ", gasPrice, " gasLimit ", gasLimit, "err", err, " to ", toAddress.Hex(), "from", from.Hex())
 	nonce = nonce + 1
 	nonceEpoch = nonceEpoch + 1
 	return signedTx.Hash(), err
