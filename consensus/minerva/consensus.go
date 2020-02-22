@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 	"math/big"
 	"runtime"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 // Minerva protocol constants.
@@ -1125,7 +1125,6 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 	if err != nil {
 		return err
 	}
-	var ss string
 	for _, v := range infos {
 		for _, vv := range v.Items {
 			stateDB.AddBalance(vv.Address, vv.Amount)

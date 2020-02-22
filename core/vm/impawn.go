@@ -14,7 +14,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -1266,7 +1265,6 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	if lenght == 0 {
 		return errors.New("Load data = 0")
 	}
-	cache := true
 	hash := types.RlpHash(data)
 	var temp ImpawnImpl
 	if cc, ok := IC.Cache.Get(hash); ok {
@@ -1281,7 +1279,6 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 		if tmp != nil {
 			IC.Cache.Add(hash, tmp)
 		}
-		cache = false
 	}
 	i.curEpochID, i.accounts, i.lastReward = temp.curEpochID, temp.accounts, temp.lastReward
 	return nil
