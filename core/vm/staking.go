@@ -18,6 +18,7 @@ package vm
 import (
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -27,16 +28,16 @@ import (
 
 // StakingGas defines all method gas
 var StakingGas = map[string]uint64{
-	"getDeposit":       120000,
-	"getDelegate":      150000,
-	"deposit":          800000,
-	"append":           800000,
-	"setFee":           800000,
-	"withdraw":         840000,
-	"cancel":           800000,
-	"delegate":         500000,
-	"undelegate":       500000,
-	"withdrawDelegate": 540000,
+	"getDeposit":       360000,
+	"getDelegate":      450000,
+	"deposit":          2400000,
+	"append":           2400000,
+	"setFee":           2400000,
+	"withdraw":         2520000,
+	"cancel":           2400000,
+	"delegate":         1500000,
+	"undelegate":       1500000,
+	"withdrawDelegate": 1620000,
 }
 
 // Staking contract ABI
@@ -100,9 +101,9 @@ func logN(evm *EVM, contract *Contract, topics []common.Hash, data []byte) ([]by
 	return nil, nil
 }
 
-
 // deposit
 func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	t0 := time.Now()
 	args := struct {
 		Pubkey []byte
 		Fee    *big.Int
@@ -116,27 +117,28 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	}
 
 	from := contract.caller.Address()
-
-	log.Info("Staking deposit", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", contract.value)
+	t1 := time.Now()
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking load error", "error", err)
 		return nil, err
 	}
-
+	t2 := time.Now()
 	err = impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, args.Pubkey, contract.value, args.Fee, true)
 	if err != nil {
 		log.Error("Staking deposit", "address", contract.caller.Address(), "value", contract.value, "error", err)
 		return nil, err
 	}
 
+	t3 := time.Now()
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
 
+	t4 := time.Now()
 	event := abiStaking.Events["Deposit"]
 	logData, err := event.Inputs.PackNonIndexed(args.Pubkey, contract.value, args.Fee)
 	if err != nil {
@@ -148,7 +150,13 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 		common.BytesToHash(from[:]),
 	}
 	logN(evm, contract, topics, logData)
-
+	context := []interface{}{
+		"number", evm.Context.BlockNumber.Uint64(), "address", from, "value", contract.value,
+		"input", common.PrettyDuration(t1.Sub(t0)), "load", common.PrettyDuration(t2.Sub(t1)),
+		"insert", common.PrettyDuration(t3.Sub(t2)), "save", common.PrettyDuration(t4.Sub(t3)),
+		"log", common.PrettyDuration(time.Since(t4)), "elapsed", common.PrettyDuration(time.Since(t0)),
+	}
+	log.Info("Staking deposit", context...)
 	return nil, nil
 }
 
@@ -237,7 +245,7 @@ func setFeeRate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 // delegate
 func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	var holder common.Address
-
+	t0 := time.Now()
 	method, _ := abiStaking.Methods["delegate"]
 	err = method.Inputs.Unpack(&holder, input)
 	if err != nil {
@@ -245,25 +253,26 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		return nil, ErrStakingInvalidInput
 	}
 	from := contract.caller.Address()
-
-	log.Info("Staking delegate", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "holder", holder, "value", contract.value)
+	t1 := time.Now()
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking load error", "error", err)
 		return nil, err
 	}
+	t2 := time.Now()
 	err = impawn.InsertDAccount2(evm.Context.BlockNumber.Uint64(), holder, from, contract.value)
 	if err != nil {
 		log.Error("Staking delegate", "address", contract.caller.Address(), "value", contract.value, "error", err)
 		return nil, err
 	}
+	t3 := time.Now()
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
-
+	t4 := time.Now()
 	event := abiStaking.Events["Delegate"]
 	logData, err := event.Inputs.PackNonIndexed(contract.value)
 	if err != nil {
@@ -276,7 +285,13 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		common.BytesToHash(holder[:]),
 	}
 	logN(evm, contract, topics, logData)
-
+	context := []interface{}{
+		"number", evm.Context.BlockNumber.Uint64(), "address", from, "holder", holder, "value", contract.value,
+		"input", common.PrettyDuration(t1.Sub(t0)), "load", common.PrettyDuration(t2.Sub(t1)),
+		"insert", common.PrettyDuration(t3.Sub(t2)), "save", common.PrettyDuration(t4.Sub(t3)),
+		"log", common.PrettyDuration(time.Since(t4)), "elapsed", common.PrettyDuration(time.Since(t0)),
+	}
+	log.Info("Staking delegate", context...)
 	return nil, nil
 }
 

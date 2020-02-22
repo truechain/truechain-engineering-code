@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"math/big"
 	"runtime"
-	"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
@@ -34,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 // Minerva protocol constants.
@@ -940,7 +940,7 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 	if consensus.IsTIP8(next, chain.Config(), m.sbc) {
 		// init the first epoch in the fork
 		first := types.GetFirstEpoch()
-		fmt.Println("first.BeginHeight", first.BeginHeight, "next", next)
+		// fmt.Println("first.BeginHeight", first.BeginHeight, "next", next)
 		if first.BeginHeight == next.Uint64() {
 			i := vm.NewImpawnImpl()
 			error := i.Load(state, types.StakingAddress)
@@ -1126,10 +1126,6 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 		return err
 	}
 	var ss string
-	for _, v := range infos {
-		ss += v.String()
-	}
-	log.Info("[Consensus AddBalance]TIP8 Reward", "fast number", fast, "SnailHeight:", sBlock.NumberU64(), "reward", ss)
 	for _, v := range infos {
 		for _, vv := range v.Items {
 			stateDB.AddBalance(vv.Address, vv.Amount)

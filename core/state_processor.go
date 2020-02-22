@@ -19,7 +19,9 @@ package core
 import (
 	//"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/metrics"
 	"math"
+	"time"
 
 	//"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -29,6 +31,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 
 	"math/big"
+)
+
+var (
+	blockExecutionTxTimer = metrics.NewRegisteredTimer("chain/state/executiontx", nil)
+	blockFinalizeTimer    = metrics.NewRegisteredTimer("chain/state/finalize", nil)
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -66,6 +73,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs   []*types.Log
 		gp        = new(GasPool).AddGas(block.GasLimit())
 	)
+	start := time.Now()
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
@@ -76,12 +84,14 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
+	t1 := time.Now()
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 	if err != nil {
 		return nil, nil, 0, err
 	}
-
+	blockExecutionTxTimer.Update(t1.Sub(start))
+	blockFinalizeTimer.Update(time.Since(t1))
 	return receipts, allLogs, *usedGas, nil
 }
 
