@@ -42,7 +42,6 @@ var (
 	priKey        *ecdsa.PrivateKey
 	from          common.Address
 	trueValue     uint64
-	holder        common.Address
 )
 
 var (
@@ -142,7 +141,11 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 	}
 
 	if startDelegate {
-		startDelegateTx(conn, diff, number)
+		if len(keyAccounts) >= delegateToal {
+			startDelegateTx(conn, diff, number, true)
+		} else {
+			startDelegateTx(conn, diff, number, false)
+		}
 	}
 
 	if startCancel {
@@ -169,7 +172,7 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 		}
 	}
 
-	if len(delegateSu) == delegateNum {
+	if len(delegateSu) == delegateNum && len(keyAccounts) < delegateToal {
 		if delegateToal > 0 || count > 1000 {
 			if count >= uint64(delegateToal) {
 				loopCount = 0
@@ -203,8 +206,8 @@ func loadKeyAccounts() {
 	load = false
 }
 
-func startDelegateTx(conn *etrueclient.Client, diff, number uint64) {
-	for i := 0; i < delegateNum; i++ {
+func startDelegateTx(conn *etrueclient.Client, diff, number uint64, query bool) {
+	for i := 0; i < len(delegateAddr); i++ {
 		addr := delegateAddr[i]
 		key := delegateKey[i]
 
@@ -221,6 +224,13 @@ func startDelegateTx(conn *etrueclient.Client, diff, number uint64) {
 		}
 
 		if diff == uint64(i) {
+			if query {
+				value := queryDelegateInfo(conn, addr)
+				if value > 0 {
+					fmt.Println("Have delegate value", weiToTrue(new(big.Int).SetUint64(value)), " addr ", addr.String())
+					continue
+				}
+			}
 			txhash, err := sendContractTransaction(conn, from, addr, sendValue, priKey, nil, "sendtx")
 			if err != nil {
 				delegateFail[addr] = true
@@ -236,16 +246,37 @@ func startDelegateTx(conn *etrueclient.Client, diff, number uint64) {
 				delegateSu[addr] = false
 			}
 		}
+		if query && i >= delegateToal-1 {
+			loopCount = 0
+			for k, _ := range delegateSu {
+				delete(delegateSu, k)
+			}
+			load = true
+			startDelegate = false
+			startCancel = true
+		}
 	}
 }
 
+//value := queryDelegateInfo(conn, addr)
+
 func redistributionDelegate(conn *etrueclient.Client) {
 	loopCount = 0
-	count = count + uint64(delegateNum)
-	if !first {
-		count = count + uint64(len(loadNodesJSON(defaultKeyAccount)))
+	deleValue = getBalance(conn, from)
+	if delegateNum > 0 {
+		sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10000)))
+		deleEValue = new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
 	}
 
+	if !first {
+		count = count + uint64(len(loadNodesJSON(defaultKeyAccount)))
+		if count >= uint64(delegateToal) {
+			loadKeyAccounts()
+			return
+		}
+	}
+
+	count = count + uint64(delegateNum)
 	kas := make(KeyAccount, delegateNum)
 	delegateKey = make([]*ecdsa.PrivateKey, delegateNum)
 	delegateAddr = make([]common.Address, delegateNum)
@@ -255,12 +286,6 @@ func redistributionDelegate(conn *etrueclient.Client) {
 		kas[delegateAddr[i]] = hex.EncodeToString(crypto.FromECDSA(delegateKey[i]))
 	}
 	writeNodesJSON(defaultKeyAccount, kas)
-
-	deleValue = getBalance(conn, from)
-	if delegateNum > 0 {
-		sendValue = new(big.Int).Div(deleValue, new(big.Int).SetInt64(int64(delegateNum*10000)))
-		deleEValue = new(big.Int).Sub(sendValue, new(big.Int).Div(sendValue, new(big.Int).SetInt64(int64(10))))
-	}
 }
 
 func deposit(ctx *cli.Context, conn *etrueclient.Client, value *big.Int) {
@@ -623,11 +648,9 @@ func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
 		log.Fatal(err)
 	}
 	var input []byte
-	if delegate {
-		input = packInput("getDelegate", from, holder)
-	} else {
-		input = packInput("getDeposit", from)
-	}
+
+	input = packInput("getDeposit", from)
+
 	msg := truechain.CallMsg{From: from, To: &types.StakingAddress, Data: input}
 	output, err := conn.CallContract(context.Background(), msg, header.Number)
 	if err != nil {
@@ -668,13 +691,13 @@ func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
 	}
 }
 
-func queryDelegateInfo(conn *etrueclient.Client, from common.Address) uint64 {
+func queryDelegateInfo(conn *etrueclient.Client, daAddress common.Address) uint64 {
 	header, err := conn.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	input := packInput("getDelegate", from, holder)
-	msg := truechain.CallMsg{From: from, To: &types.StakingAddress, Data: input}
+	input := packInput("getDelegate", daAddress, from)
+	msg := truechain.CallMsg{From: daAddress, To: &types.StakingAddress, Data: input}
 	output, err := conn.CallContract(context.Background(), msg, header.Number)
 	if err != nil {
 		printError("method CallContract error", err)
