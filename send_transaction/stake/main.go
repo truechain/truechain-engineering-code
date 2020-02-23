@@ -65,6 +65,10 @@ var (
 		Usage: "Input transaction hash",
 		Value: "",
 	}
+	OverFlag = cli.BoolFlag{
+		Name:  "over",
+		Usage: "Cancel all delegate value",
+	}
 	ImpawnFlags = []cli.Flag{
 		KeyFlag,
 		KeyStoreFlag,
@@ -92,6 +96,7 @@ func init() {
 		FeeFlag,
 		CountFlag,
 		IntervalFlag,
+		OverFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {

@@ -143,6 +143,16 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 	if startDelegate {
 		if len(keyAccounts) >= delegateToal {
 			startDelegateTx(conn, diff, number, true)
+			if diff >= uint64(delegateToal) {
+				fmt.Println(" start cancel ", "count", count, " delegateToal ", delegateToal)
+				loopCount = 0
+				for k, _ := range delegateSu {
+					delete(delegateSu, k)
+				}
+				load = true
+				startDelegate = false
+				startCancel = true
+			}
 		} else {
 			startDelegateTx(conn, diff, number, false)
 		}
@@ -159,6 +169,9 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 			if diff == uint64(i) {
 				value := queryDelegateInfo(conn, addr)
 				if value > 0 {
+					if ctx.GlobalBool(OverFlag.Name) {
+						value = value - 10000
+					}
 					cancelDImpawn(conn, new(big.Int).SetUint64(value), addr, key)
 				}
 			}
@@ -174,6 +187,7 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 
 	if len(delegateSu) == delegateNum && len(keyAccounts) < delegateToal {
 		if delegateToal > 0 || count > 1000 {
+			fmt.Println(" start cancel ", "count", count, " delegateToal ", delegateToal, " keyAccounts ", len(keyAccounts))
 			if count >= uint64(delegateToal) {
 				loopCount = 0
 				for k, _ := range delegateSu {
@@ -227,7 +241,7 @@ func startDelegateTx(conn *etrueclient.Client, diff, number uint64, query bool) 
 			if query {
 				value := queryDelegateInfo(conn, addr)
 				if value > 0 {
-					fmt.Println("Have delegate value", weiToTrue(new(big.Int).SetUint64(value)), " addr ", addr.String())
+					fmt.Println("Have delegate value", value, " index ", i, " addr ", addr.String())
 					continue
 				}
 			}
@@ -245,15 +259,6 @@ func startDelegateTx(conn *etrueclient.Client, diff, number uint64, query bool) 
 				delegateImpawn(conn, deleEValue, addr, key)
 				delegateSu[addr] = false
 			}
-		}
-		if query && i >= delegateToal-1 {
-			loopCount = 0
-			for k, _ := range delegateSu {
-				delete(delegateSu, k)
-			}
-			load = true
-			startDelegate = false
-			startCancel = true
 		}
 	}
 }
