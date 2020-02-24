@@ -45,6 +45,7 @@ var (
 const (
 	datadirPrivateKey      = "key"
 	datadirDefaultKeyStore = "keystore"
+	ImpawnAmount           = 20000
 )
 
 func impawn(ctx *cli.Context) error {
@@ -58,6 +59,10 @@ func impawn(ctx *cli.Context) error {
 	PrintBalance(conn, from)
 
 	value := trueToWei(ctx, false)
+
+	if trueValue < ImpawnAmount {
+		printError("Impawn value must bigger than ", ImpawnAmount)
+	}
 
 	fee = ctx.GlobalUint64(FeeFlag.Name)
 	checkFee(new(big.Int).SetUint64(fee))

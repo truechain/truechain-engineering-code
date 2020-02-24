@@ -40,10 +40,20 @@ var (
 		Usage: "Delegate num",
 		Value: 0,
 	}
+	CountFlag = cli.Uint64Flag{
+		Name:  "count",
+		Usage: "Delegate count",
+		Value: 0,
+	}
 	FeeFlag = cli.Uint64Flag{
 		Name:  "fee",
 		Usage: "Staking fee",
 		Value: 0,
+	}
+	IntervalFlag = cli.Uint64Flag{
+		Name:  "interval",
+		Usage: "Interval transaction time",
+		Value: 1,
 	}
 	AddressFlag = cli.StringFlag{
 		Name:  "address",
@@ -54,6 +64,10 @@ var (
 		Name:  "txhash",
 		Usage: "Input transaction hash",
 		Value: "",
+	}
+	OverFlag = cli.BoolFlag{
+		Name:  "over",
+		Usage: "Cancel all delegate value",
 	}
 	ImpawnFlags = []cli.Flag{
 		KeyFlag,
@@ -80,6 +94,9 @@ func init() {
 		TxHashFlag,
 		DelegateFlag,
 		FeeFlag,
+		CountFlag,
+		IntervalFlag,
+		OverFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {

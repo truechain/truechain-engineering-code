@@ -952,7 +952,7 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"maker":            head.Proposer,
 		"logsBloom":        head.Bloom,
 		"stateRoot":        head.Root,
-		"SnailHash":        head.SnailHash,
+		"snailHash":        head.SnailHash,
 		"SnailNumber":      (*hexutil.Big)(head.SnailNumber),
 		"extraData":        hexutil.Bytes(head.Extra),
 		"size":             hexutil.Uint64(b.Size()),
@@ -986,11 +986,11 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 
 	formatMembers := func(commit *types.CommitteeMember) (map[string]interface{}, error) {
 		members := map[string]interface{}{
-			"Coinbase":      commit.Coinbase,
-			"CommitteeBase": commit.CommitteeBase,
-			"Publickey":     commit.Publickey,
-			"Flag":          commit.Flag,
-			"MType":         commit.MType,
+			"coinbase":      commit.Coinbase,
+			"committeeBase": commit.CommitteeBase,
+			"publickey":     commit.Publickey,
+			"flag":          commit.Flag,
+			"mType":         commit.MType,
 		}
 		return members, nil
 	}
@@ -1057,7 +1057,13 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 	fs := b.Fruits()
 	if inclFruit {
 		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
-			return fruit.Hash(), nil
+			return map[string]interface{}{
+				"number":     (*hexutil.Big)(head.Number),
+				"hash":       fruit.Hash(),
+				"nonce":      head.Nonce,
+				"miner":      head.Coinbase,
+				"difficulty": (*hexutil.Big)(head.FruitDifficulty),
+			}, nil
 		}
 		fruits := make([]interface{}, len(fs))
 		var err error
@@ -1191,10 +1197,11 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map
 		return nil
 	}
 	fields := map[string]interface{}{
-		"foundationReward": content.Foundation,
-		"blockminer":       content.CoinBase,
-		"fruitminer":       content.FruitBase,
-		"committeReward":   content.CommitteeBase,
+		"time":				hexutil.Uint64(content.St)
+		"foundationReward": content.Reward.Foundation,
+		"blockminer":       content.Reward.CoinBase,
+		"fruitminer":       content.Reward.FruitBase,
+		"committeReward":   content.Reward.CommitteeBase,
 	}
 	return fields
 }

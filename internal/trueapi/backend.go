@@ -65,7 +65,7 @@ type Backend interface {
 	GetReward(number int64) *types.BlockReward
 	GetCommittee(id rpc.BlockNumber) (map[string]interface{}, error)
 	GetSnailRewardContent(blockNr rpc.BlockNumber) *types.SnailRewardContenet
-	GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward
+	GetChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error

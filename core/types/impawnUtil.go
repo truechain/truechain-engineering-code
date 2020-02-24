@@ -83,6 +83,10 @@ func (s *SARewardInfos) String() string {
 	}
 	return ss
 }
+type TimedChainReward struct {
+	St 			uint64
+	Reward 		*ChainReward
+}
 
 type ChainReward struct {
 	Foundation		*RewardInfo

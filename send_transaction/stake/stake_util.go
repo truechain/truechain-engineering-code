@@ -12,14 +12,14 @@ import (
 
 func cancel(conn *etrueclient.Client, value *big.Int) error {
 	input := packInput("cancel", value)
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
+	txHash, _ := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input, "cancel")
 	getResult(conn, txHash, true, false)
 	return nil
 }
 
 func withdrawImpawn(conn *etrueclient.Client, value *big.Int) error {
 	input := packInput("withdraw", value)
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
+	txHash, _ := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input, "withdrawImpawn")
 	getResult(conn, txHash, true, false)
 	return nil
 }
@@ -59,28 +59,28 @@ func sendTX(ctx *cli.Context) error {
 	}
 
 	value := trueToWei(ctx, false)
-	txHash := sendContractTransaction(conn, from, common.HexToAddress(address), value, priKey, nil)
+	txHash, _ := sendContractTransaction(conn, from, common.HexToAddress(address), value, priKey, nil, "sendTX")
 	getResult(conn, txHash, false, false)
 	return nil
 }
 
 func delegateImpawn(conn *etrueclient.Client, value *big.Int, address common.Address, key *ecdsa.PrivateKey) error {
 	input := packInput("delegate", from)
-	txHash := sendContractTransaction(conn, address, types.StakingAddress, value, key, input)
+	txHash := sendOtherContractTransaction(conn, address, types.StakingAddress, value, key, input, "delegateImpawn")
 	getResult(conn, txHash, true, true)
 	return nil
 }
 
 func cancelDImpawn(conn *etrueclient.Client, value *big.Int, address common.Address, key *ecdsa.PrivateKey) error {
 	input := packInput("undelegate", from, value)
-	txHash := sendContractTransaction(conn, address, types.StakingAddress, new(big.Int).SetInt64(0), key, input)
+	txHash := sendOtherContractTransaction(conn, address, types.StakingAddress, new(big.Int).SetInt64(0), key, input, "cancelDImpawn")
 	getResult(conn, txHash, true, true)
 	return nil
 }
 
 func withdrawDImpawn(conn *etrueclient.Client, value *big.Int, address common.Address, key *ecdsa.PrivateKey) error {
 	input := packInput("withdrawDelegate", from, value)
-	txHash := sendContractTransaction(conn, address, types.StakingAddress, new(big.Int).SetInt64(0), key, input)
+	txHash := sendOtherContractTransaction(conn, address, types.StakingAddress, new(big.Int).SetInt64(0), key, input, "withdrawDImpawn")
 	getResult(conn, txHash, true, true)
 	return nil
 }
