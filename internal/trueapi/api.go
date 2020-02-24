@@ -660,6 +660,14 @@ func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr
 	return nil, err
 }
 
+func (s *PublicBlockChainAPI) GetSnailHashByNumber(ctx context.Context, blockNr rpc.BlockNumber) common.Hash {
+	block, _ := s.b.SnailBlockByNumber(ctx, blockNr)
+	if block != nil {
+		return block.Hash()
+	}
+	return [32]byte{}
+}
+
 // GetSnailBlockByHash returns the requested snail block.
 func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash common.Hash, inclFruit bool) (map[string]interface{}, error) {
 	block, err := s.b.GetSnailBlock(ctx, blockHash)
@@ -667,6 +675,16 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 		return s.rpcOutputSnailBlock(block, inclFruit)
 	}
 	return nil, err
+}
+
+func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(ctx context.Context,
+	fastNumber rpc.BlockNumber) *types.BalanceChange {
+	return s.b.GetStateChangeByFastNumber(ctx, fastNumber)
+}
+
+func (s *PublicBlockChainAPI) GetBalanceChangeBySnailNumber(ctx context.Context,
+	snailNumber rpc.BlockNumber) *types.BalanceChange {
+	return s.b.GetBalanceChangeBySnailNumber(snailNumber)
 }
 
 func (s *PublicBlockChainAPI) GetFruitByNumber(ctx context.Context, fastblockNr rpc.BlockNumber, fullSigns bool) (map[string]interface{}, error) {
@@ -1197,7 +1215,7 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map
 		return nil
 	}
 	fields := map[string]interface{}{
-		"time":				hexutil.Uint64(content.St),
+		"time":             hexutil.Uint64(content.St),
 		"foundationReward": content.Reward.Foundation,
 		"blockminer":       content.Reward.CoinBase,
 		"fruitminer":       content.Reward.FruitBase,

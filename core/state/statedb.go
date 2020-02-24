@@ -735,3 +735,11 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 	})
 	return root, err
 }
+
+func (db *StateDB) Balances() map[common.Address]*big.Int {
+	balancesChange := make(map[common.Address]*big.Int, len(db.stateObjects))
+	for _, sto := range db.stateObjects {
+		balancesChange[sto.Address()] = sto.Balance()
+	}
+	return balancesChange
+}
