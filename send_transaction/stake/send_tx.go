@@ -70,6 +70,9 @@ var (
 	startDelegate bool
 	startCancel   bool
 	load          bool
+	gas           = new(big.Int).Exp(big.NewInt(10), big.NewInt(9), nil)
+	mixDelegate   = new(big.Int).Mul(big.NewInt(5000000), gas)
+	minValue      = new(big.Int).Mul(big.NewInt(4000000), gas)
 )
 
 const (
@@ -104,6 +107,13 @@ func impawn(ctx *cli.Context) error {
 		startCancel = false
 		load = false
 	}
+
+	if ctx.GlobalIsSet(CancelFlag.Name) {
+		if ctx.GlobalBool(CancelFlag.Name) {
+			initCancelContext()
+		}
+	}
+
 	var err error
 	for {
 		loop(conn, header, ctx)
@@ -145,13 +155,7 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 			startDelegateTx(conn, diff, number, true)
 			if diff >= uint64(delegateToal) {
 				fmt.Println(" start cancel ", "count", count, " delegateToal ", delegateToal)
-				loopCount = 0
-				for k, _ := range delegateSu {
-					delete(delegateSu, k)
-				}
-				load = true
-				startDelegate = false
-				startCancel = true
+				initCancelContext()
 			}
 		} else {
 			startDelegateTx(conn, diff, number, false)
@@ -169,7 +173,7 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 			if diff == uint64(i) {
 				value := queryDelegateInfo(conn, addr)
 				if value > 0 {
-					if ctx.GlobalBool(OverFlag.Name) {
+					if !ctx.GlobalBool(OverFlag.Name) {
 						value = value - 10000
 					}
 					cancelDImpawn(conn, new(big.Int).SetUint64(value), addr, key)
@@ -189,13 +193,7 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 		if delegateToal > 0 || count > 1000 {
 			fmt.Println(" start cancel ", "count", count, " delegateToal ", delegateToal, " keyAccounts ", len(keyAccounts))
 			if count >= uint64(delegateToal) {
-				loopCount = 0
-				for k, _ := range delegateSu {
-					delete(delegateSu, k)
-				}
-				load = true
-				startDelegate = false
-				startCancel = true
+				initCancelContext()
 				return
 			}
 		}
@@ -205,6 +203,16 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 		}
 		redistributionDelegate(conn)
 	}
+}
+
+func initCancelContext() {
+	loopCount = 0
+	for k, _ := range delegateSu {
+		delete(delegateSu, k)
+	}
+	load = true
+	startDelegate = false
+	startCancel = true
 }
 
 func loadKeyAccounts() {
@@ -237,26 +245,34 @@ func startDelegateTx(conn *etrueclient.Client, diff, number uint64, query bool) 
 			}
 		}
 
+		find := false
 		if diff == uint64(i) {
 			if query {
-				value := queryDelegateInfo(conn, addr)
-				if value > 0 {
+				value := getBalance(conn, addr)
+				if value.Cmp(mixDelegate) > 0 {
 					fmt.Println("Have delegate value", value, " index ", i, " addr ", addr.String())
-					continue
+					delegateSu[addr] = true
+					find = true
 				}
 			}
-			txhash, err := sendContractTransaction(conn, from, addr, sendValue, priKey, nil, "sendtx")
-			if err != nil {
-				delegateFail[addr] = true
-			} else {
-				delegateTx[addr] = txhash
-				delete(delegateFail, addr)
+			if find {
+				txhash, err := sendContractTransaction(conn, from, addr, sendValue, priKey, nil, "sendtx")
+				if err != nil {
+					delegateFail[addr] = true
+				} else {
+					delegateTx[addr] = txhash
+					delete(delegateFail, addr)
+				}
 			}
 		}
 
 		if v, ok := delegateSu[addr]; ok {
 			if v {
-				delegateImpawn(conn, deleEValue, addr, key)
+				if find {
+					delegateImpawn(conn, minValue, addr, key)
+				} else {
+					delegateImpawn(conn, deleEValue, addr, key)
+				}
 				delegateSu[addr] = false
 			}
 		}
@@ -338,13 +354,8 @@ func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress commo
 		log.Fatal(err)
 	}
 
-	gasLimit := uint64(2100000) // in units
-	// If the contract surely has code (or code is not needed), estimate the transaction
-	msg := truechain.CallMsg{From: f, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
-	gasLimit, err = client.EstimateGas(context.Background(), msg)
-	if err != nil {
-		fmt.Println("Contract exec failed", err)
-	}
+	gasLimit := uint64(1625280) // in units
+
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonceOther, toAddress, value, gasLimit, gasPrice, input)
 
@@ -367,11 +378,8 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 	}
 
 	gasLimit := uint64(2100000) // in units
-	// If the contract surely has code (or code is not needed), estimate the transaction
-	msg := truechain.CallMsg{From: from, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
-	gasLimit, err = client.EstimateGas(context.Background(), msg)
-	if err != nil {
-		fmt.Println("Contract exec failed", err)
+	if types.StakingAddress == toAddress {
+		gasLimit = 2440000
 	}
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, input)
