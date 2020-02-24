@@ -5404,6 +5404,28 @@ var methods = function () {
         // outputFormatter: formatters.outputSnailFormatter
     });
 
+    var getStateChangeByFastNumber = new Method({
+        name: 'getStateChangeByFastNumber',
+        call: 'etrue_getStateChangeByFastNumber',
+        params: 1,
+        inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
+    });
+
+    var getSnailHashByNumber = new Method({
+        name: 'getSnailHashByNumber',
+        call: 'etrue_getSnailHashByNumber',
+        params: 1,
+        inputFormatter: [formatters.inputBlockNumberFormatter]
+    });
+
+
+    var getBalanceChangeBySnailNumber = new Method({
+        name: 'getBalanceChangeBySnailNumber',
+        call: 'etrue_getBalanceChangeBySnailNumber',
+        params: 1,
+        inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
+    });
+
     var getUncle = new Method({
         name: 'getUncle',
         call: uncleCall,
@@ -5604,6 +5626,9 @@ var methods = function () {
       getChainRewardContent,
         getSnail,
         getFruit,
+        getStateChangeByFastNumber,
+        getSnailHashByNumber,
+        getBalanceChangeBySnailNumber,
         getUncle,
         getCompilers,
         getBlockTransactionCount,
