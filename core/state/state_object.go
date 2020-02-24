@@ -164,6 +164,7 @@ func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	// If we have a dirty value for this state entry, return it
 	value, dirty := self.dirtyStorage[key]
 	if dirty {
+		self.db.appendReadStorage(self.address, key, value)
 		return value
 	}
 	// Otherwise return the entry's original value
@@ -175,12 +176,14 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 	// If we have the original value cached, return that
 	value, cached := self.originStorage[key]
 	if cached {
+		self.db.appendReadStorage(self.address, key, value)
 		return value
 	}
 	// Otherwise load the value from the database
 	enc, err := self.getTrie(db).TryGet(key[:])
 	if err != nil {
 		self.setError(err)
+		self.db.appendReadStorage(self.address, key, common.Hash{})
 		return common.Hash{}
 	}
 	if len(enc) > 0 {
@@ -191,6 +194,7 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 		value.SetBytes(content)
 	}
 	self.originStorage[key] = value
+	self.db.appendReadStorage(self.address, key, value)
 	return value
 }
 
@@ -208,6 +212,7 @@ func (self *stateObject) SetState(db Database, key, value common.Hash) {
 		prevalue: prev,
 	})
 	self.setState(key, value)
+	self.db.appendWriteStorage(self.address, key, value)
 }
 
 func (self *stateObject) setState(key, value common.Hash) {
@@ -287,6 +292,7 @@ func (self *stateObject) SetBalance(amount *big.Int) {
 		prev:    new(big.Int).Set(self.data.Balance),
 	})
 	self.setBalance(amount)
+	self.db.appendWriteAccount(self.address, &self.data)
 }
 
 func (self *stateObject) setBalance(amount *big.Int) {
@@ -343,6 +349,7 @@ func (self *stateObject) SetCode(codeHash common.Hash, code []byte) {
 		prevcode: prevcode,
 	})
 	self.setCode(codeHash, code)
+	self.db.appendWriteAccount(self.address, &self.data)
 }
 
 func (self *stateObject) setCode(codeHash common.Hash, code []byte) {
@@ -357,6 +364,7 @@ func (self *stateObject) SetNonce(nonce uint64) {
 		prev:    self.data.Nonce,
 	})
 	self.setNonce(nonce)
+	self.db.appendWriteAccount(self.address, &self.data)
 }
 
 func (self *stateObject) setNonce(nonce uint64) {
@@ -380,4 +388,17 @@ func (self *stateObject) Nonce() uint64 {
 // interface. Interfaces are awesome.
 func (self *stateObject) Value() *big.Int {
 	panic("Value on stateObject should never be called")
+}
+
+func Compare(obj0 *Account, obj1 *Account) bool {
+	switch {
+	case obj0 == nil && obj1 == nil:
+		return true
+	case obj0 == nil || obj1 == nil:
+		return false
+	case obj0.Balance.Cmp(obj1.Balance) != 0 || !bytes.Equal(obj0.CodeHash, obj1.CodeHash) || obj0.Nonce != obj1.Nonce:
+		return false
+	default:
+		return true
+	}
 }

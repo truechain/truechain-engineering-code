@@ -20,6 +20,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/parallel"
 	"math/big"
 	"sort"
 	"sync"
@@ -88,6 +89,12 @@ type StateDB struct {
 	validRevisions []revision
 	nextRevisionId int
 
+	lastAccountRec map[common.Address]*Account
+	currAccountRec map[common.Address]*Account
+	lastStorageRec map[parallel.StorageAddress]common.Hash
+	currStorageRec map[parallel.StorageAddress]common.Hash
+	touchedAddress *parallel.TouchedAddressObject
+
 	lock sync.Mutex
 }
 
@@ -105,6 +112,11 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		logs:              make(map[common.Hash][]*types.Log),
 		preimages:         make(map[common.Hash][]byte),
 		journal:           newJournal(),
+		lastAccountRec:    make(map[common.Address]*Account),
+		currAccountRec:    make(map[common.Address]*Account),
+		lastStorageRec:    make(map[parallel.StorageAddress]common.Hash),
+		currStorageRec:    make(map[parallel.StorageAddress]common.Hash),
+		touchedAddress:    parallel.NewTouchedAddressObject(),
 	}, nil
 }
 
@@ -136,6 +148,11 @@ func (self *StateDB) Reset(root common.Hash) error {
 	self.logSize = 0
 	self.preimages = make(map[common.Hash][]byte)
 	self.clearJournalAndRefund()
+	self.lastAccountRec = make(map[common.Address]*Account)
+	self.currAccountRec = make(map[common.Address]*Account)
+	self.lastStorageRec = make(map[parallel.StorageAddress]common.Hash)
+	self.currStorageRec = make(map[parallel.StorageAddress]common.Hash)
+	self.touchedAddress = parallel.NewTouchedAddressObject()
 	return nil
 }
 
@@ -288,6 +305,7 @@ func (self *StateDB) GetCommittedState(addr common.Address, hash common.Hash) co
 	if stateObject != nil {
 		return stateObject.GetCommittedState(self.db, hash)
 	}
+	self.appendReadStorage(addr, hash, common.Hash{})
 	return common.Hash{}
 }
 
@@ -328,6 +346,7 @@ func (self *StateDB) AddBalanceWithoutLog(addr common.Address, amount *big.Int, 
 			return
 		}
 		stateObject.setBalance(new(big.Int).Add(stateObject.Balance(), amount))
+		//self.appendWriteAccount(addr, &stateObject.data)
 	}
 }
 
@@ -392,6 +411,7 @@ func (self *StateDB) Suicide(addr common.Address) bool {
 	})
 	stateObject.markSuicided()
 	stateObject.data.Balance = new(big.Int)
+	self.appendWriteAccount(addr, nil)
 
 	return true
 }
@@ -422,8 +442,10 @@ func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObje
 	// Prefer 'live' objects.
 	if obj := self.stateObjects[addr]; obj != nil {
 		if obj.deleted {
+			self.appendReadAccount(addr, nil)
 			return nil
 		}
+		self.appendReadAccount(addr, &obj.data)
 		return obj
 	}
 
@@ -431,16 +453,19 @@ func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObje
 	enc, err := self.trie.TryGet(addr[:])
 	if len(enc) == 0 {
 		self.setError(err)
+		self.appendReadAccount(addr, nil)
 		return nil
 	}
 	var data Account
 	if err := rlp.DecodeBytes(enc, &data); err != nil {
 		log.Error("Failed to decode state object", "addr", addr, "err", err)
+		self.appendReadAccount(addr, nil)
 		return nil
 	}
 	// Insert into the live set.
 	obj := newObject(self, addr, data)
 	self.setStateObject(obj)
+	self.appendReadAccount(addr, &data)
 	return obj
 }
 
@@ -469,6 +494,7 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 		self.journal.append(resetObjectChange{prev: prev})
 	}
 	self.setStateObject(newobj)
+	self.appendWriteAccount(addr, &newobj.data)
 	return newobj, prev
 }
 
@@ -487,6 +513,7 @@ func (self *StateDB) CreateAccount(addr common.Address) {
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
 	}
+	self.appendWriteAccount(addr, &newObj.data)
 }
 
 func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) {
@@ -611,7 +638,6 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
 	// Invalidate journal because reverting across transactions is not allowed.
-	s.clearJournalAndRefund()
 }
 
 // IntermediateRoot computes the current root hash of the state trie.
@@ -628,6 +654,8 @@ func (self *StateDB) Prepare(thash, bhash common.Hash, ti int) {
 	self.thash = thash
 	self.bhash = bhash
 	self.txIndex = ti
+	self.prepareAccountAndStorageRecords()
+	self.touchedAddress = parallel.NewTouchedAddressObject()
 }
 
 func (s *StateDB) clearJournalAndRefund() {
@@ -682,4 +710,78 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 		return nil
 	})
 	return root, err
+}
+
+func (s *StateDB) appendReadAccount(addr common.Address, account *Account) {
+	if _, exist := s.lastAccountRec[addr]; !exist {
+		if account == nil {
+			s.lastAccountRec[addr] = nil
+		} else {
+			account2 := *account
+			s.lastAccountRec[addr] = &account2
+		}
+	}
+
+	s.touchedAddress.AddAccountOp(addr, false)
+}
+
+func (s *StateDB) appendWriteAccount(addr common.Address, currRec *Account) {
+	if lastRec, exist := s.lastAccountRec[addr]; !exist {
+		panic(fmt.Errorf("lastAccountRec should be exist for address %x", addr))
+	} else {
+		if !Compare(lastRec, currRec) {
+			account2 := *currRec
+			s.currAccountRec[addr] = &account2
+			s.touchedAddress.SetAccountOp(addr, true)
+		} else {
+			delete(s.currAccountRec, addr)
+			s.touchedAddress.SetAccountOp(addr, false)
+		}
+	}
+}
+
+func (s *StateDB) appendReadStorage(addr common.Address, key common.Hash, val common.Hash) {
+	storageAddr := parallel.StorageAddress{AccountAddress: addr, Key: key}
+
+	if _, exist := s.lastStorageRec[storageAddr]; !exist {
+		s.lastStorageRec[storageAddr] = val
+	}
+
+	s.touchedAddress.AddStorageOp(storageAddr, false)
+}
+
+func (s *StateDB) appendWriteStorage(addr common.Address, key common.Hash, val common.Hash) {
+	storageAddr := parallel.StorageAddress{AccountAddress: addr, Key: key}
+
+	if lastRec, exist := s.lastStorageRec[storageAddr]; !exist {
+		panic(fmt.Errorf("lastStorageRec should be exist for address %x and key %x", addr, key))
+	} else {
+		if lastRec != val {
+			s.currStorageRec[storageAddr] = val
+			s.touchedAddress.SetStorageOp(storageAddr, true)
+		} else {
+			delete(s.currStorageRec, storageAddr)
+			s.touchedAddress.SetStorageOp(storageAddr, false)
+		}
+	}
+}
+
+func (s *StateDB) prepareAccountAndStorageRecords() {
+	s.lastAccountRec = make(map[common.Address]*Account)
+	s.lastStorageRec = make(map[parallel.StorageAddress]common.Hash)
+
+	for addr, account := range s.currAccountRec {
+		s.lastAccountRec[addr] = account
+	}
+
+	for storageAddr, value := range s.currStorageRec {
+		s.lastStorageRec[storageAddr] = value
+	}
+
+	s.currAccountRec = make(map[common.Address]*Account)
+	s.currStorageRec = make(map[parallel.StorageAddress]common.Hash)
+}
+
+func (s *StateDB) GetTouchedAddress() *parallel.TouchedAddressObject {
+	return s.touchedAddress
 }

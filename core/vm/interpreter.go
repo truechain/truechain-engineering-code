@@ -46,6 +46,8 @@ type Config struct {
 	EWASMInterpreter string
 	// Type of the EVM interpreter
 	EVMInterpreter string
+
+	Parallel bool
 }
 
 // Interpreter is used to run Ethereum based contracts and will utilise the

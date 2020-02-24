@@ -16,6 +16,10 @@ type ExecutionGroup struct {
 	trxesToRollBackInOtherGroup    map[int]map[common.Hash]struct{}
 }
 
+func NewExecutionGroup() *ExecutionGroup {
+	return &ExecutionGroup{}
+}
+
 func (e *ExecutionGroup) Transactions() types.Transactions {
 	return e.transactions
 }
@@ -48,10 +52,6 @@ func (e *ExecutionGroup) AddTransactions(transactions types.Transactions) {
 	e.transactions = append(e.transactions, transactions...)
 }
 
-func NewExecutionGroup() *ExecutionGroup {
-	return &ExecutionGroup{}
-}
-
 func (e *ExecutionGroup) sortTrxByIndex(trxHashToIndexMap map[common.Hash]int) {
 
 }
@@ -69,8 +69,28 @@ func (e *ExecutionGroup) addTrxHashToGetPartResult(oldGroup int, trxHash common.
 	e.updateMap(oldGroup, trxHash, e.trxesToGetResultFromOtherGroup)
 }
 
+func (e *ExecutionGroup) mergeTrxResultFromOtherGroup(oldGroup *GroupResult, trxHash common.Hash) {
+	// TODO
+
+	//Integer startTrxIndex = group.getStartTrxPos().getRight();
+	//// move part trx result from conflict group
+	//for (Map.Entry<Integer, Set<String>> entry : trxHashToMovePartResult.entrySet()) {
+	//	GroupExecResult groupExecResult = execGroupMap.get(entry.getKey()).getExecResultByTrxHash(entry.getValue());
+	//	groupExecResult.removeResultAfterTrxPos(startTrxIndex);
+	//	/*
+	//	   if new group executes on another worker, then the trxes before startTrxIndex's touched address can't
+	//	   be applied to update client cache
+	//	*/
+	//	group.getGroupExecResult().mergeWithoutTouchedAddress(groupExecResult);
+	//}
+}
+
 func (e *ExecutionGroup) addTrxToRollbackInOtherGroup(groupId int, trxHash common.Hash) {
 	e.updateMap(groupId, trxHash, e.trxesToRollBackInOtherGroup)
+}
+
+func (e *ExecutionGroup) removeTrxAndResult(trxHash common.Hash) {
+	// TODO
 }
 
 func (e *ExecutionGroup) updateMap(oldGroup int, trxHash common.Hash, integerSetMap map[int]map[common.Hash]struct{}) {

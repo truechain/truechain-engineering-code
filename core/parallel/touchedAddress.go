@@ -3,8 +3,8 @@ package parallel
 import "github.com/ethereum/go-ethereum/common"
 
 type StorageAddress struct {
-	accountAddress common.Address
-	key            common.Hash
+	AccountAddress common.Address
+	Key            common.Hash
 }
 
 type TouchedAddressObject struct {
@@ -13,35 +13,46 @@ type TouchedAddressObject struct {
 }
 
 func NewTouchedAddressObject() *TouchedAddressObject {
-	return &TouchedAddressObject{}
+	return &TouchedAddressObject{
+		accountOp: make(map[common.Address]bool),
+		storageOp: make(map[StorageAddress]bool),
+	}
 }
 
 func (self *TouchedAddressObject) AccountOp() map[common.Address]bool {
 	return self.accountOp
 }
 
-func (self *TouchedAddressObject) AddAccountOp(add common.Address, op bool) {
+func (self *TouchedAddressObject) AddAccountOp(addr common.Address, op bool) {
 	if op {
-		self.accountOp[add] = op
+		self.accountOp[addr] = op
 	} else {
-		if _, exist := self.accountOp[add]; !exist {
-			self.accountOp[add] = op
+		if _, exist := self.accountOp[addr]; !exist {
+			self.accountOp[addr] = op
 		}
 	}
+}
+
+func (self *TouchedAddressObject) SetAccountOp(addr common.Address, op bool) {
+	self.accountOp[addr] = op
 }
 
 func (self *TouchedAddressObject) StorageOp() map[StorageAddress]bool {
 	return self.storageOp
 }
 
-func (self *TouchedAddressObject) AddStorageOp(add StorageAddress, op bool) {
+func (self *TouchedAddressObject) AddStorageOp(storage StorageAddress, op bool) {
 	if op {
-		self.storageOp[add] = op
+		self.storageOp[storage] = op
 	} else {
-		if _, exist := self.storageOp[add]; !exist {
-			self.storageOp[add] = op
+		if _, exist := self.storageOp[storage]; !exist {
+			self.storageOp[storage] = op
 		}
 	}
+}
+
+func (self *TouchedAddressObject) SetStorageOp(storage StorageAddress, op bool) {
+	self.storageOp[storage] = op
 }
 
 func (self *TouchedAddressObject) Merge(another *TouchedAddressObject) {
