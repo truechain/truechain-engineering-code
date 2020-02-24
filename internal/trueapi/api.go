@@ -1197,7 +1197,7 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map
 		return nil
 	}
 	fields := map[string]interface{}{
-		"time":				hexutil.Uint64(content.St)
+		"time":				hexutil.Uint64(content.St),
 		"foundationReward": content.Reward.Foundation,
 		"blockminer":       content.Reward.CoinBase,
 		"fruitminer":       content.Reward.FruitBase,
