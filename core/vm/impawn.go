@@ -32,7 +32,7 @@ type ImpawnCache struct {
 
 func newImpawnCache() *ImpawnCache {
 	cc := &ImpawnCache{
-		size:	5,
+		size:	20,
 	}
 	cc.Cache,_ = lru.New(cc.size)
 	return cc
