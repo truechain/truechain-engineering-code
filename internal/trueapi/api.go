@@ -1197,10 +1197,11 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map
 		return nil
 	}
 	fields := map[string]interface{}{
-		"foundationReward": content.Foundation,
-		"blockminer":       content.CoinBase,
-		"fruitminer":       content.FruitBase,
-		"committeReward":   content.CommitteeBase,
+		"time":				hexutil.Uint64(content.St)
+		"foundationReward": content.Reward.Foundation,
+		"blockminer":       content.Reward.CoinBase,
+		"fruitminer":       content.Reward.FruitBase,
+		"committeReward":   content.Reward.CommitteeBase,
 	}
 	return fields
 }

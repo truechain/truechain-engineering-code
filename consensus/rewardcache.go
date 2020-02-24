@@ -24,17 +24,18 @@ func newCacheChainReward() *CacheChainReward{
 		stop: 	false,
 		chanReward: make(chan *rewardInfo,10),
 	}
-	res.RewardCache = make(map[uint64]*types.ChainReward)
+	res.RewardCache = make(map[uint64]*types.TimedChainReward)
 	go res.loop()
 	return res
 }
 type rewardInfo struct {
 	height 	uint64
+	stime   uint64
 	infos 	*types.ChainReward
 }
 
 type CacheChainReward struct {
-	RewardCache		map[uint64]*types.ChainReward
+	RewardCache		map[uint64]*types.TimedChainReward
 	min 		uint64
 	max 		uint64
 	count 		int
@@ -64,9 +65,10 @@ func (c *CacheChainReward) minMax() (uint64,uint64,int) {
 func (c *CacheChainReward) Stop() {
 	c.stop = true
 }
-func (c *CacheChainReward) AddChainReward(snailBlock uint64,infos *types.ChainReward) {
+func (c *CacheChainReward) AddChainReward(snailBlock,stime uint64,infos *types.ChainReward) {
 	item := &rewardInfo{
 		height:		snailBlock,
+		stime:		stime,
 		infos:		infos,
 	}
 	select {
@@ -81,13 +83,13 @@ func (c *CacheChainReward) loop() {
 		}
 		select {
 		case item := <- c.chanReward:
-			c.insertChainReward(item.height,item.infos)
+			c.insertChainReward(item.height,item.stime,item.infos)
 		default:
 		}
 		time.Sleep(time.Millisecond * time.Duration(500))
 	}
 }
-func (c *CacheChainReward) insertChainReward(snailBlock uint64,infos *types.ChainReward) {
+func (c *CacheChainReward) insertChainReward(snailBlock,st uint64,infos *types.ChainReward) {
 	if infos == nil {
 		log.Error("AddChainReward: infos is nil","height",snailBlock)
 	}
@@ -96,13 +98,16 @@ func (c *CacheChainReward) insertChainReward(snailBlock uint64,infos *types.Chai
 	if sum > c.count {
 		delete(c.RewardCache,c.min)
 	}
-	c.RewardCache[snailBlock] = infos
+	c.RewardCache[snailBlock] = &types.TimedChainReward{
+		St:	st,
+		Reward:infos,
+	}
 	c.lock.Unlock()
 	c.min,c.max,sum = c.minMax()	
 	log.Info("AddChainReward","height",snailBlock,"min",c.min,"max",c.max,"count",sum)
 }
 
-func (c *CacheChainReward) GetChainReward(snailBlock uint64) *types.ChainReward {
+func (c *CacheChainReward) GetChainReward(snailBlock uint64) *types.TimedChainReward {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	infos,ok := c.RewardCache[snailBlock]

@@ -216,7 +216,7 @@ func (b *LesApiBackend) GetCommittee(number rpc.BlockNumber) (map[string]interfa
 func (b *LesApiBackend) GetSnailRewardContent(number rpc.BlockNumber) *types.SnailRewardContenet {
 	return nil
 }
-func (b *LesApiBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
+func (b *LesApiBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward {
 	return nil
 }
 
