@@ -215,6 +215,10 @@ func (self *StateDB) GetBalance(addr common.Address) *big.Int {
 	return common.Big0
 }
 
+func (self *StateDB) GetLockedBalance(addr common.Address) *big.Int {
+	return common.Big0
+}
+
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
