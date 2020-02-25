@@ -767,7 +767,7 @@ func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
 		info["endNumber"] = epoch.EndHeight
 		return info
 	} else {
-		if currentCommittee.id.Cmp(id) < 0 {
+		if currentCommittee == nil || currentCommittee.id.Cmp(id) < 0 {
 			return nil
 		}
 		if id.Cmp(common.Big0) <= 0 {
