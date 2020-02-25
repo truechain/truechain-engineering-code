@@ -227,11 +227,8 @@ func (self *StateDB) GetBalance(addr common.Address) *big.Int {
 	return common.Big0
 }
 
-func (self *StateDB) GetLockedBalance(addr common.Address) *big.Int {
-	return common.Big0
-}
 func (self *StateDB) GetValidBalance(addr common.Address) *big.Int {
-	return new(big.Int).Sub(self.GetBalance(addr),self.GetLockedBalance(addr))
+	return self.GetUnlockedBalance(addr)
 }
 
 func (self *StateDB) GetUnlockedBalance(addr common.Address) *big.Int {
