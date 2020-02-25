@@ -24,6 +24,7 @@ import (
 	"sort"
 	"sync"
 
+	"golang.org/x/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -43,6 +44,9 @@ var (
 
 	// emptyCode is the known hash of the empty EVM bytecode.
 	emptyCode = crypto.Keccak256Hash(nil)
+
+	// Pos locked key
+	lockedPosition = common.BytesToHash([]byte{1})
 )
 
 type proofList [][]byte
@@ -50,6 +54,14 @@ type proofList [][]byte
 func (n *proofList) Put(key []byte, value []byte) error {
 	*n = append(*n, value)
 	return nil
+}
+
+func lockedKey(addr common.Address) (h common.Hash) {
+	hw := sha3.NewLegacyKeccak256()
+	base := append(common.BytesToHash(addr[:]).Bytes(), lockedPosition.Bytes()...)
+	hw.Write(base)
+	hw.Sum(h[:0])
+	return h
 }
 
 // StateDBs within the ethereum protocol are used to store anything
@@ -219,6 +231,10 @@ func (self *StateDB) GetLockedBalance(addr common.Address) *big.Int {
 	return common.Big0
 }
 
+func (self *StateDB) GetUnlockedBalance(addr common.Address) *big.Int {
+	return new(big.Int).Sub(self.GetBalance(addr), self.GetPOSLocked(addr))
+}
+
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
@@ -284,6 +300,11 @@ func (self *StateDB) GetPOSState(a common.Address, b common.Hash) []byte {
 		return stateObject.GetPOSState(self.db, b)
 	}
 	return nil
+}
+
+func (self *StateDB) GetPOSLocked(addr common.Address) *big.Int {
+	key := lockedKey(addr)
+	return self.GetState(types.StakingAddress, key).Big()
 }
 
 // GetProof returns the MerkleProof for a given Account
@@ -395,6 +416,11 @@ func (self *StateDB) SetPOSState(addr common.Address, key common.Hash, value []b
 	if stateObject != nil {
 		stateObject.SetPOSState(self.db, key, value)
 	}
+}
+
+func (self *StateDB) SetPOSLocked(addr common.Address, value *big.Int) {
+		key := lockedKey(addr)
+		self.SetState(types.StakingAddress, key, common.BigToHash(value))
 }
 
 func (self *StateDB) SetState(addr common.Address, key, value common.Hash) {
