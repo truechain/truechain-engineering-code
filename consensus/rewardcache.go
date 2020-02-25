@@ -100,6 +100,7 @@ func (c *CacheChainReward) insertChainReward(snailBlock,st uint64,infos *types.C
 	}
 	c.RewardCache[snailBlock] = &types.TimedChainReward{
 		St:	st,
+		Number: snailBlock,
 		Reward:infos,
 	}
 	c.lock.Unlock()
@@ -110,12 +111,17 @@ func (c *CacheChainReward) insertChainReward(snailBlock,st uint64,infos *types.C
 func (c *CacheChainReward) GetChainReward(snailBlock uint64) *types.TimedChainReward {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
+	
+	if int64(snailBlock) <= 0 {
+		min,max,count := c.Summay()
+		snailBlock = max
+	}
 	infos,ok := c.RewardCache[snailBlock]
 	if ok {
 		return infos
 	}
-	min,max,count := c.Summay()
-	log.Warn("GetChainReward over the cache","request",snailBlock,"min",min,"max",max,"count",count)
+	
+	//log.Warn("GetChainReward over the cache","request",snailBlock,"min",min,"max",max,"count",count)
 	return nil
 }
 func (c *CacheChainReward) Summay() (uint64,uint64,int) {

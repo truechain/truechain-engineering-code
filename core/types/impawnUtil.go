@@ -81,6 +81,7 @@ func (s *SARewardInfos) String() string {
 }
 type TimedChainReward struct {
 	St 			uint64
+	Number 		uint64
 	Reward 		*ChainReward
 }
 
