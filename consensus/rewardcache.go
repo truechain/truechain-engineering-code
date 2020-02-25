@@ -113,7 +113,7 @@ func (c *CacheChainReward) GetChainReward(snailBlock uint64) *types.TimedChainRe
 	defer c.lock.RUnlock()
 	
 	if int64(snailBlock) <= 0 {
-		min,max,count := c.Summay()
+		_,max,_ := c.Summay()
 		snailBlock = max
 	}
 	infos,ok := c.RewardCache[snailBlock]
