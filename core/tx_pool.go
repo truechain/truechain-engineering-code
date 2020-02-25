@@ -666,18 +666,18 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
 	if payer != params.EmptyAddress && payer != from {
-		if pool.currentState.GetBalance(payer).Cmp(tx.GasCost()) < 0 {
-			log.Error("insufficientFundsForPayer", "balance", pool.currentState.GetBalance(payer), "gasCost", tx.GasCost())
+		if pool.currentState.GetValidBalance(payer).Cmp(tx.GasCost()) < 0 {
+			log.Error("insufficientFundsForPayer", "balance", pool.currentState.GetValidBalance(payer), "gasCost", tx.GasCost())
 			return ErrInsufficientFundsForPayer
 			//return fmt.Errorf("%v payer balance:%d;tx.Cost():%d", ErrInsufficientFundsForPayer, pool.currentState.GetBalance(payer), tx.Cost())
 		}
-		if pool.currentState.GetBalance(from).Cmp(tx.AmountCost()) < 0 {
+		if pool.currentState.GetValidBalance(from).Cmp(tx.AmountCost()) < 0 {
 			return ErrInsufficientFundsForSender
 			//return fmt.Errorf("%v your balance:%d;tx.AmountCost():%d", ErrInsufficientFundsForSender, pool.currentState.GetBalance(from), tx.AmountCost())
 		}
 	} else {
-		if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
-			log.Trace("validate balance", "from", from, "to", tx.To(), "balance", pool.currentState.GetBalance(from), "cost", tx.Cost())
+		if pool.currentState.GetValidBalance(from).Cmp(tx.Cost()) < 0 {
+			log.Trace("validate balance", "from", from, "to", tx.To(), "balance", pool.currentState.GetValidBalance(from), "cost", tx.Cost())
 			return ErrInsufficientFunds
 			//return fmt.Errorf("%v your balance:%d;tx.Cost():%d", ErrInsufficientFunds, pool.currentState.GetBalance(from), tx.Cost())
 		}
@@ -1059,7 +1059,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.signer, pool.currentState)
+		drops, _ := list.Filter(pool.currentState.GetValidBalance(addr), pool.currentMaxGas, pool.signer, pool.currentState)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
@@ -1224,7 +1224,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.signer, pool.currentState)
+		drops, invalids := list.Filter(pool.currentState.GetValidBalance(addr), pool.currentMaxGas, pool.signer, pool.currentState)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)

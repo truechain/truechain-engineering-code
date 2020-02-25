@@ -308,7 +308,7 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer
 			return true
 		}
 		if pfrom != params.EmptyAddress && pfrom != from {
-			return tx.AmountCost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit || tx.GasCost().Cmp(currentState.GetBalance(pfrom)) > 0
+			return tx.AmountCost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit || tx.GasCost().Cmp(currentState.GetValidBalance(pfrom)) > 0
 		}
 		return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit
 	})
