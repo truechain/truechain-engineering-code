@@ -55,20 +55,22 @@ func (self *TouchedAddressObject) SetStorageOp(storage StorageAddress, op bool) 
 	self.storageOp[storage] = op
 }
 
-func (self *TouchedAddressObject) Merge(another *TouchedAddressObject) {
+// Merge 2 TouchedAddressObject, return true if first object changes
+func (self *TouchedAddressObject) Merge(another *TouchedAddressObject) bool {
+	changed := false
 	for address, op := range another.accountOp {
-		if op || self.accountOp[address] == true {
-			self.accountOp[address] = true
-		} else {
-			self.accountOp[address] = false
+		if origOp, exist := self.accountOp[address]; !exist || (op == true && origOp == false) {
+			changed = true
+			self.accountOp[address] = op
 		}
 	}
 
 	for address, op := range another.storageOp {
-		if op || self.storageOp[address] == true {
-			self.storageOp[address] = true
-		} else {
-			self.storageOp[address] = false
+		if origOp, exist := self.storageOp[address]; !exist || (op == true && origOp == false) {
+			changed = true
+			self.storageOp[address] = op
 		}
 	}
+
+	return changed
 }

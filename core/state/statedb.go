@@ -609,6 +609,17 @@ func (self *StateDB) RevertToSnapshot(revid int) {
 	self.validRevisions = self.validRevisions[:idx]
 }
 
+func (self *StateDB) RevertTrxResultByIndex(trxIndex int) {
+	self.journal.revertTrxByIndex(self, trxIndex)
+}
+
+// Revert transaction results between  index from start(include) to end(exclude)
+func (self *StateDB) RevertTrxResultsBetween(start int, end int) {
+	for index := end - 1; index >= start; index-- {
+		self.journal.revertTrxByIndex(self, index)
+	}
+}
+
 // GetRefund returns the current value of the refund counter.
 func (self *StateDB) GetRefund() uint64 {
 	return self.refund
@@ -655,6 +666,7 @@ func (self *StateDB) Prepare(thash, bhash common.Hash, ti int) {
 	self.bhash = bhash
 	self.txIndex = ti
 	self.prepareAccountAndStorageRecords()
+	self.journal.SetTxIndex(ti)
 	self.touchedAddress = parallel.NewTouchedAddressObject()
 }
 

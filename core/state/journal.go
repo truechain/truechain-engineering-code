@@ -36,40 +36,65 @@ type journalEntry interface {
 // commit. These are tracked to be able to be reverted in case of an execution
 // exception or revertal request.
 type journal struct {
-	entries []journalEntry         // Current changes tracked by the journal
-	dirties map[common.Address]int // Dirty accounts and the number of changes
+	//entries []journalEntry         // Current changes tracked by the journal
+	dirties    map[common.Address]int // Dirty accounts and the number of changes
+	trxEntries map[int][]journalEntry // Changes for each transaction in current group
+	txIndex    int                    // Current transaction index
+}
+
+func (j *journal) SetTxIndex(txIndex int) {
+	j.txIndex = txIndex
 }
 
 // newJournal create a new initialized journal.
 func newJournal() *journal {
 	return &journal{
-		dirties: make(map[common.Address]int),
+		dirties:    make(map[common.Address]int),
+		trxEntries: make(map[int][]journalEntry),
 	}
 }
 
 // append inserts a new modification entry to the end of the change journal.
 func (j *journal) append(entry journalEntry) {
-	j.entries = append(j.entries, entry)
+	//j.entries = append(j.entries, entry)
 	if addr := entry.dirtied(); addr != nil {
 		j.dirties[*addr]++
 	}
+
+	j.trxEntries[j.txIndex] = append(j.trxEntries[j.txIndex], entry)
 }
 
 // revert undoes a batch of journalled modifications along with any reverted
 // dirty handling too.
 func (j *journal) revert(statedb *StateDB, snapshot int) {
-	for i := len(j.entries) - 1; i >= snapshot; i-- {
+	for i := len(j.trxEntries[j.txIndex]) - 1; i >= snapshot; i-- {
 		// Undo the changes made by the operation
-		j.entries[i].revert(statedb)
+		j.trxEntries[j.txIndex][i].revert(statedb)
 
 		// Drop any dirty tracking induced by the change
-		if addr := j.entries[i].dirtied(); addr != nil {
+		if addr := j.trxEntries[j.txIndex][i].dirtied(); addr != nil {
 			if j.dirties[*addr]--; j.dirties[*addr] == 0 {
 				delete(j.dirties, *addr)
 			}
 		}
 	}
-	j.entries = j.entries[:snapshot]
+	j.trxEntries[j.txIndex] = j.trxEntries[j.txIndex][:snapshot]
+}
+
+// revert transaction modifications by transaction index
+func (j *journal) revertTrxByIndex(statedb *StateDB, trxIndex int) {
+	for i := len(j.trxEntries[trxIndex]) - 1; i >= 0; i-- {
+		// Undo the changes made by the operation
+		j.trxEntries[trxIndex][i].revert(statedb)
+
+		// Drop any dirty tracking induced by the change
+		if addr := j.trxEntries[trxIndex][i].dirtied(); addr != nil {
+			if j.dirties[*addr]--; j.dirties[*addr] == 0 {
+				delete(j.dirties, *addr)
+			}
+		}
+	}
+	j.trxEntries[trxIndex] = j.trxEntries[trxIndex][:0]
 }
 
 // dirty explicitly sets an address to dirty, even if the change entries would
@@ -81,7 +106,7 @@ func (j *journal) dirty(addr common.Address) {
 
 // length returns the current number of entries in the journal.
 func (j *journal) length() int {
-	return len(j.entries)
+	return len(j.trxEntries[j.txIndex])
 }
 
 type (

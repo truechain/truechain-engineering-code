@@ -6,14 +6,28 @@ import (
 )
 
 type ExecutionGroup struct {
-	id                             int
-	header                         *types.Header
-	transactions                   types.Transactions
-	result                         *GroupResult
-	startTrxHash                   common.Hash
-	startTrxIndex                  int
-	trxesToGetResultFromOtherGroup map[int]map[common.Hash]struct{}
-	trxesToRollBackInOtherGroup    map[int]map[common.Hash]struct{}
+	id            int
+	header        *types.Header
+	transactions  types.Transactions
+	startTrxIndex int
+	finished      bool
+
+	// transaction execution result
+	trxHashToResultMap map[common.Hash]*TrxResult
+	err                error
+	errTxIndex         int
+	usedGas            uint64
+}
+
+type TrxResult struct {
+	receipt          *types.Receipt
+	logs             []*types.Log
+	touchedAddresses *TouchedAddressObject
+	usedGas          uint64
+}
+
+func NewTrxResult(receipt *types.Receipt, logs []*types.Log, touchedAddresses *TouchedAddressObject, usedGas uint64) *TrxResult {
+	return &TrxResult{receipt: receipt, logs: logs, touchedAddresses: touchedAddresses, usedGas: usedGas}
 }
 
 func NewExecutionGroup() *ExecutionGroup {
@@ -26,14 +40,6 @@ func (e *ExecutionGroup) Transactions() types.Transactions {
 
 func (e *ExecutionGroup) SetTransactions(transactions types.Transactions) {
 	e.transactions = transactions
-}
-
-func (e *ExecutionGroup) Result() *GroupResult {
-	return e.result
-}
-
-func (e *ExecutionGroup) SetResult(result *GroupResult) {
-	e.result = result
 }
 
 func (e *ExecutionGroup) Header() *types.Header {
@@ -52,52 +58,10 @@ func (e *ExecutionGroup) AddTransactions(transactions types.Transactions) {
 	e.transactions = append(e.transactions, transactions...)
 }
 
-func (e *ExecutionGroup) sortTrxByIndex(trxHashToIndexMap map[common.Hash]int) {
-
-}
-
 func (e *ExecutionGroup) setId(groupId int) {
 	e.id = groupId
 }
 
-func (e *ExecutionGroup) setStartTrxPos(hash common.Hash, index int) {
-	e.startTrxHash = hash
+func (e *ExecutionGroup) setStartTrxPos(index int) {
 	e.startTrxIndex = index
-}
-
-func (e *ExecutionGroup) addTrxHashToGetPartResult(oldGroup int, trxHash common.Hash) {
-	e.updateMap(oldGroup, trxHash, e.trxesToGetResultFromOtherGroup)
-}
-
-func (e *ExecutionGroup) mergeTrxResultFromOtherGroup(oldGroup *GroupResult, trxHash common.Hash) {
-	// TODO
-
-	//Integer startTrxIndex = group.getStartTrxPos().getRight();
-	//// move part trx result from conflict group
-	//for (Map.Entry<Integer, Set<String>> entry : trxHashToMovePartResult.entrySet()) {
-	//	GroupExecResult groupExecResult = execGroupMap.get(entry.getKey()).getExecResultByTrxHash(entry.getValue());
-	//	groupExecResult.removeResultAfterTrxPos(startTrxIndex);
-	//	/*
-	//	   if new group executes on another worker, then the trxes before startTrxIndex's touched address can't
-	//	   be applied to update client cache
-	//	*/
-	//	group.getGroupExecResult().mergeWithoutTouchedAddress(groupExecResult);
-	//}
-}
-
-func (e *ExecutionGroup) addTrxToRollbackInOtherGroup(groupId int, trxHash common.Hash) {
-	e.updateMap(groupId, trxHash, e.trxesToRollBackInOtherGroup)
-}
-
-func (e *ExecutionGroup) removeTrxAndResult(trxHash common.Hash) {
-	// TODO
-}
-
-func (e *ExecutionGroup) updateMap(oldGroup int, trxHash common.Hash, integerSetMap map[int]map[common.Hash]struct{}) {
-	trxHashes, ok := integerSetMap[oldGroup]
-	if !ok {
-		trxHashes = make(map[common.Hash]struct{})
-	}
-	trxHashes[trxHash] = struct{}{}
-	integerSetMap[oldGroup] = trxHashes
 }
