@@ -813,7 +813,18 @@ web3._extend({
 			name: 'getImpawnSummay',
 			call: 'impawn_getImpawnSummay',
 			params: 1,
-			inputFormatter: [web3._extend.formatters.inputDefaultBlockNumberFormatter]
+			inputFormatter: [web3._extend.formatters.inputDefaultBlockNumberFormatter],
+			outputFormatter: function(infos) {
+				if(infos.currentAllStaking != null) {
+					infos.currentAllStaking = web3._extend.utils.toBigNumber(infos.currentAllStaking);
+				}
+				for (var i = 0;i < infos.EpochInfos.length;i++) {
+					if (infos.EpochInfos[i].AllAmount != null) {
+						infos.EpochInfos[i].AllAmount = web3._extend.utils.toBigNumber(infos.EpochInfos[i].AllAmount);
+					}
+				}
+				return infos;
+			}
 		}),
 	]
 });
