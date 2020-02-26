@@ -79,13 +79,13 @@ type ImpawnSummay struct {
 }
 
 func ToJSON(ii *ImpawnSummay) map[string]interface{} {
-	var item map[string]interface{}
+	item := make(map[string]interface{}) 
 	item["lastRewardHeight"] = ii.LastReward
 	item["AccountsCounts"] = ii.Accounts
 	item["currentAllStaking"] = (*hexutil.Big)(ii.AllAmount)
-	var items []map[string]interface{}
+	items := make([]map[string]interface{},0,0) 
 	for _,val := range ii.Infos {
-		var info map[string]interface{}
+		info := make(map[string]interface{}) 
 		info["EpochID"] = val.EpochID
 		info["SaCount"] = val.SaCount
 		info["DaCount"] = val.DaCount
