@@ -129,6 +129,11 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	}
 
 	from := contract.caller.Address()
+	if evm.StateDB.GetUnlockedBalance(from).Cmp(args.Value) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", args.Value)
+		return nil, ErrStakingInsufficientBalance
+	}
+
 	t1 := time.Now()
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
@@ -182,6 +187,10 @@ func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err 
 	if err != nil {
 		log.Error("Unpack append value error", "err", err)
 		return nil, ErrStakingInvalidInput
+	}
+	if evm.StateDB.GetUnlockedBalance(from).Cmp(amount) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", amount)
+		return nil, ErrStakingInsufficientBalance
 	}
 
 	log.Info("Staking deposit extra", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", amount)
@@ -281,6 +290,11 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		return nil, ErrStakingInvalidInput
 	}
 	from := contract.caller.Address()
+	if evm.StateDB.GetUnlockedBalance(from).Cmp(args.Value) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", args.Value)
+		return nil, ErrStakingInsufficientBalance
+	}
+
 	t1 := time.Now()
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
@@ -430,6 +444,10 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		log.Error("Unpack withdraw input error")
 		return nil, ErrStakingInvalidInput
 	}
+	if evm.StateDB.GetPOSLocked(from).Cmp(amount) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", amount)
+		return nil, ErrStakingInsufficientBalance
+	}
 
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
@@ -479,6 +497,10 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 	if err != nil {
 		log.Error("Unpack withdraw delegate input error")
 		return nil, ErrStakingInvalidInput
+	}
+	if evm.StateDB.GetPOSLocked(from).Cmp(args.Value) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", args.Value)
+		return nil, ErrStakingInsufficientBalance
 	}
 
 	impawn := NewImpawnImpl()

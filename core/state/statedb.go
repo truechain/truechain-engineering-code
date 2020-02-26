@@ -419,8 +419,8 @@ func (self *StateDB) SetPOSState(addr common.Address, key common.Hash, value []b
 }
 
 func (self *StateDB) SetPOSLocked(addr common.Address, value *big.Int) {
-		key := lockedKey(addr)
-		self.SetState(types.StakingAddress, key, common.BigToHash(value))
+	key := lockedKey(addr)
+	self.SetState(types.StakingAddress, key, common.BigToHash(value))
 }
 
 func (self *StateDB) SetState(addr common.Address, key, value common.Hash) {
