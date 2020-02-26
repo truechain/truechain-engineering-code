@@ -147,7 +147,6 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 		log.Error("Staking deposit", "address", contract.caller.Address(), "value", args.Value, "error", err)
 		return nil, err
 	}
-	addLockedBalance(evm.StateDB, from, args.Value)
 
 	t3 := time.Now()
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
@@ -155,6 +154,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	addLockedBalance(evm.StateDB, from, args.Value)
 
 	t4 := time.Now()
 	event := abiStaking.Events["Deposit"]
@@ -207,13 +207,12 @@ func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err 
 		return nil, err
 	}
 
-	addLockedBalance(evm.StateDB, from, amount)
-
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	addLockedBalance(evm.StateDB, from, amount)
 
 	event := abiStaking.Events["Append"]
 	logData, err := event.Inputs.PackNonIndexed(amount)
@@ -314,6 +313,8 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	addLockedBalance(evm.StateDB, from, args.Value)
+
 	t4 := time.Now()
 	event := abiStaking.Events["Delegate"]
 	logData, err := event.Inputs.PackNonIndexed(args.Value)
@@ -463,13 +464,12 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		return nil, err
 	}
 
-	subLockedBalance(evm.StateDB, from, amount)
-
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	subLockedBalance(evm.StateDB, from, amount)
 
 	event := abiStaking.Events["Withdraw"]
 	logData, err := event.Inputs.PackNonIndexed(amount)
@@ -518,13 +518,12 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 		return nil, err
 	}
 
-	subLockedBalance(evm.StateDB, from, args.Value)
-
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	subLockedBalance(evm.StateDB, from, args.Value)
 
 	event := abiStaking.Events["WithdrawDelegate"]
 	logData, err := event.Inputs.PackNonIndexed(args.Value)
