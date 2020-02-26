@@ -1076,10 +1076,10 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 	if inclFruit {
 		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
 			return map[string]interface{}{
-				"number":     (*hexutil.Big)(head.Number),
+				"number":     (*hexutil.Big)(fruit.Number()),
 				"hash":       fruit.Hash(),
-				"nonce":      head.Nonce,
-				"miner":      head.Coinbase,
+				"nonce":      fruit.Nonce,
+				"miner":      fruit.Coinbase,
 				"difficulty": (*hexutil.Big)(head.FruitDifficulty),
 			}, nil
 		}
@@ -1215,8 +1215,8 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map
 		return nil
 	}
 	fields := map[string]interface{}{
-		"time":				hexutil.Uint64(content.St),
-		"Number":			hexutil.Uint64(content.Number),
+		"time":             hexutil.Uint64(content.St),
+		"Number":           hexutil.Uint64(content.Number),
 		"foundationReward": content.Reward.Foundation,
 		"blockminer":       content.Reward.CoinBase,
 		"fruitminer":       content.Reward.FruitBase,

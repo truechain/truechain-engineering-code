@@ -318,6 +318,10 @@ func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interf
 	return b.etrue.election.GetCommitteeById(big.NewInt(number.Int64())), nil
 }
 
+func (b *TrueAPIBackend) GetCurrentCommitteeNumber() *big.Int {
+	return b.etrue.election.GetCurrentCommitteeNumber()
+}
+
 // SendTx returns nil by success to add local txpool
 func (b *TrueAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.etrue.txPool.AddLocal(signedTx)

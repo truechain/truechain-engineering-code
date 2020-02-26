@@ -311,6 +311,10 @@ func (e *Election) GetCurrentCommittee() *committee {
 	return e.committee
 }
 
+func (e *Election) GetCurrentCommitteeNumber() *big.Int {
+	return e.committee.id
+}
+
 // GetMemberByPubkey returns committeeMember specified by public key bytes
 func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
 	if len(members) == 0 {
@@ -754,7 +758,7 @@ func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
 		epoch := types.GetEpochFromID(id.Uint64())
 		members := e.getValidators(big.NewInt(int64(epoch.BeginHeight)))
 		if members == nil {
-			log.Error("GetCommitteeById failed","epoch",epoch)
+			log.Error("GetCommitteeById failed", "epoch", epoch)
 			return nil
 		}
 		info["id"] = id.Uint64()

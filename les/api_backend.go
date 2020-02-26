@@ -213,6 +213,10 @@ func (b *LesApiBackend) GetCommittee(number rpc.BlockNumber) (map[string]interfa
 	return nil, nil
 }
 
+func (b *LesApiBackend) GetCurrentCommitteeNumber() *big.Int {
+	return nil
+}
+
 func (b *LesApiBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChange {
 	return nil
 }
