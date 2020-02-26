@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/params"
 	"io"
 	"math/big"
 	"strconv"
@@ -192,13 +193,19 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC(height uint64) map[string]interface
 	sasRPC := make(map[string]interface{}, len(sas))
 	var attrs []map[string]interface{}
 	count := 0
-	for i, sa := range sas {
+	countCommittee := 0
+	for index, sa := range sas {
 		attr := make(map[string]interface{})
-		attr["id"] = i
+		attr["id"] = index
 		attr["unit"] = unitDisplay(sa.Unit)
 		attr["votePubKey"] = hexutil.Bytes(sa.Votepubkey)
 		attr["fee"] = sa.Fee.Uint64()
-		attr["committee"] = sa.Committee
+		if countCommittee <= params.CountInEpoch && isCommitteeMember(i, sa.Unit.Address) {
+			attr["committee"] = true
+			countCommittee++
+		} else {
+			attr["committee"] = false
+		}
 		attr["delegation"] = daSDisplay(sa.Delegation, height)
 		if sa.Modify != nil {
 			ai := make(map[string]interface{})
@@ -466,7 +473,7 @@ func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address)
 	attr["unit"] = unitDisplay(sa.Unit)
 	attr["votePubKey"] = hexutil.Bytes(sa.Votepubkey)
 	attr["fee"] = sa.Fee.Uint64()
-	attr["committee"] = sa.Committee
+	attr["committee"] = isCommitteeMember(i, sa.Unit.Address)
 	attr["delegation"] = daSDisplay(sa.Delegation, height)
 	if sa.Modify != nil {
 		ai := make(map[string]interface{})
@@ -481,6 +488,19 @@ func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address)
 	attr["staking"] = sa.getAllStaking(height)
 	attr["validStaking"] = sa.getValidStaking(height)
 	return attr
+}
+
+func isCommitteeMember(i *ImpawnImpl, address common.Address) bool {
+	sas := i.getElections3(i.curEpochID)
+	if sas == nil {
+		return false
+	}
+	impawns := SAImpawns(sas)
+	sa := impawns.getSA(address)
+	if sa == nil {
+		return false
+	}
+	return true
 }
 
 func daSDisplay(das []*DelegationAccount, height uint64) map[string]interface{} {

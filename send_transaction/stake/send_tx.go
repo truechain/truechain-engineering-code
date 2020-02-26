@@ -255,7 +255,7 @@ func startDelegateTx(conn *etrueclient.Client, diff, number uint64, query bool) 
 					find = true
 				}
 			}
-			if find {
+			if !find {
 				txhash, err := sendContractTransaction(conn, from, addr, sendValue, priKey, nil, "sendtx")
 				if err != nil {
 					delegateFail[addr] = true
