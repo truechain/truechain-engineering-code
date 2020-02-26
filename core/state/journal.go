@@ -83,18 +83,20 @@ func (j *journal) revert(statedb *StateDB, snapshot int) {
 
 // revert transaction modifications by transaction index
 func (j *journal) revertTrxByIndex(statedb *StateDB, trxIndex int) {
-	for i := len(j.trxEntries[trxIndex]) - 1; i >= 0; i-- {
-		// Undo the changes made by the operation
-		j.trxEntries[trxIndex][i].revert(statedb)
+	if entries, ok := j.trxEntries[trxIndex]; ok {
+		for i := len(entries) - 1; i >= 0; i-- {
+			// Undo the changes made by the operation
+			entries[i].revert(statedb)
 
-		// Drop any dirty tracking induced by the change
-		if addr := j.trxEntries[trxIndex][i].dirtied(); addr != nil {
-			if j.dirties[*addr]--; j.dirties[*addr] == 0 {
-				delete(j.dirties, *addr)
+			// Drop any dirty tracking induced by the change
+			if addr := entries[i].dirtied(); addr != nil {
+				if j.dirties[*addr]--; j.dirties[*addr] == 0 {
+					delete(j.dirties, *addr)
+				}
 			}
 		}
+		j.trxEntries[trxIndex] = entries[:0]
 	}
-	j.trxEntries[trxIndex] = j.trxEntries[trxIndex][:0]
 }
 
 // dirty explicitly sets an address to dirty, even if the change entries would
