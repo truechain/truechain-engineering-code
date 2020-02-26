@@ -1228,14 +1228,16 @@ func getCommitteeVoted(committeeReward map[common.Address]*big.Int, election con
 		}
 	}
 	// Equal by fruit
-	committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
-	for _, v := range fruitOkAddr {
-		if committeeReward[v] != nil {
-			committeeReward[v] = new(big.Int).Add(committeeReward[v], committeeCoinFruitMember)
-		} else {
-			committeeReward[v] = committeeCoinFruitMember
+	if len(fruitOkAddr) > 0 {
+		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
+		for _, v := range fruitOkAddr {
+			if committeeReward[v] != nil {
+				committeeReward[v] = new(big.Int).Add(committeeReward[v], committeeCoinFruitMember)
+			} else {
+				committeeReward[v] = committeeCoinFruitMember
+			}
 		}
-	}
+	}	
 }
 
 func rewardFruitCommitteeMember(state *state.StateDB, election consensus.CommitteeElection,
