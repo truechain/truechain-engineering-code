@@ -1347,6 +1347,34 @@ func (i *ImpawnImpl) Counts() int {
 	}
 	return pos
 }
+func (i *ImpawnImpl) Summay() *types.ImpawnSummay {
+	summay := &types.ImpawnSummay{
+		LastReward: i.lastReward,
+		Infos:		make([]*types.SummayEpochInfo,0,0),
+	}
+	sumAccount := 0
+	for k,val := range i.accounts {
+		info := types.GetEpochFromID(k)
+		item := &types.SummayEpochInfo{
+			EpochID:		info.EpochID,
+			BeginHeight:	info.BeginHeight,
+			EndHeight:		info.EndHeight,
+		}
+		item.AllAmount = val.getValidStaking(info.EndHeight)
+		daSum,saSum := 0, len(val)
+		for _, vv := range val {
+			daSum = daSum + len(vv.Delegation)
+		}
+		item.DaCount,item.SaCount = uint64(daSum),uint64(saSum)
+		summay.Infos = append(summay.Infos,item)
+		sumAccount = sumAccount + daSum + saSum
+		if i.curEpochID == k {
+			summay.AllAmount = new(big.Int).Set(item.AllAmount)
+		}
+	}
+	summay.Accounts = uint64(sumAccount)
+	return summay
+}
 /////////////////////////////////////////////////////////////////////////////////
 type valuesByHeight []*PairstakingValue
 
