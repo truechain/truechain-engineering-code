@@ -9,7 +9,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
-	
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
 )
 
 
@@ -62,6 +62,41 @@ const (
 	OpQueryLocked
 	OpQueryCancelable
 )
+
+type SummayEpochInfo struct {
+	EpochID 		uint64
+	SaCount			uint64
+	DaCount			uint64
+	BeginHeight		uint64
+	EndHeight 		uint64
+	AllAmount       *big.Int
+}
+type ImpawnSummay struct {
+	LastReward 		uint64
+	Accounts		uint64
+	AllAmount 		*big.Int
+	Infos 			[]*SummayEpochInfo
+}
+
+func ToJSON(ii *ImpawnSummay) map[string]interface{} {
+	var item map[string]interface{}
+	item["lastRewardHeight"] = ii.LastReward
+	item["AccountsCounts"] = ii.Accounts
+	item["currentAllStaking"] = (*hexutil.Big)(ii.AllAmount)
+	var items []map[string]interface{}
+	for _,val := range ii.Infos {
+		var info map[string]interface{}
+		info["EpochID"] = val.EpochID
+		info["SaCount"] = val.SaCount
+		info["DaCount"] = val.DaCount
+		info["BeginHeight"] = val.BeginHeight
+		info["EndHeight"] = val.EndHeight
+		info["AllAmount"] =  (*hexutil.Big)(val.AllAmount)
+		items = append(items,info)
+	}
+	item["EpochInfos"] = items
+	return item
+}
 
 type RewardInfo struct {
 	Address common.Address

@@ -809,6 +809,11 @@ web3._extend({
 				return sa;
 			}
 		}),
+		new web3._extend.Method({
+			name: 'getImpawnSummay',
+			call: 'impawn_getImpawnSummay',
+			params: 2
+		}),
 	]
 });
 `

@@ -2082,3 +2082,17 @@ func (s *PublicImpawnAPI) GetStakingAccount(ctx context.Context, addr common.Add
 
 	return impawn.GetStakingAccountRPC(uint64(blockNr), addr), nil
 }
+func (s *PublicImpawnAPI) GetImpawnSummay(ctx context.Context, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return types.ToJSON(impawn.Summay()), nil
+}
