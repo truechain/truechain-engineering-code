@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"bytes"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -788,4 +789,74 @@ func TestCache(t *testing.T) {
 	impawn.Save(statedb, types.StakingAddress)
 	impawn2 := NewImpawnImpl()
 	impawn2.Load(statedb,types.StakingAddress)
+}
+func TestRlp(t *testing.T) {
+	infos := types.ChainReward{
+		Foundation: &types.RewardInfo{
+			Address: 	common.Address{'1'},
+			Amount:		big.NewInt(100),
+		},
+		CoinBase:&types.RewardInfo{
+			Address: 	common.Address{'2'},
+			Amount:		big.NewInt(200),
+		},
+		FruitBase: []*types.RewardInfo{
+			&types.RewardInfo{
+				Address: 	common.Address{'3'},
+				Amount:		big.NewInt(300),
+			},
+			&types.RewardInfo{
+				Address: 	common.Address{'4'},
+				Amount:		big.NewInt(400),
+			},
+		},
+		CommitteeBase: []*types.SARewardInfos{
+			&types.SARewardInfos{
+				Items:	[]*types.RewardInfo{
+					&types.RewardInfo{
+						Address: 	common.Address{'5'},
+						Amount:		big.NewInt(500),
+					},
+					&types.RewardInfo{
+						Address: 	common.Address{'6'},
+						Amount:		big.NewInt(600),
+					},
+				},
+			},
+			&types.SARewardInfos{
+				Items:	[]*types.RewardInfo{
+					&types.RewardInfo{
+						Address: 	common.Address{'7'},
+						Amount:		big.NewInt(700),
+					},
+					&types.RewardInfo{
+						Address: 	common.Address{'8'},
+						Amount:		big.NewInt(800),
+					},
+				},
+			},
+			&types.SARewardInfos{
+				Items:	[]*types.RewardInfo{
+					&types.RewardInfo{
+						Address: 	common.Address{'9'},
+						Amount:		big.NewInt(900),
+					},
+					&types.RewardInfo{
+						Address: 	common.Address{'a'},
+						Amount:		big.NewInt(1000),
+					},
+				},
+			},
+		},
+	}
+	data, err := rlp.EncodeToBytes(infos)
+	if err != nil {
+		log.Crit("Failed to RLP encode reward infos", "err", err)
+	}
+
+	infos1 := &types.ChainReward{}
+	if err := rlp.Decode(bytes.NewReader(data), infos1); err != nil {
+		log.Error("Invalid reward infos RLP", "err", err)
+	}
+	fmt.Println("finish")
 }
