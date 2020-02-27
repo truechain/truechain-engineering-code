@@ -1331,6 +1331,13 @@ func (bc *SnailBlockChain) GetTdByHash(hash common.Hash) *big.Int {
 	return bc.hc.GetTdByHash(hash)
 }
 
+func (bc *SnailBlockChain) GetRewardInfos(number uint64) *types.ChainReward {
+	return bc.hc.GetRewardInfos(number)
+}
+func (bc *SnailBlockChain) SetRewardInfos(number uint64,infos *types.ChainReward) error {
+	bc.hc.WriteRewardInfos(number,infos)
+	return nil
+}
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
 func (bc *SnailBlockChain) GetHeader(hash common.Hash, number uint64) *types.SnailHeader {
