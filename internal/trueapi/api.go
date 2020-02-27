@@ -1077,10 +1077,10 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
 			return map[string]interface{}{
 				"number":     (*hexutil.Big)(fruit.Number()),
-				"hash":       fruit.Header().Hash(),
+				"hash":       fruit.Hash(),
 				"nonce":      fruit.Header().Nonce,
 				"miner":      fruit.Header().Coinbase,
-				"difficulty": (*hexutil.Big)(head.FruitDifficulty),
+				"difficulty": (*hexutil.Big)(fruit.Header().FruitDifficulty),
 			}, nil
 		}
 		fruits := make([]interface{}, len(fs))
