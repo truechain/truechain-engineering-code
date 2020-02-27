@@ -314,8 +314,8 @@ func deposit(ctx *cli.Context, conn *etrueclient.Client, value *big.Int) {
 	pubkey, pk, _ := getPubKey(ctx, conn)
 
 	fmt.Println("Fee", fee, " Pubkey ", pubkey, " value ", value)
-	input := packInput("deposit", pk, new(big.Int).SetUint64(fee))
-	txHash, _ := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input, "deposit")
+	input := packInput("deposit", pk, new(big.Int).SetUint64(fee), value)
+	txHash, _ := sendContractTransaction(conn, from, types.StakingAddress, nil, priKey, input, "deposit")
 	getResult(conn, txHash, true, false)
 }
 

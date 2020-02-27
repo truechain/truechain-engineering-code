@@ -290,24 +290,24 @@ func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Addre
 	if height == 40 {
 		nonce, _ := getNonce(gen, from, state, "sendDepositTransaction", txPool)
 		pub := crypto.FromECDSAPub(&priKey.PublicKey)
-		input := packInput(abiStaking, "deposit", "sendDepositTransaction", pub, new(big.Int).SetInt64(5000))
-		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
+		input := packInput(abiStaking, "deposit", "sendDepositTransaction", pub, new(big.Int).SetInt64(5000), value)
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
 	}
 }
 
 func sendDepositAppendTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
 	if height == 50 {
 		nonce, _ := getNonce(gen, from, state, "sendDepositAppendTransaction", txPool)
-		input := packInput(abiStaking, "append", "sendDepositAppendTransaction")
-		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
+		input := packInput(abiStaking, "append", "sendDepositAppendTransaction", value)
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
 	}
 }
 
 func sendDelegateTransaction(height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
 	if height == 60 {
 		nonce, _ := getNonce(gen, from, state, "sendDelegateTransaction", txPool)
-		input := packInput(abiStaking, "delegate", "sendDelegateTransaction", toAddress)
-		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
+		input := packInput(abiStaking, "delegate", "sendDelegateTransaction", toAddress, value)
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
 	}
 }
 

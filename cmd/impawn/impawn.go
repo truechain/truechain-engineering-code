@@ -70,8 +70,8 @@ func impawn(ctx *cli.Context) error {
 	pubkey, pk, _ := getPubKey(ctx, conn)
 
 	fmt.Println("Fee", fee, " Pubkey ", pubkey, " value ", value)
-	input := packInput("deposit", pk, new(big.Int).SetUint64(fee))
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
+	input := packInput("deposit", pk, new(big.Int).SetUint64(fee), value)
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, nil, priKey, input)
 
 	getResult(conn, txHash, true, false)
 

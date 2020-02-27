@@ -65,8 +65,8 @@ func sendTX(ctx *cli.Context) error {
 }
 
 func delegateImpawn(conn *etrueclient.Client, value *big.Int, address common.Address, key *ecdsa.PrivateKey) error {
-	input := packInput("delegate", from)
-	txHash := sendOtherContractTransaction(conn, address, types.StakingAddress, value, key, input, "delegateImpawn")
+	input := packInput("delegate", from, value)
+	txHash := sendOtherContractTransaction(conn, address, types.StakingAddress, nil, key, input, "delegateImpawn")
 	getResult(conn, txHash, true, true)
 	return nil
 }

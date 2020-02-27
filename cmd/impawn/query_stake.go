@@ -24,8 +24,8 @@ func AppendImpawn(ctx *cli.Context) error {
 
 	value := trueToWei(ctx, false)
 
-	input := packInput("append")
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
+	input := packInput("append", value)
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, nil, priKey, input)
 
 	getResult(conn, txHash, true, false)
 
@@ -188,8 +188,8 @@ func delegateImpawn(ctx *cli.Context) error {
 	}
 	holder = common.HexToAddress(address)
 
-	input := packInput("delegate", holder)
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
+	input := packInput("delegate", holder, value)
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, nil, priKey, input)
 
 	getResult(conn, txHash, true, true)
 	return nil
