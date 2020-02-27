@@ -1098,7 +1098,7 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 	if inclFruit {
 		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
 			return map[string]interface{}{
-				"number":     (*hexutil.Big)(fruit.Number()),
+				"number":     (*hexutil.Big)(fruit.Header().FastNumber),
 				"hash":       fruit.Hash(),
 				"nonce":      fruit.Header().Nonce,
 				"miner":      fruit.Header().Coinbase,
