@@ -875,13 +875,13 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 			endfast = new(big.Int).Set(sBlock.MinFruitNumber())
 		}
 		if consensus.IsTIP8(endfast, chain.Config(), m.sbc) {
-			err := accumulateRewardsFast2(state, sBlock, header.Number.Uint64())
+			err := accumulateRewardsFast2(m.rewardAccess,state, sBlock, header.Number.Uint64())
 			if err != nil {
 				log.Error("Finalize Error", "accumulateRewardsFast2", err.Error())
 				return nil, err
 			}
 		} else {
-			err := accumulateRewardsFast(m.election, state, sBlock)
+			err := accumulateRewardsFast(m.rewardAccess,m.election, state, sBlock)
 			if err != nil {
 				log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
 				return nil, err
@@ -1000,7 +1000,7 @@ func LogPrint(info string, addr common.Address, amount *big.Int) {
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.StateDB, sBlock *types.SnailBlock) error {
+func accumulateRewardsFast(ra consensus.RewardInfosAccess,election consensus.CommitteeElection, stateDB *state.StateDB, sBlock *types.SnailBlock) error {
 	committeeCoin, minerCoin, minerFruitCoin,fundCoin, e := GetBlockReward3(sBlock.Header().Number)
 	if e == ErrRewardEnd {
 		return nil
@@ -1059,10 +1059,13 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 		committeeMap = types.MergeReward(committeeMap,tmp)
 	}
 	infos := types.NewChainReward(found,coinbase,types.ToRewardInfos1(fruitMap),types.ToRewardInfos2(committeeMap))
+	if ra != nil {
+		ra.SetRewardInfos(sBlock.NumberU64(),infos)
+	}
 	consensus.CR.AddChainReward(sBlock.NumberU64(),sBlock.Time().Uint64(),infos)
 	return nil
 }
-func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fast uint64) error {
+func accumulateRewardsFast2(ra consensus.RewardInfosAccess,stateDB *state.StateDB, sBlock *types.SnailBlock, fast uint64) error {
 	sHeight := sBlock.Header().Number
 	committeeCoin, minerCoin, minerFruitCoin,fundCoin, e := GetBlockReward3(sHeight)
 	if e == ErrRewardEnd {
@@ -1140,6 +1143,9 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 	watch4.EndWatch()
 	watch4.Finish("items reward")
 	rewardsInfos := types.NewChainReward(found,coinbase,types.ToRewardInfos1(fruitMap),infos)
+	if ra != nil {
+		ra.SetRewardInfos(sBlock.NumberU64(),rewardsInfos)
+	}
 	consensus.CR.AddChainReward(sBlock.NumberU64(),sBlock.Time().Uint64(),rewardsInfos)
 	return nil
 }

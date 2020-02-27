@@ -77,6 +77,11 @@ type SnailChainReader interface {
 	GetBlock(hash common.Hash, number uint64) *types.SnailBlock
 }
 
+type RewardInfosAccess interface {
+	GetRewardInfos(number uint64) *types.ChainReward
+	SetRewardInfos(number uint64,infos *types.ChainReward) error
+}
+
 // Engine is an algorithm agnostic consensus engine.
 type Engine interface {
 	SetElection(e CommitteeElection)

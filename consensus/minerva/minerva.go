@@ -230,6 +230,7 @@ type Minerva struct {
 
 	sbc      consensus.SnailChainReader
 	election consensus.CommitteeElection
+	rewardAccess consensus.RewardInfosAccess
 	chainDB  etruedb.Database
 }
 
@@ -389,6 +390,9 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 //SetSnailChainReader Append interface SnailChainReader after instantiations
 func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
 	m.sbc = scr
+}
+func (m *Minerva) SetRewardAccess(ra consensus.RewardInfosAccess) {
+	m.rewardAccess = ra
 }
 
 func (m *Minerva) SetSnailHeaderHash(db etruedb.Database) {
