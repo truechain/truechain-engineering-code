@@ -5454,6 +5454,22 @@ require = (function e(t, n, r) {
                 outputFormatter: formatters.outputBigNumberFormatter
             });
 
+            var getLockBalance = new Method({
+                name: 'getLockBalance',
+                call: 'etrue_getLockBalance',
+                params: 2,
+                inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+                outputFormatter: formatters.outputBigNumberFormatter
+            });
+
+            var getUnlockedBalance = new Method({
+                name: 'getUnlockedBalance',
+                call: 'etrue_getUnlockedBalance',
+                params: 2,
+                inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+                outputFormatter: formatters.outputBigNumberFormatter
+            });
+
             var getStorageAt = new Method({
                 name: 'getStorageAt',
                 call: 'etrue_getStorageAt',
@@ -5740,6 +5756,8 @@ require = (function e(t, n, r) {
 
             return [
                 getBalance,
+                getLockBalance,
+                getUnlockedBalance,
                 getStorageAt,
                 getCode,
                 getBlock,

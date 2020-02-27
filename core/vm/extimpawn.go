@@ -14,133 +14,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
-// "external" PairstakingValue encoding. used for pos staking.
-type extPairstakingValue struct {
-	Amount *big.Int
-	Height *big.Int
-	State  uint8
-}
-
-func (p *PairstakingValue) DecodeRLP(s *rlp.Stream) error {
-	var ep extPairstakingValue
-	if err := s.Decode(&ep); err != nil {
-		return err
-	}
-	p.Amount, p.Height, p.State = ep.Amount, ep.Height, ep.State
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP PairstakingValue format.
-func (p *PairstakingValue) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extPairstakingValue{
-		Amount: p.Amount,
-		Height: p.Height,
-		State:  p.State,
-	})
-}
-
-// "external" impawnUnit encoding. used for pos staking.
-type extImpawnUnit struct {
-	Address    common.Address
-	Value      []*PairstakingValue // sort by height
-	RedeemInof []*RedeemItem
-}
-
-func (i *impawnUnit) DecodeRLP(s *rlp.Stream) error {
-	var ei extImpawnUnit
-	if err := s.Decode(&ei); err != nil {
-		return err
-	}
-	i.Address, i.Value, i.RedeemInof = ei.Address, ei.Value, ei.RedeemInof
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP impawnUnit format.
-func (i *impawnUnit) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extImpawnUnit{
-		Address:    i.Address,
-		Value:      i.Value,
-		RedeemInof: i.RedeemInof,
-	})
-}
-
-// "external" DelegationAccount encoding. used for pos staking.
-type extDAccount struct {
-	DeleAddress common.Address
-	Unit        *impawnUnit
-}
-
-func (d *DelegationAccount) DecodeRLP(s *rlp.Stream) error {
-	var da extDAccount
-	if err := s.Decode(&da); err != nil {
-		return err
-	}
-	d.SaAddress, d.Unit = da.DeleAddress, da.Unit
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP DelegationAccount format.
-func (i *DelegationAccount) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extDAccount{
-		DeleAddress: i.SaAddress,
-		Unit:        i.Unit,
-	})
-}
-
-// "external" StakingAccount encoding. used for pos staking.
-type extSAccount struct {
-	Unit       *impawnUnit
-	Votepubkey []byte
-	Fee        *big.Int
-	Committee  bool
-	Delegation []*DelegationAccount
-	Modify     *AlterableInfo
-}
-
-func (sa *StakingAccount) DecodeRLP(s *rlp.Stream) error {
-	var es extSAccount
-	if err := s.Decode(&es); err != nil {
-		return err
-	}
-	sa.Unit, sa.Votepubkey, sa.Fee, sa.Committee, sa.Delegation, sa.Modify = es.Unit, es.Votepubkey, es.Fee, es.Committee, es.Delegation, es.Modify
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP StakingAccount format.
-func (sa *StakingAccount) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extSAccount{
-		Unit:       sa.Unit,
-		Votepubkey: sa.Votepubkey,
-		Fee:        sa.Fee,
-		Committee:  sa.Committee,
-		Delegation: sa.Delegation,
-		Modify:     sa.Modify,
-	})
-}
-
-// "external" AlterableInfo encoding. used for pos staking.
-type extAlterableInfo struct {
-	Fee        *big.Int
-	VotePubkey []byte
-}
-
-func (a *AlterableInfo) DecodeRLP(s *rlp.Stream) error {
-	var ea extAlterableInfo
-	if err := s.Decode(&ea); err != nil {
-		return err
-	}
-	a.Fee, a.VotePubkey = ea.Fee, ea.VotePubkey
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP AlterableInfo format.
-func (a *AlterableInfo) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extAlterableInfo{
-		Fee:        a.Fee,
-		VotePubkey: a.VotePubkey,
-	})
-}
-
 // "external" ImpawnImpl encoding. used for pos staking.
 type extImpawnImpl struct {
 	Accounts   []SAImpawns
@@ -217,8 +90,8 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC(height uint64) map[string]interface
 			}
 			attr["modify"] = ai
 		}
-		attr["staking"] = sa.getAllStaking(height)
-		attr["validStaking"] = sa.getValidStaking(height)
+		attr["staking"] = weiToTrue(sa.getAllStaking(height))
+		attr["validStaking"] = weiToTrue(sa.getValidStaking(height))
 		attrs = append(attrs, attr)
 		count = count + len(sa.Delegation)
 	}
@@ -420,7 +293,7 @@ func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) []CancelableA
 	assets := i.GetAllCancelableAsset(addr)
 	var attrs []CancelableAsset
 	for key, value := range assets {
-		attr := CancelableAsset{Value: value, Address: key}
+		attr := CancelableAsset{Value: weiToTrue(value), Address: key}
 		attrs = append(attrs, attr)
 	}
 	return attrs
@@ -485,8 +358,8 @@ func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address)
 		}
 		attr["modify"] = ai
 	}
-	attr["staking"] = sa.getAllStaking(height)
-	attr["validStaking"] = sa.getValidStaking(height)
+	attr["staking"] = weiToTrue(sa.getAllStaking(height))
+	attr["validStaking"] = weiToTrue(sa.getValidStaking(height))
 	return attr
 }
 
@@ -508,8 +381,8 @@ func daSDisplay(das []*DelegationAccount, height uint64) map[string]interface{} 
 	for i, da := range das {
 		attr := make(map[string]interface{})
 		attr["saAddress"] = da.SaAddress
-		attr["delegate"] = da.getAllStaking(height)
-		attr["validDelegate"] = da.getValidStaking(height)
+		attr["delegate"] = weiToTrue(da.getAllStaking(height))
+		attr["validDelegate"] = weiToTrue(da.getValidStaking(height))
 		attr["unit"] = unitDisplay(da.Unit)
 		attrs[strconv.Itoa(i)] = attr
 	}
@@ -528,7 +401,7 @@ func pvSDisplay(pvs []*PairstakingValue) map[string]interface{} {
 	attrs := make(map[string]interface{}, len(pvs))
 	for i, pv := range pvs {
 		attr := make(map[string]interface{})
-		attr["amount"] = (*hexutil.Big)(pv.Amount)
+		attr["amount"] = (*hexutil.Big)(weiToTrue(pv.Amount))
 		attr["height"] = (*hexutil.Big)(pv.Height)
 		attr["state"] = uint64(pv.State)
 		attrs[strconv.Itoa(i)] = attr
@@ -540,7 +413,7 @@ func riSDisplay(ris []*RedeemItem) map[string]interface{} {
 	attrs := make(map[string]interface{}, len(ris))
 	for i, ri := range ris {
 		attr := make(map[string]interface{})
-		attr["amount"] = (*hexutil.Big)(ri.Amount)
+		attr["amount"] = (*hexutil.Big)(weiToTrue(ri.Amount))
 		attr["epochID"] = ri.EpochID
 		attr["state"] = uint64(ri.State)
 		attrs[strconv.Itoa(i)] = attr
@@ -553,7 +426,7 @@ func lockValueDisplay(lv *types.LockedValue) []*LockValue {
 	for epoch, value := range lv.Value {
 		attrs = append(attrs, &LockValue{
 			EpochID: epoch,
-			Amount:  value.Amount,
+			Amount:  weiToTrue(value.Amount),
 			Height:  new(big.Int).SetUint64(types.MinCalcRedeemHeight(epoch)),
 			Locked:  value.Locked,
 		})
@@ -566,8 +439,13 @@ func stakingValueDisplay(sv *types.StakingValue) []*StakingValue {
 	for height, value := range sv.Value {
 		attrs = append(attrs, &StakingValue{
 			Height: height,
-			Amount: value,
+			Amount: weiToTrue(value),
 		})
 	}
 	return attrs
+}
+
+func weiToTrue(value *big.Int) *big.Int {
+	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	return new(big.Int).Div(value, baseUnit)
 }
