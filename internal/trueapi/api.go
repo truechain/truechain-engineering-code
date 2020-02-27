@@ -614,7 +614,7 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	if state == nil || err != nil {
 		return nil, err
 	}
-	return (*hexutil.Big)(state.GetBalance(address)), state.Error()
+	return (*hexutil.Big)(state.GetUnlockedBalance(address)), state.Error()
 }
 
 // GetLockBalance returns the amount of wei for the given address in pos state of the
