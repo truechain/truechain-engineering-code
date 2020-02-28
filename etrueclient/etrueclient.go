@@ -818,9 +818,19 @@ func (ec *Client) GetStakingAccount(ctx context.Context, account common.Address,
 	}
 	return result, nil
 }
-func (ec *Client) GetImpawnSummay(ctx context.Context,number *big.Int) (map[string]interface{}, error) {
+func (ec *Client) GetImpawnSummay(ctx context.Context, number *big.Int) (map[string]interface{}, error) {
 	var result map[string]interface{}
 	err := ec.c.CallContext(ctx, &result, "impawn_getImpawnSummay", toBlockNumArg(number))
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+//etrue_getChainRewardContent
+func (ec *Client) GetChainRewardContent(ctx context.Context, account common.Address, number *big.Int) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	err := ec.c.CallContext(ctx, &result, "etrue_getChainRewardContent", toBlockNumArg(number), account)
 	if err != nil {
 		return result, err
 	}

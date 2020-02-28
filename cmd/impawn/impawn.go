@@ -46,6 +46,7 @@ const (
 	datadirPrivateKey      = "key"
 	datadirDefaultKeyStore = "keystore"
 	ImpawnAmount           = 20000
+	SnailRewardInterval    = 14
 )
 
 func impawn(ctx *cli.Context) error {
@@ -380,6 +381,25 @@ func loadSigningKey(keyfile string) common.Address {
 	from = crypto.PubkeyToAddress(priKey.PublicKey)
 	//fmt.Println("address ", from.Hex(), "key", hex.EncodeToString(crypto.FromECDSA(priKey)))
 	return from
+}
+
+func queryRewardInfo(conn *etrueclient.Client) {
+	sheader, err := conn.SnailHeaderByNumber(context.Background(), nil)
+	if err != nil {
+		printError("get snail block error", err)
+	}
+	var crc map[string]interface{}
+	crc, err = conn.GetChainRewardContent(context.Background(), from, new(big.Int).SetUint64(sheader.Number.ToInt().Uint64()-SnailRewardInterval))
+	if err != nil {
+		printError("get chain reward content error", err)
+	}
+	if v, ok := crc["stakingReward"]; ok {
+		if v, ok := v.([]*types.RewardInfo); ok {
+			for _, v := range v {
+				fmt.Println("Reward value", v.Amount, " address ", v.Address)
+			}
+		}
+	}
 }
 
 func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {

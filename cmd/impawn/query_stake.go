@@ -115,6 +115,7 @@ func queryStakingImpawn(ctx *cli.Context) error {
 	printBaseInfo(conn, url)
 
 	queryStakingInfo(conn, true, false)
+	queryRewardInfo(conn)
 	return nil
 }
 
