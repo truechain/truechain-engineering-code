@@ -69,7 +69,8 @@ type Backend interface {
 	GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChange
 
 	GetSnailRewardContent(blockNr rpc.BlockNumber) *types.SnailRewardContenet
-	GetChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward
+	GetRecentChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward
+	GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error

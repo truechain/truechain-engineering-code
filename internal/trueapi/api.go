@@ -1231,8 +1231,8 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 	}*/
 	return fields
 }
-func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map[string]interface{} {
-	content := s.b.GetChainRewardContent(blockNr)
+func (s *PublicBlockChainAPI) GetRecentChainRewardContent(blockNr rpc.BlockNumber) map[string]interface{} {
+	content := s.b.GetRecentChainRewardContent(blockNr)
 	if content == nil {
 		return nil
 	}
@@ -1245,6 +1245,34 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map
 		"committeReward":   content.Reward.CommitteeBase,
 	}
 	return fields
+}
+func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber,addr common.Address) map[string]interface{} {
+	content := s.b.GetChainRewardContent(blockNr)
+	if content == nil {
+		return nil
+	}
+	empty := common.Address{}
+	if bytes.Equal(addr.Bytes(), empty.Bytes()) {
+		fields := map[string]interface{}{
+			"Number":           hexutil.Uint64(blockNr),
+			"foundationReward": content.Foundation,
+			"blockminer":       content.CoinBase,
+			"fruitminer":       content.FruitBase,
+			"committeReward":   content.CommitteeBase,
+		}
+		return fields
+	} else {
+		for _,val := range content.CommitteeBase {
+			if len(val.Items) > 0 && bytes.Equal(val.Items[0].Address.Bytes(), addr.Bytes()) {
+				fields := map[string]interface{}{
+					"Number":           hexutil.Uint64(blockNr),
+					"stakingReward":   	val.Items,
+				}
+				return fields
+			}
+		}
+		return nil
+	}
 }
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction

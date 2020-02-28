@@ -782,6 +782,9 @@ func makeAlterableInfo() *AlterableInfo {
 
 /////////////////////////////////////////////////////////////////////
 func TestCache(t *testing.T) {
+	addr := common.Address{'1'}
+	fmt.Println(addr)
+	fmt.Println(addr.String())
 	db := etruedb.NewMemDatabase()
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	impawn := NewImpawnImpl()

@@ -243,9 +243,13 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 func (b *TrueAPIBackend) GetSnailRewardContent(snailNumber rpc.BlockNumber) *types.SnailRewardContenet {
 	return b.etrue.agent.GetSnailRewardContent(uint64(snailNumber))
 }
-func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward {
+func (b *TrueAPIBackend) GetRecentChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward {
 	snailHeight := uint64(blockNr)
 	return consensus.CR.GetChainReward(snailHeight)
+}
+func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
+	sheight := uint64(blockNr)
+	return b.etrue.snailblockchain.GetRewardInfos(sheight)
 }
 
 // GetCommittee returns the Committee info by committee number

@@ -5511,6 +5511,13 @@ require = (function e(t, n, r) {
             var getChainRewardContent = new Method({
                 name: 'getChainRewardContent',
                 call: 'etrue_getChainRewardContent',
+                params: 2,
+                inputFormatter: [formatters.inputDefaultBlockNumberFormatter,formatters.inputAddressFormatter]
+            });
+
+            var getRecentChainRewardContent = new Method({
+                name: 'getRecentChainRewardContent',
+                call: 'etrue_getRecentChainRewardContent',
                 params: 1,
                 inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
             });
@@ -5764,6 +5771,7 @@ require = (function e(t, n, r) {
                 getRewardBlock,
                 getSnailRewardContent,
                 getChainRewardContent,
+                getRecentChainRewardContent,
                 getSnail,
                 getFruit,
                 getStateChangeByFastNumber,
