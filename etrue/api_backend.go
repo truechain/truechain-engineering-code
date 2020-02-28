@@ -319,6 +319,9 @@ func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
 }
 
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
+	if number == rpc.LatestBlockNumber {
+		return b.etrue.election.GetCommitteeById(new(big.Int).SetUint64(b.etrue.agent.CommitteeNumber())), nil
+	}
 	return b.etrue.election.GetCommitteeById(big.NewInt(number.Int64())), nil
 }
 
