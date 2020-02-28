@@ -5462,9 +5462,9 @@ require = (function e(t, n, r) {
                 outputFormatter: formatters.outputBigNumberFormatter
             });
 
-            var getUnlockedBalance = new Method({
+            var getTotalBalance = new Method({
                 name: 'getUnlockedBalance',
-                call: 'etrue_getUnlockedBalance',
+                call: 'etrue_getTotalBalance',
                 params: 2,
                 inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
                 outputFormatter: formatters.outputBigNumberFormatter
@@ -5757,7 +5757,7 @@ require = (function e(t, n, r) {
             return [
                 getBalance,
                 getLockBalance,
-                getUnlockedBalance,
+                getTotalBalance,
                 getStorageAt,
                 getCode,
                 getBlock,
