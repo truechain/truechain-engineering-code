@@ -231,7 +231,7 @@ func (b *LesApiBackend) GetSnailRewardContent(number rpc.BlockNumber) *types.Sna
 func (b *LesApiBackend) GetRecentChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward {
 	return nil
 }
-func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
+func (b *LesApiBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
 	return nil
 }
 func (b *LesApiBackend) SnailPoolContent() []*types.SnailBlock {
