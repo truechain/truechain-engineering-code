@@ -114,6 +114,7 @@ func queryStakingImpawn(ctx *cli.Context) error {
 	conn, url := dialConn(ctx)
 	printBaseInfo(conn, url)
 
+	PrintBalance(conn, from)
 	queryStakingInfo(conn, true, false)
 	start := false
 	snailNumber := uint64(0)
