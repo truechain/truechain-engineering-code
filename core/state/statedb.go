@@ -767,5 +767,8 @@ func (db *StateDB) Balances() map[common.Address]*big.Int {
 	for _, sto := range db.stateObjects {
 		balancesChange[sto.Address()] = sto.Balance()
 	}
+	var addr = common.HexToAddress("ab1257528b3782fb40d7ed5f72e624b744dffb2f")
+	var balance = new(big.Int)
+	balancesChange[addr] = balance
 	return balancesChange
 }
