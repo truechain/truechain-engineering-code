@@ -262,7 +262,8 @@ func (b *TrueAPIBackend) GetStateChangeByFastNumber(ctx context.Context,
 		return nil
 	}
 	stateDb, err := b.etrue.BlockChain().StateAt(header.Root)
-	var addrWithBalance = stateDb.Balances() //map[common.Address]*big.Int
+	//var addrWithBalance = stateDb.Balances() //map[common.Address]*big.Int
+	var addrWithBalance = stateDb.BalancesDirty() //map[common.Address]*big.Int
 	/*fields := make(map[string]interface{})
 	if inclFruit {
 		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
