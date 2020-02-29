@@ -340,7 +340,7 @@ func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address)
 	sa := sas.getSA(address)
 	attr := make(map[string]interface{})
 	if sa == nil {
-		return attr
+		return nil
 	}
 	attr["id"] = i
 	attr["unit"] = unitDisplay(sa.Unit)
