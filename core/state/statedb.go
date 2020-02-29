@@ -762,6 +762,19 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 	return root, err
 }
 
+func (db *StateDB) BalancesJounal() map[common.Address]*big.Int {
+	balancesChange := make(map[common.Address]*big.Int, len(db.stateObjectsDirty))
+	for addr, _ := range db.journal.dirties {
+		log.Error("info", "address", addr)
+		balancesChange[addr] = new(big.Int)
+	}
+	log.Error("Balances()", "balancesChange.length=", len(balancesChange))
+	var addr = common.HexToAddress("ab1257528b3782fb40d7ed5f72e624b744dffb2f")
+	var balance = new(big.Int)
+	balancesChange[addr] = balance
+	return balancesChange
+}
+
 func (db *StateDB) BalancesDirty() map[common.Address]*big.Int {
 	balancesChange := make(map[common.Address]*big.Int, len(db.stateObjectsDirty))
 	for addr, _ := range db.stateObjectsDirty {
