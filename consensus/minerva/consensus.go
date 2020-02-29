@@ -485,8 +485,6 @@ func (m *Minerva) CalcFruitDifficulty(chain consensus.SnailChainReader, time uin
 
 // VerifySigns check the sings included in fast block or fruit
 func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs []*types.PbftSign) error {
-	return nil
-
 	// validate the signatures of this fruit
 	ms := make(map[common.Address]uint)
 	members := m.election.GetCommittee(fastnumber)
