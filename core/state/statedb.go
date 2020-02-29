@@ -24,7 +24,6 @@ import (
 	"sort"
 	"sync"
 
-	"golang.org/x/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -57,11 +56,8 @@ func (n *proofList) Put(key []byte, value []byte) error {
 }
 
 func lockedKey(addr common.Address) (h common.Hash) {
-	hw := sha3.NewLegacyKeccak256()
 	base := append(common.BytesToHash(addr[:]).Bytes(), lockedPosition.Bytes()...)
-	hw.Write(base)
-	hw.Sum(h[:0])
-	return h
+	return crypto.Keccak256Hash(base)
 }
 
 // StateDBs within the ethereum protocol are used to store anything
