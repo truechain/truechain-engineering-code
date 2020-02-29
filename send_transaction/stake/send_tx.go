@@ -690,10 +690,10 @@ func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
 			for k, v := range lockAssets {
 				for m, n := range v.LockValue {
 					if !n.Locked {
-						fmt.Println("Your can instant withdraw", " count value ", weiToTrue(n.Amount), " true")
+						fmt.Println("Your can instant withdraw", " count value ", n.Amount, " true")
 					} else {
-						if n.EpochID > 0 || n.Amount.Sign() > 0 {
-							fmt.Println("Your can withdraw after height", n.Height.Uint64(), " count value ", weiToTrue(n.Amount), " true  index", k+m, " lock ", n.Locked)
+						if n.EpochID > 0 || n.Amount != "0" {
+							fmt.Println("Your can withdraw after height", n.Height.Uint64(), " count value ", n.Amount, " true  index", k+m, " lock ", n.Locked)
 						}
 					}
 				}

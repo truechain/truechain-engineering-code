@@ -121,19 +121,19 @@ type StakingAsset struct {
 
 type StakingValue struct {
 	Height uint64
-	Amount *big.Int
+	Amount string
 }
 
 // MarshalJSON marshals as JSON.
 func (s StakingValue) MarshalJSON() ([]byte, error) {
 	type StakingValue struct {
 		Height hexutil.Uint64 `json:"height"`
-		Amount *hexutil.Big   `json:"amount"`
+		Amount string         `json:"amount"`
 	}
 	var enc StakingValue
 	enc.Height = hexutil.Uint64(s.Height)
 
-	enc.Amount = (*hexutil.Big)(s.Amount)
+	enc.Amount = s.Amount
 	return json.Marshal(&enc)
 }
 
@@ -141,7 +141,7 @@ func (s StakingValue) MarshalJSON() ([]byte, error) {
 func (s *StakingValue) UnmarshalJSON(input []byte) error {
 	type StakingValue struct {
 		Height *hexutil.Uint64 `json:"height"`
-		Amount *hexutil.Big    `json:"amount"`
+		Amount *string         `json:"amount"`
 	}
 	var dec StakingValue
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -151,7 +151,7 @@ func (s *StakingValue) UnmarshalJSON(input []byte) error {
 		s.Height = uint64(*dec.Height)
 	}
 	if dec.Amount != nil {
-		s.Amount = (*big.Int)(dec.Amount)
+		s.Amount = *dec.Amount
 	}
 	return nil
 }
@@ -208,7 +208,7 @@ type LockedAsset struct {
 
 type LockValue struct {
 	EpochID uint64
-	Amount  *big.Int
+	Amount  string
 	Height  *big.Int
 	Locked  bool
 }
@@ -217,14 +217,14 @@ type LockValue struct {
 func (l LockValue) MarshalJSON() ([]byte, error) {
 	type LockValue struct {
 		EpochID hexutil.Uint64 `json:"epochID"`
-		Amount  *hexutil.Big   `json:"amount"`
+		Amount  string         `json:"amount"`
 		Height  *hexutil.Big   `json:"height"`
 		Locked  bool           `json:"locked"`
 	}
 	var enc LockValue
 	enc.EpochID = hexutil.Uint64(l.EpochID)
 
-	enc.Amount = (*hexutil.Big)(l.Amount)
+	enc.Amount = l.Amount
 	enc.Height = (*hexutil.Big)(l.Height)
 	enc.Locked = l.Locked
 	return json.Marshal(&enc)
@@ -234,7 +234,7 @@ func (l LockValue) MarshalJSON() ([]byte, error) {
 func (l *LockValue) UnmarshalJSON(input []byte) error {
 	type LockValue struct {
 		EpochID *hexutil.Uint64 `json:"epochID"`
-		Amount  *hexutil.Big    `json:"amount"`
+		Amount  *string         `json:"amount"`
 		Height  *hexutil.Big    `json:"height"`
 		Locked  *bool           `json:"locked"`
 	}
@@ -246,7 +246,7 @@ func (l *LockValue) UnmarshalJSON(input []byte) error {
 		l.EpochID = uint64(*dec.EpochID)
 	}
 	if dec.Amount != nil {
-		l.Amount = (*big.Int)(dec.Amount)
+		l.Amount = *dec.Amount
 	}
 	if dec.Height != nil {
 		l.Height = (*big.Int)(dec.Height)
@@ -300,18 +300,18 @@ func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) []CancelableA
 }
 
 type CancelableAsset struct {
-	Value   *big.Int
+	Value   string
 	Address common.Address
 }
 
 // MarshalJSON marshals as JSON.
 func (c CancelableAsset) MarshalJSON() ([]byte, error) {
 	type CancelableAsset struct {
-		Value   *hexutil.Big   `json:"value"`
+		Value   string         `json:"value"`
 		Address common.Address `json:"address"`
 	}
 	var enc CancelableAsset
-	enc.Value = (*hexutil.Big)(c.Value)
+	enc.Value = c.Value
 	enc.Address = c.Address
 	return json.Marshal(&enc)
 }
@@ -319,7 +319,7 @@ func (c CancelableAsset) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (c *CancelableAsset) UnmarshalJSON(input []byte) error {
 	type CancelableAsset struct {
-		Value   *hexutil.Big    `json:"value"`
+		Value   *string         `json:"value"`
 		Address *common.Address `json:"address"`
 	}
 	var dec CancelableAsset
@@ -327,7 +327,7 @@ func (c *CancelableAsset) UnmarshalJSON(input []byte) error {
 		return err
 	}
 	if dec.Value != nil {
-		c.Value = (*big.Int)(dec.Value)
+		c.Value = *dec.Value
 	}
 	if dec.Address != nil {
 		c.Address = *dec.Address
@@ -401,8 +401,8 @@ func pvSDisplay(pvs []*PairstakingValue) map[string]interface{} {
 	attrs := make(map[string]interface{}, len(pvs))
 	for i, pv := range pvs {
 		attr := make(map[string]interface{})
-		attr["amount"] = (*hexutil.Big)(weiToTrue(pv.Amount))
-		attr["height"] = (*hexutil.Big)(pv.Height)
+		attr["amount"] = weiToTrue(pv.Amount)
+		attr["height"] = pv.Height
 		attr["state"] = uint64(pv.State)
 		attrs[strconv.Itoa(i)] = attr
 	}
@@ -413,7 +413,7 @@ func riSDisplay(ris []*RedeemItem) map[string]interface{} {
 	attrs := make(map[string]interface{}, len(ris))
 	for i, ri := range ris {
 		attr := make(map[string]interface{})
-		attr["amount"] = (*hexutil.Big)(weiToTrue(ri.Amount))
+		attr["amount"] = weiToTrue(ri.Amount)
 		attr["epochID"] = ri.EpochID
 		attr["state"] = uint64(ri.State)
 		attrs[strconv.Itoa(i)] = attr
@@ -445,7 +445,8 @@ func stakingValueDisplay(sv *types.StakingValue) []*StakingValue {
 	return attrs
 }
 
-func weiToTrue(value *big.Int) *big.Int {
+func weiToTrue(val *big.Int) string {
 	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	return new(big.Int).Div(value, baseUnit)
+	fbaseUnit := new(big.Float).SetFloat64(float64(baseUnit.Int64()))
+	return new(big.Float).Quo(new(big.Float).SetInt(val), fbaseUnit).String()
 }
