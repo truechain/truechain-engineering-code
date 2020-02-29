@@ -383,20 +383,29 @@ func loadSigningKey(keyfile string) common.Address {
 	return from
 }
 
-func queryRewardInfo(conn *etrueclient.Client) {
+func queryRewardInfo(conn *etrueclient.Client, number uint64, start bool) {
 	sheader, err := conn.SnailHeaderByNumber(context.Background(), nil)
 	if err != nil {
 		printError("get snail block error", err)
 	}
+	queryReward := uint64(0)
+	currentReward := sheader.Number.ToInt().Uint64() - SnailRewardInterval
+	if number > currentReward {
+		printError("reward no release current reward height ", currentReward)
+	} else if number > 0 || start {
+		queryReward = number
+	} else {
+		queryReward = currentReward
+	}
 	var crc map[string]interface{}
-	crc, err = conn.GetChainRewardContent(context.Background(), from, new(big.Int).SetUint64(sheader.Number.ToInt().Uint64()-SnailRewardInterval))
+	crc, err = conn.GetChainRewardContent(context.Background(), from, new(big.Int).SetUint64(queryReward))
 	if err != nil {
 		printError("get chain reward content error", err)
 	}
 	if v, ok := crc["stakingReward"]; ok {
 		if v, ok := v.([]*types.RewardInfo); ok {
 			for _, v := range v {
-				fmt.Println("Reward value", v.Amount, " address ", v.Address)
+				fmt.Println("Reward value", v.Amount, "wei", weiToTrue(v.Amount), "true address ", v.Address)
 			}
 		}
 	}

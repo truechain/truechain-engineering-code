@@ -106,7 +106,7 @@ var queryStakingCommand = cli.Command{
 	Name:   "querystaking",
 	Usage:  "Query staking info, can cancel info and can withdraw info",
 	Action: utils.MigrateFlags(queryStakingImpawn),
-	Flags:  ImpawnFlags,
+	Flags:  append(ImpawnFlags, AddressFlag),
 }
 
 func queryStakingImpawn(ctx *cli.Context) error {
@@ -115,7 +115,13 @@ func queryStakingImpawn(ctx *cli.Context) error {
 	printBaseInfo(conn, url)
 
 	queryStakingInfo(conn, true, false)
-	queryRewardInfo(conn)
+	start := false
+	snailNumber := uint64(0)
+	if ctx.GlobalIsSet(SnailNumberFlag.Name) {
+		snailNumber = ctx.GlobalUint64(SnailNumberFlag.Name)
+		start = true
+	}
+	queryRewardInfo(conn, snailNumber, start)
 	return nil
 }
 
