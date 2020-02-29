@@ -24,18 +24,21 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core/vm"
+
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -254,6 +257,34 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			statedb.SetState(addr, key, value)
 		}
 	}
+	consensus.OnceInitImpawnState(g.Config,statedb,new(big.Int).SetUint64(g.Number))
+	if consensus.IsTIP8(new(big.Int).SetUint64(g.Number), g.Config, nil) {
+		impl := vm.NewImpawnImpl()
+		hh := g.Number
+		if hh != 0 {
+			hh = hh - 1
+		}
+		for _, member := range g.Committee {
+			err := impl.InsertSAccount2(hh, member.Coinbase, member.Publickey, big.NewInt(1000000000000000000), big.NewInt(100), true)
+			if err != nil {
+				log.Error("ToFastBlock InsertSAccount", "error", err)
+			}
+			statedb.AddBalance(types.StakingAddress, big.NewInt(1000000000000000000))
+		}
+		_, err := impl.DoElections(1, 0)
+		if err != nil {
+			log.Error("ToFastBlock DoElections", "error", err)
+		}
+		err = impl.Shift(1)
+		if err != nil {
+			log.Error("ToFastBlock Shift", "error", err)
+		}
+		err = impl.Save(statedb, types.StakingAddress)
+		if err != nil {
+			log.Error("ToFastBlock IMPL Save", "error", err)
+		}
+	}
+
 	root := statedb.IntermediateRoot(false)
 
 	head := &types.Header{
@@ -490,26 +521,26 @@ func decodePrealloc(data string) types.GenesisAlloc {
 
 // GenesisFastBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisFastBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.Block {
-	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}},Config:params.AllMinervaProtocolChanges}
+	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}, Config: params.AllMinervaProtocolChanges}
 	return g.MustFastCommit(db)
 }
 
 // GenesisSnailBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisSnailBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.SnailBlock {
-	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}},Config:params.AllMinervaProtocolChanges}
+	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}, Config: params.AllMinervaProtocolChanges}
 	return g.MustSnailCommit(db)
 }
 
 // DefaultDevGenesisBlock returns the Rinkeby network genesis block.
 func DefaultDevGenesisBlock() *Genesis {
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-	key1 := hexutil.MustDecode("0x04d341c94a16b02cee86a627d0f6bc6e814741af4cab5065637aa013c9a7d9f26051bb6546030cd67e440d6df741cb65debaaba6c0835579f88a282193795ed369")
-	key2 := hexutil.MustDecode("0x0496e0f18d4bf38e0b0de161edd2aa168adaf6842706e5ebf31e1d46cb79fe7b720c750a9e7a3e1a528482b0da723b5dfae739379e555a2893e8693747559f83cd")
-	key3 := hexutil.MustDecode("0x0418196ee090081bdec01e8840941b9f6a141a713dd3461b78825edf0d8a7f8cdf3f612832dc9d94249c10c72629ea59fbe0bdd09bea872ddab2799748964c93a8")
-	key4 := hexutil.MustDecode("0x04c4935993a3ce206318ab884871fbe2d4dce32a022795c674784f58e7faf3239631b6952b82471fe1e93ef999108a18d028e5d456cd88bb367d610c5e57c7e443")
-	key5 := hexutil.MustDecode("0x048b76d25cfe53bdf98c81d962b0455f8cf7862143802f834d7ea8416ebd6196486bb4f2dec2c94d760c1be7a524c4b94dabfb71b62e56287e663de78bf282273b")
-	key6 := hexutil.MustDecode("0x043e0f5ad76101625deb568e03ff7a09b2bfdfd47211192d2b55f45888881fa37890ccdf64c7c382d34527d9bd938b58fa78a461bfc364cc8e5ac54c0e3d41637c")
-	key7 := hexutil.MustDecode("0x043979431a588e09d9a2811d9e8fc73c4d2b341030d18ba02e387651fcb3e3dd7b362fcb396894156f44cb36729278b3907c9afa74210635a88d9d9920dc84f198")
+	key1 := hexutil.MustDecode("0x040743b25066dac37d3552e63c9ba3325884ba28d0906ce5fd9a18a55312ef478c2b9c33f6ef519c1fd0e42884a25bf2be1ea83f3354a3e54243d521c37865c062")
+	key2 := hexutil.MustDecode("0x04a8bd50e35f99f77edda08e333339ab49db89f0c81f49a37e7d4ddb84a06738ff54becf677f3ea6d9abdd321e50d77680871f408dcb7a17dfa7f0d8bb5229d831")
+	key3 := hexutil.MustDecode("0x0439d8ca80e0f4bc3a1aa203fa280909f426db90436dabcc9a1a3ef8efaa9d0ea8a9647eaa821b8346a92eed28cd707cb062ec54b31b819d0bf03af79fd63ea40e")
+	key4 := hexutil.MustDecode("0x046bf0f9bb43ac46efe9bd58a465a4b2f9cf8962b728907471f2b4b51a899c3eb166b4a3ee69eac012abc39cd91451dd20089b1371c2acf6e18066d0e8c2cab717")
+	key5 := hexutil.MustDecode("0x0424ee11dfbdf1cf406c7ed026c8217847fc3e62477d6987fdd93c9b3f7a4543fc0bf6b9767653da3fca5e9c58c6bc1999f9003e8ccbf4509572be38d28f83bed0")
+	key6 := hexutil.MustDecode("0x04a4b046b2760d8f761f73136227c3c8298d8e41330318c2b3879976d505ec98cfe2b6708ba3195f809a26fd48e9b0699fc15db05d22bddcca9a9d57dec84ccb74")
+	key7 := hexutil.MustDecode("0x04fd2c876106b349248134f698665b183d61dca0685cf757cca6ff5f47eb62951ebfbace4631f025716223fb009359af3acec85e2e3632d7353cc0393769745042")
 
 	return &Genesis{
 		Config:     params.DevnetChainConfig,
@@ -519,35 +550,55 @@ func DefaultDevGenesisBlock() *Genesis {
 		Difficulty: big.NewInt(20000),
 		//Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
-			common.HexToAddress("0x3f9061bf173d8f096c94db95c40f3658b4c7eaad"): {Balance: i},
-			common.HexToAddress("0x2cdac3658f85b5da3b70223cc3ad3b2dfe7c1930"): {Balance: i},
-			common.HexToAddress("0x41acde8dd7611338c2a30e90149e682566716e9d"): {Balance: i},
-			common.HexToAddress("0x0ffd116a3bf97a7112ff8779cc770b13ea3c66a5"): {Balance: i},
+			common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69"): {Balance: i},
+			common.HexToAddress("0x6d348e0188Cc2596aaa4046a1D50bB3BA50E8524"): {Balance: i},
+			common.HexToAddress("0xE803895897C3cCd35315b2E41c95F817543811A5"): {Balance: i},
+			common.HexToAddress("0x3F739ffD8A59965E07e1B8d7CCa938125BCe8CFb"): {Balance: i},
 		},
 		Committee: []*types.CommitteeMember{
-			{Coinbase: common.HexToAddress("0x3f9061bf173d8f096c94db95c40f3658b4c7eaad"), Publickey: key1},
-			{Coinbase: common.HexToAddress("0x2cdac3658f85b5da3b70223cc3ad3b2dfe7c1930"), Publickey: key2},
-			{Coinbase: common.HexToAddress("0x41acde8dd7611338c2a30e90149e682566716e9d"), Publickey: key3},
-			{Coinbase: common.HexToAddress("0x0ffd116a3bf97a7112ff8779cc770b13ea3c66a5"), Publickey: key4},
-			{Coinbase: common.HexToAddress("0x2cdac3658f85b5da3b70223cc3ad3b2dfe7c1930"), Publickey: key5},
-			{Coinbase: common.HexToAddress("0x41acde8dd7611338c2a30e90149e682566716e9d"), Publickey: key6},
-			{Coinbase: common.HexToAddress("0x0ffd116a3bf97a7112ff8779cc770b13ea3c66a5"), Publickey: key7},
+			{Coinbase: common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69"), Publickey: key1},
+			{Coinbase: common.HexToAddress("0x6d348e0188Cc2596aaa4046a1D50bB3BA50E8524"), Publickey: key2},
+			{Coinbase: common.HexToAddress("0xE803895897C3cCd35315b2E41c95F817543811A5"), Publickey: key3},
+			{Coinbase: common.HexToAddress("0x3F739ffD8A59965E07e1B8d7CCa938125BCe8CFb"), Publickey: key4},
+			{Coinbase: common.HexToAddress("0x9030Ef4DA870b6392529D1547F4de8D2419dC413"), Publickey: key5},
+			{Coinbase: common.HexToAddress("0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2"), Publickey: key6},
+			{Coinbase: common.HexToAddress("0x1A00C7d99aa1F70D612f2bA90c68DcD179BEd24f"), Publickey: key7},
+		},
+	}
+}
+
+func DefaultSingleNodeGenesisBlock() *Genesis {
+	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
+	key1 := hexutil.MustDecode("0x04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1")
+
+	return &Genesis{
+		Config:     params.SingleNodeChainConfig,
+		Nonce:      66,
+		ExtraData:  nil,
+		GasLimit:   22020096,
+		Difficulty: big.NewInt(256),
+		//Alloc:      decodePrealloc(mainnetAllocData),
+		Alloc: map[common.Address]types.GenesisAccount{
+			common.HexToAddress("0xbd54a6c8298a70e9636d0555a77ffa412abdd71a"): {Balance: i},
+			common.HexToAddress("0x3c2e0a65a023465090aaedaa6ed2975aec9ef7f9"): {Balance: i},
+			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
+			common.HexToAddress("0xeeb69c67751e9f4917b605840fa9a28be4517871"): {Balance: i},
+			common.HexToAddress("0x9810a954bb88fdc251374d666ed7e06748ea672d"): {Balance: i},
+		},
+		Committee: []*types.CommitteeMember{
+			{Coinbase: common.HexToAddress("0x76ea2f3a002431fede1141b660dbb75c26ba6d97"), Publickey: key1},
 		},
 	}
 }
 
 // DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
-	seedkey1 := hexutil.MustDecode("0x042afba5a6680b5361bb57761ca67a7ea309d2883bda93c5d9521078258bb97b03610002865fb27993fcea4918023144eb516706ea33c7c94fef7b2f330cb9d0a6")
-	seedkey2 := hexutil.MustDecode("0x04e444bc40b6d1372a955fb9bb9a986ceb1c13a450794151fbf48033189351f6bddddcbebfa5c6d205887551e9527e6deff2cbee9f233ffe14fd15db4beb9c9f34")
-	seedkey3 := hexutil.MustDecode("0x049620df839696f4451842fd543b38d171f7f215dcd2c7fcd813c0206f097206a67b25ad719fbb62570c4a4ba467ec61aa396788e3ae79c704a62ea759beca3175")
-	seedkey4 := hexutil.MustDecode("0x04f714bb815a9ecc505eae7e756b63753850df92a0fe4c99dc8b6660ba17bbcbb88000d9efb524eb38746ef4505ad2ab1895efccbcc966d4c685c811bda7c9d8ef")
+	seedkey1 := hexutil.MustDecode("0x0412e15f00a1acbec1bce79d701f8ce4b56b4f15a69c3e4e1f5af851f4340d6a399a1605b77078f31b2f8e35f744e8fc63656bd2257e7935101f7e8015150165a2")
+	seedkey2 := hexutil.MustDecode("0x047767b3e348329c9bc9b5935793b5f301400cc75815bfec45eee5258566eb1153a0974d69bfb3445bca06a2452f5d5907364c4b3b4b3a07118223d8ed4b99870c")
+	seedkey3 := hexutil.MustDecode("0x04862f27458e2b03ef90f7c2c5dbe83a7e201961a1d7e3c3e8bb8ef4e86e90fb0ff3f3a3c804d05b551bc64924c6096c1cc0375c80fdf4c5773225addbd1ea6430")
+	seedkey4 := hexutil.MustDecode("0x045ea06ec693e7e5d0265374d8ddadf119d6a67f02fbbb05d591b0aedcd0e9a56235c80444679319ed9add25688027bc3fa9edba5d79368b46f1b7efe467805d9c")
 
-	seedkey5 := hexutil.MustDecode("0x04c0617eef5000dc4a48fb4483735a33c7b2e58e3301fec13b55e9369f8b2bd04c59d899a1fe977b06a3db71fd7c8036b564ffa07171071835a7bb9e24cff22312")
-	seedkey6 := hexutil.MustDecode("0x0420bf209047d5eace814848692360a83065841ee91445a8b71b6092f681bf7741a5497ae0a28c401cda133ba8d12ca3dbc6ae756d2fc55288abc159c2ddf601fc")
-	seedkey7 := hexutil.MustDecode("0x043736280e96284f5d9460fd874f2dbe6b82ae29d7f348b931f540cc7612f41f20319c76ac90f3de8c68db2e9c7cf9bdfe0fca62046b0f35d01404d49d1de2a43e")
-
-	coinbase := common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7")
+	coinbase := common.HexToAddress("0x9331cf34D0e3E43bce7de1bFd30a59d3EEc106B6")
 	amount1, _ := new(big.Int).SetString("24000000000000000000000000", 10)
 	return &Genesis{
 		Config:     params.TestnetChainConfig,
@@ -560,16 +611,13 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		Mixhash:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		ParentHash: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		Alloc: map[common.Address]types.GenesisAccount{
-			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: amount1},
+			common.HexToAddress("0x9331cf34D0e3E43bce7de1bFd30a59d3EEc106B6"): {Balance: amount1},
 		},
 		Committee: []*types.CommitteeMember{
 			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey1},
 			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey2},
 			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey3},
 			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey4},
-			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey5},
-			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey6},
-			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey7},
 		},
 	}
 }
