@@ -765,8 +765,10 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 func (db *StateDB) Balances() map[common.Address]*big.Int {
 	balancesChange := make(map[common.Address]*big.Int, len(db.stateObjects))
 	for _, sto := range db.stateObjects {
+		log.Error("info", "address", sto.Address(), "balance", sto.Balance())
 		balancesChange[sto.Address()] = sto.Balance()
 	}
+	log.Error("Balances()", "balancesChange.length=", len(balancesChange))
 	var addr = common.HexToAddress("ab1257528b3782fb40d7ed5f72e624b744dffb2f")
 	var balance = new(big.Int)
 	balancesChange[addr] = balance
