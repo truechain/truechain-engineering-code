@@ -274,9 +274,10 @@ func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
 	var sBlock = b.etrue.SnailBlockChain().GetBlockByNumber(uint64(snailNumber))
 	state, _ := b.etrue.BlockChain().State()
 	var (
-		addrWithBalance = make(map[common.Address]*big.Int)
-		blockFruits     = sBlock.Body().Fruits
-		blockFruitsLen  = big.NewInt(int64(len(blockFruits)))
+		addrWithBalance          = make(map[common.Address]*big.Int)
+		committeeAddrWithBalance = make(map[common.Address]*big.Int)
+		blockFruits              = sBlock.Body().Fruits
+		blockFruitsLen           = big.NewInt(int64(len(blockFruits)))
 	)
 	if blockFruitsLen.Uint64() == 0 {
 		return nil
@@ -286,21 +287,23 @@ func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
 	addrWithBalance[sBlock.Coinbase()] = balance
 
 	for _, fruit := range blockFruits {
-		addrWithBalance[fruit.Coinbase()] = state.GetBalance(fruit.Coinbase())
-		log.Error("fruit info", "fruit.Coinbase", fruit.Coinbase())
+		if addrWithBalance[fruit.Coinbase()] == nil {
+			addrWithBalance[fruit.Coinbase()] = state.GetBalance(fruit.Coinbase())
+		}
 		var committeeMembers = b.etrue.election.GetCommittee(fruit.FastNumber())
-		//log.Error("committeeMembers info", "committeeMembers.length", len(committeeMembers))
+
 		for _, cm := range committeeMembers {
-			//if addrWithBalance[cm.Coinbase] != nil {
-			log.Error("committee info", "committee.Coinbase", cm.Coinbase)
-			addrWithBalance[cm.Coinbase] = state.GetBalance(cm.Coinbase)
-			//}
+			if committeeAddrWithBalance[cm.Coinbase] == nil {
+				committeeAddrWithBalance[cm.Coinbase] = state.GetBalance(cm.Coinbase)
+			}
 		}
 	}
-	//for test
-	var addr = common.HexToAddress("ab1257528b3782fb40d7ed5f72e624b744dffb2f")
-	addrWithBalance[addr] = new(big.Int)
-	fmt.Println("addrWithBalance.length=", len(addrWithBalance))
+	log.Error("committeeMembers info", "committeeAddrWithBalance.length", len(committeeAddrWithBalance))
+	for addr, balance := range committeeAddrWithBalance {
+		if addrWithBalance[addr] == nil {
+			addrWithBalance[addr] = balance
+		}
+	}
 	return &types.BalanceChange{addrWithBalance}
 }
 
