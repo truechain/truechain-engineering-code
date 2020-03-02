@@ -376,15 +376,15 @@ func isCommitteeMember(i *ImpawnImpl, address common.Address) bool {
 	return true
 }
 
-func daSDisplay(das []*DelegationAccount, height uint64) map[string]interface{} {
-	attrs := make(map[string]interface{}, len(das))
-	for i, da := range das {
+func daSDisplay(das []*DelegationAccount, height uint64) []map[string]interface{} {
+	attrs := make([]map[string]interface{}, len(das))
+	for _, da := range das {
 		attr := make(map[string]interface{})
 		attr["saAddress"] = da.SaAddress
 		attr["delegate"] = weiToTrue(da.getAllStaking(height))
 		attr["validDelegate"] = weiToTrue(da.getValidStaking(height))
 		attr["unit"] = unitDisplay(da.Unit)
-		attrs[strconv.Itoa(i)] = attr
+		attrs = append(attrs, attr)
 	}
 	return attrs
 }

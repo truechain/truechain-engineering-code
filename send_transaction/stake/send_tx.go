@@ -55,7 +55,7 @@ var (
 	delegateTx    map[common.Address]common.Hash
 	delegateSu    map[common.Address]bool
 	delegateFail  map[common.Address]bool
-	withdrawTx    map[common.Address]common.Hash
+	withdrawTx    map[common.Address]*withdraw
 	withdrawFail  map[common.Address]bool
 	deleValue     = new(big.Int).SetInt64(0)
 	sendValue     = new(big.Int).SetInt64(0)
@@ -84,6 +84,11 @@ const (
 	defaultKeyAccount      = "accounts"
 )
 
+type withdraw struct {
+	txhash common.Hash
+	value  *big.Int
+}
+
 func impawn(ctx *cli.Context) error {
 
 	loadPrivate(ctx)
@@ -103,7 +108,7 @@ func impawn(ctx *cli.Context) error {
 		delegateTx = make(map[common.Address]common.Hash)
 		delegateSu = make(map[common.Address]bool)
 		delegateFail = make(map[common.Address]bool)
-		withdrawTx = make(map[common.Address]common.Hash)
+		withdrawTx = make(map[common.Address]*withdraw)
 		withdrawFail = make(map[common.Address]bool)
 		redistributionDelegate(conn)
 		fmt.Println("cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1), "first", firstNumber)
@@ -213,11 +218,14 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 				_, value := queryDelegateInfo(conn, addr)
 				if value > 0 {
 					txhash, err := withdrawDImpawn(conn, new(big.Int).SetUint64(value), addr, key)
+					w := withdraw{}
+					w.value = new(big.Int).Add(new(big.Int).SetUint64(value), getBalance(conn, addr))
+					w.txhash = txhash
 					if err != nil {
 						fmt.Println("withdraw error ", err)
 					} else {
 						fmt.Println("withdraw value ", value, " addr ", addr.String(), "tx", txhash.String())
-						withdrawTx[addr] = txhash
+						withdrawTx[addr] = &w
 					}
 				}
 			}
@@ -406,7 +414,7 @@ func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress commo
 		log.Fatal(err)
 	}
 
-	gasLimit := uint64(1625280) // in units
+	gasLimit := uint64(1825280) // in units
 
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonceOther, toAddress, value, gasLimit, gasPrice, input)
@@ -586,13 +594,18 @@ func querySendTx(conn *etrueclient.Client) {
 		}
 	}
 	for addr, v := range withdrawTx {
-		_, isPending, err := conn.TransactionByHash(context.Background(), v)
+		_, isPending, err := conn.TransactionByHash(context.Background(), v.txhash)
 		if err != nil {
 			delete(withdrawTx, addr)
 			continue
 		}
 		if !isPending {
-			if queryTx(conn, v, false, false, false) {
+			if queryTx(conn, v.txhash, false, false, false) {
+				if getBalance(conn, addr).Cmp(v.value) == 0 {
+					fmt.Println("Withdraw balance correct")
+				} else {
+					fmt.Println("Withdraw balance error !!!!!!!!!!!!!!!!!")
+				}
 				delete(withdrawTx, addr)
 			}
 		}
