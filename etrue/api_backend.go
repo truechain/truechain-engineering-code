@@ -264,7 +264,7 @@ func (b *TrueAPIBackend) GetStateChangeByFastNumber(ctx context.Context,
 	}
 	stateDb, err := b.etrue.BlockChain().StateAt(header.Root)
 	//var addrWithBalance = stateDb.Balances() //map[common.Address]*big.Int
-	var addrWithBalance = stateDb.BalancesJounal() //map[common.Address]*big.Int
+	var addrWithBalance = stateDb.Balances() //map[common.Address]*big.Int
 	return &types.BalanceChange{addrWithBalance}
 }
 
