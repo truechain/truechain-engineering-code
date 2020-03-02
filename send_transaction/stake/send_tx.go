@@ -601,10 +601,17 @@ func querySendTx(conn *etrueclient.Client) {
 		}
 		if !isPending {
 			if queryTx(conn, v.txhash, false, false, false) {
-				if getBalance(conn, addr).Cmp(v.value) == 0 {
-					fmt.Println("Withdraw balance correct")
+				receipt, err := conn.TransactionReceipt(context.Background(), v.txhash)
+				if err != nil {
+					log.Fatal(err)
+				}
+				gas := receipt.GasUsed
+				value := getBalance(conn, addr)
+				sub := value.Cmp(new(big.Int).Sub(v.value, new(big.Int).SetUint64(gas)))
+				if sub == 0 {
+					fmt.Println("Withdraw balance correct", "gas", gas)
 				} else {
-					fmt.Println("Withdraw balance error !!!!!!!!!!!!!!!!!")
+					fmt.Println("Withdraw balance error !!!!!!!!!!!!!!!!!", sub, " ", new(big.Int).Sub(v.value, value), " gas ", gas)
 				}
 				delete(withdrawTx, addr)
 			}
