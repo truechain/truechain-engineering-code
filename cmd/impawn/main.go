@@ -98,6 +98,7 @@ func init() {
 		sendCommand,
 		delegateCommand,
 		queryTxCommand,
+		queryRewardCommand,
 	}
 	cli.CommandHelpTemplate = utils.OriginCommandHelpTemplate
 	sort.Sort(cli.CommandsByName(app.Commands))

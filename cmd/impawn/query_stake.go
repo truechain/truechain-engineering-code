@@ -114,8 +114,25 @@ func queryStakingImpawn(ctx *cli.Context) error {
 	conn, url := dialConn(ctx)
 	printBaseInfo(conn, url)
 
-	PrintBalance(conn, from)
 	queryStakingInfo(conn, true, false)
+	return nil
+}
+
+var queryRewardCommand = cli.Command{
+	Name:   "queryreward",
+	Usage:  "Query reward info, contain deposit and delegate reward",
+	Action: utils.MigrateFlags(queryRewardImpawn),
+	Flags:  append(ImpawnFlags, AddressFlag),
+}
+
+func queryRewardImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
+	conn, url := dialConn(ctx)
+
+	printBaseInfo(conn, url)
+
+	PrintBalance(conn, from)
+
 	start := false
 	snailNumber := uint64(0)
 	if ctx.GlobalIsSet(SnailNumberFlag.Name) {
