@@ -19,6 +19,7 @@ package etrue
 import (
 	"context"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
@@ -264,27 +265,6 @@ func (b *TrueAPIBackend) GetStateChangeByFastNumber(ctx context.Context,
 	stateDb, err := b.etrue.BlockChain().StateAt(header.Root)
 	//var addrWithBalance = stateDb.Balances() //map[common.Address]*big.Int
 	var addrWithBalance = stateDb.BalancesJounal() //map[common.Address]*big.Int
-	/*fields := make(map[string]interface{})
-	if inclFruit {
-		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
-			//return fruit.Hash(), nil
-			return map[string]interface{}{
-				"address":    (*hexutil.Big)(head.Number),
-				"hash":       fruit.Hash(),
-				"nonce":      head.Nonce,
-				"miner":      head.Coinbase,
-				"difficulty": (*hexutil.Big)(head.FruitDifficulty),
-			}, nil
-		}
-		fruits := make([]interface{}, len(fs))
-		var err error
-		for i, f := range fs {
-			if fruits[i], err = formatFruit(f); err != nil {
-				return nil, err
-			}
-		}
-		fields["fruits"] = fruits
-	}*/
 	return &types.BalanceChange{addrWithBalance}
 }
 
@@ -307,14 +287,18 @@ func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
 
 	for _, fruit := range blockFruits {
 		addrWithBalance[fruit.Coinbase()] = state.GetBalance(fruit.Coinbase())
-
+		log.Error("fruit info", "fruit.Coinbase", fruit.Coinbase())
 		var committeeMembers = b.etrue.election.GetCommittee(fruit.Number())
 		for _, cm := range committeeMembers {
 			if addrWithBalance[cm.Coinbase] != nil {
+				log.Error("committee info", "committee.Coinbase", cm.Coinbase)
 				addrWithBalance[cm.Coinbase] = state.GetBalance(cm.Coinbase)
 			}
 		}
 	}
+	//for test
+	var addr = common.HexToAddress("ab1257528b3782fb40d7ed5f72e624b744dffb2f")
+	addrWithBalance[addr] = new(big.Int)
 	fmt.Println("addrWithBalance.length=", len(addrWithBalance))
 	return &types.BalanceChange{addrWithBalance}
 }
