@@ -288,7 +288,7 @@ func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
 	for _, fruit := range blockFruits {
 		addrWithBalance[fruit.Coinbase()] = state.GetBalance(fruit.Coinbase())
 		log.Error("fruit info", "fruit.Coinbase", fruit.Coinbase())
-		var committeeMembers = b.etrue.election.GetCommittee(fruit.Number())
+		var committeeMembers = b.etrue.election.GetCommittee(fruit.FastNumber())
 		for _, cm := range committeeMembers {
 			if addrWithBalance[cm.Coinbase] != nil {
 				log.Error("committee info", "committee.Coinbase", cm.Coinbase)
