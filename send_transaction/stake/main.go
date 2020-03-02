@@ -73,6 +73,10 @@ var (
 		Name:  "cancel",
 		Usage: "Only cancel delegate not delegate",
 	}
+	WithdrawFlag = cli.BoolFlag{
+		Name:  "withdraw",
+		Usage: "withdraw the value",
+	}
 	ImpawnFlags = []cli.Flag{
 		KeyFlag,
 		KeyStoreFlag,
@@ -102,6 +106,7 @@ func init() {
 		IntervalFlag,
 		OverFlag,
 		CancelFlag,
+		WithdrawFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {
