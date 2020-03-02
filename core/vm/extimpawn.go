@@ -442,8 +442,11 @@ func stakingValueDisplay(sv *types.StakingValue) []*StakingValue {
 	return attrs
 }
 
+var (
+	baseUnit  = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	fbaseUnit = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
+)
+
 func weiToTrue(val *big.Int) string {
-	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	fbaseUnit := new(big.Float).SetFloat64(float64(baseUnit.Int64()))
 	return new(big.Float).Quo(new(big.Float).SetInt(val), fbaseUnit).String()
 }
