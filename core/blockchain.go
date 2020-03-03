@@ -1330,7 +1330,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 			return it.index, events, coalescedLogs, err
 		}
 		bc.engine.FinalizeCommittee(block)
-		bc.WriteRewardInfos(infos)
+		if infos != nil {
+			bc.WriteRewardInfos(infos)
+		}
 		blockInsertTimer.UpdateSince(start)
 		blockExecutionTimer.Update(t1.Sub(t0))
 		blockValidationTimer.Update(t2.Sub(t1))
