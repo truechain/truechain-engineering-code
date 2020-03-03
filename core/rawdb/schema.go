@@ -62,6 +62,7 @@ var (
 
 	preimagePrefix = []byte("secure-key-")       // preimagePrefix + hash -> preimage
 	configPrefix   = []byte("truechain-config-") // config prefix for the db
+	rewardInfoPrefix = []byte("sri")
 
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
 	BloomBitsIndexPrefix = []byte("iB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
@@ -84,7 +85,9 @@ func encodeBlockNumber(number uint64) []byte {
 	binary.BigEndian.PutUint64(enc, number)
 	return enc
 }
-
+func rewardInfoKey(number uint64) []byte {
+	return append(rewardInfoPrefix, encodeBlockNumber(number)...)
+}
 // headerKey = headerPrefix + num (uint64 big endian) + hash
 func headerKey(number uint64, hash common.Hash) []byte {
 	return append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...)

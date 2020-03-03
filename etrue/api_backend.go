@@ -249,7 +249,7 @@ func (b *TrueAPIBackend) GetRecentChainRewardContent(blockNr rpc.BlockNumber) *t
 }
 func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
 	sheight := uint64(blockNr)
-	return b.etrue.snailblockchain.GetRewardInfos(sheight)
+	return b.etrue.blockchain.GetRewardInfos(sheight)
 }
 
 // GetCommittee returns the Committee info by committee number

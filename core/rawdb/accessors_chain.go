@@ -520,3 +520,29 @@ func WriteCommitteeInfo(db DatabaseWriter, hash common.Hash, number uint64, info
 		log.Crit("Failed to store block total difficulty", "err", err)
 	}
 }
+func WriteRewardInfo(db DatabaseWriter,snailHeight uint64,infos *types.ChainReward) {
+	data, err := rlp.EncodeToBytes(infos)
+	if err != nil {
+		log.Crit("Failed to RLP encode reward infos", "err", err,"height",snailHeight)
+	}
+	if err := db.Put(rewardInfoKey(snailHeight), data); err != nil {
+		log.Crit("Failed to store reward infos", "err", err)
+	}
+}
+func ReadRewardInfo(db DatabaseReader,snailHeight uint64) *types.ChainReward {
+	data, _ := db.Get(rewardInfoKey(snailHeight))
+	if len(data) == 0 {
+		return nil
+	}
+	infos := &types.ChainReward{}
+	if err := rlp.Decode(bytes.NewReader(data), infos); err != nil {
+		log.Error("Invalid reward infos RLP", "height", snailHeight, "err", err)
+		return nil
+	}
+	return infos
+}
+func DeleteRewardInfo(db DatabaseDeleter,snailHeight uint64) {
+	if err := db.Delete(rewardInfoKey(snailHeight)); err != nil {
+		log.Crit("Failed to delete reward infos", "err", err,"height", snailHeight)
+	}
+}

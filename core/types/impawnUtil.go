@@ -125,13 +125,15 @@ type TimedChainReward struct {
 }
 
 type ChainReward struct {
+	Height			uint64
 	Foundation		*RewardInfo
 	CoinBase 		*RewardInfo
 	FruitBase 		[]*RewardInfo
 	CommitteeBase 	[]*SARewardInfos
 }
-func NewChainReward(found,coin *RewardInfo,fruits []*RewardInfo,committee []*SARewardInfos) *ChainReward{
+func NewChainReward(height uint64,found,coin *RewardInfo,fruits []*RewardInfo,committee []*SARewardInfos) *ChainReward{
 	return &ChainReward{
+		Height:		height,
 		Foundation: found,
 		CoinBase: 	coin,
 		FruitBase:fruits,

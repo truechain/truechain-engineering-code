@@ -132,6 +132,7 @@ type BlockChain struct {
 	blockCache    *lru.Cache     // Cache for the most recent entire blocks
 	futureBlocks  *lru.Cache     // future blocks are blocks added for later processing
 	rewardCache   *lru.Cache
+	rewardinfoCache *lru.Cache
 
 	quit    chan struct{} // blockchain quit channel
 	running int32         // running must be called atomically
@@ -174,6 +175,7 @@ func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 	badBlocks, _ := lru.New(badBlockLimit)
 	signCache, _ := lru.New(bodyCacheLimit)
 	rewardCache, _ := lru.New(bodyCacheLimit)
+	rewardinfoCache,_ := lru.New(50)
 
 	bc := &BlockChain{
 		chainConfig:   chainConfig,
@@ -189,6 +191,7 @@ func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 		blockCache:    blockCache,
 		futureBlocks:  futureBlocks,
 		rewardCache:   rewardCache,
+		rewardinfoCache:rewardinfoCache,
 		engine:        engine,
 		vmConfig:      vmConfig,
 		badBlocks:     badBlocks,
@@ -362,6 +365,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.futureBlocks.Purge()
 	bc.signCache.Purge()
 	bc.rewardCache.Purge()
+	bc.rewardinfoCache.Purge()
 
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
 		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
@@ -1305,7 +1309,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		}
 		// Process block using the parent state as reference point.
 		t0 := time.Now()
-		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
+		receipts, logs, usedGas,infos, err := bc.processor.Process(block, state, bc.vmConfig)
 		t1 := time.Now()
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1326,6 +1330,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 			return it.index, events, coalescedLogs, err
 		}
 		bc.engine.FinalizeCommittee(block)
+		bc.WriteRewardInfos(infos)
 		blockInsertTimer.UpdateSince(start)
 		blockExecutionTimer.Update(t1.Sub(t0))
 		blockValidationTimer.Update(t2.Sub(t1))
@@ -1847,4 +1852,22 @@ func (bc *BlockChain) SetCommitteeInfo(hash common.Hash, number uint64, infos []
 // block processing has started while false means it has stopped.
 func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
+}
+func (bc *BlockChain) GetRewardInfos(number uint64) *types.ChainReward {
+	// Short circuit if the td's already in the cache, retrieve otherwise
+	if cached, ok := bc.rewardinfoCache.Get(number); ok {
+		return cached.(*types.ChainReward)
+	}
+	infos := rawdb.ReadRewardInfo(bc.db, number)
+	if infos == nil {
+		return nil
+	}
+	// Cache the found body for next time and return
+	bc.rewardinfoCache.Add(number, infos)
+	return infos
+}
+func (bc *BlockChain) WriteRewardInfos(infos *types.ChainReward) error {
+	number := infos.Height
+	rawdb.WriteRewardInfo(bc.db, number, infos)
+	return nil
 }
