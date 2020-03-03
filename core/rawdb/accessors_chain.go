@@ -520,16 +520,16 @@ func WriteCommitteeInfo(db DatabaseWriter, hash common.Hash, number uint64, info
 		log.Crit("Failed to store block total difficulty", "err", err)
 	}
 }
-func WriteRewardInfo(db DatabaseWriter,snailHeight uint64,infos *types.ChainReward) {
+func WriteRewardInfo(db DatabaseWriter, snailHeight uint64, infos *types.ChainReward) {
 	data, err := rlp.EncodeToBytes(infos)
 	if err != nil {
-		log.Crit("Failed to RLP encode reward infos", "err", err,"height",snailHeight)
+		log.Crit("Failed to RLP encode reward infos", "err", err, "height", snailHeight)
 	}
 	if err := db.Put(rewardInfoKey(snailHeight), data); err != nil {
 		log.Crit("Failed to store reward infos", "err", err)
 	}
 }
-func ReadRewardInfo(db DatabaseReader,snailHeight uint64) *types.ChainReward {
+func ReadRewardInfo(db DatabaseReader, snailHeight uint64) *types.ChainReward {
 	data, _ := db.Get(rewardInfoKey(snailHeight))
 	if len(data) == 0 {
 		return nil
@@ -541,8 +541,37 @@ func ReadRewardInfo(db DatabaseReader,snailHeight uint64) *types.ChainReward {
 	}
 	return infos
 }
-func DeleteRewardInfo(db DatabaseDeleter,snailHeight uint64) {
+func DeleteRewardInfo(db DatabaseDeleter, snailHeight uint64) {
 	if err := db.Delete(rewardInfoKey(snailHeight)); err != nil {
-		log.Crit("Failed to delete reward infos", "err", err,"height", snailHeight)
+		log.Crit("Failed to delete reward infos", "err", err, "height", snailHeight)
+	}
+}
+
+func WriteBalanceInfo(db DatabaseWriter, height uint64, infos *types.BlockBalance) {
+	data, err := rlp.EncodeToBytes(infos)
+	if err != nil {
+		log.Crit("Failed to RLP encode balance infos", "err", err, "height", height)
+	}
+	if err := db.Put(balanceInfoKey(height), data); err != nil {
+		log.Crit("Failed to store reward infos", "err", err)
+	}
+}
+
+func ReadBalanceInfo(db DatabaseReader, height uint64) *types.BlockBalance {
+	data, _ := db.Get(balanceInfoKey(height))
+	if len(data) == 0 {
+		return nil
+	}
+	infos := &types.BlockBalance{}
+	if err := rlp.Decode(bytes.NewReader(data), infos); err != nil {
+		log.Error("Invalid balance infos RLP", "height", height, "err", err)
+		return nil
+	}
+	return infos
+}
+
+func DeleteBalanceInfo(db DatabaseDeleter, height uint64) {
+	if err := db.Delete(rewardInfoKey(height)); err != nil {
+		log.Crit("Failed to delete balance infos", "err", err, "height", height)
 	}
 }

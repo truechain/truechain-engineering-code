@@ -60,9 +60,10 @@ var (
 	txLookupPrefix  = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
 	bloomBitsPrefix = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
-	preimagePrefix = []byte("secure-key-")       // preimagePrefix + hash -> preimage
-	configPrefix   = []byte("truechain-config-") // config prefix for the db
-	rewardInfoPrefix = []byte("sri")
+	preimagePrefix    = []byte("secure-key-")       // preimagePrefix + hash -> preimage
+	configPrefix      = []byte("truechain-config-") // config prefix for the db
+	rewardInfoPrefix  = []byte("sri")
+	balanceInfoPrefix = []byte("srb")
 
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
 	BloomBitsIndexPrefix = []byte("iB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
@@ -88,6 +89,11 @@ func encodeBlockNumber(number uint64) []byte {
 func rewardInfoKey(number uint64) []byte {
 	return append(rewardInfoPrefix, encodeBlockNumber(number)...)
 }
+
+func balanceInfoKey(number uint64) []byte {
+	return append(balanceInfoPrefix, encodeBlockNumber(number)...)
+}
+
 // headerKey = headerPrefix + num (uint64 big endian) + hash
 func headerKey(number uint64, hash common.Hash) []byte {
 	return append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...)

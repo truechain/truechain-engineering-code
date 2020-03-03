@@ -940,7 +940,3 @@ type SnailRewardContenet struct {
 	CommitteeReward  map[common.Address]*big.Int
 	FoundationReward map[common.Address]*big.Int
 }
-
-type BalanceChange struct {
-	AddrWithBalance map[common.Address]*big.Int `json:"addrWithBalance"       gencodec:"required"`
-}

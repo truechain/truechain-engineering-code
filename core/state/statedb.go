@@ -88,7 +88,8 @@ type StateDB struct {
 	logs         map[common.Hash][]*types.Log
 	logSize      uint
 
-	preimages map[common.Hash][]byte
+	preimages      map[common.Hash][]byte
+	balancesChange map[common.Address]*big.Int
 
 	// Journal of state modifications. This is the backbone of
 	// Snapshot and RevertToSnapshot.
@@ -112,6 +113,7 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		stateObjectsDirty: make(map[common.Address]struct{}),
 		logs:              make(map[common.Hash][]*types.Log),
 		preimages:         make(map[common.Hash][]byte),
+		balancesChange:    make(map[common.Address]*big.Int),
 		journal:           newJournal(),
 	}, nil
 }
@@ -183,6 +185,11 @@ func (self *StateDB) AddPreimage(hash common.Hash, preimage []byte) {
 // Preimages returns a list of SHA3 preimages that have been submitted.
 func (self *StateDB) Preimages() map[common.Hash][]byte {
 	return self.preimages
+}
+
+// BalancesChange returns a list of balance change that have been submitted.
+func (self *StateDB) BalancesChange() map[common.Address]*big.Int {
+	return self.balancesChange
 }
 
 // AddRefund adds gas to the refund counter
@@ -687,6 +694,17 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
+
+	for _, v := range s.journal.entries {
+		if _, ok := v.(balanceChange); ok {
+			stateObject, exist := s.stateObjects[*v.dirtied()]
+			if !exist {
+				continue
+			}
+			s.balancesChange[stateObject.address] = stateObject.Balance()
+		}
+	}
+
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }
@@ -760,12 +778,4 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 		return nil
 	})
 	return root, err
-}
-
-func (db *StateDB) Balances() map[common.Address]*big.Int {
-	balancesChange := make(map[common.Address]*big.Int, len(db.stateObjects))
-	for _, sto := range db.stateObjects {
-		balancesChange[sto.Address()] = sto.Balance()
-	}
-	return balancesChange
 }

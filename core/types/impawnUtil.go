@@ -7,13 +7,10 @@ import (
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
 )
-
-
-
 
 var (
 	baseUnit  = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
@@ -22,8 +19,8 @@ var (
 	Base      = new(big.Int).SetUint64(10000)
 	// StakingAddress is defined as Address('truestaking')
 	// i.e. contractAddress = 0x000000000000000000747275657374616b696E67
-	StakingAddress = common.BytesToAddress([]byte("truestaking"))
-	MixEpochCount  = 2
+	StakingAddress    = common.BytesToAddress([]byte("truestaking"))
+	MixEpochCount     = 2
 	FoundationAddress = common.HexToAddress("0xDA79B1C2645750c655D848e04c27E2cD9d263C48")
 )
 
@@ -43,7 +40,7 @@ var (
 	ErrDelegationSelf    = errors.New("Cann't delegation myself")
 	ErrRedeemAmount      = errors.New("wrong redeem amount")
 	ErrForbidAddress     = errors.New("Forbidding Address")
-	ErrRepeatPk     	 = errors.New("repeat PK on staking tx")
+	ErrRepeatPk          = errors.New("repeat PK on staking tx")
 )
 
 const (
@@ -64,35 +61,35 @@ const (
 )
 
 type SummayEpochInfo struct {
-	EpochID 		uint64
-	SaCount			uint64
-	DaCount			uint64
-	BeginHeight		uint64
-	EndHeight 		uint64
-	AllAmount       *big.Int
+	EpochID     uint64
+	SaCount     uint64
+	DaCount     uint64
+	BeginHeight uint64
+	EndHeight   uint64
+	AllAmount   *big.Int
 }
 type ImpawnSummay struct {
-	LastReward 		uint64
-	Accounts		uint64
-	AllAmount 		*big.Int
-	Infos 			[]*SummayEpochInfo
+	LastReward uint64
+	Accounts   uint64
+	AllAmount  *big.Int
+	Infos      []*SummayEpochInfo
 }
 
 func ToJSON(ii *ImpawnSummay) map[string]interface{} {
-	item := make(map[string]interface{}) 
+	item := make(map[string]interface{})
 	item["lastRewardHeight"] = ii.LastReward
 	item["AccountsCounts"] = ii.Accounts
 	item["currentAllStaking"] = (*hexutil.Big)(ii.AllAmount)
-	items := make([]map[string]interface{},0,0) 
-	for _,val := range ii.Infos {
-		info := make(map[string]interface{}) 
+	items := make([]map[string]interface{}, 0, 0)
+	for _, val := range ii.Infos {
+		info := make(map[string]interface{})
 		info["EpochID"] = val.EpochID
 		info["SaCount"] = val.SaCount
 		info["DaCount"] = val.DaCount
 		info["BeginHeight"] = val.BeginHeight
 		info["EndHeight"] = val.EndHeight
-		info["AllAmount"] =  (*hexutil.Big)(val.AllAmount)
-		items = append(items,info)
+		info["AllAmount"] = (*hexutil.Big)(val.AllAmount)
+		items = append(items, info)
 	}
 	item["EpochInfos"] = items
 	return item
@@ -118,56 +115,78 @@ func (s *SARewardInfos) String() string {
 	}
 	return ss
 }
+
 type TimedChainReward struct {
-	St 			uint64
-	Number 		uint64
-	Reward 		*ChainReward
+	St     uint64
+	Number uint64
+	Reward *ChainReward
 }
 
 type ChainReward struct {
-	Height			uint64
-	Foundation		*RewardInfo
-	CoinBase 		*RewardInfo
-	FruitBase 		[]*RewardInfo
-	CommitteeBase 	[]*SARewardInfos
+	Height        uint64
+	Foundation    *RewardInfo
+	CoinBase      *RewardInfo
+	FruitBase     []*RewardInfo
+	CommitteeBase []*SARewardInfos
 }
-func NewChainReward(height uint64,found,coin *RewardInfo,fruits []*RewardInfo,committee []*SARewardInfos) *ChainReward{
+
+type BalanceInfo struct {
+	Address common.Address `json:"address"`
+	Amount  *big.Int       `json:"amount"`
+}
+
+type BlockBalance struct {
+	Balance []*BalanceInfo `json:"addrWithBalance"       gencodec:"required"`
+}
+
+func ToBalanceInfos(items map[common.Address]*big.Int) []*BalanceInfo {
+	infos := make([]*BalanceInfo, 0, 0)
+	for k, v := range items {
+		infos = append(infos, &BalanceInfo{
+			Address: k,
+			Amount:  new(big.Int).Set(v),
+		})
+	}
+	return infos
+}
+
+func NewChainReward(height uint64, found, coin *RewardInfo, fruits []*RewardInfo, committee []*SARewardInfos) *ChainReward {
 	return &ChainReward{
-		Height:		height,
-		Foundation: found,
-		CoinBase: 	coin,
-		FruitBase:fruits,
-		CommitteeBase:committee,
+		Height:        height,
+		Foundation:    found,
+		CoinBase:      coin,
+		FruitBase:     fruits,
+		CommitteeBase: committee,
 	}
 }
 func ToRewardInfos1(items map[common.Address]*big.Int) []*RewardInfo {
-	infos := make([]*RewardInfo,0,0)
-	for k,v := range items {
-		infos = append(infos,&RewardInfo{
-			Address:	k,
-			Amount: 	new(big.Int).Set(v),
+	infos := make([]*RewardInfo, 0, 0)
+	for k, v := range items {
+		infos = append(infos, &RewardInfo{
+			Address: k,
+			Amount:  new(big.Int).Set(v),
 		})
 	}
 	return infos
 }
 func ToRewardInfos2(items map[common.Address]*big.Int) []*SARewardInfos {
-	infos := make([]*SARewardInfos,0,0)
-	for k,v := range items {
+	infos := make([]*SARewardInfos, 0, 0)
+	for k, v := range items {
 		items := []*RewardInfo{&RewardInfo{
-			Address:	k,
-			Amount: 	new(big.Int).Set(v),
+			Address: k,
+			Amount:  new(big.Int).Set(v),
 		}}
-		
-		infos = append(infos,&SARewardInfos{
-			Items:	items,
+
+		infos = append(infos, &SARewardInfos{
+			Items: items,
 		})
 	}
 	return infos
 }
-func MergeReward(map1,map2 map[common.Address]*big.Int) map[common.Address]*big.Int {
-	for k,v := range map2 {
-		if vv,ok := map1[k];ok {
-			map1[k] = new(big.Int).Add(vv,v)
+func MergeReward(map1, map2 map[common.Address]*big.Int) map[common.Address]*big.Int {
+	for k, v := range map2 {
+		if vv, ok := map1[k]; ok {
+			map1[k] = new(big.Int).Add(vv, v)
 		} else {
 			map1[k] = v
 		}
@@ -175,12 +194,12 @@ func MergeReward(map1,map2 map[common.Address]*big.Int) map[common.Address]*big.
 	return map1
 }
 
-
 type EpochIDInfo struct {
 	EpochID     uint64
 	BeginHeight uint64
 	EndHeight   uint64
 }
+
 func (e *EpochIDInfo) isValid() bool {
 	if e.EpochID < 0 {
 		return false
@@ -197,7 +216,6 @@ func (e *EpochIDInfo) String() string {
 	return fmt.Sprintf("[id:%v,begin:%v,end:%v]", e.EpochID, e.BeginHeight, e.EndHeight)
 }
 
-
 // the key is epochid if StakingValue as a locked asset,otherwise key is block height if StakingValue as a staking asset
 type StakingValue struct {
 	Value map[uint64]*big.Int
@@ -205,8 +223,9 @@ type StakingValue struct {
 
 type LockedItem struct {
 	Amount *big.Int
-	Locked 	bool
+	Locked bool
 }
+
 // LockedValue,the key of Value is epochid
 type LockedValue struct {
 	Value map[uint64]*LockedItem
@@ -214,12 +233,12 @@ type LockedValue struct {
 
 func (s *StakingValue) ToLockedValue(height uint64) *LockedValue {
 	res := make(map[uint64]*LockedItem)
-	for k,v := range s.Value {
+	for k, v := range s.Value {
 		item := &LockedItem{
 			Amount: new(big.Int).Set(v),
-			Locked: !IsUnlocked(k,height),
+			Locked: !IsUnlocked(k, height),
 		}
-		res[k]=item
+		res[k] = item
 	}
 	return &LockedValue{
 		Value: res,
@@ -333,7 +352,7 @@ func ForbidAddress(addr common.Address) error {
 	}
 	return nil
 }
-func IsUnlocked(eid,height uint64) bool {
+func IsUnlocked(eid, height uint64) bool {
 	e := GetEpochFromID(eid + 1)
 	return height > e.BeginHeight+params.MaxRedeemHeight
 }

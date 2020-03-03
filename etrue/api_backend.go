@@ -252,43 +252,14 @@ func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.C
 	return b.etrue.blockchain.GetRewardInfos(sheight)
 }
 
-// GetCommittee returns the Committee info by committee number
-
-func (b *TrueAPIBackend) GetStateChangeByFastNumber(ctx context.Context,
-	fastNumber rpc.BlockNumber) *types.BalanceChange {
+// GetStateChangeByFastNumber returns the Committee info by committee number
+func (b *TrueAPIBackend) GetStateChangeByFastNumber(ctx context.Context, fastNumber rpc.BlockNumber) *types.BlockBalance {
 	fmt.Println("go into fastNumber")
-	header, err := b.HeaderByNumber(ctx, fastNumber)
-	if header == nil || err != nil {
-		return nil
-	}
-	stateDb, err := b.etrue.BlockChain().StateAt(header.Root)
-	var addrWithBalance = stateDb.Balances() //map[common.Address]*big.Int
-	/*fields := make(map[string]interface{})
-	if inclFruit {
-		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
-			//return fruit.Hash(), nil
-			return map[string]interface{}{
-				"address":    (*hexutil.Big)(head.Number),
-				"hash":       fruit.Hash(),
-				"nonce":      head.Nonce,
-				"miner":      head.Coinbase,
-				"difficulty": (*hexutil.Big)(head.FruitDifficulty),
-			}, nil
-		}
-		fruits := make([]interface{}, len(fs))
-		var err error
-		for i, f := range fs {
-			if fruits[i], err = formatFruit(f); err != nil {
-				return nil, err
-			}
-		}
-		fields["fruits"] = fruits
-	}*/
-	return &types.BalanceChange{addrWithBalance}
+	return b.etrue.blockchain.GetBalanceInfos(uint64(fastNumber))
 }
 
 func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
-	snailNumber rpc.BlockNumber) *types.BalanceChange {
+	snailNumber rpc.BlockNumber) *types.BlockBalance {
 	fmt.Println("go into snailumber")
 	var sBlock = b.etrue.SnailBlockChain().GetBlockByNumber(uint64(snailNumber))
 	state, _ := b.etrue.BlockChain().State()
@@ -315,7 +286,7 @@ func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
 		}
 	}
 	fmt.Println("addrWithBalance.length=", len(addrWithBalance))
-	return &types.BalanceChange{addrWithBalance}
+	return &types.BlockBalance{Balance: types.ToBalanceInfos(addrWithBalance)}
 }
 
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {

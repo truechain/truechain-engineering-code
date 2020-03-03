@@ -700,12 +700,12 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 }
 
 func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(ctx context.Context,
-	fastNumber rpc.BlockNumber) *types.BalanceChange {
+	fastNumber rpc.BlockNumber) *types.BlockBalance {
 	return s.b.GetStateChangeByFastNumber(ctx, fastNumber)
 }
 
 func (s *PublicBlockChainAPI) GetBalanceChangeBySnailNumber(ctx context.Context,
-	snailNumber rpc.BlockNumber) *types.BalanceChange {
+	snailNumber rpc.BlockNumber) *types.BlockBalance {
 	return s.b.GetBalanceChangeBySnailNumber(snailNumber)
 }
 
@@ -1246,7 +1246,7 @@ func (s *PublicBlockChainAPI) GetRecentChainRewardContent(blockNr rpc.BlockNumbe
 	}
 	return fields
 }
-func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber,addr common.Address) map[string]interface{} {
+func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, addr common.Address) map[string]interface{} {
 	content := s.b.GetChainRewardContent(blockNr)
 	if content == nil {
 		return nil
@@ -1262,11 +1262,11 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber,addr
 		}
 		return fields
 	} else {
-		for _,val := range content.CommitteeBase {
+		for _, val := range content.CommitteeBase {
 			if len(val.Items) > 0 && bytes.Equal(val.Items[0].Address.Bytes(), addr.Bytes()) {
 				fields := map[string]interface{}{
-					"Number":           hexutil.Uint64(blockNr),
-					"stakingReward":   	val.Items,
+					"Number":        hexutil.Uint64(blockNr),
+					"stakingReward": val.Items,
 				}
 				return fields
 			}

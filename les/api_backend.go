@@ -217,11 +217,11 @@ func (b *LesApiBackend) GetCurrentCommitteeNumber() *big.Int {
 	return nil
 }
 
-func (b *LesApiBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChange {
+func (b *LesApiBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BlockBalance {
 	return nil
 }
 
-func (b *LesApiBackend) GetStateChangeByFastNumber(ctx context.Context, fastNumber rpc.BlockNumber) *types.BalanceChange {
+func (b *LesApiBackend) GetStateChangeByFastNumber(ctx context.Context, fastNumber rpc.BlockNumber) *types.BlockBalance {
 	return nil
 }
 
