@@ -34,7 +34,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 // Minerva protocol constants.
@@ -857,7 +856,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, *types.ChainReward,error) {
 		
 	consensus.OnceInitImpawnState(chain.Config(),state,new(big.Int).Set(header.Number))
-	watch1 := help.NewTWatch(3, "Finalize if1")
+	
 	var infos *types.ChainReward
 	if header != nil && header.SnailHash != (common.Hash{}) && header.SnailNumber != nil {
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
@@ -890,23 +889,13 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 			}
 		}
 	}
-	watch1.EndWatch()
-	watch1.Finish(header.Number)
-
-	watch2 := help.NewTWatch(3, "Finalize if2")
 	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
 		return nil,nil, err
 	}
-	watch2.EndWatch()
-	watch2.Finish(header.Number)
 
-	watch3 := help.NewTWatch(3, "Finalize if2")
 	if err := m.finalizeValidators(chain, state, header.Number); err != nil {
 		return nil,nil, err
 	}
-	watch3.EndWatch()
-	watch3.Finish(header.Number)
-
 	header.Root = state.IntermediateRoot(true)
 	return types.NewBlock(header, txs, receipts, nil, nil),infos, nil
 }
@@ -1073,12 +1062,8 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 	if e != nil {
 		return nil,e
 	}
-	log.Info("accumulateRewardsFast2","height",sHeight)
 	impawn := vm.NewImpawnImpl()
-	watch1 := help.NewTWatch(3, "Reward1")
 	impawn.Load(stateDB, types.StakingAddress)
-	watch1.EndWatch()
-	watch1.Finish("11")
 	defer impawn.Save(stateDB, types.StakingAddress)
 
 	var (
@@ -1093,12 +1078,11 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 		minerFruitCoinOne = new(big.Int).Div(minerFruitCoin, blockFruitsLen)
 	)
 	//miner's award
-	watch2 := help.NewTWatch(3, "Reward2")
 	stateDB.AddBalance(sBlock.Coinbase(), minerCoin)
-	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
+	// LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
 	if fundCoin != nil {
 		stateDB.AddBalance(types.FoundationAddress, fundCoin)
-		LogPrint("foundation's award", types.FoundationAddress, fundCoin)
+		// LogPrint("foundation's award", types.FoundationAddress, fundCoin)
 	} else {
 		fundCoin = common.Big0
 	}
@@ -1114,33 +1098,24 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 
 	for _, fruit := range blockFruits {
 		stateDB.AddBalance(fruit.Coinbase(), minerFruitCoinOne)
-		LogPrint("minerFruit", fruit.Coinbase(), minerFruitCoinOne)
+		// LogPrint("minerFruit", fruit.Coinbase(), minerFruitCoinOne)
 		if v,ok := fruitMap[fruit.Coinbase()]; ok {
 			fruitMap[fruit.Coinbase()] = new(big.Int).Add(v,minerFruitCoinOne)
 		} else {
 			fruitMap[fruit.Coinbase()] = new(big.Int).Set(minerFruitCoinOne)
 		}
 	}
-	watch2.EndWatch()
-	watch2.Finish("fruit reward")
-
-	watch3 := help.NewTWatch(3, "Reward3")
 	//committee reward
 	infos, err := impawn.Reward(sBlock, committeeCoin)
-	watch3.EndWatch()
-	watch3.Finish("calc reward")
 	if err != nil {
 		return nil,err
 	}
-	watch4 := help.NewTWatch(3, "Reward4")
 	for _, v := range infos {
 		for _, vv := range v.Items {
 			stateDB.AddBalance(vv.Address, vv.Amount)
 			LogPrint("committee:", vv.Address, vv.Amount)
 		}
 	}
-	watch4.EndWatch()
-	watch4.Finish("items reward")
 	rewardsInfos := types.NewChainReward(sBlock.NumberU64(),found,coinbase,types.ToRewardInfos1(fruitMap),infos)
 	consensus.CR.AddChainReward(sBlock.NumberU64(),sBlock.Time().Uint64(),rewardsInfos)
 	return rewardsInfos,nil

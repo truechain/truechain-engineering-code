@@ -14,7 +14,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -1247,10 +1246,7 @@ func (i *ImpawnImpl) GetRoot() common.Hash {
 }
 func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 	key := common.BytesToHash(preAddress[:])
-	watch1 := help.NewTWatch(0.005, "Save impawn")
 	data, err := rlp.EncodeToBytes(i)
-	watch1.EndWatch()
-	watch1.Finish("EncodeToBytes")
 
 	if err != nil {
 		log.Crit("Failed to RLP encode ImpawnImpl", "err", err)
@@ -1270,17 +1266,14 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	if lenght == 0 {
 		return errors.New("Load data = 0")
 	}
-	cache := true
+	// cache := true
 	hash := types.RlpHash(data)
 	var temp ImpawnImpl
-	watch1 := help.NewTWatch(0.005, "Load impawn")
 	if cc, ok := IC.Cache.Get(hash); ok {
 		impawn := cc.(*ImpawnImpl)
 		temp = *(CloneImpawnImpl(impawn))
 	} else {
 		if err := rlp.DecodeBytes(data, &temp); err != nil {
-			watch1.EndWatch()
-			watch1.Finish("DecodeBytes")
 			log.Error("Invalid ImpawnImpl entry RLP", "err", err)
 			return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
 		}	
@@ -1288,11 +1281,9 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 		if tmp != nil {
 			IC.Cache.Add(hash, tmp)
 		}
-		cache = false
+		// cache = false
 	}
-	watch1.EndWatch()
-	watch1.Finish("DecodeBytes")
-	log.Info("-----Load impawn---","len:",lenght,"count:",temp.Counts(),"cache",cache)
+	// log.Info("-----Load impawn---","len:",lenght,"count:",temp.Counts(),"cache",cache)
 	i.curEpochID, i.accounts, i.lastReward = temp.curEpochID, temp.accounts, temp.lastReward
 	return nil
 }
