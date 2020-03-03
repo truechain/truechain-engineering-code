@@ -448,5 +448,5 @@ var (
 )
 
 func weiToTrue(val *big.Int) string {
-	return new(big.Float).Quo(new(big.Float).SetInt(val), fbaseUnit).String()
+	return new(big.Float).Quo(new(big.Float).SetInt(val), fbaseUnit).Text('f', 8)
 }
