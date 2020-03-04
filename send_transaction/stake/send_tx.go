@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code"
+	truechain "github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
@@ -455,7 +455,17 @@ func sendContractTransaction(client *etrueclient.Client, from, toAddress common.
 
 	gasLimit := uint64(2100000) // in units
 	if types.StakingAddress == toAddress {
-		gasLimit = 2440000
+		if strings.Contains("withdrawImpawn", method) {
+			// If the contract surely has code (or code is not needed), estimate the transaction
+			msg := truechain.CallMsg{From: from, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
+			limit, err := client.EstimateGas(context.Background(), msg)
+			if err != nil {
+				fmt.Println("withdrawImpawn err ", err)
+			}
+			gasLimit = limit
+		} else {
+			gasLimit = 2440000
+		}
 	}
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, input)
