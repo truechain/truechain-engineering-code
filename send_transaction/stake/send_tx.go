@@ -76,6 +76,7 @@ var (
 	gas           = new(big.Int).Exp(big.NewInt(10), big.NewInt(9), nil)
 	mixDelegate   = new(big.Int).Mul(big.NewInt(5000000), gas)
 	minValue      = new(big.Int).Mul(big.NewInt(4000000), gas)
+	gasPrice      *big.Int
 )
 
 const (
@@ -110,6 +111,11 @@ func impawn(ctx *cli.Context) error {
 		delegateFail = make(map[common.Address]bool)
 		withdrawTx = make(map[common.Address]*withdraw)
 		withdrawFail = make(map[common.Address]bool)
+		var err error
+		gasPrice, err = conn.SuggestGasPrice(context.Background())
+		if err != nil {
+			log.Fatal(err)
+		}
 		redistributionDelegate(conn)
 		fmt.Println("cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1), "first", firstNumber)
 		first = true
@@ -155,12 +161,13 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 	}
 	nonceEpoch = 0
 	fmt.Println("number", number, "diff", diff, "send", "nonce", nonce, "tx", len(delegateTx), "su", len(delegateSu), "fail", len(delegateFail))
-	value := trueToWei(ctx, false)
-	if diff == 1 {
-		deposit(ctx, conn, value)
-	}
 
 	if startDelegate {
+		if diff == 1 {
+			value := trueToWei(ctx, false)
+			deposit(ctx, conn, value)
+		}
+
 		if len(keyAccounts) >= delegateToal {
 			startDelegateTx(conn, diff, number, true)
 			if diff >= uint64(delegateToal) {
@@ -426,10 +433,6 @@ func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress commo
 	blockMutex.Lock()
 	defer blockMutex.Unlock()
 	nonceOther, _ := client.PendingNonceAt(context.Background(), f)
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	gasLimit := uint64(1825280) // in units
 
@@ -449,10 +452,6 @@ func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress commo
 func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte, method string) (common.Hash, error) {
 	blockMutex.Lock()
 	defer blockMutex.Unlock()
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	gasLimit := uint64(2100000) // in units
 	if types.StakingAddress == toAddress {
@@ -622,7 +621,7 @@ func querySendTx(conn *etrueclient.Client) {
 				if err != nil {
 					log.Fatal(err)
 				}
-				gas := receipt.GasUsed
+				gas := receipt.GasUsed * gasPrice.Uint64()
 				value := getBalance(conn, addr)
 				sub := value.Cmp(new(big.Int).Sub(v.value, new(big.Int).SetUint64(gas)))
 				if sub == 0 {
