@@ -733,7 +733,7 @@ func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 	}
 	var items []*types.RewardInfo
 	fee := new(big.Int).Quo(new(big.Int).Mul(allReward, sa.Fee), types.Base)
-	all, left := new(big.Int).Sub(allReward, fee), big.NewInt(0)
+	all, left,left2 := new(big.Int).Sub(allReward, fee), big.NewInt(0),big.NewInt(0)
 	for _, v := range sa.Delegation {
 		daAll := v.getAllStaking(target)
 		if daAll.Sign() <= 0 {
@@ -741,11 +741,13 @@ func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 		}
 		v1 := new(big.Int).Quo(new(big.Int).Mul(all, daAll), allStaking)
 		left = left.Add(left, v1)
+		left2 = left2.Add(left2,daAll)
 		var ii types.RewardInfo
-		ii.Address, ii.Amount = v.Unit.GetRewardAddress(), new(big.Int).Set(v1)
+		ii.Address, ii.Amount,ii.Staking = v.Unit.GetRewardAddress(), new(big.Int).Set(v1),new(big.Int).Set(daAll)
 		items = append(items, &ii)
 	}
 	item.Amount = new(big.Int).Add(new(big.Int).Sub(all, left), fee)
+	item.Staking = new(big.Int).Sub(allStaking,left2)
 	return items, nil
 }
 func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.EpochIDInfo) ([]*types.SARewardInfos, error) {

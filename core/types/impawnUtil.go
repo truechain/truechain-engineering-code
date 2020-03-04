@@ -98,6 +98,7 @@ func ToJSON(ii *ImpawnSummay) map[string]interface{} {
 type RewardInfo struct {
 	Address common.Address
 	Amount  *big.Int
+	Staking *big.Int
 }
 
 func (e *RewardInfo) String() string {
