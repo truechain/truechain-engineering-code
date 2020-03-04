@@ -159,12 +159,6 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 	if diff == 1 {
 		deposit(ctx, conn, value)
 	}
-	if number == types.GetEpochFromID(epoch+1).BeginHeight {
-		cancel(conn, value)
-	}
-	if number == types.MinCalcRedeemHeight(epoch+1) {
-		withdrawImpawn(conn, value)
-	}
 
 	if startDelegate {
 		if len(keyAccounts) >= delegateToal {
@@ -181,6 +175,13 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 	if startCancel {
 		if load {
 			loadKeyAccounts()
+		}
+
+		if diff == uint64(1) {
+			value, _ := queryStakingInfo(conn, false, false)
+			if weiToTrue(new(big.Int).SetUint64(value)) >= 1 {
+				cancel(conn, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+			}
 		}
 
 		for i := 0; i < len(delegateAddr); i++ {
@@ -208,6 +209,22 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 	if startWithdraw {
 		if load {
 			loadKeyAccounts()
+		}
+
+		if diff == uint64(1) {
+			_, value := queryStakingInfo(conn, false, false)
+			if value > 0 {
+				txhash, err := withdrawImpawn(conn, new(big.Int).SetUint64(value))
+				w := withdraw{}
+				w.value = new(big.Int).Add(new(big.Int).SetUint64(value), getBalance(conn, from))
+				w.txhash = txhash
+				if err != nil {
+					fmt.Println("withdraw error ", err)
+				} else {
+					fmt.Println("impawn withdraw value ", value, " addr ", from.String(), "tx", txhash.String())
+					withdrawTx[from] = &w
+				}
+			}
 		}
 
 		for i := 0; i < len(delegateAddr); i++ {
@@ -739,7 +756,7 @@ func loadSigningKey(keyfile string) common.Address {
 	return from
 }
 
-func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
+func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) (uint64, uint64) {
 	header, err := conn.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
@@ -783,9 +800,11 @@ func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
 				}
 			}
 		}
+		return args.Staked.Uint64(), args.Unlocked.Uint64()
 	} else {
 		fmt.Println("Contract query failed result len == 0")
 	}
+	return 0, 0
 }
 
 func queryDelegateInfo(conn *etrueclient.Client, daAddress common.Address) (uint64, uint64) {

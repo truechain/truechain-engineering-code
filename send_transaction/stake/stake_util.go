@@ -17,11 +17,11 @@ func cancel(conn *etrueclient.Client, value *big.Int) error {
 	return nil
 }
 
-func withdrawImpawn(conn *etrueclient.Client, value *big.Int) error {
+func withdrawImpawn(conn *etrueclient.Client, value *big.Int) (common.Hash, error) {
 	input := packInput("withdraw", value)
-	txHash, _ := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input, "withdrawImpawn")
+	txHash, err := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input, "withdrawImpawn")
 	getResult(conn, txHash, true, false)
-	return nil
+	return txHash, err
 }
 
 var queryStakingCommand = cli.Command{
