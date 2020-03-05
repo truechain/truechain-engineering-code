@@ -20,7 +20,6 @@ package state
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/core/parallel"
 	"math/big"
 	"sort"
 	"sync"
@@ -92,9 +91,9 @@ type StateDB struct {
 
 	lastAccountRec map[common.Address]*Account
 	currAccountRec map[common.Address]*Account
-	lastStorageRec map[parallel.StorageAddress]common.Hash
-	currStorageRec map[parallel.StorageAddress]common.Hash
-	touchedAddress *parallel.TouchedAddressObject
+	lastStorageRec map[StorageAddress]common.Hash
+	currStorageRec map[StorageAddress]common.Hash
+	touchedAddress *TouchedAddressObject
 
 	lock sync.Mutex
 }
@@ -115,9 +114,9 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		journals:          make(map[common.Hash]*journal),
 		lastAccountRec:    make(map[common.Address]*Account),
 		currAccountRec:    make(map[common.Address]*Account),
-		lastStorageRec:    make(map[parallel.StorageAddress]common.Hash),
-		currStorageRec:    make(map[parallel.StorageAddress]common.Hash),
-		touchedAddress:    parallel.NewTouchedAddressObject(),
+		lastStorageRec:    make(map[StorageAddress]common.Hash),
+		currStorageRec:    make(map[StorageAddress]common.Hash),
+		touchedAddress:    NewTouchedAddressObject(),
 	}, nil
 }
 
@@ -151,9 +150,9 @@ func (self *StateDB) Reset(root common.Hash) error {
 	self.clearJournalAndRefund()
 	self.lastAccountRec = make(map[common.Address]*Account)
 	self.currAccountRec = make(map[common.Address]*Account)
-	self.lastStorageRec = make(map[parallel.StorageAddress]common.Hash)
-	self.currStorageRec = make(map[parallel.StorageAddress]common.Hash)
-	self.touchedAddress = parallel.NewTouchedAddressObject()
+	self.lastStorageRec = make(map[StorageAddress]common.Hash)
+	self.currStorageRec = make(map[StorageAddress]common.Hash)
+	self.touchedAddress = NewTouchedAddressObject()
 	return nil
 }
 
@@ -666,7 +665,7 @@ func (self *StateDB) Prepare(thash, bhash common.Hash, ti int) {
 	self.prepareAccountAndStorageRecords()
 	self.journal = newJournal()
 	self.journals[thash] = self.journal
-	self.touchedAddress = parallel.NewTouchedAddressObject()
+	self.touchedAddress = NewTouchedAddressObject()
 }
 
 func (s *StateDB) clearJournalAndRefund() {
@@ -756,7 +755,7 @@ func (s *StateDB) appendWriteAccount(addr common.Address, currRec *Account) {
 }
 
 func (s *StateDB) appendReadStorage(addr common.Address, key common.Hash, val common.Hash) {
-	storageAddr := parallel.StorageAddress{AccountAddress: addr, Key: key}
+	storageAddr := StorageAddress{AccountAddress: addr, Key: key}
 
 	if _, exist := s.lastStorageRec[storageAddr]; !exist {
 		s.lastStorageRec[storageAddr] = val
@@ -766,7 +765,7 @@ func (s *StateDB) appendReadStorage(addr common.Address, key common.Hash, val co
 }
 
 func (s *StateDB) appendWriteStorage(addr common.Address, key common.Hash, val common.Hash) {
-	storageAddr := parallel.StorageAddress{AccountAddress: addr, Key: key}
+	storageAddr := StorageAddress{AccountAddress: addr, Key: key}
 
 	if lastRec, exist := s.lastStorageRec[storageAddr]; !exist {
 		panic(fmt.Errorf("lastStorageRec should be exist for address %x and key %x", addr, key))
@@ -782,7 +781,7 @@ func (s *StateDB) appendWriteStorage(addr common.Address, key common.Hash, val c
 
 func (s *StateDB) prepareAccountAndStorageRecords() {
 	s.lastAccountRec = make(map[common.Address]*Account)
-	s.lastStorageRec = make(map[parallel.StorageAddress]common.Hash)
+	s.lastStorageRec = make(map[StorageAddress]common.Hash)
 
 	for addr, account := range s.currAccountRec {
 		s.lastAccountRec[addr] = account
@@ -793,14 +792,14 @@ func (s *StateDB) prepareAccountAndStorageRecords() {
 	}
 
 	s.currAccountRec = make(map[common.Address]*Account)
-	s.currStorageRec = make(map[parallel.StorageAddress]common.Hash)
+	s.currStorageRec = make(map[StorageAddress]common.Hash)
 }
 
-func (s *StateDB) GetTouchedAddress() *parallel.TouchedAddressObject {
+func (s *StateDB) GetTouchedAddress() *TouchedAddressObject {
 	return s.touchedAddress
 }
 
-func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[common.Address]*parallel.StateObjectToReuse) {
+func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[common.Address]*StateObjectToReuse) {
 	for addr, stateObjAddr := range stateObjAddrs {
 		obj0 := self.getStateObject(addr)
 		obj1 := other.getStateObject(addr)

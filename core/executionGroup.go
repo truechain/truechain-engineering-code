@@ -1,4 +1,4 @@
-package parallel
+package core
 
 import (
 	"github.com/ethereum/go-ethereum/common"
@@ -23,21 +23,11 @@ type ExecutionGroup struct {
 type TrxResult struct {
 	receipt          *types.Receipt
 	logs             []*types.Log
-	touchedAddresses *TouchedAddressObject
+	touchedAddresses *state.TouchedAddressObject
 	usedGas          uint64
 }
 
-type StateObjectToReuse struct {
-	Address   common.Address
-	Keys      []common.Hash
-	ReuseData bool
-}
-
-func NewStateObjectToReuse(address common.Address, keys []common.Hash, reuseData bool) *StateObjectToReuse {
-	return &StateObjectToReuse{Address: address, Keys: keys, ReuseData: reuseData}
-}
-
-func NewTrxResult(receipt *types.Receipt, logs []*types.Log, touchedAddresses *TouchedAddressObject, usedGas uint64) *TrxResult {
+func NewTrxResult(receipt *types.Receipt, logs []*types.Log, touchedAddresses *state.TouchedAddressObject, usedGas uint64) *TrxResult {
 	return &TrxResult{receipt: receipt, logs: logs, touchedAddresses: touchedAddresses, usedGas: usedGas}
 }
 
@@ -82,10 +72,10 @@ func (e *ExecutionGroup) SetStatedb(statedb *state.StateDB) {
 }
 
 func (e *ExecutionGroup) reuseTxResults(txsToReuse []TxWithOldGroup, conflictGroups map[int]*ExecutionGroup) {
-	stateObjsFromOtherGroup := make(map[int]map[common.Address]*StateObjectToReuse)
+	stateObjsFromOtherGroup := make(map[int]map[common.Address]*state.StateObjectToReuse)
 
 	for gId, _ := range conflictGroups {
-		stateObjsFromOtherGroup[gId] = make(map[common.Address]*StateObjectToReuse)
+		stateObjsFromOtherGroup[gId] = make(map[common.Address]*state.StateObjectToReuse)
 	}
 
 	for i := len(txsToReuse) - 1; i >= 0; i-- {
@@ -108,22 +98,22 @@ func (e *ExecutionGroup) reuseTxResults(txsToReuse []TxWithOldGroup, conflictGro
 	e.statedb.Finalise(true)
 }
 
-func appendStateObjToReuse(stateObjsToReuse map[common.Address]*StateObjectToReuse, touchedAddr *TouchedAddressObject) {
-	for addr, op := range touchedAddr.accountOp {
+func appendStateObjToReuse(stateObjsToReuse map[common.Address]*state.StateObjectToReuse, touchedAddr *state.TouchedAddressObject) {
+	for addr, op := range touchedAddr.AccountOp() {
 		if op {
 			if stateObj, ok := stateObjsToReuse[addr]; !ok {
-				stateObj = NewStateObjectToReuse(addr, nil, true)
+				stateObj = state.NewStateObjectToReuse(addr, nil, true)
 				stateObjsToReuse[addr] = stateObj
 			} else {
 				stateObj.ReuseData = true
 			}
 		}
 	}
-	for storage, op := range touchedAddr.storageOp {
+	for storage, op := range touchedAddr.StorageOp() {
 		if op {
 			addr := storage.AccountAddress
 			if stateObj, ok := stateObjsToReuse[addr]; !ok {
-				stateObj = NewStateObjectToReuse(addr, nil, false)
+				stateObj = state.NewStateObjectToReuse(addr, nil, false)
 				stateObjsToReuse[addr] = stateObj
 			} else {
 				stateObj.Keys = append(stateObj.Keys, storage.Key)

@@ -1,8 +1,9 @@
-package parallel
+package core
 
 import (
 	"github.com/ethereum/go-ethereum/common"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/truechain/truechain-engineering-code/core/state"
 	"google.golang.org/genproto/googleapis/spanner/admin/database/v1"
 )
 
@@ -24,15 +25,15 @@ func NewAssociatedAddressMngr() *AssociatedAddressMngr {
 	}
 }
 
-func (aam *AssociatedAddressMngr) LoadAssociatedAddresses(addrs []common.Address) map[common.Address]*TouchedAddressObject {
-	result := make(map[common.Address]*TouchedAddressObject)
+func (aam *AssociatedAddressMngr) LoadAssociatedAddresses(addrs []common.Address) map[common.Address]*state.TouchedAddressObject {
+	result := make(map[common.Address]*state.TouchedAddressObject)
 	var addrsToLoad []common.Address
 
 	for _, addr := range addrs {
 		if obj, exist := aam.lruCache.Get(addr); !exist {
 			addrsToLoad = append(addrsToLoad, addr)
 		} else {
-			result[addr] = obj.(*TouchedAddressObject)
+			result[addr] = obj.(*state.TouchedAddressObject)
 		}
 	}
 
@@ -47,19 +48,19 @@ func (aam *AssociatedAddressMngr) LoadAssociatedAddresses(addrs []common.Address
 	return result
 }
 
-func (aam *AssociatedAddressMngr) loadFromDatabase(addrs []common.Address) map[common.Address]*TouchedAddressObject {
+func (aam *AssociatedAddressMngr) loadFromDatabase(addrs []common.Address) map[common.Address]*state.TouchedAddressObject {
 	// TODO
 	return nil
 }
 
-func (aam *AssociatedAddressMngr) UpdateAssociatedAddresses(associatedAddrs map[common.Address]*TouchedAddressObject) {
-	updatedTouchedAddrs := make(map[common.Address]*TouchedAddressObject)
+func (aam *AssociatedAddressMngr) UpdateAssociatedAddresses(associatedAddrs map[common.Address]*state.TouchedAddressObject) {
+	updatedTouchedAddrs := make(map[common.Address]*state.TouchedAddressObject)
 	for addr, associatedAddr := range associatedAddrs {
 		if obj, exist := aam.lruCache.Get(addr); !exist {
 			aam.lruCache.Add(addr, associatedAddr)
 			updatedTouchedAddrs[addr] = associatedAddr
 		} else {
-			touchedAddressObj := obj.(*TouchedAddressObject)
+			touchedAddressObj := obj.(*state.TouchedAddressObject)
 			if changed := touchedAddressObj.Merge(associatedAddr); changed {
 				updatedTouchedAddrs[addr] = touchedAddressObj
 			}
@@ -68,6 +69,6 @@ func (aam *AssociatedAddressMngr) UpdateAssociatedAddresses(associatedAddrs map[
 	go aam.saveToDatabase(updatedTouchedAddrs)
 }
 
-func (aam *AssociatedAddressMngr) saveToDatabase(associatedAddrs map[common.Address]*TouchedAddressObject) {
+func (aam *AssociatedAddressMngr) saveToDatabase(associatedAddrs map[common.Address]*state.TouchedAddressObject) {
 	// TODO
 }

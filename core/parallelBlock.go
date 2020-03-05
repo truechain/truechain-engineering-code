@@ -1,10 +1,9 @@
-package parallel
+package core
 
 import (
 	"container/list"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -21,14 +20,14 @@ type ParallelBlock struct {
 	block                *types.Block
 	transactions         types.Transactions
 	executionGroups      map[int]*ExecutionGroup
-	associatedAddressMap map[common.Address]*TouchedAddressObject
+	associatedAddressMap map[common.Address]*state.TouchedAddressObject
 	trxHashToIndexMap    map[common.Hash]int
 	trxHashToMsgMap      map[common.Hash]*types.Message
 	trxHashToGroupIdMap  map[common.Hash]int
 	nextGroupId          int
 	statedb              *state.StateDB
 	config               *params.ChainConfig
-	context              core.ChainContext
+	context              ChainContext
 	vmConfig             vm.Config
 }
 
@@ -37,8 +36,14 @@ type TxWithOldGroup struct {
 	oldGroupId int
 }
 
-func NewParallelBlock(block *types.Block, statedb *state.StateDB, config *params.ChainConfig, bc core.ChainContext, cfg vm.Config) *ParallelBlock {
-	return &ParallelBlock{block: block, transactions: block.Transactions(), statedb: statedb, config: config, vmConfig: cfg}
+func NewParallelBlock(block *types.Block, statedb *state.StateDB, config *params.ChainConfig, bc ChainContext, cfg vm.Config) *ParallelBlock {
+	return &ParallelBlock{
+		block:        block,
+		transactions: block.Transactions(),
+		statedb:      statedb,
+		config:       config,
+		context:      bc,
+		vmConfig:     cfg}
 }
 
 func (pb *ParallelBlock) group() {
@@ -106,16 +111,16 @@ func (pb *ParallelBlock) reGroupAndRevert(conflictGroups []map[int]struct{}, con
 func (pb *ParallelBlock) groupTransactions(transactions types.Transactions, regroup bool) map[int]*ExecutionGroup {
 	executionGroupMap := make(map[int]*ExecutionGroup)
 	writtenAccounts := make(map[common.Address]struct{})
-	writtenStorages := make(map[StorageAddress]struct{})
+	writtenStorages := make(map[state.StorageAddress]struct{})
 	groupWrittenAccountMap := make(map[int]map[common.Address]struct{})
-	groupWrittenStorageMap := make(map[int]map[StorageAddress]struct{})
+	groupWrittenStorageMap := make(map[int]map[state.StorageAddress]struct{})
 	groupId := 0
 	transactions = sortTrxByIndex(transactions, pb.trxHashToIndexMap)
 
 	for _, tx := range transactions {
 		groupsToMerge := make(map[int]struct{})
 		groupWrittenAccount := make(map[common.Address]struct{})
-		groupWrittenStorage := make(map[StorageAddress]struct{})
+		groupWrittenStorage := make(map[state.StorageAddress]struct{})
 		trxTouchedAddress := pb.getTrxTouchedAddress(tx.Hash(), regroup)
 
 		for addr, op := range trxTouchedAddress.AccountOp() {
@@ -176,14 +181,14 @@ func (pb *ParallelBlock) groupTransactions(transactions types.Transactions, regr
 	return executionGroupMap
 }
 
-func (pb *ParallelBlock) getTrxTouchedAddress(hash common.Hash, regroup bool) *TouchedAddressObject {
+func (pb *ParallelBlock) getTrxTouchedAddress(hash common.Hash, regroup bool) *state.TouchedAddressObject {
 	if regroup {
 		if result, ok := pb.executionGroups[pb.trxHashToGroupIdMap[hash]].trxHashToResultMap[hash]; ok {
 			return result.touchedAddresses
 		}
 	}
 
-	touchedAddressObj := NewTouchedAddressObject()
+	touchedAddressObj := state.NewTouchedAddressObject()
 	msg := pb.trxHashToMsgMap[hash]
 
 	if msg.From() != params.EmptyAddress {
@@ -210,10 +215,10 @@ func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]st
 	var conflictGroups []map[int]struct{}
 	conflictTxs := make(map[common.Hash]struct{})
 	addrGroupIdsMap := make(map[common.Address]map[int]struct{})
-	storageGroupIdsMap := make(map[StorageAddress]map[int]struct{})
+	storageGroupIdsMap := make(map[state.StorageAddress]map[int]struct{})
 
 	for _, trx := range pb.transactions {
-		var touchedAddressObj *TouchedAddressObject = nil
+		var touchedAddressObj *state.TouchedAddressObject = nil
 		trxHash := trx.Hash()
 		curTrxGroup := pb.trxHashToGroupIdMap[trxHash]
 		touchedAddressObj = pb.getTrxTouchedAddress(trxHash, true)
@@ -274,7 +279,7 @@ func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]st
 }
 
 func (pb *ParallelBlock) checkGas(txIndex int, receipts types.Receipts) error {
-	gp := new(core.GasPool).AddGas(pb.block.GasLimit())
+	gp := new(GasPool).AddGas(pb.block.GasLimit())
 	txs := pb.block.Transactions()
 
 	for i := 0; i < txIndex; i++ {
@@ -303,7 +308,7 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg sync.WaitGroup) 
 	var (
 		usedGas   = new(uint64)
 		feeAmount = big.NewInt(0)
-		gp        = new(core.GasPool).AddGas(pb.block.GasLimit())
+		gp        = new(GasPool).AddGas(pb.block.GasLimit())
 		statedb   = group.statedb
 	)
 
@@ -313,7 +318,7 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg sync.WaitGroup) 
 		txHash := tx.Hash()
 		ti := pb.trxHashToIndexMap[txHash]
 		statedb.Prepare(txHash, pb.block.Hash(), ti)
-		receipt, trxUsedGas, err := core.ApplyTransaction(pb.config, pb.context, gp, statedb, pb.block.Header(), tx, usedGas, feeAmount, pb.vmConfig)
+		receipt, trxUsedGas, err := ApplyTransaction(pb.config, pb.context, gp, statedb, pb.block.Header(), tx, usedGas, feeAmount, pb.vmConfig)
 		if err != nil {
 			group.err = err
 			group.trxHashToResultMap[txHash] = NewTrxResult(nil, nil, statedb.GetTouchedAddress(), trxUsedGas)
@@ -370,7 +375,7 @@ func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, 
 		receipts        = make(types.Receipts, pb.transactions.Len())
 		usedGas         = uint64(0)
 		allLogs         []*types.Log
-		associatedAddrs = make(map[common.Address]*TouchedAddressObject)
+		associatedAddrs = make(map[common.Address]*state.TouchedAddressObject)
 	)
 
 	for _, group := range pb.executionGroups {
@@ -380,7 +385,7 @@ func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, 
 		}
 		usedGas += group.usedGas
 
-		stateObjsToReuse := make(map[common.Address]*StateObjectToReuse)
+		stateObjsToReuse := make(map[common.Address]*state.StateObjectToReuse)
 
 		for _, tx := range group.transactions {
 			txHash := tx.Hash()
@@ -394,7 +399,7 @@ func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, 
 					touchedAddr := group.trxHashToResultMap[txHash].touchedAddresses
 					touchedAddr.RemoveAccount(pb.trxHashToMsgMap[txHash].From())
 
-					if len(touchedAddr.accountOp) > 1 && len(touchedAddr.storageOp) > 0 {
+					if len(touchedAddr.AccountOp()) > 1 && len(touchedAddr.StorageOp()) > 0 {
 						associatedAddrs[*to] = touchedAddr
 					}
 				}

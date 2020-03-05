@@ -19,8 +19,6 @@ package core
 import (
 	//"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/truechain/truechain-engineering-code/core/parallel"
-
 	//"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -58,50 +56,54 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
 func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-	var (
-		feeAmount = big.NewInt(0)
-		header    = block.Header()
-	)
 
-	parallelBlock := parallel.NewParallelBlock(block, statedb, fp.config, fp.bc, cfg)
-	receipts, allLogs, usedGas, err := parallelBlock.Process()
-	if err != nil {
-		return nil, nil, 0, err
+	if false {
+		var (
+			feeAmount = big.NewInt(0)
+			header    = block.Header()
+		)
+
+		parallelBlock := NewParallelBlock(block, statedb, fp.config, fp.bc, cfg)
+		receipts, allLogs, usedGas, err := parallelBlock.Process()
+		if err != nil {
+			return nil, nil, 0, err
+		}
+
+		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
+		_, err = fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+
+		return receipts, allLogs, usedGas, nil
+	} else {
+
+		var (
+			receipts  types.Receipts
+			usedGas   = new(uint64)
+			feeAmount = big.NewInt(0)
+			header    = block.Header()
+			allLogs   []*types.Log
+			gp        = new(GasPool).AddGas(block.GasLimit())
+		)
+		// Iterate over and process the individual transactions
+		for i, tx := range block.Transactions() {
+			statedb.Prepare(tx.Hash(), block.Hash(), i)
+			receipt, _, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
+			if err != nil {
+				return nil, nil, 0, err
+			}
+			receipts = append(receipts, receipt)
+			allLogs = append(allLogs, receipt.Logs...)
+		}
+		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
+		_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+
+		return receipts, allLogs, *usedGas, nil
 	}
-
-	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	_, err = fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
-	if err != nil {
-		return nil, nil, 0, err
-	}
-
-	return receipts, allLogs, usedGas, nil
-
-	//var (
-	//	receipts  types.Receipts
-	//	usedGas   = new(uint64)
-	//	feeAmount = big.NewInt(0)
-	//	header    = block.Header()
-	//	allLogs   []*types.Log
-	//	gp        = new(GasPool).AddGas(block.GasLimit())
-	//)
-	//// Iterate over and process the individual transactions
-	//for i, tx := range block.Transactions() {
-	//	statedb.Prepare(tx.Hash(), block.Hash(), i)
-	//	receipt, _, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
-	//	if err != nil {
-	//		return nil, nil, 0, err
-	//	}
-	//	receipts = append(receipts, receipt)
-	//	allLogs = append(allLogs, receipt.Logs...)
-	//}
-	//// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	//_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
-	//if err != nil {
-	//	return nil, nil, 0, err
-	//}
-	//
-	//return receipts, allLogs, *usedGas, nil
 }
 
 // ApplyTransaction attempts to apply a transaction to the given state database
