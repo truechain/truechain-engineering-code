@@ -258,15 +258,15 @@ func (b *TrueAPIBackend) GetStateChangeByFastNumber(ctx context.Context, fastNum
 	return b.etrue.blockchain.GetBalanceInfos(uint64(fastNumber))
 }
 
-func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
-	snailNumber rpc.BlockNumber) *types.BlockBalance {
+func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
 	fmt.Println("go into snailumber")
 	var sBlock = b.etrue.SnailBlockChain().GetBlockByNumber(uint64(snailNumber))
 	state, _ := b.etrue.BlockChain().State()
 	var (
-		addrWithBalance = make(map[common.Address]*big.Int)
-		blockFruits     = sBlock.Body().Fruits
-		blockFruitsLen  = big.NewInt(int64(len(blockFruits)))
+		addrWithBalance          = make(map[common.Address]*big.Int)
+		committeeAddrWithBalance = make(map[common.Address]*big.Int)
+		blockFruits              = sBlock.Body().Fruits
+		blockFruitsLen           = big.NewInt(int64(len(blockFruits)))
 	)
 	if blockFruitsLen.Uint64() == 0 {
 		return nil
@@ -276,17 +276,23 @@ func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
 	addrWithBalance[sBlock.Coinbase()] = balance
 
 	for _, fruit := range blockFruits {
-		addrWithBalance[fruit.Coinbase()] = state.GetBalance(fruit.Coinbase())
+		if addrWithBalance[fruit.Coinbase()] == nil {
+			addrWithBalance[fruit.Coinbase()] = state.GetBalance(fruit.Coinbase())
+		}
+		var committeeMembers = b.etrue.election.GetCommittee(fruit.FastNumber())
 
-		var committeeMembers = b.etrue.election.GetCommittee(fruit.Number())
 		for _, cm := range committeeMembers {
-			if addrWithBalance[cm.Coinbase] != nil {
-				addrWithBalance[cm.Coinbase] = state.GetBalance(cm.Coinbase)
+			if committeeAddrWithBalance[cm.Coinbase] == nil {
+				committeeAddrWithBalance[cm.Coinbase] = state.GetBalance(cm.Coinbase)
 			}
 		}
 	}
-	fmt.Println("addrWithBalance.length=", len(addrWithBalance))
-	return &types.BlockBalance{Balance: types.ToBalanceInfos(addrWithBalance)}
+	for addr, balance := range committeeAddrWithBalance {
+		if addrWithBalance[addr] == nil {
+			addrWithBalance[addr] = balance
+		}
+	}
+	return &types.BalanceChangeContent{addrWithBalance}
 }
 
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
