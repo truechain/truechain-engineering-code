@@ -800,9 +800,8 @@ func (s *StateDB) GetTouchedAddress() *parallel.TouchedAddressObject {
 	return s.touchedAddress
 }
 
-func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs []*parallel.StateObjectToReuse) {
-	for _, stateObjAddr := range stateObjAddrs {
-		addr := stateObjAddr.Address
+func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[common.Address]*parallel.StateObjectToReuse) {
+	for addr, stateObjAddr := range stateObjAddrs {
 		obj0 := self.getStateObject(addr)
 		obj1 := other.getStateObject(addr)
 

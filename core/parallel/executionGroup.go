@@ -93,29 +93,7 @@ func (e *ExecutionGroup) reuseTxResults(txsToReuse []TxWithOldGroup, conflictGro
 		oldGroupId := txsToReuse[i].oldGroupId
 
 		if result, ok := conflictGroups[oldGroupId].trxHashToResultMap[txHash]; ok {
-			stateObjsToReuse := stateObjsFromOtherGroup[oldGroupId]
-
-			for addr, op := range result.touchedAddresses.accountOp {
-				if op {
-					if stateObj, ok := stateObjsToReuse[addr]; !ok {
-						stateObj = NewStateObjectToReuse(addr, nil, true)
-						stateObjsToReuse[addr] = stateObj
-					} else {
-						stateObj.ReuseData = true
-					}
-				}
-			}
-			for storage, op := range result.touchedAddresses.storageOp {
-				if op {
-					addr := storage.AccountAddress
-					if stateObj, ok := stateObjsToReuse[addr]; !ok {
-						stateObj = NewStateObjectToReuse(addr, nil, false)
-						stateObjsToReuse[addr] = stateObj
-					} else {
-						stateObj.Keys = append(stateObj.Keys, storage.Key)
-					}
-				}
-			}
+			appendStateObjToReuse(stateObjsFromOtherGroup[oldGroupId], result.touchedAddresses)
 
 			e.statedb.CopyTxJournalFromOtherDB(conflictGroups[oldGroupId].statedb, txHash)
 
@@ -124,12 +102,32 @@ func (e *ExecutionGroup) reuseTxResults(txsToReuse []TxWithOldGroup, conflictGro
 	}
 
 	for gId, stateObjsMap := range stateObjsFromOtherGroup {
-		var stateObjs []*StateObjectToReuse
-		for _, obj := range stateObjsMap {
-			stateObjs = append(stateObjs, obj)
-		}
-		e.statedb.CopyStateObjFromOtherDB(conflictGroups[gId].statedb, stateObjs)
+		e.statedb.CopyStateObjFromOtherDB(conflictGroups[gId].statedb, stateObjsMap)
 	}
 
 	e.statedb.Finalise(true)
+}
+
+func appendStateObjToReuse(stateObjsToReuse map[common.Address]*StateObjectToReuse, touchedAddr *TouchedAddressObject) {
+	for addr, op := range touchedAddr.accountOp {
+		if op {
+			if stateObj, ok := stateObjsToReuse[addr]; !ok {
+				stateObj = NewStateObjectToReuse(addr, nil, true)
+				stateObjsToReuse[addr] = stateObj
+			} else {
+				stateObj.ReuseData = true
+			}
+		}
+	}
+	for storage, op := range touchedAddr.storageOp {
+		if op {
+			addr := storage.AccountAddress
+			if stateObj, ok := stateObjsToReuse[addr]; !ok {
+				stateObj = NewStateObjectToReuse(addr, nil, false)
+				stateObjsToReuse[addr] = stateObj
+			} else {
+				stateObj.Keys = append(stateObj.Keys, storage.Key)
+			}
+		}
+	}
 }

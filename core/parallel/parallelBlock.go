@@ -3,6 +3,7 @@ package parallel
 import (
 	"container/list"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -13,6 +14,7 @@ import (
 	"sync"
 )
 
+var emptyCodeHash = crypto.Keccak256Hash(nil)
 var associatedAddressMngr = NewAssociatedAddressMngr()
 
 type ParallelBlock struct {
@@ -40,7 +42,6 @@ func NewParallelBlock(block *types.Block, statedb *state.StateDB, config *params
 }
 
 func (pb *ParallelBlock) group() {
-	//pb.newGroups = make(map[int]*ExecutionGroup)
 	tmpExecutionGroupMap := pb.groupTransactions(pb.transactions, false)
 
 	for _, execGroup := range tmpExecutionGroupMap {
@@ -339,7 +340,7 @@ func (pb *ParallelBlock) executeInParallel() {
 }
 
 func (pb *ParallelBlock) prepare() error {
-	var toAddresses []common.Address
+	var contractAddrs []common.Address
 
 	for ti, trx := range pb.block.Transactions() {
 		msg, err := trx.AsMessage(types.MakeSigner(pb.config, pb.block.Header().Number))
@@ -350,23 +351,28 @@ func (pb *ParallelBlock) prepare() error {
 		pb.trxHashToIndexMap[trx.Hash()] = ti
 
 		if to := trx.To(); to != nil {
-			toAddresses = append(toAddresses, *to)
+			codeHash := pb.statedb.GetCodeHash(*to)
+			if codeHash != (common.Hash{}) && codeHash != emptyCodeHash {
+				contractAddrs = append(contractAddrs, *to)
+			}
 		}
 	}
 
-	pb.associatedAddressMap = associatedAddressMngr.LoadAssociatedAddresses(toAddresses)
+	pb.associatedAddressMap = associatedAddressMngr.LoadAssociatedAddresses(contractAddrs)
 
 	return nil
 }
 
 func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, error, int) {
 	var (
-		err      error
-		txIndex  = -1
-		receipts = make(types.Receipts, pb.transactions.Len())
-		usedGas  = uint64(0)
-		allLogs  []*types.Log
+		err             error
+		txIndex         = -1
+		receipts        = make(types.Receipts, pb.transactions.Len())
+		usedGas         = uint64(0)
+		allLogs         []*types.Log
+		associatedAddrs = make(map[common.Address]*TouchedAddressObject)
 	)
+
 	for _, group := range pb.executionGroups {
 		if group.err != nil && (group.errTxIndex < txIndex || txIndex == -1) {
 			err = group.err
@@ -374,11 +380,32 @@ func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, 
 		}
 		usedGas += group.usedGas
 
+		stateObjsToReuse := make(map[common.Address]*StateObjectToReuse)
+
 		for _, tx := range group.transactions {
 			txHash := tx.Hash()
-			receipts[pb.trxHashToIndexMap[txHash]] = group.trxHashToResultMap[txHash].receipt
+
+			if result, ok := group.trxHashToResultMap[txHash]; ok {
+				appendStateObjToReuse(stateObjsToReuse, result.touchedAddresses)
+				receipts[pb.trxHashToIndexMap[txHash]] = group.trxHashToResultMap[txHash].receipt
+
+				// collect associated address of contract
+				if to := tx.To(); to != nil {
+					touchedAddr := group.trxHashToResultMap[txHash].touchedAddresses
+					touchedAddr.RemoveAccount(pb.trxHashToMsgMap[txHash].From())
+
+					if len(touchedAddr.accountOp) > 1 && len(touchedAddr.storageOp) > 0 {
+						associatedAddrs[*to] = touchedAddr
+					}
+				}
+			}
 		}
+
+		// merge statedb changes
+		pb.statedb.CopyStateObjFromOtherDB(group.statedb, stateObjsToReuse)
 	}
+
+	associatedAddressMngr.UpdateAssociatedAddresses(associatedAddrs)
 
 	for _, receipt := range receipts {
 		allLogs = append(allLogs, receipt.Logs...)
