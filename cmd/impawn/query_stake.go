@@ -24,8 +24,8 @@ func AppendImpawn(ctx *cli.Context) error {
 
 	value := trueToWei(ctx, false)
 
-	input := packInput("append")
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
+	input := packInput("append", value)
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, nil, priKey, input)
 
 	getResult(conn, txHash, true, false)
 
@@ -106,7 +106,7 @@ var queryStakingCommand = cli.Command{
 	Name:   "querystaking",
 	Usage:  "Query staking info, can cancel info and can withdraw info",
 	Action: utils.MigrateFlags(queryStakingImpawn),
-	Flags:  ImpawnFlags,
+	Flags:  append(ImpawnFlags, AddressFlag),
 }
 
 func queryStakingImpawn(ctx *cli.Context) error {
@@ -115,6 +115,31 @@ func queryStakingImpawn(ctx *cli.Context) error {
 	printBaseInfo(conn, url)
 
 	queryStakingInfo(conn, true, false)
+	return nil
+}
+
+var queryRewardCommand = cli.Command{
+	Name:   "queryreward",
+	Usage:  "Query reward info, contain deposit and delegate reward",
+	Action: utils.MigrateFlags(queryRewardImpawn),
+	Flags:  append(ImpawnFlags, AddressFlag),
+}
+
+func queryRewardImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
+	conn, url := dialConn(ctx)
+
+	printBaseInfo(conn, url)
+
+	PrintBalance(conn, from)
+
+	start := false
+	snailNumber := uint64(0)
+	if ctx.GlobalIsSet(SnailNumberFlag.Name) {
+		snailNumber = ctx.GlobalUint64(SnailNumberFlag.Name)
+		start = true
+	}
+	queryRewardInfo(conn, snailNumber, start)
 	return nil
 }
 
@@ -188,8 +213,8 @@ func delegateImpawn(ctx *cli.Context) error {
 	}
 	holder = common.HexToAddress(address)
 
-	input := packInput("delegate", holder)
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
+	input := packInput("delegate", holder, value)
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, nil, priKey, input)
 
 	getResult(conn, txHash, true, true)
 	return nil

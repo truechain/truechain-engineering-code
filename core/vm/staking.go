@@ -30,6 +30,7 @@ import (
 var StakingGas = map[string]uint64{
 	"getDeposit":       360000,
 	"getDelegate":      450000,
+	"lockedBalance":    30000,
 	"deposit":          2400000,
 	"append":           2400000,
 	"setFee":           2400000,
@@ -64,6 +65,8 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		ret, err = getDeposit(evm, contract, data)
 	case "getDelegate":
 		ret, err = getDelegate(evm, contract, data)
+	case "lockedBalance":
+		ret, err = getLocked(evm, contract, data)
 	case "deposit":
 		ret, err = deposit(evm, contract, data)
 	case "append":
@@ -88,6 +91,14 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	return ret, err
 }
 
+func addLockedBalance(db StateDB, addr common.Address, amount *big.Int) {
+	db.SetPOSLocked(addr, new(big.Int).Add(db.GetPOSLocked(addr), amount))
+}
+
+func subLockedBalance(db StateDB, addr common.Address, amount *big.Int) {
+	db.SetPOSLocked(addr, new(big.Int).Sub(db.GetPOSLocked(addr), amount))
+}
+
 // logN add event log to receipt with topics up to 4
 func logN(evm *EVM, contract *Contract, topics []common.Hash, data []byte) ([]byte, error) {
 	evm.StateDB.AddLog(&types.Log{
@@ -107,6 +118,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	args := struct {
 		Pubkey []byte
 		Fee    *big.Int
+		Value  *big.Int
 	}{}
 	method, _ := abiStaking.Methods["deposit"]
 
@@ -117,6 +129,11 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	}
 
 	from := contract.caller.Address()
+	if evm.StateDB.GetUnlockedBalance(from).Cmp(args.Value) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", args.Value)
+		return nil, ErrStakingInsufficientBalance
+	}
+
 	t1 := time.Now()
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
@@ -125,9 +142,9 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 		return nil, err
 	}
 	t2 := time.Now()
-	err = impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, args.Pubkey, contract.value, args.Fee, true)
+	err = impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), from, args.Pubkey, args.Value, args.Fee, true)
 	if err != nil {
-		log.Error("Staking deposit", "address", contract.caller.Address(), "value", contract.value, "error", err)
+		log.Error("Staking deposit", "address", contract.caller.Address(), "value", args.Value, "error", err)
 		return nil, err
 	}
 
@@ -137,10 +154,11 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	addLockedBalance(evm.StateDB, from, args.Value)
 
 	t4 := time.Now()
 	event := abiStaking.Events["Deposit"]
-	logData, err := event.Inputs.PackNonIndexed(args.Pubkey, contract.value, args.Fee)
+	logData, err := event.Inputs.PackNonIndexed(args.Pubkey, args.Value, args.Fee)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -151,7 +169,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	}
 	logN(evm, contract, topics, logData)
 	context := []interface{}{
-		"number", evm.Context.BlockNumber.Uint64(), "address", from, "value", contract.value,
+		"number", evm.Context.BlockNumber.Uint64(), "address", from, "value", args.Value,
 		"input", common.PrettyDuration(t1.Sub(t0)), "load", common.PrettyDuration(t2.Sub(t1)),
 		"insert", common.PrettyDuration(t3.Sub(t2)), "save", common.PrettyDuration(t4.Sub(t3)),
 		"log", common.PrettyDuration(time.Since(t4)), "elapsed", common.PrettyDuration(time.Since(t0)),
@@ -162,8 +180,20 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 
 func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	from := contract.caller.Address()
+	amount := big.NewInt(0)
 
-	log.Info("Staking deposit extra", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", contract.value)
+	method, _ := abiStaking.Methods["append"]
+	err = method.Inputs.Unpack(&amount, input)
+	if err != nil {
+		log.Error("Unpack append value error", "err", err)
+		return nil, ErrStakingInvalidInput
+	}
+	if evm.StateDB.GetUnlockedBalance(from).Cmp(amount) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", amount)
+		return nil, ErrStakingInsufficientBalance
+	}
+
+	log.Info("Staking deposit extra", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", amount)
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
 	if err != nil {
@@ -171,19 +201,21 @@ func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err 
 		return nil, err
 	}
 
-	err = impawn.AppendSAAmount(evm.Context.BlockNumber.Uint64(), from, contract.value)
+	err = impawn.AppendSAAmount(evm.Context.BlockNumber.Uint64(), from, amount)
 	if err != nil {
-		log.Error("Staking deposit extra", "address", contract.caller.Address(), "value", contract.value, "error", err)
+		log.Error("Staking deposit extra", "address", contract.caller.Address(), "value", amount, "error", err)
 		return nil, err
 	}
+
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	addLockedBalance(evm.StateDB, from, amount)
 
 	event := abiStaking.Events["Append"]
-	logData, err := event.Inputs.PackNonIndexed(contract.value)
+	logData, err := event.Inputs.PackNonIndexed(amount)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -244,15 +276,24 @@ func setFeeRate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 
 // delegate
 func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
-	var holder common.Address
+	args := struct {
+		Holder common.Address
+		Value  *big.Int
+	}{}
+
 	t0 := time.Now()
 	method, _ := abiStaking.Methods["delegate"]
-	err = method.Inputs.Unpack(&holder, input)
+	err = method.Inputs.Unpack(&args, input)
 	if err != nil {
 		log.Error("Unpack deposit pubkey error", "err", err)
 		return nil, ErrStakingInvalidInput
 	}
 	from := contract.caller.Address()
+	if evm.StateDB.GetUnlockedBalance(from).Cmp(args.Value) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", args.Value)
+		return nil, ErrStakingInsufficientBalance
+	}
+
 	t1 := time.Now()
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
@@ -261,9 +302,9 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		return nil, err
 	}
 	t2 := time.Now()
-	err = impawn.InsertDAccount2(evm.Context.BlockNumber.Uint64(), holder, from, contract.value)
+	err = impawn.InsertDAccount2(evm.Context.BlockNumber.Uint64(), args.Holder, from, args.Value)
 	if err != nil {
-		log.Error("Staking delegate", "address", contract.caller.Address(), "value", contract.value, "error", err)
+		log.Error("Staking delegate", "address", contract.caller.Address(), "value", args.Value, "error", err)
 		return nil, err
 	}
 	t3 := time.Now()
@@ -272,9 +313,11 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	addLockedBalance(evm.StateDB, from, args.Value)
+
 	t4 := time.Now()
 	event := abiStaking.Events["Delegate"]
-	logData, err := event.Inputs.PackNonIndexed(contract.value)
+	logData, err := event.Inputs.PackNonIndexed(args.Value)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -282,11 +325,11 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	topics := []common.Hash{
 		event.ID(),
 		common.BytesToHash(from[:]),
-		common.BytesToHash(holder[:]),
+		common.BytesToHash(args.Holder[:]),
 	}
 	logN(evm, contract, topics, logData)
 	context := []interface{}{
-		"number", evm.Context.BlockNumber.Uint64(), "address", from, "holder", holder, "value", contract.value,
+		"number", evm.Context.BlockNumber.Uint64(), "address", from, "holder", args.Holder, "value", args.Value,
 		"input", common.PrettyDuration(t1.Sub(t0)), "load", common.PrettyDuration(t2.Sub(t1)),
 		"insert", common.PrettyDuration(t3.Sub(t2)), "save", common.PrettyDuration(t4.Sub(t3)),
 		"log", common.PrettyDuration(time.Since(t4)), "elapsed", common.PrettyDuration(time.Since(t0)),
@@ -402,6 +445,10 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		log.Error("Unpack withdraw input error")
 		return nil, ErrStakingInvalidInput
 	}
+	if evm.StateDB.GetPOSLocked(from).Cmp(amount) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", amount)
+		return nil, ErrStakingInsufficientBalance
+	}
 
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
@@ -417,18 +464,12 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		return nil, err
 	}
 
-	_, left, err := evm.Call(contract.self, from, nil, evm.callGasTemp, amount, nil)
-	if err != nil {
-		log.Info("Staking withdraw transfer failed", "err", err)
-		return nil, ErrStakingInsufficientBalance
-	}
-
-	log.Info("Staking withdraw", "gas", left)
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	subLockedBalance(evm.StateDB, from, amount)
 
 	event := abiStaking.Events["Withdraw"]
 	logData, err := event.Inputs.PackNonIndexed(amount)
@@ -457,6 +498,10 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 		log.Error("Unpack withdraw delegate input error")
 		return nil, ErrStakingInvalidInput
 	}
+	if evm.StateDB.GetPOSLocked(from).Cmp(args.Value) < 0 {
+		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", args.Value)
+		return nil, ErrStakingInsufficientBalance
+	}
 
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
@@ -473,18 +518,12 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 		return nil, err
 	}
 
-	_, left, err := evm.Call(contract.self, from, nil, evm.callGasTemp, args.Value, nil)
-	if err != nil {
-		log.Info("Staking withdraw delegate transfer failed", "err", err)
-		return nil, ErrStakingInsufficientBalance
-	}
-
-	log.Info("Staking withdraw delegate", "gas", left)
 	err = impawn.Save(evm.StateDB, types.StakingAddress)
 	if err != nil {
 		log.Error("Staking save state error", "error", err)
 		return nil, err
 	}
+	subLockedBalance(evm.StateDB, from, args.Value)
 
 	event := abiStaking.Events["WithdrawDelegate"]
 	logData, err := event.Inputs.PackNonIndexed(args.Value)
@@ -499,6 +538,22 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 	}
 	logN(evm, contract, topics, logData)
 	return nil, nil
+}
+
+func getLocked(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	var depositAddr common.Address
+
+	method, _ := abiStaking.Methods["lockedBalance"]
+	err = method.Inputs.Unpack(&depositAddr, input)
+	if err != nil {
+		log.Error("Unpack get_deposit input error")
+		return nil, ErrStakingInvalidInput
+	}
+
+	locked := evm.StateDB.GetPOSLocked(depositAddr)
+
+	ret, err = method.Outputs.Pack(locked)
+	return ret, err
 }
 
 // getDeposit
@@ -769,10 +824,14 @@ const StakeABIJSON = `
       {
         "type": "uint256",
         "name": "fee"
+      },
+      {
+        "type": "uint256",
+        "name": "value"
       }
     ],
     "constant": false,
-    "payable": true,
+    "payable": false,
     "type": "function"
   },
   {
@@ -791,9 +850,14 @@ const StakeABIJSON = `
   {
     "name": "append",
     "outputs": [],
-    "inputs": [],
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "value"
+      }
+    ],
     "constant": false,
-    "payable": true,
+    "payable": false,
     "type": "function"
   },
   {
@@ -803,10 +867,14 @@ const StakeABIJSON = `
       {
         "type": "address",
         "name": "holder"
+      },
+      {
+        "type": "uint256",
+        "name": "value"
       }
     ],
     "constant": false,
-    "payable": true,
+    "payable": false,
     "type": "function"
   },
   {
@@ -824,6 +892,24 @@ const StakeABIJSON = `
       }
     ],
     "constant": false,
+    "payable": false,
+    "type": "function"
+  },
+  {
+    "name": "lockedBalance",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "out"
+      }
+    ],
+    "inputs": [
+      {
+        "type": "address",
+        "name": "owner"
+      }
+    ],
+    "constant": true,
     "payable": false,
     "type": "function"
   },
@@ -874,7 +960,7 @@ const StakeABIJSON = `
         "unit": "wei",
         "name": "unlocked"
       }
-    ],
+	],
     "inputs": [
       {
         "type": "address",

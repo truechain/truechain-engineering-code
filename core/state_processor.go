@@ -64,7 +64,8 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, 
+	cfg vm.Config) (types.Receipts, []*types.Log, uint64,*types.ChainReward, error) {
 	var (
 		receipts  types.Receipts
 		usedGas   = new(uint64)
@@ -79,20 +80,20 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
 		if err != nil {
-			return nil, nil, 0, err
+			return nil, nil, 0, nil,err
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	t1 := time.Now()
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
+	_,infos, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0,nil, err
 	}
 	blockExecutionTxTimer.Update(t1.Sub(start))
 	blockFinalizeTimer.Update(time.Since(t1))
-	return receipts, allLogs, *usedGas, nil
+	return receipts, allLogs, *usedGas,infos, nil
 }
 
 // ApplyTransaction attempts to apply a transaction to the given state database

@@ -983,7 +983,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		//calculate snailBlock reward
 		agent.rewardSnailBlock(header)
 		//padding Header.Root, TxHash, ReceiptHash.  Create the new block to seal with the consensus engine
-		if fastBlock, err = agent.engine.Finalize(agent.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
+		if fastBlock, _,err = agent.engine.Finalize(agent.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
 			log.Error("Failed to finalize block for sealing", "err", err)
 			return fastBlock, err
 		}
@@ -1146,7 +1146,7 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		return voteSign, err
 	}
 
-	receipts, _, usedGas, err := bc.Processor().Process(fb, state, agent.vmConfig) //update
+	receipts, _, usedGas,_, err := bc.Processor().Process(fb, state, agent.vmConfig) //update
 	if err != nil {
 		if err == types.ErrSnailHeightNotYet {
 			log.Warn("verifyFastBlock :Snail height not yet", "currentFastNumber", fb.NumberU64(),

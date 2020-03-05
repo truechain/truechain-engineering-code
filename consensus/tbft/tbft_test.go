@@ -1318,3 +1318,21 @@ func TestStat(t *testing.T) {
 		}
 	}
 }
+
+func TestTimer(t *testing.T) {
+	timeoutTicker:= NewTimeoutTicker("TimeoutTicker")
+	timeoutTicker.Start()
+	timeoutTicker.ScheduleTimeout(timeoutInfo{5, 10, uint(0), ttypes.RoundStepNewHeight, 1})
+	go func(){
+		pos := 0
+		for {	
+			select {
+			case <-timeoutTicker.Chan(): // tockChan:
+				pos++
+				fmt.Println(pos)
+			}
+		}
+	}()
+	time.Sleep(20*time.Second)
+	fmt.Println("finish")
+}

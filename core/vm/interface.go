@@ -31,6 +31,10 @@ type StateDB interface {
 	AddBalance(common.Address, *big.Int)
 	GetBalance(common.Address) *big.Int
 
+	GetUnlockedBalance(addr common.Address) *big.Int
+	GetPOSLocked(addr common.Address) *big.Int
+	SetPOSLocked(addr common.Address, value *big.Int)
+
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)
 

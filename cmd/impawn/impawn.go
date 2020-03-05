@@ -46,6 +46,7 @@ const (
 	datadirPrivateKey      = "key"
 	datadirDefaultKeyStore = "keystore"
 	ImpawnAmount           = 20000
+	SnailRewardInterval    = 14
 )
 
 func impawn(ctx *cli.Context) error {
@@ -70,8 +71,8 @@ func impawn(ctx *cli.Context) error {
 	pubkey, pk, _ := getPubKey(ctx, conn)
 
 	fmt.Println("Fee", fee, " Pubkey ", pubkey, " value ", value)
-	input := packInput("deposit", pk, new(big.Int).SetUint64(fee))
-	txHash := sendContractTransaction(conn, from, types.StakingAddress, value, priKey, input)
+	input := packInput("deposit", pk, new(big.Int).SetUint64(fee), value)
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, nil, priKey, input)
 
 	getResult(conn, txHash, true, false)
 
@@ -92,6 +93,13 @@ func getPubKey(ctx *cli.Context, conn *etrueclient.Client) (string, []byte, erro
 
 	if ctx.GlobalIsSet(PubKeyKeyFlag.Name) {
 		pubkey = ctx.GlobalString(PubKeyKeyFlag.Name)
+	} else if ctx.GlobalIsSet(BFTKeyKeyFlag.Name) {
+		bftKey, err := crypto.HexToECDSA(ctx.GlobalString(BFTKeyKeyFlag.Name))
+		if err != nil {
+			printError("bft key error", err)
+		}
+		pk := crypto.FromECDSAPub(&bftKey.PublicKey)
+		pubkey = common.Bytes2Hex(pk)
 	} else {
 		pubkey, err = conn.Pubkey(context.Background())
 		if err != nil {
@@ -315,8 +323,8 @@ func PrintBalance(conn *etrueclient.Client, from common.Address) {
 	fbalance.SetString(balance.String())
 	trueValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
-	sbalance, err := conn.BalanceAt(context.Background(), types.StakingAddress, nil)
-	fmt.Println("Your wallet balance is ", trueValue, "'true ", " current Total Stake ", types.ToTrue(sbalance))
+	sbalance, err := conn.LockBalanceAt(context.Background(), from, nil)
+	fmt.Println("Your wallet valid balance is ", trueValue, "'true ", " lock balance is ", types.ToTrue(sbalance), "'true ")
 }
 
 func loadPrivate(ctx *cli.Context) {
@@ -382,6 +390,32 @@ func loadSigningKey(keyfile string) common.Address {
 	return from
 }
 
+func queryRewardInfo(conn *etrueclient.Client, number uint64, start bool) {
+	sheader, err := conn.SnailHeaderByNumber(context.Background(), nil)
+	if err != nil {
+		printError("get snail block error", err)
+	}
+	queryReward := uint64(0)
+	currentReward := sheader.Number.ToInt().Uint64() - SnailRewardInterval
+	if number > currentReward {
+		printError("reward no release current reward height ", currentReward)
+	} else if number > 0 || start {
+		queryReward = number
+	} else {
+		queryReward = currentReward
+	}
+	var crc map[string]interface{}
+	crc, err = conn.GetChainRewardContent(context.Background(), from, new(big.Int).SetUint64(queryReward))
+	if err != nil {
+		printError("get chain reward content error", err)
+	}
+	if info, ok := crc["stakingReward"]; ok {
+		if info, ok := info.([]interface{}); ok {
+			fmt.Println("queryRewardInfo", info)
+		}
+	}
+}
+
 func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
 	header, err := conn.HeaderByNumber(context.Background(), nil)
 	if err != nil {
@@ -419,10 +453,10 @@ func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
 			for k, v := range lockAssets {
 				for m, n := range v.LockValue {
 					if !n.Locked {
-						fmt.Println("Your can instant withdraw", " count value ", weiToTrue(n.Amount), " true")
+						fmt.Println("Your can instant withdraw", " count value ", n.Amount, " true")
 					} else {
-						if n.EpochID > 0 || n.Amount.Sign() > 0 {
-							fmt.Println("Your can withdraw after height", n.Height.Uint64(), " count value ", weiToTrue(n.Amount), " true  index", k+m, " lock ", n.Locked)
+						if n.EpochID > 0 || n.Amount != "0" {
+							fmt.Println("Your can withdraw after height", n.Height.Uint64(), " count value ", n.Amount, " true  index", k+m, " lock ", n.Locked)
 						}
 					}
 				}

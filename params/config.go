@@ -58,8 +58,8 @@ var (
 		}),
 		TIP3: &BlockConfig{FastNumber: big.NewInt(1500000)},
 		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
-		TIP7: &BlockConfig{FastNumber: big.NewInt(100000)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(2000)},
+		TIP7: &BlockConfig{FastNumber: big.NewInt(6020000)},
+		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(285)},
 		TIP9: &BlockConfig{SnailNumber: big.NewInt(47000)},
 	}
 
@@ -164,13 +164,13 @@ var (
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP5: nil, TIP7: nil,TIP8: nil, TIP9: nil}
+		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
 	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP5: nil, TIP7: nil,TIP8: nil, TIP9: nil}
+		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil}
 )
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and

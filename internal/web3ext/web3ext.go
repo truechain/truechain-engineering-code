@@ -689,33 +689,35 @@ web3._extend({
 			params: 1,
 			inputFormatter: [web3._extend.formatters.inputDefaultBlockNumberFormatter],
 			outputFormatter: function(sas) {
-				for (var i = 0; i < sas.stakers.length; i++) {
-					var sa = sas.stakers[i];
-					if(sa.unit.value !== null) {
-						for (var j = 0; j < sa.unit.value.length; j++) {
-							sa.unit.value[j].amount = web3._extend.utils.toBigNumber(sa.unit.value[j].amount);
-							sa.unit.value[j].height = web3._extend.utils.toBigNumber(sa.unit.value[j].height);
-						}						
-					}
-					if(sa.unit.redeemInfo !== null) {
-						for (var j = 0; j < sa.unit.redeemInfo.length; j++) {
-							sa.unit.redeemInfo[j].amount = web3._extend.utils.toBigNumber(sa.unit.redeemInfo[j].amount);
-						}						
-					}
-					if(sa.delegation !== null) {
-						for (var m = 0; m < sa.delegation.length; m++) {
-							if(sa.delegation[m].unit.value !== null) {
-								for (var j = 0; j < sa.delegation[m].unit.value.length; j++) {
-									sa.delegation[m].unit.value[j].amount = web3._extend.utils.toBigNumber(sa.delegation[m].unit.value[j].amount);
-									sa.delegation[m].unit.value[j].height = web3._extend.utils.toBigNumber(sa.delegation[m].unit.value[j].height);
-								}						
-							}
-							if(sa.delegation[m].unit.redeemInfo !== null) {
-								for (var j = 0; j < sa.delegation[m].unit.redeemInfo.length; j++) {
-									sa.delegation[m].unit.redeemInfo[j].amount = web3._extend.utils.toBigNumber(sa.delegation[m].unit.redeemInfo[j].amount);
-								}						
-							}
-						}						
+				if (sas !== null) {
+					for (var i = 0; i < sas.stakers.length; i++) {
+						var sa = sas.stakers[i];
+						if(sa.unit.value !== null) {
+							for (var j = 0; j < sa.unit.value.length; j++) {
+								sa.unit.value[j].amount = web3._extend.utils.toBigNumber(sa.unit.value[j].amount);
+								sa.unit.value[j].height = web3._extend.utils.toBigNumber(sa.unit.value[j].height);
+							}						
+						}
+						if(sa.unit.redeemInfo !== null) {
+							for (var j = 0; j < sa.unit.redeemInfo.length; j++) {
+								sa.unit.redeemInfo[j].amount = web3._extend.utils.toBigNumber(sa.unit.redeemInfo[j].amount);
+							}						
+						}
+						if(sa.delegation !== null) {
+							for (var m = 0; m < sa.delegation.length; m++) {
+								if(sa.delegation[m].unit.value !== null) {
+									for (var j = 0; j < sa.delegation[m].unit.value.length; j++) {
+										sa.delegation[m].unit.value[j].amount = web3._extend.utils.toBigNumber(sa.delegation[m].unit.value[j].amount);
+										sa.delegation[m].unit.value[j].height = web3._extend.utils.toBigNumber(sa.delegation[m].unit.value[j].height);
+									}						
+								}
+								if(sa.delegation[m].unit.redeemInfo !== null) {
+									for (var j = 0; j < sa.delegation[m].unit.redeemInfo.length; j++) {
+										sa.delegation[m].unit.redeemInfo[j].amount = web3._extend.utils.toBigNumber(sa.delegation[m].unit.redeemInfo[j].amount);
+									}						
+								}
+							}						
+						}
 					}
 				}
 				return sas;
@@ -780,16 +782,18 @@ web3._extend({
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter,web3._extend.formatters.inputDefaultBlockNumberFormatter],
 			outputFormatter: function(sa) {
-				if(sa.unit.value !== null) {
-					for (var j = 0; j < sa.unit.value.length; j++) {
-						sa.unit.value[j].amount = web3._extend.utils.toBigNumber(sa.unit.value[j].amount);
-						sa.unit.value[j].height = web3._extend.utils.toBigNumber(sa.unit.value[j].height);
-					}						
-				}
-				if(sa.unit.redeemInfo !== null) {
-					for (var j = 0; j < sa.unit.redeemInfo.length; j++) {
-						sa.unit.redeemInfo[j].amount = web3._extend.utils.toBigNumber(sa.unit.redeemInfo[j].amount);
-					}						
+				if (sa.unit != null) {
+					if(sa.unit.value !== null) {
+						for (var j = 0; j < sa.unit.value.length; j++) {
+							sa.unit.value[j].amount = web3._extend.utils.toBigNumber(sa.unit.value[j].amount);
+							sa.unit.value[j].height = web3._extend.utils.toBigNumber(sa.unit.value[j].height);
+						}						
+					}
+					if(sa.unit.redeemInfo !== null) {
+						for (var j = 0; j < sa.unit.redeemInfo.length; j++) {
+							sa.unit.redeemInfo[j].amount = web3._extend.utils.toBigNumber(sa.unit.redeemInfo[j].amount);
+						}						
+					}
 				}
 				if(sa.delegation !== null) {
 					for (var m = 0; m < sa.delegation.length; m++) {

@@ -18,11 +18,12 @@ package etrue
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
+	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
@@ -35,7 +36,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
-	"github.com/truechain/truechain-engineering-code/consensus"
 )
 
 // TRUEAPIBackend implements ethapi.Backend for full nodes
@@ -242,13 +242,64 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 func (b *TrueAPIBackend) GetSnailRewardContent(snailNumber rpc.BlockNumber) *types.SnailRewardContenet {
 	return b.etrue.agent.GetSnailRewardContent(uint64(snailNumber))
 }
-func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward {
-	snailHeight := uint64(blockNr)
-	return consensus.CR.GetChainReward(snailHeight)
+
+func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
+	sheight := uint64(blockNr)
+	return b.etrue.blockchain.GetRewardInfos(sheight)
 }
-// GetCommittee returns the Committee info by committee number
+
+// GetStateChangeByFastNumber returns the Committee info by committee number
+func (b *TrueAPIBackend) GetStateChangeByFastNumber(ctx context.Context, fastNumber rpc.BlockNumber) *types.BlockBalance {
+	fmt.Println("go into fastNumber")
+	return b.etrue.blockchain.GetBalanceInfos(uint64(fastNumber))
+}
+
+func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
+	fmt.Println("go into snailumber")
+	var sBlock = b.etrue.SnailBlockChain().GetBlockByNumber(uint64(snailNumber))
+	state, _ := b.etrue.BlockChain().State()
+	var (
+		addrWithBalance          = make(map[common.Address]*big.Int)
+		committeeAddrWithBalance = make(map[common.Address]*big.Int)
+		blockFruits              = sBlock.Body().Fruits
+		blockFruitsLen           = big.NewInt(int64(len(blockFruits)))
+	)
+	if blockFruitsLen.Uint64() == 0 {
+		return nil
+	}
+	//snailBlock miner's award
+	var balance = state.GetBalance(sBlock.Coinbase())
+	addrWithBalance[sBlock.Coinbase()] = balance
+
+	for _, fruit := range blockFruits {
+		if addrWithBalance[fruit.Coinbase()] == nil {
+			addrWithBalance[fruit.Coinbase()] = state.GetBalance(fruit.Coinbase())
+		}
+		var committeeMembers = b.etrue.election.GetCommittee(fruit.FastNumber())
+
+		for _, cm := range committeeMembers {
+			if committeeAddrWithBalance[cm.Coinbase] == nil {
+				committeeAddrWithBalance[cm.Coinbase] = state.GetBalance(cm.Coinbase)
+			}
+		}
+	}
+	for addr, balance := range committeeAddrWithBalance {
+		if addrWithBalance[addr] == nil {
+			addrWithBalance[addr] = balance
+		}
+	}
+	return &types.BalanceChangeContent{addrWithBalance}
+}
+
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
+	if number == rpc.LatestBlockNumber {
+		return b.etrue.election.GetCommitteeById(new(big.Int).SetUint64(b.etrue.agent.CommitteeNumber())), nil
+	}
 	return b.etrue.election.GetCommitteeById(big.NewInt(number.Int64())), nil
+}
+
+func (b *TrueAPIBackend) GetCurrentCommitteeNumber() *big.Int {
+	return b.etrue.election.GetCurrentCommitteeNumber()
 }
 
 // SendTx returns nil by success to add local txpool
@@ -343,6 +394,7 @@ func (b *TrueAPIBackend) BloomStatus() (uint64, uint64) {
 	sections, _, _ := b.etrue.bloomIndexer.Sections()
 	return params.BloomBitsBlocks, sections
 }
+
 // ServiceFilter make the Filter for the truechian
 func (b *TrueAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
 	for i := 0; i < bloomFilterThreads; i++ {
