@@ -69,7 +69,6 @@ type Backend interface {
 	GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BlockBalance
 
 	GetSnailRewardContent(blockNr rpc.BlockNumber) *types.SnailRewardContenet
-	GetRecentChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward
 	GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward
 
 	// TxPool API

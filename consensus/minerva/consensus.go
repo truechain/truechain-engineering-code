@@ -1050,7 +1050,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 		committeeMap = types.MergeReward(committeeMap,tmp)
 	}
 	infos := types.NewChainReward(sBlock.NumberU64(),found,coinbase,types.ToRewardInfos1(fruitMap),types.ToRewardInfos2(committeeMap))
-	consensus.CR.AddChainReward(sBlock.NumberU64(),sBlock.Time().Uint64(),infos)
 	return infos,nil
 }
 func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fast uint64) (*types.ChainReward,error) {
@@ -1117,7 +1116,6 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 		}
 	}
 	rewardsInfos := types.NewChainReward(sBlock.NumberU64(),found,coinbase,types.ToRewardInfos1(fruitMap),infos)
-	consensus.CR.AddChainReward(sBlock.NumberU64(),sBlock.Time().Uint64(),rewardsInfos)
 	return rewardsInfos,nil
 }
 
