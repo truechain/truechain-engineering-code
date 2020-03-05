@@ -272,8 +272,18 @@ func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]st
 	return conflictGroups, conflictTxs
 }
 
-func (pb *ParallelBlock) checkGas(txIndex int) error {
-	// TODO: check gas after all transactions are executed
+func (pb *ParallelBlock) checkGas(txIndex int, receipts types.Receipts) error {
+	gp := new(core.GasPool).AddGas(pb.block.GasLimit())
+	txs := pb.block.Transactions()
+
+	for i := 0; i < txIndex; i++ {
+		if err := gp.SubGas(txs[i].Gas()); err != nil {
+			return err
+		}
+
+		gp.AddGas(txs[i].Gas() - receipts[i].GasUsed)
+	}
+
 	return nil
 }
 
@@ -397,14 +407,14 @@ func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error)
 	receipts, allLogs, usedGas, err, ti := pb.collectResult()
 
 	if err != nil {
-		err2 := pb.checkGas(ti)
+		err2 := pb.checkGas(ti, receipts)
 		if err2 != nil {
 			return nil, nil, 0, err2
 		}
 		return nil, nil, 0, err
 	}
 
-	err = pb.checkGas(pb.transactions.Len() - 1)
+	err = pb.checkGas(pb.transactions.Len()-1, receipts)
 	if err != nil {
 		return nil, nil, 0, err
 	}
