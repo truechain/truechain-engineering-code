@@ -705,7 +705,7 @@ func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(ctx context.Context,
 }
 
 func (s *PublicBlockChainAPI) GetBalanceChangeBySnailNumber(ctx context.Context,
-	snailNumber rpc.BlockNumber) *types.BlockBalance {
+	snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
 	return s.b.GetBalanceChangeBySnailNumber(snailNumber)
 }
 
