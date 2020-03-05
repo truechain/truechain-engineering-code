@@ -546,7 +546,6 @@ func (s *Truechain) Stop() error {
 	s.eventMux.Stop()
 
 	s.chainDb.Close()
-	consensus.CR.Stop()
 	close(s.shutdownChan)
 
 	return nil
