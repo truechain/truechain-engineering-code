@@ -1241,6 +1241,7 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, add
 	if bytes.Equal(addr.Bytes(), empty.Bytes()) {
 		fields := map[string]interface{}{
 			"Number":           hexutil.Uint64(blockNr),
+			"time":             hexutil.Uint64(content.St),
 			"foundationReward": content.Foundation,
 			"blockminer":       content.CoinBase,
 			"fruitminer":       content.FruitBase,
@@ -1252,6 +1253,7 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, add
 			if len(val.Items) > 0 && bytes.Equal(val.Items[0].Address.Bytes(), addr.Bytes()) {
 				fields := map[string]interface{}{
 					"Number":        hexutil.Uint64(blockNr),
+					"time":          hexutil.Uint64(content.St),
 					"stakingReward": val.Items,
 				}
 				return fields
