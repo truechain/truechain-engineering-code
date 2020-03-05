@@ -18,39 +18,15 @@ package core
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
-
-type Accounts []Account
-
-func (as Accounts) String() string {
-	var output []string
-	for _, a := range as {
-		output = append(output, a.String())
-	}
-	return strings.Join(output, "\n")
-}
-
-type Account struct {
-	Typ     string         `json:"type"`
-	URL     accounts.URL   `json:"url"`
-	Address common.Address `json:"address"`
-}
-
-func (a Account) String() string {
-	s, err := json.Marshal(a)
-	if err == nil {
-		return string(s)
-	}
-	return err.Error()
-}
 
 type ValidationInfo struct {
 	Typ     string `json:"type"`
@@ -58,6 +34,36 @@ type ValidationInfo struct {
 }
 type ValidationMessages struct {
 	Messages []ValidationInfo
+}
+
+const (
+	WARN = "WARNING"
+	CRIT = "CRITICAL"
+	INFO = "Info"
+)
+
+func (vs *ValidationMessages) Crit(msg string) {
+	vs.Messages = append(vs.Messages, ValidationInfo{CRIT, msg})
+}
+func (vs *ValidationMessages) Warn(msg string) {
+	vs.Messages = append(vs.Messages, ValidationInfo{WARN, msg})
+}
+func (vs *ValidationMessages) Info(msg string) {
+	vs.Messages = append(vs.Messages, ValidationInfo{INFO, msg})
+}
+
+/// getWarnings returns an error with all messages of type WARN of above, or nil if no warnings were present
+func (v *ValidationMessages) getWarnings() error {
+	var messages []string
+	for _, msg := range v.Messages {
+		if msg.Typ == WARN || msg.Typ == CRIT {
+			messages = append(messages, msg.Message)
+		}
+	}
+	if len(messages) > 0 {
+		return fmt.Errorf("Validation failed: %s", strings.Join(messages, ","))
+	}
+	return nil
 }
 
 // SendTxArgs represents the arguments to submit a transaction

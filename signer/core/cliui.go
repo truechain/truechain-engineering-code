@@ -131,9 +131,9 @@ func (ui *CommandlineUI) ApproveTx(request *SignTxRequest) (SignTxResponse, erro
 	showMetadata(request.Meta)
 	fmt.Printf("-------------------------------------------\n")
 	if !ui.confirm() {
-		return SignTxResponse{request.Transaction, false, ""}, nil
+		return SignTxResponse{request.Transaction, false}, nil
 	}
-	return SignTxResponse{request.Transaction, true, ui.readPassword()}, nil
+	return SignTxResponse{request.Transaction, true}, nil
 }
 
 // ApproveSignData prompt the user for confirmation to request to sign data
@@ -143,46 +143,19 @@ func (ui *CommandlineUI) ApproveSignData(request *SignDataRequest) (SignDataResp
 
 	fmt.Printf("-------- Sign data request--------------\n")
 	fmt.Printf("Account:  %s\n", request.Address.String())
-	fmt.Printf("message:  \n%q\n", request.Message)
-	fmt.Printf("raw data: \n%v\n", request.Rawdata)
+	fmt.Printf("message:\n")
+	for _, nvt := range request.Messages {
+		fmt.Printf("%v\n", nvt.Pprint(1))
+	}
+	//fmt.Printf("message:  \n%v\n", request.Message)
+	fmt.Printf("raw data:  \n%q\n", request.Rawdata)
 	fmt.Printf("message hash:  %v\n", request.Hash)
 	fmt.Printf("-------------------------------------------\n")
 	showMetadata(request.Meta)
 	if !ui.confirm() {
-		return SignDataResponse{false, ""}, nil
+		return SignDataResponse{false}, nil
 	}
-	return SignDataResponse{true, ui.readPassword()}, nil
-}
-
-// ApproveExport prompt the user for confirmation to export encrypted Account json
-func (ui *CommandlineUI) ApproveExport(request *ExportRequest) (ExportResponse, error) {
-	ui.mu.Lock()
-	defer ui.mu.Unlock()
-
-	fmt.Printf("-------- Export Account request--------------\n")
-	fmt.Printf("A request has been made to export the (encrypted) keyfile\n")
-	fmt.Printf("Approving this operation means that the caller obtains the (encrypted) contents\n")
-	fmt.Printf("\n")
-	fmt.Printf("Account:  %x\n", request.Address)
-	//fmt.Printf("keyfile:  \n%v\n", request.file)
-	fmt.Printf("-------------------------------------------\n")
-	showMetadata(request.Meta)
-	return ExportResponse{ui.confirm()}, nil
-}
-
-// ApproveImport prompt the user for confirmation to import Account json
-func (ui *CommandlineUI) ApproveImport(request *ImportRequest) (ImportResponse, error) {
-	ui.mu.Lock()
-	defer ui.mu.Unlock()
-
-	fmt.Printf("-------- Import Account request--------------\n")
-	fmt.Printf("A request has been made to import an encrypted keyfile\n")
-	fmt.Printf("-------------------------------------------\n")
-	showMetadata(request.Meta)
-	if !ui.confirm() {
-		return ImportResponse{false, "", ""}, nil
-	}
-	return ImportResponse{true, ui.readPasswordText("Old password"), ui.readPasswordText("New password")}, nil
+	return SignDataResponse{true}, nil
 }
 
 // ApproveListing prompt the user for confirmation to list accounts
@@ -218,9 +191,9 @@ func (ui *CommandlineUI) ApproveNewAccount(request *NewAccountRequest) (NewAccou
 	fmt.Printf("and the address show to the caller\n")
 	showMetadata(request.Meta)
 	if !ui.confirm() {
-		return NewAccountResponse{false, ""}, nil
+		return NewAccountResponse{false}, nil
 	}
-	return NewAccountResponse{true, ui.readPassword()}, nil
+	return NewAccountResponse{true}, nil
 }
 
 // ShowError displays error message to user
@@ -245,4 +218,25 @@ func (ui *CommandlineUI) OnSignerStartup(info StartupInfo) {
 	for k, v := range info.Info {
 		fmt.Printf("* %v : %v\n", k, v)
 	}
+}
+
+func (ui *CommandlineUI) OnInputRequired(info UserInputRequest) (UserInputResponse, error) {
+
+	fmt.Printf("## %s\n\n%s\n", info.Title, info.Prompt)
+	if info.IsPassword {
+		fmt.Printf("> ")
+		text, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			log.Error("Failed to read password", "err", err)
+		}
+		fmt.Println("-----------------------")
+		return UserInputResponse{string(text)}, err
+	}
+	text := ui.readString()
+	fmt.Println("-----------------------")
+	return UserInputResponse{text}, nil
+}
+
+func (ui *CommandlineUI) RegisterUIServer(api *UIServerAPI) {
+	// noop
 }

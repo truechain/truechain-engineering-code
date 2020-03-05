@@ -61,18 +61,6 @@ func (ui *StdIOUI) ApproveSignData(request *SignDataRequest) (SignDataResponse, 
 	return result, err
 }
 
-func (ui *StdIOUI) ApproveExport(request *ExportRequest) (ExportResponse, error) {
-	var result ExportResponse
-	err := ui.dispatch("ApproveExport", request, &result)
-	return result, err
-}
-
-func (ui *StdIOUI) ApproveImport(request *ImportRequest) (ImportResponse, error) {
-	var result ImportResponse
-	err := ui.dispatch("ApproveImport", request, &result)
-	return result, err
-}
-
 func (ui *StdIOUI) ApproveListing(request *ListRequest) (ListResponse, error) {
 	var result ListResponse
 	err := ui.dispatch("ApproveListing", request, &result)
@@ -110,4 +98,16 @@ func (ui *StdIOUI) OnSignerStartup(info StartupInfo) {
 	if err != nil {
 		log.Info("Error calling 'OnSignerStartup'", "exc", err.Error(), "info", info)
 	}
+}
+
+func (ui *StdIOUI) OnInputRequired(info UserInputRequest) (UserInputResponse, error) {
+	var result UserInputResponse
+	err := ui.dispatch("ui_onInputRequired", info, &result)
+	if err != nil {
+		log.Info("Error calling 'ui_onInputRequired'", "exc", err.Error(), "info", info)
+	}
+	return result, err
+}
+
+func (ui *StdIOUI) RegisterUIServer(api *UIServerAPI) {
 }

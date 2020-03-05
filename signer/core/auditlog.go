@@ -19,9 +19,6 @@ package core
 import (
 	"context"
 
-	"encoding/json"
-
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
@@ -33,16 +30,15 @@ type AuditLogger struct {
 	api ExternalAPI
 }
 
-func (l *AuditLogger) List(ctx context.Context) (Accounts, error) {
+func (l *AuditLogger) List(ctx context.Context) ([]common.Address, error) {
 	l.log.Info("List", "type", "request", "metadata", MetadataFromContext(ctx).String())
 	res, e := l.api.List(ctx)
-
-	l.log.Info("List", "type", "response", "data", res.String())
+	l.log.Info("List", "type", "response", "data", res)
 
 	return res, e
 }
 
-func (l *AuditLogger) New(ctx context.Context) (accounts.Account, error) {
+func (l *AuditLogger) New(ctx context.Context) (common.Address, error) {
 	return l.api.New(ctx)
 }
 
@@ -64,38 +60,20 @@ func (l *AuditLogger) SignTransaction(ctx context.Context, args SendTxArgs, meth
 	return res, e
 }
 
-func (l *AuditLogger) Sign(ctx context.Context, addr common.MixedcaseAddress, data hexutil.Bytes) (hexutil.Bytes, error) {
-	l.log.Info("Sign", "type", "request", "metadata", MetadataFromContext(ctx).String(),
-		"addr", addr.String(), "data", common.Bytes2Hex(data))
-	b, e := l.api.Sign(ctx, addr, data)
-	l.log.Info("Sign", "type", "response", "data", common.Bytes2Hex(b), "error", e)
+func (l *AuditLogger) EcRecover(ctx context.Context, data hexutil.Bytes, sig hexutil.Bytes) (common.Address, error) {
+	l.log.Info("EcRecover", "type", "request", "metadata", MetadataFromContext(ctx).String(),
+		"data", common.Bytes2Hex(data), "sig", common.Bytes2Hex(sig))
+	b, e := l.api.EcRecover(ctx, data, sig)
+	l.log.Info("EcRecover", "type", "response", "address", b.String(), "error", e)
 	return b, e
 }
 
-func (l *AuditLogger) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
-	l.log.Info("EcRecover", "type", "request", "metadata", MetadataFromContext(ctx).String(),
-		"data", common.Bytes2Hex(data))
-	a, e := l.api.EcRecover(ctx, data, sig)
-	l.log.Info("EcRecover", "type", "response", "addr", a.String(), "error", e)
-	return a, e
-}
+func (l *AuditLogger) Version(ctx context.Context) (string, error) {
+	l.log.Info("Version", "type", "request", "metadata", MetadataFromContext(ctx).String())
+	data, err := l.api.Version(ctx)
+	l.log.Info("Version", "type", "response", "data", data, "error", err)
+	return data, err
 
-func (l *AuditLogger) Export(ctx context.Context, addr common.Address) (json.RawMessage, error) {
-	l.log.Info("Export", "type", "request", "metadata", MetadataFromContext(ctx).String(),
-		"addr", addr.Hex())
-	j, e := l.api.Export(ctx, addr)
-	// In this case, we don't actually log the json-response, which may be extra sensitive
-	l.log.Info("Export", "type", "response", "json response size", len(j), "error", e)
-	return j, e
-}
-
-func (l *AuditLogger) Import(ctx context.Context, keyJSON json.RawMessage) (Account, error) {
-	// Don't actually log the json contents
-	l.log.Info("Import", "type", "request", "metadata", MetadataFromContext(ctx).String(),
-		"keyJSON size", len(keyJSON))
-	a, e := l.api.Import(ctx, keyJSON)
-	l.log.Info("Import", "type", "response", "addr", a.String(), "error", e)
-	return a, e
 }
 
 func NewAuditLogger(path string, api ExternalAPI) (*AuditLogger, error) {
