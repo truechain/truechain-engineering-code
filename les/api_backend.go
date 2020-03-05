@@ -217,7 +217,7 @@ func (b *LesApiBackend) GetCurrentCommitteeNumber() *big.Int {
 	return nil
 }
 
-func (b *LesApiBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BlockBalance {
+func (b *LesApiBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
 	return nil
 }
 

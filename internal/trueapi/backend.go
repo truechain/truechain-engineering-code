@@ -65,8 +65,9 @@ type Backend interface {
 	GetReward(number int64) *types.BlockReward
 	GetCommittee(id rpc.BlockNumber) (map[string]interface{}, error)
 	GetCurrentCommitteeNumber() *big.Int
+
 	GetStateChangeByFastNumber(ctx context.Context, fastNumber rpc.BlockNumber) *types.BlockBalance
-	GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BlockBalance
+	GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent
 
 	GetSnailRewardContent(blockNr rpc.BlockNumber) *types.SnailRewardContenet
 	GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward
