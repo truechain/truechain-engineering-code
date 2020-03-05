@@ -125,6 +125,7 @@ type TimedChainReward struct {
 
 type ChainReward struct {
 	Height        uint64
+	St     		  uint64
 	Foundation    *RewardInfo
 	CoinBase      *RewardInfo
 	FruitBase     []*RewardInfo
@@ -151,9 +152,10 @@ func ToBalanceInfos(items map[common.Address]*big.Int) []*BalanceInfo {
 	return infos
 }
 
-func NewChainReward(height uint64, found, coin *RewardInfo, fruits []*RewardInfo, committee []*SARewardInfos) *ChainReward {
+func NewChainReward(height,tt uint64, found, coin *RewardInfo, fruits []*RewardInfo, committee []*SARewardInfos) *ChainReward {
 	return &ChainReward{
 		Height:        height,
+		St:			   tt,
 		Foundation:    found,
 		CoinBase:      coin,
 		FruitBase:     fruits,
