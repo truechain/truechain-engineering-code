@@ -93,6 +93,13 @@ func getPubKey(ctx *cli.Context, conn *etrueclient.Client) (string, []byte, erro
 
 	if ctx.GlobalIsSet(PubKeyKeyFlag.Name) {
 		pubkey = ctx.GlobalString(PubKeyKeyFlag.Name)
+	} else if ctx.GlobalIsSet(BFTKeyKeyFlag.Name) {
+		bftKey, err := crypto.HexToECDSA(ctx.GlobalString(BFTKeyKeyFlag.Name))
+		if err != nil {
+			printError("bft key error", err)
+		}
+		pk := crypto.FromECDSAPub(&bftKey.PublicKey)
+		pubkey = common.Bytes2Hex(pk)
 	} else {
 		pubkey, err = conn.Pubkey(context.Background())
 		if err != nil {
