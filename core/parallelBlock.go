@@ -182,7 +182,7 @@ func (pb *ParallelBlock) groupTransactions(transactions types.Transactions, regr
 	}
 
 	for _, group := range executionGroupMap {
-		group.transactions = sortTrxByIndex(group.transactions, pb.trxHashToGroupIdMap)
+		group.transactions = sortTrxByIndex(group.transactions, pb.trxHashToIndexMap)
 	}
 
 	return executionGroupMap
