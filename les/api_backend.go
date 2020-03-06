@@ -221,7 +221,7 @@ func (b *LesApiBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumbe
 	return nil
 }
 
-func (b *LesApiBackend) GetStateChangeByFastNumber(ctx context.Context, fastNumber rpc.BlockNumber) *types.BlockBalance {
+func (b *LesApiBackend) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BlockBalance {
 	return nil
 }
 

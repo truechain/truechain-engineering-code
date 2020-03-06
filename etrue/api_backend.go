@@ -249,13 +249,12 @@ func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.C
 }
 
 // GetStateChangeByFastNumber returns the Committee info by committee number
-func (b *TrueAPIBackend) GetStateChangeByFastNumber(ctx context.Context, fastNumber rpc.BlockNumber) *types.BlockBalance {
-	fmt.Println("go into fastNumber")
+func (b *TrueAPIBackend) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BlockBalance {
 	return b.etrue.blockchain.GetBalanceInfos(uint64(fastNumber))
 }
 
 func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
-	fmt.Println("go into snailumber")
+	fmt.Println("go into GetBalanceChangeBySnailNumber")
 	var sBlock = b.etrue.SnailBlockChain().GetBlockByNumber(uint64(snailNumber))
 	state, _ := b.etrue.BlockChain().State()
 	var (
