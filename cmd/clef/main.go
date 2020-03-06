@@ -17,42 +17,31 @@
 package main
 
 import (
-	"context"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"os/signal"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	colorable "github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/console"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"github.com/truechain/truechain-engineering-code/signer/core"
 	"github.com/truechain/truechain-engineering-code/signer/fourbyte"
-	"github.com/truechain/truechain-engineering-code/signer/rules"
 	"github.com/truechain/truechain-engineering-code/signer/storage"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -125,10 +114,6 @@ var (
 			"This means that an STDIN/STDOUT is used for RPC-communication with a e.g. a graphical user " +
 			"interface, and can be used when TrueKeyService is started by an external process.",
 	}
-	testFlag = cli.BoolFlag{
-		Name:  "stdio-ui-test",
-		Usage: "Mechanism to test interface between TrueKeyService and UI. Requires 'stdio-ui'.",
-	}
 	app         = cli.NewApp()
 	initCommand = cli.Command{
 		Action:    utils.MigrateFlags(initializeSecrets),
@@ -143,56 +128,6 @@ var (
 The init command generates a master seed which TrueKeyService can use to store credentials and data needed for
 the rule-engine to work.`,
 	}
-	attestCommand = cli.Command{
-		Action:    utils.MigrateFlags(attestFile),
-		Name:      "attest",
-		Usage:     "Attest that a js-file is to be used",
-		ArgsUsage: "<sha256sum>",
-		Flags: []cli.Flag{
-			logLevelFlag,
-			configdirFlag,
-			signerSecretFlag,
-		},
-		Description: `
-The attest command stores the sha256 of the rule.js-file that you want to use for automatic processing of
-incoming requests.
-
-Whenever you make an edit to the rule file, you need to use attestation to tell
-TrueKeyService that the file is 'safe' to execute.`,
-	}
-	setCredentialCommand = cli.Command{
-		Action:    utils.MigrateFlags(setCredential),
-		Name:      "setpw",
-		Usage:     "Store a credential for a keystore file",
-		ArgsUsage: "<address>",
-		Flags: []cli.Flag{
-			logLevelFlag,
-			configdirFlag,
-			signerSecretFlag,
-		},
-		Description: `
-The setpw command stores a password for a given address (keyfile).
-`}
-	delCredentialCommand = cli.Command{
-		Action:    utils.MigrateFlags(removeCredential),
-		Name:      "delpw",
-		Usage:     "Remove a credential for a keystore file",
-		ArgsUsage: "<address>",
-		Flags: []cli.Flag{
-			logLevelFlag,
-			configdirFlag,
-			signerSecretFlag,
-		},
-		Description: `
-The delpw command removes a password for a given address (keyfile).
-`}
-	gendocCommand = cli.Command{
-		Action: GenDoc,
-		Name:   "gendoc",
-		Usage:  "Generate documentation about json-rpc format",
-		Description: `
-The gendoc generates example structures of the json-rpc communication types.
-`}
 )
 
 func init() {
@@ -216,11 +151,10 @@ func init() {
 		auditLogFlag,
 		ruleFlag,
 		stdiouiFlag,
-		testFlag,
 		advancedMode,
 	}
 	app.Action = signer
-	app.Commands = []cli.Command{initCommand, attestCommand, setCredentialCommand, delCredentialCommand, gendocCommand}
+	app.Commands = []cli.Command{initCommand}
 	cli.CommandHelpTemplate = utils.OriginCommandHelpTemplate
 }
 
@@ -296,87 +230,6 @@ You should treat 'masterseed.json' with utmost secrecy and make a backup of it!
 * The master seed does not contain your accounts, those need to be backed up separately!
 
 `)
-	return nil
-}
-func attestFile(ctx *cli.Context) error {
-	if len(ctx.Args()) < 1 {
-		utils.Fatalf("This command requires an argument.")
-	}
-	if err := initialize(ctx); err != nil {
-		return err
-	}
-
-	stretchedKey, err := readMasterKey(ctx, nil)
-	if err != nil {
-		utils.Fatalf(err.Error())
-	}
-	configDir := ctx.GlobalString(configdirFlag.Name)
-	vaultLocation := filepath.Join(configDir, common.Bytes2Hex(crypto.Keccak256([]byte("vault"), stretchedKey)[:10]))
-	confKey := crypto.Keccak256([]byte("config"), stretchedKey)
-
-	// Initialize the encrypted storages
-	configStorage := storage.NewAESEncryptedStorage(filepath.Join(vaultLocation, "config.json"), confKey)
-	val := ctx.Args().First()
-	configStorage.Put("ruleset_sha256", val)
-	log.Info("Ruleset attestation updated", "sha256", val)
-	return nil
-}
-
-func setCredential(ctx *cli.Context) error {
-	if len(ctx.Args()) < 1 {
-		utils.Fatalf("This command requires an address to be passed as an argument")
-	}
-	if err := initialize(ctx); err != nil {
-		return err
-	}
-	addr := ctx.Args().First()
-	if !common.IsHexAddress(addr) {
-		utils.Fatalf("Invalid address specified: %s", addr)
-	}
-	address := common.HexToAddress(addr)
-	password := getPassPhrase("Please enter a password to store for this address:", true)
-	fmt.Println()
-
-	stretchedKey, err := readMasterKey(ctx, nil)
-	if err != nil {
-		utils.Fatalf(err.Error())
-	}
-	configDir := ctx.GlobalString(configdirFlag.Name)
-	vaultLocation := filepath.Join(configDir, common.Bytes2Hex(crypto.Keccak256([]byte("vault"), stretchedKey)[:10]))
-	pwkey := crypto.Keccak256([]byte("credentials"), stretchedKey)
-
-	pwStorage := storage.NewAESEncryptedStorage(filepath.Join(vaultLocation, "credentials.json"), pwkey)
-	pwStorage.Put(address.Hex(), password)
-
-	log.Info("Credential store updated", "set", address)
-	return nil
-}
-
-func removeCredential(ctx *cli.Context) error {
-	if len(ctx.Args()) < 1 {
-		utils.Fatalf("This command requires an address to be passed as an argument")
-	}
-	if err := initialize(ctx); err != nil {
-		return err
-	}
-	addr := ctx.Args().First()
-	if !common.IsHexAddress(addr) {
-		utils.Fatalf("Invalid address specified: %s", addr)
-	}
-	address := common.HexToAddress(addr)
-
-	stretchedKey, err := readMasterKey(ctx, nil)
-	if err != nil {
-		utils.Fatalf(err.Error())
-	}
-	configDir := ctx.GlobalString(configdirFlag.Name)
-	vaultLocation := filepath.Join(configDir, common.Bytes2Hex(crypto.Keccak256([]byte("vault"), stretchedKey)[:10]))
-	pwkey := crypto.Keccak256([]byte("credentials"), stretchedKey)
-
-	pwStorage := storage.NewAESEncryptedStorage(filepath.Join(vaultLocation, "credentials.json"), pwkey)
-	pwStorage.Del(address.Hex())
-
-	log.Info("Credential store updated", "unset", address)
 	return nil
 }
 
@@ -464,37 +317,9 @@ func signer(c *cli.Context) error {
 
 		// Generate domain specific keys
 		pwkey := crypto.Keccak256([]byte("credentials"), stretchedKey)
-		jskey := crypto.Keccak256([]byte("jsstorage"), stretchedKey)
-		confkey := crypto.Keccak256([]byte("config"), stretchedKey)
 
 		// Initialize the encrypted storages
 		pwStorage = storage.NewAESEncryptedStorage(filepath.Join(vaultLocation, "credentials.json"), pwkey)
-		jsStorage := storage.NewAESEncryptedStorage(filepath.Join(vaultLocation, "jsstorage.json"), jskey)
-		configStorage := storage.NewAESEncryptedStorage(filepath.Join(vaultLocation, "config.json"), confkey)
-
-		// Do we have a rule-file?
-		if ruleFile := c.GlobalString(ruleFlag.Name); ruleFile != "" {
-			ruleJS, err := ioutil.ReadFile(ruleFile)
-			if err != nil {
-				log.Warn("Could not load rules, disabling", "file", ruleFile, "err", err)
-			} else {
-				shasum := sha256.Sum256(ruleJS)
-				foundShaSum := hex.EncodeToString(shasum[:])
-				storedShasum, _ := configStorage.Get("ruleset_sha256")
-				if storedShasum != foundShaSum {
-					log.Warn("Rule hash not attested, disabling", "hash", foundShaSum, "attested", storedShasum)
-				} else {
-					// Initialize rules
-					ruleEngine, err := rules.NewRuleEvaluator(ui, jsStorage)
-					if err != nil {
-						utils.Fatalf(err.Error())
-					}
-					ruleEngine.Init(string(ruleJS))
-					ui = ruleEngine
-					log.Info("Rule engine configured", "file", c.String(ruleFlag.Name))
-				}
-			}
-		}
 	}
 	var (
 		chainId  = c.GlobalInt64(chainIdFlag.Name)
@@ -510,7 +335,7 @@ func signer(c *cli.Context) error {
 
 	// Establish the bidirectional communication, by creating a new UI backend and registering
 	// it with the UI.
-	ui.RegisterUIServer(core.NewUIServerAPI(apiImpl))
+	clef := core.NewUIServerAPI(apiImpl)
 	api = apiImpl
 	// Audit logging
 	if logfile := c.GlobalString(auditLogFlag.Name); logfile != "" {
@@ -530,6 +355,11 @@ func signer(c *cli.Context) error {
 			Namespace: "account",
 			Public:    true,
 			Service:   api,
+			Version:   "1.0"},
+		{
+			Namespace: "clef",
+			Public:    true,
+			Service:   clef,
 			Version:   "1.0"},
 	}
 	if c.GlobalBool(utils.RPCEnabledFlag.Name) {
@@ -564,10 +394,6 @@ func signer(c *cli.Context) error {
 		}()
 	}
 
-	if c.GlobalBool(testFlag.Name) {
-		log.Info("Performing UI test")
-		go testExternalUI(apiImpl)
-	}
 	ui.OnSignerStartup(core.StartupInfo{
 		Info: map[string]interface{}{
 			"intapi_version": core.InternalAPIVersion,
@@ -696,96 +522,6 @@ func confirm(text string) bool {
 	return true
 }
 
-func testExternalUI(api *core.SignerAPI) {
-
-	ctx := context.WithValue(context.Background(), "remote", "clef binary")
-	ctx = context.WithValue(ctx, "scheme", "in-proc")
-	ctx = context.WithValue(ctx, "local", "main")
-	errs := make([]string, 0)
-
-	a := common.HexToAddress("0xdeadbeef000000000000000000000000deadbeef")
-	addErr := func(errStr string) {
-		log.Info("Test error", "err", errStr)
-		errs = append(errs, errStr)
-	}
-
-	queryUser := func(q string) string {
-		resp, err := api.UI.OnInputRequired(core.UserInputRequest{
-			Title:  "Testing",
-			Prompt: q,
-		})
-		if err != nil {
-			addErr(err.Error())
-		}
-		return resp.Text
-	}
-	expectResponse := func(testcase, question, expect string) {
-		if got := queryUser(question); got != expect {
-			addErr(fmt.Sprintf("%s: got %v, expected %v", testcase, got, expect))
-		}
-	}
-	expectDeny := func(testcase string, err error) {
-		if err == nil || err != core.ErrRequestDenied {
-			addErr(fmt.Sprintf("%v: expected ErrRequestDenied, got %v", testcase, err))
-		}
-	}
-	var delay = 1 * time.Second
-	// Test display of info and error
-	{
-		api.UI.ShowInfo("If you see this message, enter 'yes' to next question")
-		time.Sleep(delay)
-		expectResponse("showinfo", "Did you see the message? [yes/no]", "yes")
-		api.UI.ShowError("If you see this message, enter 'yes' to the next question")
-		time.Sleep(delay)
-		expectResponse("showerror", "Did you see the message? [yes/no]", "yes")
-	}
-	{ // Sign transaction
-
-		api.UI.ShowInfo("Please reject next transaction")
-		time.Sleep(delay)
-		data := hexutil.Bytes([]byte{})
-		to := common.NewMixedcaseAddress(a)
-		tx := core.SendTxArgs{
-			Data:     &data,
-			Nonce:    0x1,
-			Value:    hexutil.Big(*big.NewInt(6)),
-			From:     common.NewMixedcaseAddress(a),
-			To:       &to,
-			GasPrice: hexutil.Big(*big.NewInt(5)),
-			Gas:      1000,
-			Input:    nil,
-		}
-		_, err := api.SignTransaction(ctx, tx, nil)
-		expectDeny("signtransaction [1]", err)
-		expectResponse("signtransaction [2]", "Did you see any warnings for the last transaction? (yes/no)", "no")
-	}
-	{ // Listing
-		api.UI.ShowInfo("Please reject listing-request")
-		time.Sleep(delay)
-		_, err := api.List(ctx)
-		expectDeny("list", err)
-	}
-	{ // Import
-		api.UI.ShowInfo("Please reject new account-request")
-		time.Sleep(delay)
-		_, err := api.New(ctx)
-		expectDeny("newaccount", err)
-	}
-	{ // Metadata
-		api.UI.ShowInfo("Please check if you see the Origin in next listing (approve or deny)")
-		time.Sleep(delay)
-		api.List(context.WithValue(ctx, "Origin", "origin.com"))
-		expectResponse("metadata - origin", "Did you see origin (origin.com)? [yes/no] ", "yes")
-	}
-
-	for _, e := range errs {
-		log.Error(e)
-	}
-	result := fmt.Sprintf("Tests completed. %d errors:\n%s\n", len(errs), strings.Join(errs, "\n"))
-	api.UI.ShowInfo(result)
-
-}
-
 // getPassPhrase retrieves the password associated with clef, either fetched
 // from a list of preloaded passphrases, or requested interactively from the user.
 // TODO: there are many `getPassPhrase` functions, it will be better to abstract them into one.
@@ -837,157 +573,4 @@ func decryptSeed(keyjson []byte, auth string) ([]byte, error) {
 		return nil, err
 	}
 	return seed, err
-}
-
-// GenDoc outputs examples of all structures used in json-rpc communication
-func GenDoc(ctx *cli.Context) {
-
-	var (
-		a    = common.HexToAddress("0xdeadbeef000000000000000000000000deadbeef")
-		b    = common.HexToAddress("0x1111111122222222222233333333334444444444")
-		meta = core.Metadata{
-			Scheme:    "http",
-			Local:     "localhost:8545",
-			Origin:    "www.malicious.ru",
-			Remote:    "localhost:9999",
-			UserAgent: "Firefox 3.2",
-		}
-		output []string
-		add    = func(name, desc string, v interface{}) {
-			if data, err := json.MarshalIndent(v, "", "  "); err == nil {
-				output = append(output, fmt.Sprintf("### %s\n\n%s\n\nExample:\n```json\n%s\n```", name, desc, data))
-			} else {
-				log.Error("Error generating output", err)
-			}
-		}
-	)
-
-	{ // Sign plain text request
-		desc := "SignDataRequest contains information about a pending request to sign some data. " +
-			"The data to be signed can be of various types, defined by content-type. TrueKeyService has done most " +
-			"of the work in canonicalizing and making sense of the data, and it's up to the UI to present" +
-			"the user with the contents of the `message`"
-		sighash, msg := accounts.TextAndHash([]byte("hello world"))
-		messages := []*core.NameValueType{{Name: "message", Value: msg, Typ: accounts.MimetypeTextPlain}}
-
-		add("SignDataRequest", desc, &core.SignDataRequest{
-			Address:     common.NewMixedcaseAddress(a),
-			Meta:        meta,
-			ContentType: accounts.MimetypeTextPlain,
-			Rawdata:     []byte(msg),
-			Messages:    messages,
-			Hash:        sighash})
-	}
-	{ // Sign plain text response
-		add("SignDataResponse - approve", "Response to SignDataRequest",
-			&core.SignDataResponse{Approved: true})
-		add("SignDataResponse - deny", "Response to SignDataRequest",
-			&core.SignDataResponse{})
-	}
-	{ // Sign transaction request
-		desc := "SignTxRequest contains information about a pending request to sign a transaction. " +
-			"Aside from the transaction itself, there is also a `call_info`-struct. That struct contains " +
-			"messages of various types, that the user should be informed of." +
-			"\n\n" +
-			"As in any request, it's important to consider that the `meta` info also contains untrusted data." +
-			"\n\n" +
-			"The `transaction` (on input into clef) can have either `data` or `input` -- if both are set, " +
-			"they must be identical, otherwise an error is generated. " +
-			"However, TrueKeyService will always use `data` when passing this struct on (if TrueKeyService does otherwise, please file a ticket)"
-
-		data := hexutil.Bytes([]byte{0x01, 0x02, 0x03, 0x04})
-		add("SignTxRequest", desc, &core.SignTxRequest{
-			Meta: meta,
-			Callinfo: []core.ValidationInfo{
-				{Typ: "Warning", Message: "Something looks odd, show this message as a warning"},
-				{Typ: "Info", Message: "User should see this as well"},
-			},
-			Transaction: core.SendTxArgs{
-				Data:     &data,
-				Nonce:    0x1,
-				Value:    hexutil.Big(*big.NewInt(6)),
-				From:     common.NewMixedcaseAddress(a),
-				To:       nil,
-				GasPrice: hexutil.Big(*big.NewInt(5)),
-				Gas:      1000,
-				Input:    nil,
-			}})
-	}
-	{ // Sign tx response
-		data := hexutil.Bytes([]byte{0x04, 0x03, 0x02, 0x01})
-		add("SignTxResponse - approve", "Response to request to sign a transaction. This response needs to contain the `transaction`"+
-			", because the UI is free to make modifications to the transaction.",
-			&core.SignTxResponse{Approved: true,
-				Transaction: core.SendTxArgs{
-					Data:     &data,
-					Nonce:    0x4,
-					Value:    hexutil.Big(*big.NewInt(6)),
-					From:     common.NewMixedcaseAddress(a),
-					To:       nil,
-					GasPrice: hexutil.Big(*big.NewInt(5)),
-					Gas:      1000,
-					Input:    nil,
-				}})
-		add("SignTxResponse - deny", "Response to SignTxRequest. When denying a request, there's no need to "+
-			"provide the transaction in return",
-			&core.SignTxResponse{})
-	}
-	{ // WHen a signed tx is ready to go out
-		desc := "SignTransactionResult is used in the call `clef` -> `OnApprovedTx(result)`" +
-			"\n\n" +
-			"This occurs _after_ successful completion of the entire signing procedure, but right before the signed " +
-			"transaction is passed to the external caller. This method (and data) can be used by the UI to signal " +
-			"to the user that the transaction was signed, but it is primarily useful for ruleset implementations." +
-			"\n\n" +
-			"A ruleset that implements a rate limitation needs to know what transactions are sent out to the external " +
-			"interface. By hooking into this methods, the ruleset can maintain track of that count." +
-			"\n\n" +
-			"**OBS:** Note that if an attacker can restore your `clef` data to a previous point in time" +
-			" (e.g through a backup), the attacker can reset such windows, even if he/she is unable to decrypt the content. " +
-			"\n\n" +
-			"The `OnApproved` method cannot be responded to, it's purely informative"
-
-		rlpdata := common.FromHex("0xf85d640101948a8eafb1cf62bfbeb1741769dae1a9dd47996192018026a0716bd90515acb1e68e5ac5867aa11a1e65399c3349d479f5fb698554ebc6f293a04e8a4ebfff434e971e0ef12c5bf3a881b06fd04fc3f8b8a7291fb67a26a1d4ed")
-		var tx types.Transaction
-		rlp.DecodeBytes(rlpdata, &tx)
-		add("OnApproved - SignTransactionResult", desc, &trueapi.SignTransactionResult{Raw: rlpdata, Tx: &tx})
-
-	}
-	{ // User input
-		add("UserInputRequest", "Sent when clef needs the user to provide data. If 'password' is true, the input field should be treated accordingly (echo-free)",
-			&core.UserInputRequest{IsPassword: true, Title: "The title here", Prompt: "The question to ask the user"})
-		add("UserInputResponse", "Response to UserInputRequest",
-			&core.UserInputResponse{Text: "The textual response from user"})
-	}
-	{ // List request
-		add("ListRequest", "Sent when a request has been made to list addresses. The UI is provided with the "+
-			"full `account`s, including local directory names. Note: this information is not passed back to the external caller, "+
-			"who only sees the `address`es. ",
-			&core.ListRequest{
-				Meta: meta,
-				Accounts: []accounts.Account{
-					{Address: a, URL: accounts.URL{Scheme: "keystore", Path: "/path/to/keyfile/a"}},
-					{Address: b, URL: accounts.URL{Scheme: "keystore", Path: "/path/to/keyfile/b"}}},
-			})
-
-		add("ListResponse", "Response to list request. The response contains a list of all addresses to show to the caller. "+
-			"Note: the UI is free to respond with any address the caller, regardless of whether it exists or not",
-			&core.ListResponse{
-				Accounts: []accounts.Account{
-					{
-						Address: common.HexToAddress("0xcowbeef000000cowbeef00000000000000000c0w"),
-						URL:     accounts.URL{Path: ".. ignored .."},
-					},
-					{
-						Address: common.HexToAddress("0xffffffffffffffffffffffffffffffffffffffff"),
-					},
-				}})
-	}
-
-	fmt.Println(`## UI Client interface
-
-These data types are defined in the channel between clef and the UI`)
-	for _, elem := range output {
-		fmt.Println(elem)
-	}
 }
