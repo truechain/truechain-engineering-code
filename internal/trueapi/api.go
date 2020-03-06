@@ -699,13 +699,19 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 	return nil, err
 }
 
-func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(ctx context.Context,
-	fastNumber rpc.BlockNumber) *types.BalanceChange {
-	return s.b.GetStateChangeByFastNumber(ctx, fastNumber)
+func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BalanceChangeContent {
+	var addrWithBalance = make(map[common.Address]*big.Int)
+	info := s.b.GetStateChangeByFastNumber(fastNumber)
+	if info == nil || info.Balance == nil || len(info.Balance) == 0 {
+		return &types.BalanceChangeContent{addrWithBalance}
+	}
+	for _, balanceInfo := range info.Balance {
+		addrWithBalance[balanceInfo.Address] = balanceInfo.Amount
+	}
+	return &types.BalanceChangeContent{addrWithBalance}
 }
 
-func (s *PublicBlockChainAPI) GetBalanceChangeBySnailNumber(ctx context.Context,
-	snailNumber rpc.BlockNumber) *types.BalanceChange {
+func (s *PublicBlockChainAPI) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
 	return s.b.GetBalanceChangeBySnailNumber(snailNumber)
 }
 
@@ -1231,22 +1237,8 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 	}*/
 	return fields
 }
-func (s *PublicBlockChainAPI) GetRecentChainRewardContent(blockNr rpc.BlockNumber) map[string]interface{} {
-	content := s.b.GetRecentChainRewardContent(blockNr)
-	if content == nil {
-		return nil
-	}
-	fields := map[string]interface{}{
-		"time":             hexutil.Uint64(content.St),
-		"Number":           hexutil.Uint64(content.Number),
-		"foundationReward": content.Reward.Foundation,
-		"blockminer":       content.Reward.CoinBase,
-		"fruitminer":       content.Reward.FruitBase,
-		"committeReward":   content.Reward.CommitteeBase,
-	}
-	return fields
-}
-func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber,addr common.Address) map[string]interface{} {
+
+func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, addr common.Address) map[string]interface{} {
 	content := s.b.GetChainRewardContent(blockNr)
 	if content == nil {
 		return nil
@@ -1255,6 +1247,7 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber,addr
 	if bytes.Equal(addr.Bytes(), empty.Bytes()) {
 		fields := map[string]interface{}{
 			"Number":           hexutil.Uint64(blockNr),
+			"time":             hexutil.Uint64(content.St),
 			"foundationReward": content.Foundation,
 			"blockminer":       content.CoinBase,
 			"fruitminer":       content.FruitBase,
@@ -1262,11 +1255,12 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber,addr
 		}
 		return fields
 	} else {
-		for _,val := range content.CommitteeBase {
+		for _, val := range content.CommitteeBase {
 			if len(val.Items) > 0 && bytes.Equal(val.Items[0].Address.Bytes(), addr.Bytes()) {
 				fields := map[string]interface{}{
-					"Number":           hexutil.Uint64(blockNr),
-					"stakingReward":   	val.Items,
+					"Number":        hexutil.Uint64(blockNr),
+					"time":          hexutil.Uint64(content.St),
+					"stakingReward": val.Items,
 				}
 				return fields
 			}

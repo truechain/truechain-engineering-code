@@ -19,13 +19,11 @@ package etrue
 import (
 	"context"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
-	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
@@ -244,33 +242,19 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 func (b *TrueAPIBackend) GetSnailRewardContent(snailNumber rpc.BlockNumber) *types.SnailRewardContenet {
 	return b.etrue.agent.GetSnailRewardContent(uint64(snailNumber))
 }
-func (b *TrueAPIBackend) GetRecentChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward {
-	snailHeight := uint64(blockNr)
-	return consensus.CR.GetChainReward(snailHeight)
-}
+
 func (b *TrueAPIBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
 	sheight := uint64(blockNr)
-	return b.etrue.snailblockchain.GetRewardInfos(sheight)
+	return b.etrue.blockchain.GetRewardInfos(sheight)
 }
 
-// GetCommittee returns the Committee info by committee number
-
-func (b *TrueAPIBackend) GetStateChangeByFastNumber(ctx context.Context,
-	fastNumber rpc.BlockNumber) *types.BalanceChange {
-	fmt.Println("go into fastNumber")
-	header, err := b.HeaderByNumber(ctx, fastNumber)
-	if header == nil || err != nil {
-		return nil
-	}
-	stateDb, err := b.etrue.BlockChain().StateAt(header.Root)
-	//var addrWithBalance = stateDb.Balances() //map[common.Address]*big.Int
-	var addrWithBalance = stateDb.Balances() //map[common.Address]*big.Int
-	return &types.BalanceChange{addrWithBalance}
+// GetStateChangeByFastNumber returns the Committee info by committee number
+func (b *TrueAPIBackend) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BlockBalance {
+	return b.etrue.blockchain.GetBalanceInfos(uint64(fastNumber))
 }
 
-func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
-	snailNumber rpc.BlockNumber) *types.BalanceChange {
-	fmt.Println("go into snailumber")
+func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
+	fmt.Println("go into GetBalanceChangeBySnailNumber")
 	var sBlock = b.etrue.SnailBlockChain().GetBlockByNumber(uint64(snailNumber))
 	state, _ := b.etrue.BlockChain().State()
 	var (
@@ -298,13 +282,12 @@ func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(
 			}
 		}
 	}
-	log.Error("committeeMembers info", "committeeAddrWithBalance.length", len(committeeAddrWithBalance))
 	for addr, balance := range committeeAddrWithBalance {
 		if addrWithBalance[addr] == nil {
 			addrWithBalance[addr] = balance
 		}
 	}
-	return &types.BalanceChange{addrWithBalance}
+	return &types.BalanceChangeContent{addrWithBalance}
 }
 
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {

@@ -70,6 +70,7 @@ const (
 	blockDeleteHeight = 500000
 	blockDeleteLimite = 10000
 	blockDeleteOnce   = 1000
+	balanceCacheLimit = 256
 )
 
 // CacheConfig contains the configuration values for the trie caching/pruning
@@ -124,14 +125,16 @@ type BlockChain struct {
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 	currentReward    atomic.Value // Current head of the currentReward
 
-	stateCache    state.Database // State database to reuse between imports (contains state cache)
-	bodyCache     *lru.Cache     // Cache for the most recent block bodies
-	signCache     *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache  *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
-	receiptsCache *lru.Cache     // Cache for the most recent receipts per block
-	blockCache    *lru.Cache     // Cache for the most recent entire blocks
-	futureBlocks  *lru.Cache     // future blocks are blocks added for later processing
-	rewardCache   *lru.Cache
+	stateCache       state.Database // State database to reuse between imports (contains state cache)
+	bodyCache        *lru.Cache     // Cache for the most recent block bodies
+	signCache        *lru.Cache     // Cache for the most recent block bodies
+	bodyRLPCache     *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
+	receiptsCache    *lru.Cache     // Cache for the most recent receipts per block
+	blockCache       *lru.Cache     // Cache for the most recent entire blocks
+	futureBlocks     *lru.Cache     // future blocks are blocks added for later processing
+	rewardCache      *lru.Cache
+	rewardinfoCache  *lru.Cache
+	balanceInfoCache *lru.Cache
 
 	quit    chan struct{} // blockchain quit channel
 	running int32         // running must be called atomically
@@ -174,25 +177,29 @@ func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 	badBlocks, _ := lru.New(badBlockLimit)
 	signCache, _ := lru.New(bodyCacheLimit)
 	rewardCache, _ := lru.New(bodyCacheLimit)
+	rewardinfoCache, _ := lru.New(50)
+	balanceInfoCache, _ := lru.New(balanceCacheLimit)
 
 	bc := &BlockChain{
-		chainConfig:   chainConfig,
-		cacheConfig:   cacheConfig,
-		db:            db,
-		triegc:        prque.New(nil),
-		stateCache:    state.NewDatabase(db),
-		quit:          make(chan struct{}),
-		bodyCache:     bodyCache,
-		signCache:     signCache,
-		bodyRLPCache:  bodyRLPCache,
-		receiptsCache: receiptsCache,
-		blockCache:    blockCache,
-		futureBlocks:  futureBlocks,
-		rewardCache:   rewardCache,
-		engine:        engine,
-		vmConfig:      vmConfig,
-		badBlocks:     badBlocks,
-		isFallback:    false,
+		chainConfig:      chainConfig,
+		cacheConfig:      cacheConfig,
+		db:               db,
+		triegc:           prque.New(nil),
+		stateCache:       state.NewDatabase(db),
+		quit:             make(chan struct{}),
+		bodyCache:        bodyCache,
+		signCache:        signCache,
+		bodyRLPCache:     bodyRLPCache,
+		receiptsCache:    receiptsCache,
+		blockCache:       blockCache,
+		futureBlocks:     futureBlocks,
+		rewardCache:      rewardCache,
+		rewardinfoCache:  rewardinfoCache,
+		balanceInfoCache: balanceInfoCache,
+		engine:           engine,
+		vmConfig:         vmConfig,
+		badBlocks:        badBlocks,
+		isFallback:       false,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -362,6 +369,8 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.futureBlocks.Purge()
 	bc.signCache.Purge()
 	bc.rewardCache.Purge()
+	bc.rewardinfoCache.Purge()
+	bc.balanceInfoCache.Purge()
 
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
 		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
@@ -1070,20 +1079,27 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		rawdb.WriteHeadRewardNumber(bc.db, block.SnailNumber().Uint64())
 
 		bc.currentReward.Store(br)
-
 	}
+
 	root, err := state.Commit(true)
 	if err != nil {
 		return NonStatTy, err
 	}
 	triedb := bc.stateCache.TrieDB()
 
+	balanceC := &types.BlockBalance{Balance: types.ToBalanceInfos(state.BalancesChange())}
 	// If we're running an archive node, always flush
 	if bc.cacheConfig.Disabled {
+		// write balance change to lvdb
+		rawdb.WriteBalanceInfo(bc.db, block.Number().Uint64(), balanceC)
+
 		if err := triedb.Commit(root, false); err != nil {
 			return NonStatTy, err
 		}
 	} else {
+		// write balance change to memory
+		bc.balanceInfoCache.Add(block.Number().Uint64(), balanceC)
+
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -int64(block.NumberU64()))
@@ -1305,7 +1321,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		}
 		// Process block using the parent state as reference point.
 		t0 := time.Now()
-		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
+		receipts, logs, usedGas, infos, err := bc.processor.Process(block, state, bc.vmConfig)
 		t1 := time.Now()
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1326,6 +1342,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 			return it.index, events, coalescedLogs, err
 		}
 		bc.engine.FinalizeCommittee(block)
+		if infos != nil {
+			bc.WriteRewardInfos(infos)
+		}
 		blockInsertTimer.UpdateSince(start)
 		blockExecutionTimer.Update(t1.Sub(t0))
 		blockValidationTimer.Update(t2.Sub(t1))
@@ -1847,4 +1866,42 @@ func (bc *BlockChain) SetCommitteeInfo(hash common.Hash, number uint64, infos []
 // block processing has started while false means it has stopped.
 func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
+}
+func (bc *BlockChain) GetRewardInfos(number uint64) *types.ChainReward {
+	// Short circuit if the td's already in the cache, retrieve otherwise
+	if cached, ok := bc.rewardinfoCache.Get(number); ok {
+		return cached.(*types.ChainReward)
+	}
+	infos := rawdb.ReadRewardInfo(bc.db, number)
+	if infos == nil {
+		return nil
+	}
+	// Cache the found body for next time and return
+	bc.rewardinfoCache.Add(number, infos)
+	return infos
+}
+func (bc *BlockChain) WriteRewardInfos(infos *types.ChainReward) error {
+	number := infos.Height
+	rawdb.WriteRewardInfo(bc.db, number, infos)
+	return nil
+}
+
+func (bc *BlockChain) GetBalanceInfos(number uint64) *types.BlockBalance {
+	// Short circuit if the td's already in the cache, retrieve otherwise
+	cached, ok := bc.balanceInfoCache.Get(number)
+	if ok {
+		return cached.(*types.BlockBalance)
+	}
+
+	if bc.cacheConfig.Disabled {
+		infos := rawdb.ReadBalanceInfo(bc.db, number)
+		if infos == nil {
+			return nil
+		}
+		// Cache the found body for next time and return
+		bc.balanceInfoCache.Add(number, infos)
+		return infos
+	}
+
+	return nil
 }

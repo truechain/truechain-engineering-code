@@ -217,20 +217,18 @@ func (b *LesApiBackend) GetCurrentCommitteeNumber() *big.Int {
 	return nil
 }
 
-func (b *LesApiBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChange {
+func (b *LesApiBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
 	return nil
 }
 
-func (b *LesApiBackend) GetStateChangeByFastNumber(ctx context.Context, fastNumber rpc.BlockNumber) *types.BalanceChange {
+func (b *LesApiBackend) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BlockBalance {
 	return nil
 }
 
 func (b *LesApiBackend) GetSnailRewardContent(number rpc.BlockNumber) *types.SnailRewardContenet {
 	return nil
 }
-func (b *LesApiBackend) GetRecentChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward {
-	return nil
-}
+
 func (b *LesApiBackend) GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward {
 	return nil
 }

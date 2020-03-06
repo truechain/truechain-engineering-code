@@ -139,8 +139,8 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainReader, header *types.Header, state *state.StateDB,
-		txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error)
+	Finalize(chain ChainReader, header *types.Header, state *state.StateDB,txs []*types.Transaction,
+		 receipts []*types.Receipt, feeAmount *big.Int) (*types.Block,*types.ChainReward, error)
 	FinalizeSnail(chain SnailChainReader, header *types.SnailHeader,
 		uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error)
 

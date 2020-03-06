@@ -217,7 +217,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		if b.engine != nil {
-			block, err := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, b.feeAmout)
+			block,_, err := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, b.feeAmout)
 			if err != nil {
 				fmt.Println(" err ", err.Error())
 			}
@@ -269,7 +269,7 @@ func GenerateChainWithReward(config *params.ChainConfig, parent *types.Block, re
 		}
 
 		if b.engine != nil {
-			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, new(big.Int))
+			block,_, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, new(big.Int))
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
 			block.SetSign(sign)

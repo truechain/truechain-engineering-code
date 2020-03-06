@@ -30,7 +30,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"github.com/wanchain/go-wanchain/swarm/services/swap/swap"
 	"io/ioutil"
 	"math/big"
 	"os"

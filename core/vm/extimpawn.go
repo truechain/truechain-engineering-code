@@ -3,15 +3,13 @@ package vm
 import (
 	"encoding/json"
 	"errors"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"io"
 	"math/big"
-	"strconv"
-
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 // "external" ImpawnImpl encoding. used for pos staking.
@@ -342,7 +340,6 @@ func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address)
 	if sa == nil {
 		return nil
 	}
-	attr["id"] = i
 	attr["unit"] = unitDisplay(sa.Unit)
 	attr["votePubKey"] = hexutil.Bytes(sa.Votepubkey)
 	attr["fee"] = sa.Fee.Uint64()
@@ -376,15 +373,15 @@ func isCommitteeMember(i *ImpawnImpl, address common.Address) bool {
 	return true
 }
 
-func daSDisplay(das []*DelegationAccount, height uint64) map[string]interface{} {
-	attrs := make(map[string]interface{}, len(das))
-	for i, da := range das {
+func daSDisplay(das []*DelegationAccount, height uint64) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for _, da := range das {
 		attr := make(map[string]interface{})
 		attr["saAddress"] = da.SaAddress
 		attr["delegate"] = weiToTrue(da.getAllStaking(height))
 		attr["validDelegate"] = weiToTrue(da.getValidStaking(height))
 		attr["unit"] = unitDisplay(da.Unit)
-		attrs[strconv.Itoa(i)] = attr
+		attrs = append(attrs, attr)
 	}
 	return attrs
 }
@@ -397,26 +394,26 @@ func unitDisplay(uint *impawnUnit) map[string]interface{} {
 	return attr
 }
 
-func pvSDisplay(pvs []*PairstakingValue) map[string]interface{} {
-	attrs := make(map[string]interface{}, len(pvs))
-	for i, pv := range pvs {
+func pvSDisplay(pvs []*PairstakingValue) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for _, pv := range pvs {
 		attr := make(map[string]interface{})
 		attr["amount"] = weiToTrue(pv.Amount)
 		attr["height"] = pv.Height
 		attr["state"] = uint64(pv.State)
-		attrs[strconv.Itoa(i)] = attr
+		attrs = append(attrs, attr)
 	}
 	return attrs
 }
 
-func riSDisplay(ris []*RedeemItem) map[string]interface{} {
-	attrs := make(map[string]interface{}, len(ris))
-	for i, ri := range ris {
+func riSDisplay(ris []*RedeemItem) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for _, ri := range ris {
 		attr := make(map[string]interface{})
 		attr["amount"] = weiToTrue(ri.Amount)
 		attr["epochID"] = ri.EpochID
 		attr["state"] = uint64(ri.State)
-		attrs[strconv.Itoa(i)] = attr
+		attrs = append(attrs, attr)
 	}
 	return attrs
 }
@@ -445,8 +442,11 @@ func stakingValueDisplay(sv *types.StakingValue) []*StakingValue {
 	return attrs
 }
 
+var (
+	baseUnit  = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	fbaseUnit = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
+)
+
 func weiToTrue(val *big.Int) string {
-	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	fbaseUnit := new(big.Float).SetFloat64(float64(baseUnit.Int64()))
-	return new(big.Float).Quo(new(big.Float).SetInt(val), fbaseUnit).String()
+	return new(big.Float).Quo(new(big.Float).SetInt(val), fbaseUnit).Text('f', 8)
 }

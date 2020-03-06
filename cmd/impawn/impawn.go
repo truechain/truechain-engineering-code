@@ -93,6 +93,13 @@ func getPubKey(ctx *cli.Context, conn *etrueclient.Client) (string, []byte, erro
 
 	if ctx.GlobalIsSet(PubKeyKeyFlag.Name) {
 		pubkey = ctx.GlobalString(PubKeyKeyFlag.Name)
+	} else if ctx.GlobalIsSet(BFTKeyKeyFlag.Name) {
+		bftKey, err := crypto.HexToECDSA(ctx.GlobalString(BFTKeyKeyFlag.Name))
+		if err != nil {
+			printError("bft key error", err)
+		}
+		pk := crypto.FromECDSAPub(&bftKey.PublicKey)
+		pubkey = common.Bytes2Hex(pk)
 	} else {
 		pubkey, err = conn.Pubkey(context.Background())
 		if err != nil {
@@ -316,8 +323,8 @@ func PrintBalance(conn *etrueclient.Client, from common.Address) {
 	fbalance.SetString(balance.String())
 	trueValue := new(big.Float).Quo(fbalance, big.NewFloat(math.Pow10(18)))
 
-	sbalance, err := conn.BalanceAt(context.Background(), types.StakingAddress, nil)
-	fmt.Println("Your wallet balance is ", trueValue, "'true ", " current Total Stake ", types.ToTrue(sbalance))
+	sbalance, err := conn.LockBalanceAt(context.Background(), from, nil)
+	fmt.Println("Your wallet valid balance is ", trueValue, "'true ", " lock balance is ", types.ToTrue(sbalance), "'true ")
 }
 
 func loadPrivate(ctx *cli.Context) {
@@ -402,11 +409,9 @@ func queryRewardInfo(conn *etrueclient.Client, number uint64, start bool) {
 	if err != nil {
 		printError("get chain reward content error", err)
 	}
-	if v, ok := crc["stakingReward"]; ok {
-		if v, ok := v.([]*types.RewardInfo); ok {
-			for _, v := range v {
-				fmt.Println("Reward value", v.Amount, "wei", weiToTrue(v.Amount), "true address ", v.Address)
-			}
+	if info, ok := crc["stakingReward"]; ok {
+		if info, ok := info.([]interface{}); ok {
+			fmt.Println("queryRewardInfo", info)
 		}
 	}
 }

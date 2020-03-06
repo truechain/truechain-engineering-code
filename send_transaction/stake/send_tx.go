@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code"
+	truechain "github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
@@ -55,6 +55,8 @@ var (
 	delegateTx    map[common.Address]common.Hash
 	delegateSu    map[common.Address]bool
 	delegateFail  map[common.Address]bool
+	withdrawTx    map[common.Address]*withdraw
+	withdrawFail  map[common.Address]bool
 	deleValue     = new(big.Int).SetInt64(0)
 	sendValue     = new(big.Int).SetInt64(0)
 	deleEValue    = new(big.Int).SetInt64(0)
@@ -69,10 +71,12 @@ var (
 	keyAccounts   KeyAccount
 	startDelegate bool
 	startCancel   bool
+	startWithdraw bool
 	load          bool
 	gas           = new(big.Int).Exp(big.NewInt(10), big.NewInt(9), nil)
 	mixDelegate   = new(big.Int).Mul(big.NewInt(5000000), gas)
 	minValue      = new(big.Int).Mul(big.NewInt(4000000), gas)
+	gasPrice      *big.Int
 )
 
 const (
@@ -80,6 +84,11 @@ const (
 	datadirDefaultKeyStore = "keystore"
 	defaultKeyAccount      = "accounts"
 )
+
+type withdraw struct {
+	txhash common.Hash
+	value  *big.Int
+}
 
 func impawn(ctx *cli.Context) error {
 
@@ -100,6 +109,13 @@ func impawn(ctx *cli.Context) error {
 		delegateTx = make(map[common.Address]common.Hash)
 		delegateSu = make(map[common.Address]bool)
 		delegateFail = make(map[common.Address]bool)
+		withdrawTx = make(map[common.Address]*withdraw)
+		withdrawFail = make(map[common.Address]bool)
+		var err error
+		gasPrice, err = conn.SuggestGasPrice(context.Background())
+		if err != nil {
+			log.Fatal(err)
+		}
 		redistributionDelegate(conn)
 		fmt.Println("cancel height ", types.GetEpochFromID(epoch+1).BeginHeight, " withdraw height ", types.MinCalcRedeemHeight(epoch+1), "first", firstNumber)
 		first = true
@@ -111,6 +127,12 @@ func impawn(ctx *cli.Context) error {
 	if ctx.GlobalIsSet(CancelFlag.Name) {
 		if ctx.GlobalBool(CancelFlag.Name) {
 			initCancelContext()
+		}
+	}
+
+	if ctx.GlobalIsSet(WithdrawFlag.Name) {
+		if ctx.GlobalBool(WithdrawFlag.Name) {
+			initWithdrawContext()
 		}
 	}
 
@@ -139,18 +161,13 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 	}
 	nonceEpoch = 0
 	fmt.Println("number", number, "diff", diff, "send", "nonce", nonce, "tx", len(delegateTx), "su", len(delegateSu), "fail", len(delegateFail))
-	value := trueToWei(ctx, false)
-	if diff == 1 {
-		deposit(ctx, conn, value)
-	}
-	if number == types.GetEpochFromID(epoch+1).BeginHeight {
-		cancel(conn, value)
-	}
-	if number == types.MinCalcRedeemHeight(epoch+1) {
-		withdrawImpawn(conn, value)
-	}
 
 	if startDelegate {
+		if diff == 1 {
+			value := trueToWei(ctx, false)
+			deposit(ctx, conn, value)
+		}
+
 		if len(keyAccounts) >= delegateToal {
 			startDelegateTx(conn, diff, number, true)
 			if diff >= uint64(delegateToal) {
@@ -167,11 +184,18 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 			loadKeyAccounts()
 		}
 
+		if diff == uint64(1) {
+			value, _ := queryStakingInfo(conn, false, false)
+			if weiToTrue(new(big.Int).SetUint64(value)) >= 1 {
+				cancel(conn, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
+			}
+		}
+
 		for i := 0; i < len(delegateAddr); i++ {
 			addr := delegateAddr[i]
 			key := delegateKey[i]
 			if diff == uint64(i) {
-				value := queryDelegateInfo(conn, addr)
+				value, _ := queryDelegateInfo(conn, addr)
 				if value > 0 {
 					if !ctx.GlobalBool(OverFlag.Name) {
 						value = value - 10000
@@ -187,6 +211,54 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 				os.Exit(0)
 			}
 		}
+	}
+
+	if startWithdraw {
+		if load {
+			loadKeyAccounts()
+		}
+
+		if diff == uint64(1) {
+			_, value := queryStakingInfo(conn, false, false)
+			if value > 0 {
+				txhash, err := withdrawImpawn(conn, new(big.Int).SetUint64(value))
+				w := withdraw{}
+				w.value = new(big.Int).Add(new(big.Int).SetUint64(value), getBalance(conn, from))
+				w.txhash = txhash
+				if err != nil {
+					fmt.Println("withdraw error ", err)
+				} else {
+					fmt.Println("impawn withdraw value ", value, " addr ", from.String(), "tx", txhash.String())
+					withdrawTx[from] = &w
+				}
+			}
+		}
+
+		for i := 0; i < len(delegateAddr); i++ {
+			addr := delegateAddr[i]
+			key := delegateKey[i]
+
+			if diff == uint64(i) {
+				_, value := queryDelegateInfo(conn, addr)
+				if value > 0 {
+					txhash, err := withdrawDImpawn(conn, new(big.Int).SetUint64(value), addr, key)
+					w := withdraw{}
+					w.value = new(big.Int).Add(new(big.Int).SetUint64(value), getBalance(conn, addr))
+					w.txhash = txhash
+					if err != nil {
+						fmt.Println("withdraw error ", err)
+					} else {
+						fmt.Println("withdraw value ", value, " addr ", addr.String(), "tx", txhash.String())
+						withdrawTx[addr] = &w
+					}
+				}
+			}
+			if loopCount == uint64(len(delegateAddr)) {
+				fmt.Println("Tx send Over.")
+				os.Exit(0)
+			}
+		}
+
 	}
 
 	if len(delegateSu) == delegateNum && len(keyAccounts) < delegateToal {
@@ -213,6 +285,18 @@ func initCancelContext() {
 	load = true
 	startDelegate = false
 	startCancel = true
+}
+
+func initWithdrawContext() {
+	loopCount = 0
+	for k, _ := range delegateSu {
+		delete(delegateSu, k)
+	}
+	load = true
+	startDelegate = false
+	startCancel = false
+
+	startWithdraw = true
 }
 
 func loadKeyAccounts() {
@@ -345,16 +429,12 @@ func getPubKey(ctx *cli.Context, conn *etrueclient.Client) (string, []byte, erro
 	return pubkey, pk, err
 }
 
-func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte, method string) common.Hash {
+func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte, method string) (common.Hash, error) {
 	blockMutex.Lock()
 	defer blockMutex.Unlock()
 	nonceOther, _ := client.PendingNonceAt(context.Background(), f)
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	gasLimit := uint64(1625280) // in units
+	gasLimit := uint64(1825280) // in units
 
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonceOther, toAddress, value, gasLimit, gasPrice, input)
@@ -366,20 +446,26 @@ func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress commo
 
 	err = client.SendTransaction(context.Background(), signedTx)
 	fmt.Println("TX other data nonce ", nonceOther, " method ", method, " transfer value ", value, " gasPrice ", gasPrice, " gasLimit ", gasLimit, "err", err, " from ", f.Hex())
-	return signedTx.Hash()
+	return signedTx.Hash(), err
 }
 
 func sendContractTransaction(client *etrueclient.Client, from, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte, method string) (common.Hash, error) {
 	blockMutex.Lock()
 	defer blockMutex.Unlock()
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	gasLimit := uint64(2100000) // in units
 	if types.StakingAddress == toAddress {
-		gasLimit = 2440000
+		if strings.Contains("withdrawImpawn", method) {
+			// If the contract surely has code (or code is not needed), estimate the transaction
+			msg := truechain.CallMsg{From: from, To: &toAddress, GasPrice: gasPrice, Value: value, Data: input}
+			limit, err := client.EstimateGas(context.Background(), msg)
+			if err != nil {
+				fmt.Println("withdrawImpawn err ", err)
+			}
+			gasLimit = limit
+		} else {
+			gasLimit = 2440000
+		}
 	}
 	// Create the transaction, sign it and schedule it for execution
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, input)
@@ -533,6 +619,30 @@ func querySendTx(conn *etrueclient.Client) {
 			}
 		}
 	}
+	for addr, v := range withdrawTx {
+		_, isPending, err := conn.TransactionByHash(context.Background(), v.txhash)
+		if err != nil {
+			delete(withdrawTx, addr)
+			continue
+		}
+		if !isPending {
+			if queryTx(conn, v.txhash, false, false, false) {
+				receipt, err := conn.TransactionReceipt(context.Background(), v.txhash)
+				if err != nil {
+					log.Fatal(err)
+				}
+				gas := receipt.GasUsed * gasPrice.Uint64()
+				value := getBalance(conn, addr)
+				sub := value.Cmp(new(big.Int).Sub(v.value, new(big.Int).SetUint64(gas)))
+				if sub == 0 {
+					fmt.Println("Withdraw balance correct", "gas", gas)
+				} else {
+					fmt.Println("Withdraw balance error !!!!!!!!!!!!!!!!!", sub, " ", new(big.Int).Sub(v.value, value), " gas ", gas)
+				}
+				delete(withdrawTx, addr)
+			}
+		}
+	}
 }
 
 func queryTx(conn *etrueclient.Client, txHash common.Hash, contract bool, pending bool, delegate bool) bool {
@@ -655,7 +765,7 @@ func loadSigningKey(keyfile string) common.Address {
 	return from
 }
 
-func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
+func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) (uint64, uint64) {
 	header, err := conn.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
@@ -699,12 +809,14 @@ func queryStakingInfo(conn *etrueclient.Client, query bool, delegate bool) {
 				}
 			}
 		}
+		return args.Staked.Uint64(), args.Unlocked.Uint64()
 	} else {
 		fmt.Println("Contract query failed result len == 0")
 	}
+	return 0, 0
 }
 
-func queryDelegateInfo(conn *etrueclient.Client, daAddress common.Address) uint64 {
+func queryDelegateInfo(conn *etrueclient.Client, daAddress common.Address) (uint64, uint64) {
 	header, err := conn.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
@@ -728,11 +840,11 @@ func queryDelegateInfo(conn *etrueclient.Client, daAddress common.Address) uint6
 		fmt.Println("Staked ", args.Delegated.String(), "wei =", weiToTrue(args.Delegated), "true Locked ",
 			args.Locked.String(), " wei =", weiToTrue(args.Locked), "true",
 			"Unlocked ", args.Unlocked.String(), " wei =", weiToTrue(args.Unlocked), "true")
-		return args.Delegated.Uint64()
+		return args.Delegated.Uint64(), args.Unlocked.Uint64()
 	} else {
 		fmt.Println("Contract query failed result len == 0")
 	}
-	return 0
+	return 0, 0
 }
 
 func printTest(a ...interface{}) {

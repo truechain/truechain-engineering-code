@@ -491,6 +491,14 @@ func (ec *Client) BalanceAt(ctx context.Context, account common.Address, blockNu
 	return (*big.Int)(&result), err
 }
 
+// LockBalanceAt returns the wei balance of the given account.
+// The block number can be nil, in which case the balance is taken from the latest known block.
+func (ec *Client) LockBalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
+	var result hexutil.Big
+	err := ec.c.CallContext(ctx, &result, "etrue_getLockBalance", account, toBlockNumArg(blockNumber))
+	return (*big.Int)(&result), err
+}
+
 // GetBalanceAtBlockNumber returns the wei balance of the given account.
 // The block number can be nil, in which case the balance is taken from the latest known block.
 func (ec *Client) GetBalanceAtBlockNumber(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {

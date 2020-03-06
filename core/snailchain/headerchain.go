@@ -60,7 +60,6 @@ type HeaderChain struct {
 	headerCache *lru.Cache // Cache for the most recent block headers
 	tdCache     *lru.Cache // Cache for the most recent block total difficulties
 	numberCache *lru.Cache // Cache for the most recent block numbers
-	rewardinfoCache *lru.Cache // Cache for the most recent rewardinfos
 
 	procInterrupt func() bool
 
@@ -76,7 +75,6 @@ func NewHeaderChain(chainDb etruedb.Database, config *params.ChainConfig, engine
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
-	rewardinfoCache,_ :=  lru.New(10)
 
 	// Seed a fast but crypto originating random generator
 	seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
@@ -89,7 +87,6 @@ func NewHeaderChain(chainDb etruedb.Database, config *params.ChainConfig, engine
 		chainDb:       chainDb,
 		headerCache:   headerCache,
 		tdCache:       tdCache,
-		rewardinfoCache: rewardinfoCache,	
 		numberCache:   numberCache,
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
@@ -443,25 +440,6 @@ func (hc *HeaderChain) WriteTd(hash common.Hash, number uint64, td *big.Int) err
 	return nil
 }
 
-func (hc *HeaderChain) GetRewardInfos(number uint64) *types.ChainReward {
-	// Short circuit if the td's already in the cache, retrieve otherwise
-	if cached, ok := hc.rewardinfoCache.Get(number); ok {
-		return cached.(*types.ChainReward)
-	}
-	infos := rawdb.ReadRewardInfo(hc.chainDb, number)
-	if infos == nil {
-		return nil
-	}
-	// Cache the found body for next time and return
-	hc.rewardinfoCache.Add(number, infos)
-	return infos
-}
-func (hc *HeaderChain) WriteRewardInfos(number uint64, infos *types.ChainReward) error {
-	rawdb.WriteRewardInfo(hc.chainDb, number, infos)
-	return nil
-}
-
-
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
 func (hc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.SnailHeader {
@@ -556,7 +534,6 @@ func (hc *HeaderChain) SetHead(head uint64, delFn DeleteCallback) {
 	hc.headerCache.Purge()
 	hc.tdCache.Purge()
 	hc.numberCache.Purge()
-	hc.rewardinfoCache.Purge()
 
 	if hc.CurrentHeader() == nil {
 		hc.currentHeader.Store(hc.genesisHeader)
