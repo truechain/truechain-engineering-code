@@ -682,12 +682,12 @@ func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr
 	return nil, err
 }
 
-func (s *PublicBlockChainAPI) GetSnailHashByNumber(ctx context.Context, blockNr rpc.BlockNumber) common.Hash {
+func (s *PublicBlockChainAPI) GetSnailHashByNumber(ctx context.Context, blockNr rpc.BlockNumber) string {
 	block, _ := s.b.SnailBlockByNumber(ctx, blockNr)
 	if block != nil {
-		return block.Hash()
+		return hexutil.Encode(block.Hash().Bytes())
 	}
-	return [32]byte{}
+	return ""
 }
 
 // GetSnailBlockByHash returns the requested snail block.
