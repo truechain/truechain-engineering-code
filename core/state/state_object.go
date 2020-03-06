@@ -402,3 +402,15 @@ func Compare(obj0 *Account, obj1 *Account) bool {
 		return true
 	}
 }
+
+func (self *stateObject) CopyAccount(other *stateObject) {
+	if self.data.Balance.Cmp(other.data.Balance) != 0 {
+		self.SetBalance(other.data.Balance)
+	}
+	if self.data.Nonce != other.data.Nonce {
+		self.SetNonce(other.data.Nonce)
+	}
+	if bytes.Compare(self.data.CodeHash, other.data.CodeHash) != 0 {
+		self.SetCode(common.BytesToHash(other.data.CodeHash), other.code)
+	}
+}

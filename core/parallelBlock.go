@@ -29,6 +29,7 @@ type ParallelBlock struct {
 	config               *params.ChainConfig
 	context              ChainContext
 	vmConfig             vm.Config
+	feeAmount            *big.Int
 }
 
 type TxWithOldGroup struct {
@@ -36,14 +37,20 @@ type TxWithOldGroup struct {
 	oldGroupId int
 }
 
-func NewParallelBlock(block *types.Block, statedb *state.StateDB, config *params.ChainConfig, bc ChainContext, cfg vm.Config) *ParallelBlock {
+func NewParallelBlock(block *types.Block, statedb *state.StateDB, config *params.ChainConfig, bc ChainContext, cfg vm.Config, feeAmount *big.Int) *ParallelBlock {
 	return &ParallelBlock{
-		block:        block,
-		transactions: block.Transactions(),
-		statedb:      statedb,
-		config:       config,
-		context:      bc,
-		vmConfig:     cfg}
+		block:               block,
+		transactions:        block.Transactions(),
+		executionGroups:     make(map[int]*ExecutionGroup),
+		trxHashToIndexMap:   make(map[common.Hash]int),
+		trxHashToMsgMap:     make(map[common.Hash]*types.Message),
+		trxHashToGroupIdMap: make(map[common.Hash]int),
+		statedb:             statedb,
+		config:              config,
+		context:             bc,
+		vmConfig:            cfg,
+		feeAmount:           feeAmount,
+	}
 }
 
 func (pb *ParallelBlock) group() {
@@ -302,11 +309,10 @@ func overlapped(set0 map[int]struct{}, set1 map[int]struct{}) bool {
 	return false
 }
 
-func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg sync.WaitGroup) {
+func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var (
-		usedGas   = new(uint64)
 		feeAmount = big.NewInt(0)
 		gp        = new(GasPool).AddGas(pb.block.GasLimit())
 		statedb   = group.statedb
@@ -318,16 +324,17 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg sync.WaitGroup) 
 		txHash := tx.Hash()
 		ti := pb.trxHashToIndexMap[txHash]
 		statedb.Prepare(txHash, pb.block.Hash(), ti)
-		receipt, trxUsedGas, err := ApplyTransaction(pb.config, pb.context, gp, statedb, pb.block.Header(), tx, usedGas, feeAmount, pb.vmConfig)
+		receipt, trxUsedGas, err := ApplyTransaction(pb.config, pb.context, gp, statedb, pb.block.Header(), tx, &group.usedGas, feeAmount, pb.vmConfig)
 		if err != nil {
 			group.err = err
-			group.trxHashToResultMap[txHash] = NewTrxResult(nil, nil, statedb.GetTouchedAddress(), trxUsedGas)
+			group.trxHashToResultMap[txHash] = NewTrxResult(nil, nil, statedb.GetTouchedAddress(), trxUsedGas, feeAmount)
 			group.startTrxIndex = -1
 			return
 		}
-		group.trxHashToResultMap[txHash] = NewTrxResult(receipt, receipt.Logs, statedb.GetTouchedAddress(), trxUsedGas)
+		group.trxHashToResultMap[txHash] = NewTrxResult(receipt, receipt.Logs, statedb.GetTouchedAddress(), trxUsedGas, feeAmount)
 	}
-	group.usedGas = *usedGas
+
+	group.feeAmount.Add(feeAmount, group.feeAmount)
 	group.startTrxIndex = -1
 }
 
@@ -337,7 +344,7 @@ func (pb *ParallelBlock) executeInParallel() {
 	for _, group := range pb.executionGroups {
 		if group.startTrxIndex != -1 {
 			wg.Add(1)
-			go pb.executeGroup(group, wg)
+			go pb.executeGroup(group, &wg)
 		}
 	}
 
@@ -384,6 +391,7 @@ func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, 
 			txIndex = group.errTxIndex
 		}
 		usedGas += group.usedGas
+		pb.feeAmount.Add(group.feeAmount, pb.feeAmount)
 
 		stateObjsToReuse := make(map[common.Address]*state.StateObjectToReuse)
 
@@ -409,6 +417,7 @@ func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, 
 		// merge statedb changes
 		pb.statedb.CopyStateObjFromOtherDB(group.statedb, stateObjsToReuse)
 	}
+	pb.statedb.Finalise(true)
 
 	associatedAddressMngr.UpdateAssociatedAddresses(associatedAddrs)
 

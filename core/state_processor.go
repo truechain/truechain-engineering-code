@@ -19,6 +19,7 @@ package core
 import (
 	//"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	//"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -57,13 +58,17 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // transactions failed to execute due to insufficient gas it will return an error.
 func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 
-	if false {
+	if block.Transactions().Len() != 0 {
+		log.Info("Process:", "block ", block.Number(), "txs count", block.Transactions().Len())
+	}
+
+	if true {
 		var (
 			feeAmount = big.NewInt(0)
 			header    = block.Header()
 		)
 
-		parallelBlock := NewParallelBlock(block, statedb, fp.config, fp.bc, cfg)
+		parallelBlock := NewParallelBlock(block, statedb, fp.config, fp.bc, cfg, feeAmount)
 		receipts, allLogs, usedGas, err := parallelBlock.Process()
 		if err != nil {
 			return nil, nil, 0, err
@@ -96,6 +101,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 			receipts = append(receipts, receipt)
 			allLogs = append(allLogs, receipt.Logs...)
 		}
+
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 		_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 		if err != nil {
