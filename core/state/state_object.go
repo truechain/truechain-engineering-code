@@ -411,6 +411,6 @@ func (self *stateObject) CopyAccount(other *stateObject) {
 		self.SetNonce(other.data.Nonce)
 	}
 	if bytes.Compare(self.data.CodeHash, other.data.CodeHash) != 0 {
-		self.SetCode(common.BytesToHash(other.data.CodeHash), other.code)
+		self.SetCode(common.BytesToHash(other.data.CodeHash), other.Code(other.db.db))
 	}
 }

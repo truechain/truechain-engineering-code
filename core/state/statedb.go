@@ -665,10 +665,13 @@ func (self *StateDB) Prepare(thash, bhash common.Hash, ti int) {
 	self.thash = thash
 	self.bhash = bhash
 	self.txIndex = ti
-	self.prepareAccountAndStorageRecords()
 	self.journal = newJournal()
 	self.journals[thash] = self.journal
 	self.touchedAddress = NewTouchedAddressObject()
+	self.lastAccountRec = make(map[common.Address]*Account)
+	self.currAccountRec = make(map[common.Address]*Account)
+	self.lastStorageRec = make(map[StorageAddress]common.Hash)
+	self.currStorageRec = make(map[StorageAddress]common.Hash)
 }
 
 func (s *StateDB) clearJournalAndRefund() {
@@ -803,6 +806,10 @@ func (s *StateDB) GetTouchedAddress() *TouchedAddressObject {
 }
 
 func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[common.Address]*StateObjectToReuse) {
+	if self == other {
+		return
+	}
+
 	for addr, stateObjAddr := range stateObjAddrs {
 		obj0 := self.getStateObject(addr)
 		obj1 := other.getStateObject(addr)

@@ -58,7 +58,11 @@ func (pb *ParallelBlock) group() {
 
 	for _, execGroup := range tmpExecutionGroupMap {
 		execGroup.SetId(pb.nextGroupId)
-		execGroup.SetStatedb(pb.statedb.Copy())
+		if len(tmpExecutionGroupMap) == 1 {
+			execGroup.SetStatedb(pb.statedb)
+		} else {
+			execGroup.SetStatedb(pb.statedb.Copy())
+		}
 		pb.executionGroups[pb.nextGroupId] = execGroup
 
 		for _, tx := range execGroup.transactions {
@@ -224,6 +228,10 @@ func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]st
 	addrGroupIdsMap := make(map[common.Address]map[int]struct{})
 	storageGroupIdsMap := make(map[state.StorageAddress]map[int]struct{})
 
+	if len(pb.executionGroups) == 1 {
+		return conflictGroups, conflictTxs
+	}
+
 	for _, trx := range pb.transactions {
 		var touchedAddressObj *state.TouchedAddressObject = nil
 		trxHash := trx.Hash()
@@ -285,16 +293,19 @@ func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]st
 	return conflictGroups, conflictTxs
 }
 
-func (pb *ParallelBlock) checkGas(txIndex int, receipts types.Receipts) error {
+func (pb *ParallelBlock) adujstCumulativeGas(txIndex int, receipts types.Receipts) error {
 	gp := new(GasPool).AddGas(pb.block.GasLimit())
 	txs := pb.block.Transactions()
+	cumulative := uint64(0)
 
-	for i := 0; i < txIndex; i++ {
+	for i := 0; i <= txIndex; i++ {
 		if err := gp.SubGas(txs[i].Gas()); err != nil {
 			return err
 		}
 
 		gp.AddGas(txs[i].Gas() - receipts[i].GasUsed)
+		cumulative += receipts[i].GasUsed
+		receipts[i].CumulativeGasUsed = cumulative
 	}
 
 	return nil
@@ -375,20 +386,22 @@ func (pb *ParallelBlock) prepare() error {
 	return nil
 }
 
-func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, error, int) {
+func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		err             error
-		txIndex         = -1
+		errIndex        = -1
 		receipts        = make(types.Receipts, pb.transactions.Len())
 		usedGas         = uint64(0)
 		allLogs         []*types.Log
 		associatedAddrs = make(map[common.Address]*state.TouchedAddressObject)
+		gp              = new(GasPool).AddGas(pb.block.GasLimit())
+		cumulative      = uint64(0)
 	)
 
 	for _, group := range pb.executionGroups {
-		if group.err != nil && (group.errTxIndex < txIndex || txIndex == -1) {
+		if group.err != nil && (group.errTxIndex < errIndex || errIndex == -1) {
 			err = group.err
-			txIndex = group.errTxIndex
+			errIndex = group.errTxIndex
 		}
 		usedGas += group.usedGas
 		pb.feeAmount.Add(group.feeAmount, pb.feeAmount)
@@ -421,11 +434,22 @@ func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, 
 
 	associatedAddressMngr.UpdateAssociatedAddresses(associatedAddrs)
 
-	for _, receipt := range receipts {
-		allLogs = append(allLogs, receipt.Logs...)
+	for index, tx := range pb.transactions {
+		if gasErr := gp.SubGas(tx.Gas()); gasErr != nil {
+			return nil, nil, 0, gasErr
+		}
+
+		if errIndex != -1 && index > errIndex {
+			return nil, nil, 0, err
+		}
+
+		gp.AddGas(tx.Gas() - receipts[index].GasUsed)
+		cumulative += receipts[index].GasUsed
+		receipts[index].CumulativeGasUsed = cumulative
+		allLogs = append(allLogs, receipts[index].Logs...)
 	}
 
-	return receipts, allLogs, usedGas, err, txIndex
+	return receipts, allLogs, usedGas, nil
 }
 
 func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error) {
@@ -445,22 +469,7 @@ func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error)
 		}
 	}
 
-	receipts, allLogs, usedGas, err, ti := pb.collectResult()
-
-	if err != nil {
-		err2 := pb.checkGas(ti, receipts)
-		if err2 != nil {
-			return nil, nil, 0, err2
-		}
-		return nil, nil, 0, err
-	}
-
-	err = pb.checkGas(pb.transactions.Len()-1, receipts)
-	if err != nil {
-		return nil, nil, 0, err
-	}
-
-	return receipts, allLogs, usedGas, nil
+	return pb.collectResult()
 }
 
 func sortTrxByIndex(txs types.Transactions, trxHashToIndexMap map[common.Hash]int) types.Transactions {
