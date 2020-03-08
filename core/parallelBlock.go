@@ -338,11 +338,12 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg *sync.WaitGroup)
 		receipt, trxUsedGas, err := ApplyTransaction(pb.config, pb.context, gp, statedb, pb.block.Header(), tx, &group.usedGas, feeAmount, pb.vmConfig)
 		if err != nil {
 			group.err = err
-			group.trxHashToResultMap[txHash] = NewTrxResult(nil, nil, statedb.GetTouchedAddress(), trxUsedGas, feeAmount)
+			group.errTxIndex = ti
+			group.trxHashToResultMap[txHash] = NewTrxResult(nil, statedb.GetTouchedAddress(), trxUsedGas, feeAmount)
 			group.startTrxIndex = -1
 			return
 		}
-		group.trxHashToResultMap[txHash] = NewTrxResult(receipt, receipt.Logs, statedb.GetTouchedAddress(), trxUsedGas, feeAmount)
+		group.trxHashToResultMap[txHash] = NewTrxResult(receipt, statedb.GetTouchedAddress(), trxUsedGas, feeAmount)
 	}
 
 	group.feeAmount.Add(feeAmount, group.feeAmount)

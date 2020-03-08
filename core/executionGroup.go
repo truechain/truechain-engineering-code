@@ -24,20 +24,20 @@ type ExecutionGroup struct {
 
 type TrxResult struct {
 	receipt          *types.Receipt
-	logs             []*types.Log
 	touchedAddresses *state.TouchedAddressObject
 	usedGas          uint64
 	feeAmount        *big.Int
 }
 
-func NewTrxResult(receipt *types.Receipt, logs []*types.Log, touchedAddresses *state.TouchedAddressObject, usedGas uint64, feeAmount *big.Int) *TrxResult {
-	return &TrxResult{receipt: receipt, logs: logs, touchedAddresses: touchedAddresses, usedGas: usedGas, feeAmount: feeAmount}
+func NewTrxResult(receipt *types.Receipt, touchedAddresses *state.TouchedAddressObject, usedGas uint64, feeAmount *big.Int) *TrxResult {
+	return &TrxResult{receipt: receipt, touchedAddresses: touchedAddresses, usedGas: usedGas, feeAmount: feeAmount}
 }
 
 func NewExecutionGroup() *ExecutionGroup {
 	return &ExecutionGroup{
 		trxHashToResultMap: make(map[common.Hash]*TrxResult),
 		feeAmount:          big.NewInt(0),
+		errTxIndex:         -1,
 	}
 }
 
