@@ -114,6 +114,9 @@ type BlockChain struct {
 	logsFeed         event.Feed
 	blockProcFeed    event.Feed
 	RewardNumberFeed event.Feed
+	stateChangeFeed  event.Feed
+	rewardsFeed      event.Feed
+	fastBlockFeed    event.Feed
 	scope            event.SubscriptionScope
 	genesisBlock     *types.Block
 
@@ -1319,6 +1322,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		if err != nil {
 			return it.index, events, coalescedLogs, err
 		}
+		// Mark up this stateDB to record balance change and rewards event
+		state.MarkUp()
 		// Process block using the parent state as reference point.
 		t0 := time.Now()
 		receipts, logs, usedGas, infos, err := bc.processor.Process(block, state, bc.vmConfig)
@@ -1334,6 +1339,35 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		}
 		t2 := time.Now()
 		proctime := time.Since(start)
+
+		balances := state.Balances()
+		bcd := types.StateChangeEvent{
+			Height:   block.NumberU64(),
+			Balances: balances,
+		}
+		bc.stateChangeFeed.Send(bcd)
+		if state.Rewarded() {
+			snailHeight, snailHash, rewards := state.Rewards()
+			rd := types.RewardsEvent{
+				Height:  snailHeight,
+				Hash:    snailHash,
+				Rewards: rewards,
+			}
+			bc.rewardsFeed.Send(rd)
+		}
+
+		for _, b := range balances {
+			log.RedisLog("StateChange:", "address", b.Address.String(), "balance", b.Balance.Uint64(), "height", block.NumberU64())
+		}
+
+		receiptMap := make(map[common.Hash]*types.Receipt)
+		for _, r := range receipts {
+			receiptMap[r.TxHash] = r
+		}
+		bc.fastBlockFeed.Send(types.FastBlockEvent{
+			Block:    block,
+			Receipts: receiptMap,
+		})
 
 		// Write the block to the chain and get the status.
 		status, err := bc.writeBlockWithState(block, receipts, state)
@@ -1800,6 +1834,21 @@ func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent
 // SubscribeLogsEvent registers a subscription of []*types.Log.
 func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
+}
+
+// SubscribeStateChangeEvent registers a subscription of stateDB.Balances().
+func (bc *BlockChain) SubscribeStateChangeEvent(ch chan<- types.StateChangeEvent) event.Subscription {
+	return bc.scope.Track(bc.stateChangeFeed.Subscribe(ch))
+}
+
+// SubscribeRewardsEvent registers a subscription of stateDB.Rewards().
+func (bc *BlockChain) SubscribeRewardsEvent(ch chan<- types.RewardsEvent) event.Subscription {
+	return bc.scope.Track(bc.rewardsFeed.Subscribe(ch))
+}
+
+// SubscribeFastBlock registers a subscription of fast block with tx receipts.
+func (bc *BlockChain) SubscribeFastBlock(ch chan<- types.FastBlockEvent) event.Subscription {
+	return bc.scope.Track(bc.fastBlockFeed.Subscribe(ch))
 }
 
 func (bc *BlockChain) GetBlockReward(snumber uint64) *types.BlockReward {

@@ -242,7 +242,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		etrue.miner.SetElection(etrue.config.EnableElection, crypto.FromECDSAPub(&committeeKey.PublicKey))
 	}
 
-	etrue.APIBackend = &TrueAPIBackend{etrue, nil}
+	etrue.APIBackend = NewTrueAPIBackend(etrue)
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.GasPrice
@@ -516,6 +516,10 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.agent.Start()
 
 	s.election.Start()
+	if s.config.RedisHost != "" {
+		s.APIBackend.Start()
+	}
+	//go s.agent.SendBlock()
 
 	//start fruit journal
 	s.snailPool.Start()
@@ -543,6 +547,7 @@ func (s *Truechain) Stop() error {
 	s.txPool.Stop()
 	s.snailPool.Stop()
 	s.miner.Stop()
+	s.APIBackend.Stop()
 	s.eventMux.Stop()
 
 	s.chainDb.Close()
