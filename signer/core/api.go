@@ -67,8 +67,6 @@ type ExternalAPI interface {
 type UIClientAPI interface {
 	// ApproveTx prompt the user for confirmation to request to sign Transaction
 	ApproveTx(request *SignTxRequest) (SignTxResponse, error)
-	// ApproveSignData prompt the user for confirmation to request to sign data
-	ApproveSignData(request *SignDataRequest) (SignDataResponse, error)
 	// ApproveListing prompt the user for confirmation to list accounts
 	// the list of accounts to list can be modified by the UI
 	ApproveListing(request *ListRequest) (ListResponse, error)

@@ -55,12 +55,6 @@ func (ui *StdIOUI) ApproveTx(request *SignTxRequest) (SignTxResponse, error) {
 	return result, err
 }
 
-func (ui *StdIOUI) ApproveSignData(request *SignDataRequest) (SignDataResponse, error) {
-	var result SignDataResponse
-	err := ui.dispatch("ApproveSignData", request, &result)
-	return result, err
-}
-
 func (ui *StdIOUI) ApproveListing(request *ListRequest) (ListResponse, error) {
 	var result ListResponse
 	err := ui.dispatch("ApproveListing", request, &result)
