@@ -217,13 +217,13 @@ func trueKeyService(c *cli.Context) error {
 		fmt.Println("Please use init command init a keystore")
 		return fmt.Errorf("aborted by user")
 	}
-	keydata, err := etruedb.NewLDBDatabase(KEYDataDir, DatabaseCache, makeDatabaseHandles())
+	keydata, err := etruedb.NewLDBDatabase(filepath.Join(configDir, KEYDataDir), DatabaseCache, makeDatabaseHandles())
 	if err != nil {
 		log.Info("NewLDBDatabase", "err", err)
 		return err
 	}
 	var (
-		rootLoc  = filepath.Join(node.DefaultDataDir(), "keystore")
+		rootLoc  = filepath.Join(configDir, "keystore")
 		lightKdf = c.GlobalBool(utils.LightKDFFlag.Name)
 		api      types.ExternalAPI
 	)
