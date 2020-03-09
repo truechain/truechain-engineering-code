@@ -31,7 +31,7 @@ type ImpawnCache struct {
 
 func newImpawnCache() *ImpawnCache {
 	cc := &ImpawnCache{
-		size:	5,
+		size:	20,
 	}
 	cc.Cache,_ = lru.New(cc.size)
 	return cc
@@ -733,7 +733,7 @@ func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 	}
 	var items []*types.RewardInfo
 	fee := new(big.Int).Quo(new(big.Int).Mul(allReward, sa.Fee), types.Base)
-	all, left := new(big.Int).Sub(allReward, fee), big.NewInt(0)
+	all, left,left2 := new(big.Int).Sub(allReward, fee), big.NewInt(0),big.NewInt(0)
 	for _, v := range sa.Delegation {
 		daAll := v.getAllStaking(target)
 		if daAll.Sign() <= 0 {
@@ -741,11 +741,13 @@ func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 		}
 		v1 := new(big.Int).Quo(new(big.Int).Mul(all, daAll), allStaking)
 		left = left.Add(left, v1)
+		left2 = left2.Add(left2,daAll)
 		var ii types.RewardInfo
-		ii.Address, ii.Amount = v.Unit.GetRewardAddress(), new(big.Int).Set(v1)
+		ii.Address, ii.Amount,ii.Staking = v.Unit.GetRewardAddress(), new(big.Int).Set(v1),new(big.Int).Set(daAll)
 		items = append(items, &ii)
 	}
 	item.Amount = new(big.Int).Add(new(big.Int).Sub(all, left), fee)
+	item.Staking = new(big.Int).Sub(allStaking,left2)
 	return items, nil
 }
 func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.EpochIDInfo) ([]*types.SARewardInfos, error) {
@@ -1247,6 +1249,7 @@ func (i *ImpawnImpl) GetRoot() common.Hash {
 func (i *ImpawnImpl) Save(state StateDB, preAddress common.Address) error {
 	key := common.BytesToHash(preAddress[:])
 	data, err := rlp.EncodeToBytes(i)
+
 	if err != nil {
 		log.Crit("Failed to RLP encode ImpawnImpl", "err", err)
 	}
@@ -1265,21 +1268,24 @@ func (i *ImpawnImpl) Load(state StateDB, preAddress common.Address) error {
 	if lenght == 0 {
 		return errors.New("Load data = 0")
 	}
+	// cache := true
 	hash := types.RlpHash(data)
 	var temp ImpawnImpl
 	if cc, ok := IC.Cache.Get(hash); ok {
 		impawn := cc.(*ImpawnImpl)
 		temp = *(CloneImpawnImpl(impawn))
 	} else {
-	if err := rlp.DecodeBytes(data, &temp); err != nil {
-		log.Error("Invalid ImpawnImpl entry RLP", "err", err)
-		return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
+		if err := rlp.DecodeBytes(data, &temp); err != nil {
+			log.Error("Invalid ImpawnImpl entry RLP", "err", err)
+			return errors.New(fmt.Sprintf("Invalid ImpawnImpl entry RLP %s", err.Error()))
 		}	
 		tmp := CloneImpawnImpl(&temp)	
 		if tmp != nil {
 			IC.Cache.Add(hash, tmp)
 		}
+		// cache = false
 	}
+	// log.Info("-----Load impawn---","len:",lenght,"count:",temp.Counts(),"cache",cache)
 	i.curEpochID, i.accounts, i.lastReward = temp.curEpochID, temp.accounts, temp.lastReward
 	return nil
 }
@@ -1333,6 +1339,34 @@ func (i *ImpawnImpl) Counts() int {
 		pos = pos + len(val)
 	}
 	return pos
+}
+func (i *ImpawnImpl) Summay() *types.ImpawnSummay {
+	summay := &types.ImpawnSummay{
+		LastReward: i.lastReward,
+		Infos:		make([]*types.SummayEpochInfo,0,0),
+	}
+	sumAccount := 0
+	for k,val := range i.accounts {
+		info := types.GetEpochFromID(k)
+		item := &types.SummayEpochInfo{
+			EpochID:		info.EpochID,
+			BeginHeight:	info.BeginHeight,
+			EndHeight:		info.EndHeight,
+		}
+		item.AllAmount = val.getValidStaking(info.EndHeight)
+		daSum,saSum := 0, len(val)
+		for _, vv := range val {
+			daSum = daSum + len(vv.Delegation)
+		}
+		item.DaCount,item.SaCount = uint64(daSum),uint64(saSum)
+		summay.Infos = append(summay.Infos,item)
+		sumAccount = sumAccount + daSum + saSum
+		if i.curEpochID == k {
+			summay.AllAmount = new(big.Int).Set(item.AllAmount)
+		}
+	}
+	summay.Accounts = uint64(sumAccount)
+	return summay
 }
 /////////////////////////////////////////////////////////////////////////////////
 type valuesByHeight []*PairstakingValue

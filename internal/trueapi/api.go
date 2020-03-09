@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/metrics"
 	"math/big"
 	"strings"
 	"time"
@@ -44,7 +45,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
-	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
 const (
@@ -614,6 +614,28 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	if state == nil || err != nil {
 		return nil, err
 	}
+	return (*hexutil.Big)(state.GetUnlockedBalance(address)), state.Error()
+}
+
+// GetLockBalance returns the amount of wei for the given address in pos state of the
+// given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
+// block numbers are also allowed.
+func (s *PublicBlockChainAPI) GetLockBalance(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Big, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	return (*hexutil.Big)(state.GetPOSLocked(address)), state.Error()
+}
+
+// GetTotalBalance returns the amount of wei for the given address in the state of the
+// given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
+// block numbers are also allowed.
+func (s *PublicBlockChainAPI) GetTotalBalance(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Big, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
 	return (*hexutil.Big)(state.GetBalance(address)), state.Error()
 }
 
@@ -644,26 +666,6 @@ func (s *PublicBlockChainAPI) GetBlockByHash(ctx context.Context, blockHash comm
 	return nil, err
 }
 
-// GetSnailDiffcults
-func (s *PublicBlockChainAPI) GetSnailDiffcults(ctx context.Context, from rpc.BlockNumber, to rpc.BlockNumber) (map[string]interface{}, error) {
-	fields := map[string]interface{}{}
-	diffs := make([]interface{}, to-from+1)
-	times := make([]interface{}, to-from+1)
-
-	for i := from; i <= to; i++ {
-		block, _ := s.b.SnailBlockByNumber(ctx, i)
-		head := block.Header()
-		if block != nil {
-			diffs[i-from] = (*hexutil.Big)(head.Difficulty)
-			times[i-from] = (*hexutil.Big)(head.Time)
-		}
-	}
-	fields["diffs"] = diffs
-	fields["times"] = times
-
-	return fields, nil
-}
-
 // GetSnailBlockByNumber returns the requested snail block. When blockNr is -1 the chain head is returned.
 func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber, inclFruit bool) (map[string]interface{}, error) {
 	block, err := s.b.SnailBlockByNumber(ctx, blockNr)
@@ -680,6 +682,14 @@ func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr
 	return nil, err
 }
 
+func (s *PublicBlockChainAPI) GetSnailHashByNumber(ctx context.Context, blockNr rpc.BlockNumber) string {
+	block, _ := s.b.SnailBlockByNumber(ctx, blockNr)
+	if block != nil {
+		return hexutil.Encode(block.Hash().Bytes())
+	}
+	return ""
+}
+
 // GetSnailBlockByHash returns the requested snail block.
 func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash common.Hash, inclFruit bool) (map[string]interface{}, error) {
 	block, err := s.b.GetSnailBlock(ctx, blockHash)
@@ -687,6 +697,22 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 		return s.rpcOutputSnailBlock(block, inclFruit)
 	}
 	return nil, err
+}
+
+func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BalanceChangeContent {
+	var addrWithBalance = make(map[common.Address]*big.Int)
+	info := s.b.GetStateChangeByFastNumber(fastNumber)
+	if info == nil || info.Balance == nil || len(info.Balance) == 0 {
+		return &types.BalanceChangeContent{addrWithBalance}
+	}
+	for _, balanceInfo := range info.Balance {
+		addrWithBalance[balanceInfo.Address] = balanceInfo.Amount
+	}
+	return &types.BalanceChangeContent{addrWithBalance}
+}
+
+func (s *PublicBlockChainAPI) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
+	return s.b.GetBalanceChangeBySnailNumber(snailNumber)
 }
 
 func (s *PublicBlockChainAPI) GetFruitByNumber(ctx context.Context, fastblockNr rpc.BlockNumber, fullSigns bool) (map[string]interface{}, error) {
@@ -972,7 +998,7 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"maker":            head.Proposer,
 		"logsBloom":        head.Bloom,
 		"stateRoot":        head.Root,
-		"SnailHash":        head.SnailHash,
+		"snailHash":        head.SnailHash,
 		"SnailNumber":      (*hexutil.Big)(head.SnailNumber),
 		"extraData":        hexutil.Bytes(head.Extra),
 		"size":             hexutil.Uint64(b.Size()),
@@ -1006,11 +1032,11 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 
 	formatMembers := func(commit *types.CommitteeMember) (map[string]interface{}, error) {
 		members := map[string]interface{}{
-			"Coinbase":      commit.Coinbase,
-			"CommitteeBase": commit.CommitteeBase,
-			"Publickey":     commit.Publickey,
-			"Flag":          commit.Flag,
-			"MType":         commit.MType,
+			"coinbase":      commit.Coinbase,
+			"committeeBase": commit.CommitteeBase,
+			"publickey":     commit.Publickey,
+			"flag":          commit.Flag,
+			"mType":         commit.MType,
 		}
 		return members, nil
 	}
@@ -1077,7 +1103,13 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 	fs := b.Fruits()
 	if inclFruit {
 		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
-			return fruit.Hash(), nil
+			return map[string]interface{}{
+				"number":     (*hexutil.Big)(fruit.Header().FastNumber),
+				"hash":       fruit.Hash(),
+				"nonce":      fruit.Header().Nonce,
+				"miner":      fruit.Header().Coinbase,
+				"difficulty": (*hexutil.Big)(fruit.Header().FruitDifficulty),
+			}, nil
 		}
 		fruits := make([]interface{}, len(fs))
 		var err error
@@ -1087,9 +1119,9 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 			}
 		}
 		fields["fruits"] = fruits
-	} else {
+	} /*else {
 		fields["fruits"] = len(fs)
-	}
+	}*/
 	if len(fs) > 0 {
 		fields["beginFruitNumber"] = (*hexutil.Big)(fs[0].FastNumber())
 		fields["endFruitNumber"] = (*hexutil.Big)(fs[len(fs)-1].FastNumber())
@@ -1205,18 +1237,36 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 	}*/
 	return fields
 }
-func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber) map[string]interface{} {
+
+func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, addr common.Address) map[string]interface{} {
 	content := s.b.GetChainRewardContent(blockNr)
 	if content == nil {
 		return nil
 	}
-	fields := map[string]interface{}{
-		"foundationReward": content.Foundation,
-		"blockminer":       content.CoinBase,
-		"fruitminer":       content.FruitBase,
-		"committeReward":   content.CommitteeBase,
+	empty := common.Address{}
+	if bytes.Equal(addr.Bytes(), empty.Bytes()) {
+		fields := map[string]interface{}{
+			"Number":           hexutil.Uint64(blockNr),
+			"time":             hexutil.Uint64(content.St),
+			"foundationReward": content.Foundation,
+			"blockminer":       content.CoinBase,
+			"fruitminer":       content.FruitBase,
+			"committeReward":   content.CommitteeBase,
+		}
+		return fields
+	} else {
+		for _, val := range content.CommitteeBase {
+			if len(val.Items) > 0 && bytes.Equal(val.Items[0].Address.Bytes(), addr.Bytes()) {
+				fields := map[string]interface{}{
+					"Number":        hexutil.Uint64(blockNr),
+					"time":          hexutil.Uint64(content.St),
+					"stakingReward": val.Items,
+				}
+				return fields
+			}
+		}
+		return nil
 	}
-	return fields
 }
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
@@ -2093,4 +2143,18 @@ func (s *PublicImpawnAPI) GetStakingAccount(ctx context.Context, addr common.Add
 	}
 
 	return impawn.GetStakingAccountRPC(uint64(blockNr), addr), nil
+}
+func (s *PublicImpawnAPI) GetImpawnSummay(ctx context.Context, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	impawn := vm.NewImpawnImpl()
+	err = impawn.Load(state, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	return types.ToJSON(impawn.Summay()), nil
 }

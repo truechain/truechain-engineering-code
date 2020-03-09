@@ -3,142 +3,14 @@ package vm
 import (
 	"encoding/json"
 	"errors"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"io"
 	"math/big"
-	"strconv"
-
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/rlp"
 )
-
-// "external" PairstakingValue encoding. used for pos staking.
-type extPairstakingValue struct {
-	Amount *big.Int
-	Height *big.Int
-	State  uint8
-}
-
-func (p *PairstakingValue) DecodeRLP(s *rlp.Stream) error {
-	var ep extPairstakingValue
-	if err := s.Decode(&ep); err != nil {
-		return err
-	}
-	p.Amount, p.Height, p.State = ep.Amount, ep.Height, ep.State
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP PairstakingValue format.
-func (p *PairstakingValue) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extPairstakingValue{
-		Amount: p.Amount,
-		Height: p.Height,
-		State:  p.State,
-	})
-}
-
-// "external" impawnUnit encoding. used for pos staking.
-type extImpawnUnit struct {
-	Address    common.Address
-	Value      []*PairstakingValue // sort by height
-	RedeemInof []*RedeemItem
-}
-
-func (i *impawnUnit) DecodeRLP(s *rlp.Stream) error {
-	var ei extImpawnUnit
-	if err := s.Decode(&ei); err != nil {
-		return err
-	}
-	i.Address, i.Value, i.RedeemInof = ei.Address, ei.Value, ei.RedeemInof
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP impawnUnit format.
-func (i *impawnUnit) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extImpawnUnit{
-		Address:    i.Address,
-		Value:      i.Value,
-		RedeemInof: i.RedeemInof,
-	})
-}
-
-// "external" DelegationAccount encoding. used for pos staking.
-type extDAccount struct {
-	DeleAddress common.Address
-	Unit        *impawnUnit
-}
-
-func (d *DelegationAccount) DecodeRLP(s *rlp.Stream) error {
-	var da extDAccount
-	if err := s.Decode(&da); err != nil {
-		return err
-	}
-	d.SaAddress, d.Unit = da.DeleAddress, da.Unit
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP DelegationAccount format.
-func (i *DelegationAccount) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extDAccount{
-		DeleAddress: i.SaAddress,
-		Unit:        i.Unit,
-	})
-}
-
-// "external" StakingAccount encoding. used for pos staking.
-type extSAccount struct {
-	Unit       *impawnUnit
-	Votepubkey []byte
-	Fee        *big.Int
-	Committee  bool
-	Delegation []*DelegationAccount
-	Modify     *AlterableInfo
-}
-
-func (sa *StakingAccount) DecodeRLP(s *rlp.Stream) error {
-	var es extSAccount
-	if err := s.Decode(&es); err != nil {
-		return err
-	}
-	sa.Unit, sa.Votepubkey, sa.Fee, sa.Committee, sa.Delegation, sa.Modify = es.Unit, es.Votepubkey, es.Fee, es.Committee, es.Delegation, es.Modify
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP StakingAccount format.
-func (sa *StakingAccount) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extSAccount{
-		Unit:       sa.Unit,
-		Votepubkey: sa.Votepubkey,
-		Fee:        sa.Fee,
-		Committee:  sa.Committee,
-		Delegation: sa.Delegation,
-		Modify:     sa.Modify,
-	})
-}
-
-// "external" AlterableInfo encoding. used for pos staking.
-type extAlterableInfo struct {
-	Fee        *big.Int
-	VotePubkey []byte
-}
-
-func (a *AlterableInfo) DecodeRLP(s *rlp.Stream) error {
-	var ea extAlterableInfo
-	if err := s.Decode(&ea); err != nil {
-		return err
-	}
-	a.Fee, a.VotePubkey = ea.Fee, ea.VotePubkey
-	return nil
-}
-
-// EncodeRLP serializes b into the truechain RLP AlterableInfo format.
-func (a *AlterableInfo) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, extAlterableInfo{
-		Fee:        a.Fee,
-		VotePubkey: a.VotePubkey,
-	})
-}
 
 // "external" ImpawnImpl encoding. used for pos staking.
 type extImpawnImpl struct {
@@ -192,20 +64,32 @@ func (i *ImpawnImpl) GetAllStakingAccountRPC(height uint64) map[string]interface
 	sasRPC := make(map[string]interface{}, len(sas))
 	var attrs []map[string]interface{}
 	count := 0
-	for i, sa := range sas {
+	countCommittee := 0
+	for index, sa := range sas {
 		attr := make(map[string]interface{})
-		attr["id"] = i
+		attr["id"] = index
 		attr["unit"] = unitDisplay(sa.Unit)
 		attr["votePubKey"] = hexutil.Bytes(sa.Votepubkey)
 		attr["fee"] = sa.Fee.Uint64()
-		attr["committee"] = sa.Committee
+		if countCommittee <= params.CountInEpoch && isCommitteeMember(i, sa.Unit.Address) {
+			attr["committee"] = true
+			countCommittee++
+		} else {
+			attr["committee"] = false
+		}
 		attr["delegation"] = daSDisplay(sa.Delegation, height)
-		ai := make(map[string]interface{})
-		ai["fee"] = sa.Modify.Fee.Uint64()
-		ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
-		attr["modify"] = ai
-		attr["staking"] = sa.getAllStaking(height)
-		attr["validStaking"] = sa.getValidStaking(height)
+		if sa.Modify != nil {
+			ai := make(map[string]interface{})
+			if sa.Modify.Fee != nil {
+				ai["fee"] = sa.Modify.Fee.Uint64()
+			}
+			if sa.Modify.VotePubkey != nil {
+				ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
+			}
+			attr["modify"] = ai
+		}
+		attr["staking"] = weiToTrue(sa.getAllStaking(height))
+		attr["validStaking"] = weiToTrue(sa.getValidStaking(height))
 		attrs = append(attrs, attr)
 		count = count + len(sa.Delegation)
 	}
@@ -235,19 +119,19 @@ type StakingAsset struct {
 
 type StakingValue struct {
 	Height uint64
-	Amount *big.Int
+	Amount string
 }
 
 // MarshalJSON marshals as JSON.
 func (s StakingValue) MarshalJSON() ([]byte, error) {
 	type StakingValue struct {
 		Height hexutil.Uint64 `json:"height"`
-		Amount *hexutil.Big   `json:"amount"`
+		Amount string         `json:"amount"`
 	}
 	var enc StakingValue
 	enc.Height = hexutil.Uint64(s.Height)
 
-	enc.Amount = (*hexutil.Big)(s.Amount)
+	enc.Amount = s.Amount
 	return json.Marshal(&enc)
 }
 
@@ -255,7 +139,7 @@ func (s StakingValue) MarshalJSON() ([]byte, error) {
 func (s *StakingValue) UnmarshalJSON(input []byte) error {
 	type StakingValue struct {
 		Height *hexutil.Uint64 `json:"height"`
-		Amount *hexutil.Big    `json:"amount"`
+		Amount *string         `json:"amount"`
 	}
 	var dec StakingValue
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -265,7 +149,7 @@ func (s *StakingValue) UnmarshalJSON(input []byte) error {
 		s.Height = uint64(*dec.Height)
 	}
 	if dec.Amount != nil {
-		s.Amount = (*big.Int)(dec.Amount)
+		s.Amount = *dec.Amount
 	}
 	return nil
 }
@@ -322,7 +206,7 @@ type LockedAsset struct {
 
 type LockValue struct {
 	EpochID uint64
-	Amount  *big.Int
+	Amount  string
 	Height  *big.Int
 	Locked  bool
 }
@@ -331,14 +215,14 @@ type LockValue struct {
 func (l LockValue) MarshalJSON() ([]byte, error) {
 	type LockValue struct {
 		EpochID hexutil.Uint64 `json:"epochID"`
-		Amount  *hexutil.Big   `json:"amount"`
+		Amount  string         `json:"amount"`
 		Height  *hexutil.Big   `json:"height"`
 		Locked  bool           `json:"locked"`
 	}
 	var enc LockValue
 	enc.EpochID = hexutil.Uint64(l.EpochID)
 
-	enc.Amount = (*hexutil.Big)(l.Amount)
+	enc.Amount = l.Amount
 	enc.Height = (*hexutil.Big)(l.Height)
 	enc.Locked = l.Locked
 	return json.Marshal(&enc)
@@ -348,7 +232,7 @@ func (l LockValue) MarshalJSON() ([]byte, error) {
 func (l *LockValue) UnmarshalJSON(input []byte) error {
 	type LockValue struct {
 		EpochID *hexutil.Uint64 `json:"epochID"`
-		Amount  *hexutil.Big    `json:"amount"`
+		Amount  *string         `json:"amount"`
 		Height  *hexutil.Big    `json:"height"`
 		Locked  *bool           `json:"locked"`
 	}
@@ -360,7 +244,7 @@ func (l *LockValue) UnmarshalJSON(input []byte) error {
 		l.EpochID = uint64(*dec.EpochID)
 	}
 	if dec.Amount != nil {
-		l.Amount = (*big.Int)(dec.Amount)
+		l.Amount = *dec.Amount
 	}
 	if dec.Height != nil {
 		l.Height = (*big.Int)(dec.Height)
@@ -407,25 +291,25 @@ func (i *ImpawnImpl) GetAllCancelableAssetRPC(addr common.Address) []CancelableA
 	assets := i.GetAllCancelableAsset(addr)
 	var attrs []CancelableAsset
 	for key, value := range assets {
-		attr := CancelableAsset{Value: value, Address: key}
+		attr := CancelableAsset{Value: weiToTrue(value), Address: key}
 		attrs = append(attrs, attr)
 	}
 	return attrs
 }
 
 type CancelableAsset struct {
-	Value   *big.Int
+	Value   string
 	Address common.Address
 }
 
 // MarshalJSON marshals as JSON.
 func (c CancelableAsset) MarshalJSON() ([]byte, error) {
 	type CancelableAsset struct {
-		Value   *hexutil.Big   `json:"value"`
+		Value   string         `json:"value"`
 		Address common.Address `json:"address"`
 	}
 	var enc CancelableAsset
-	enc.Value = (*hexutil.Big)(c.Value)
+	enc.Value = c.Value
 	enc.Address = c.Address
 	return json.Marshal(&enc)
 }
@@ -433,7 +317,7 @@ func (c CancelableAsset) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (c *CancelableAsset) UnmarshalJSON(input []byte) error {
 	type CancelableAsset struct {
-		Value   *hexutil.Big    `json:"value"`
+		Value   *string         `json:"value"`
 		Address *common.Address `json:"address"`
 	}
 	var dec CancelableAsset
@@ -441,7 +325,7 @@ func (c *CancelableAsset) UnmarshalJSON(input []byte) error {
 		return err
 	}
 	if dec.Value != nil {
-		c.Value = (*big.Int)(dec.Value)
+		c.Value = *dec.Value
 	}
 	if dec.Address != nil {
 		c.Address = *dec.Address
@@ -453,30 +337,51 @@ func (i *ImpawnImpl) GetStakingAccountRPC(height uint64, address common.Address)
 	sas := i.GetAllStakingAccount()
 	sa := sas.getSA(address)
 	attr := make(map[string]interface{})
-	attr["id"] = i
+	if sa == nil {
+		return nil
+	}
 	attr["unit"] = unitDisplay(sa.Unit)
 	attr["votePubKey"] = hexutil.Bytes(sa.Votepubkey)
 	attr["fee"] = sa.Fee.Uint64()
-	attr["committee"] = sa.Committee
+	attr["committee"] = isCommitteeMember(i, sa.Unit.Address)
 	attr["delegation"] = daSDisplay(sa.Delegation, height)
-	ai := make(map[string]interface{})
-	ai["fee"] = sa.Modify.Fee.Uint64()
-	ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
-	attr["modify"] = ai
-	attr["staking"] = sa.getAllStaking(height)
-	attr["validStaking"] = sa.getValidStaking(height)
+	if sa.Modify != nil {
+		ai := make(map[string]interface{})
+		if sa.Modify.Fee != nil {
+			ai["fee"] = sa.Modify.Fee.Uint64()
+		}
+		if sa.Modify.VotePubkey != nil {
+			ai["votePubKey"] = hexutil.Bytes(sa.Modify.VotePubkey)
+		}
+		attr["modify"] = ai
+	}
+	attr["staking"] = weiToTrue(sa.getAllStaking(height))
+	attr["validStaking"] = weiToTrue(sa.getValidStaking(height))
 	return attr
 }
 
-func daSDisplay(das []*DelegationAccount, height uint64) map[string]interface{} {
-	attrs := make(map[string]interface{}, len(das))
-	for i, da := range das {
+func isCommitteeMember(i *ImpawnImpl, address common.Address) bool {
+	sas := i.getElections3(i.curEpochID)
+	if sas == nil {
+		return false
+	}
+	impawns := SAImpawns(sas)
+	sa := impawns.getSA(address)
+	if sa == nil {
+		return false
+	}
+	return true
+}
+
+func daSDisplay(das []*DelegationAccount, height uint64) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for _, da := range das {
 		attr := make(map[string]interface{})
 		attr["saAddress"] = da.SaAddress
-		attr["delegate"] = da.getAllStaking(height)
-		attr["validDelegate"] = da.getValidStaking(height)
+		attr["delegate"] = weiToTrue(da.getAllStaking(height))
+		attr["validDelegate"] = weiToTrue(da.getValidStaking(height))
 		attr["unit"] = unitDisplay(da.Unit)
-		attrs[strconv.Itoa(i)] = attr
+		attrs = append(attrs, attr)
 	}
 	return attrs
 }
@@ -489,26 +394,26 @@ func unitDisplay(uint *impawnUnit) map[string]interface{} {
 	return attr
 }
 
-func pvSDisplay(pvs []*PairstakingValue) map[string]interface{} {
-	attrs := make(map[string]interface{}, len(pvs))
-	for i, pv := range pvs {
+func pvSDisplay(pvs []*PairstakingValue) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for _, pv := range pvs {
 		attr := make(map[string]interface{})
-		attr["amount"] = (*hexutil.Big)(pv.Amount)
-		attr["height"] = (*hexutil.Big)(pv.Height)
+		attr["amount"] = weiToTrue(pv.Amount)
+		attr["height"] = pv.Height
 		attr["state"] = uint64(pv.State)
-		attrs[strconv.Itoa(i)] = attr
+		attrs = append(attrs, attr)
 	}
 	return attrs
 }
 
-func riSDisplay(ris []*RedeemItem) map[string]interface{} {
-	attrs := make(map[string]interface{}, len(ris))
-	for i, ri := range ris {
+func riSDisplay(ris []*RedeemItem) []map[string]interface{} {
+	var attrs []map[string]interface{}
+	for _, ri := range ris {
 		attr := make(map[string]interface{})
-		attr["amount"] = (*hexutil.Big)(ri.Amount)
+		attr["amount"] = weiToTrue(ri.Amount)
 		attr["epochID"] = ri.EpochID
 		attr["state"] = uint64(ri.State)
-		attrs[strconv.Itoa(i)] = attr
+		attrs = append(attrs, attr)
 	}
 	return attrs
 }
@@ -518,7 +423,7 @@ func lockValueDisplay(lv *types.LockedValue) []*LockValue {
 	for epoch, value := range lv.Value {
 		attrs = append(attrs, &LockValue{
 			EpochID: epoch,
-			Amount:  value.Amount,
+			Amount:  weiToTrue(value.Amount),
 			Height:  new(big.Int).SetUint64(types.MinCalcRedeemHeight(epoch)),
 			Locked:  value.Locked,
 		})
@@ -531,8 +436,17 @@ func stakingValueDisplay(sv *types.StakingValue) []*StakingValue {
 	for height, value := range sv.Value {
 		attrs = append(attrs, &StakingValue{
 			Height: height,
-			Amount: value,
+			Amount: weiToTrue(value),
 		})
 	}
 	return attrs
+}
+
+var (
+	baseUnit  = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	fbaseUnit = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
+)
+
+func weiToTrue(val *big.Int) string {
+	return new(big.Float).Quo(new(big.Float).SetInt(val), fbaseUnit).Text('f', 8)
 }

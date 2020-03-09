@@ -311,6 +311,10 @@ func (e *Election) GetCurrentCommittee() *committee {
 	return e.committee
 }
 
+func (e *Election) GetCurrentCommitteeNumber() *big.Int {
+	return e.committee.id
+}
+
 // GetMemberByPubkey returns committeeMember specified by public key bytes
 func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
 	if len(members) == 0 {
@@ -745,16 +749,12 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 
 // GetCommitteeById return committee info sepecified by Committee ID
 func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
-	e.mu.RLock()
-	currentCommittee := e.committee
-	e.mu.RUnlock()
-
 	info := make(map[string]interface{})
 	if id.Cmp(e.chainConfig.TIP8.CID) > 0 {
 		epoch := types.GetEpochFromID(id.Uint64())
 		members := e.getValidators(big.NewInt(int64(epoch.BeginHeight)))
 		if members == nil {
-			log.Error("GetCommitteeById failed","epoch",epoch)
+			log.Error("GetCommitteeById failed", "epoch", epoch)
 			return nil
 		}
 		info["id"] = id.Uint64()
@@ -767,7 +767,12 @@ func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
 		info["endNumber"] = epoch.EndHeight
 		return info
 	} else {
-		if currentCommittee.id.Cmp(id) < 0 {
+
+		e.mu.RLock()
+		currentCommittee := e.committee
+		e.mu.RUnlock()
+
+		if currentCommittee != nil && currentCommittee.id.Cmp(id) < 0 {
 			return nil
 		}
 		if id.Cmp(common.Big0) <= 0 {
@@ -779,7 +784,7 @@ func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
 			info["members"] = membersDisplay(e.genesisCommittee)
 			info["beginNumber"] = 1
 			info["endNumber"] = nil
-			if currentCommittee.id.Cmp(id) == 0 {
+			if currentCommittee != nil && currentCommittee.id.Cmp(id) == 0 {
 				// Committee end fast number may not be available when current snail lower than commiteeId * period
 				if currentCommittee.endFastNumber != nil && currentCommittee.endFastNumber.Uint64() > 0 {
 					info["endNumber"] = currentCommittee.endFastNumber.Uint64()
@@ -797,7 +802,7 @@ func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
 		if beginElectionNumber.Cmp(common.Big0) <= 0 {
 			beginElectionNumber = new(big.Int).Set(common.Big1)
 		}
-	
+
 		elected := e.getElectionMembers(beginElectionNumber, endElectionNumber)
 		if elected != nil {
 			info["id"] = id.Uint64()
@@ -809,7 +814,7 @@ func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
 			info["beginNumber"] = new(big.Int).Add(e.getLastNumber(beginElectionNumber, endElectionNumber), common.Big1).Uint64()
 			info["endNumber"] = nil
 			// Committee end fast number may be nil if current committee is working on
-			if currentCommittee.id.Cmp(id) == 0 {
+			if currentCommittee != nil && currentCommittee.id.Cmp(id) == 0 {
 				// Committee end fast number may not be available when current snail lower than commiteeId * period
 				if currentCommittee.endFastNumber != nil && currentCommittee.endFastNumber.Uint64() > 0 {
 					info["endNumber"] = currentCommittee.endFastNumber.Uint64()
@@ -1079,7 +1084,6 @@ func ElectCommittee(snailchain snailReader, defaultMembers []*types.CommitteeMem
 			members = all
 		}
 	}
-	// Select the first ProposalCommitteeNumber candidates to be working committee
 	if len(members) > params.ProposalCommitteeNumber {
 		// Split elected candidates into members and backups
 		committee.Members = members[:params.ProposalCommitteeNumber]

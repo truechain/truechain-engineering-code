@@ -290,24 +290,24 @@ func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Addre
 	if height == 40 {
 		nonce, _ := getNonce(gen, from, state, "sendDepositTransaction", txPool)
 		pub := crypto.FromECDSAPub(&priKey.PublicKey)
-		input := packInput(abiStaking, "deposit", "sendDepositTransaction", pub, new(big.Int).SetInt64(5000))
-		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
+		input := packInput(abiStaking, "deposit", "sendDepositTransaction", pub, new(big.Int).SetInt64(5000), value)
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
 	}
 }
 
 func sendDepositAppendTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
 	if height == 50 {
 		nonce, _ := getNonce(gen, from, state, "sendDepositAppendTransaction", txPool)
-		input := packInput(abiStaking, "append", "sendDepositAppendTransaction")
-		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
+		input := packInput(abiStaking, "append", "sendDepositAppendTransaction", value)
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
 	}
 }
 
 func sendDelegateTransaction(height uint64, gen *core.BlockGen, from, toAddress common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
 	if height == 60 {
 		nonce, _ := getNonce(gen, from, state, "sendDelegateTransaction", txPool)
-		input := packInput(abiStaking, "delegate", "sendDelegateTransaction", toAddress)
-		addTx(gen, blockchain, nonce, value, input, txPool, priKey, signer)
+		input := packInput(abiStaking, "delegate", "sendDelegateTransaction", toAddress, value)
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
 	}
 }
 
@@ -419,7 +419,10 @@ func getNonce(gen *core.BlockGen, from common.Address, state1 *state.StateDB, me
 }
 
 func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value *big.Int, input []byte, txPool txPool, priKey *ecdsa.PrivateKey, signer types.TIP1Signer) {
-	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 866328, big.NewInt(1000000), input), signer, priKey)
+	//2426392 1000000000
+	//866328  1000000
+	//2400000
+	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 2446392, big.NewInt(1000000000), input), signer, priKey)
 	if gen != nil {
 		gen.AddTxWithChain(blockchain, tx)
 	} else {

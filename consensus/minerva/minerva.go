@@ -230,6 +230,7 @@ type Minerva struct {
 
 	sbc      consensus.SnailChainReader
 	election consensus.CommitteeElection
+	rewardAccess consensus.RewardInfosAccess
 	chainDB  etruedb.Database
 }
 

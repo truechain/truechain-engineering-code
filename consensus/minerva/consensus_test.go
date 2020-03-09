@@ -23,13 +23,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/ethereum/go-ethereum/common"
-
+	"time"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
+	osMath "math"
 )
 
 var (
@@ -261,4 +260,16 @@ func TestReward2(t *testing.T) {
 }
 func toTrueCoin(val *big.Int) *big.Float {
 	return new(big.Float).Quo(new(big.Float).SetInt(val),new(big.Float).SetInt(BaseBig))
+}
+
+func TestTime(t *testing.T) {
+	t1 := time.Now()
+	time.Sleep(time.Millisecond * time.Duration(600))
+	t2 := time.Now()
+	d := t2.Sub(t1)
+	fmt.Println("d:",d.Seconds())
+	if d.Seconds() > float64(0.5) {
+		fmt.Println("good")
+	}
+	fmt.Println("finish")
 }

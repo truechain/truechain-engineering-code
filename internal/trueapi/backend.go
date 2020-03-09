@@ -64,6 +64,11 @@ type Backend interface {
 	SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent) event.Subscription
 	GetReward(number int64) *types.BlockReward
 	GetCommittee(id rpc.BlockNumber) (map[string]interface{}, error)
+	GetCurrentCommitteeNumber() *big.Int
+
+	GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BlockBalance
+	GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent
+
 	GetSnailRewardContent(blockNr rpc.BlockNumber) *types.SnailRewardContenet
 	GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward
 

@@ -20,12 +20,14 @@ package etrue
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft"
+	config "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft"
+
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
@@ -240,7 +242,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		etrue.miner.SetElection(etrue.config.EnableElection, crypto.FromECDSAPub(&committeeKey.PublicKey))
 	}
 
-	etrue.APIBackend = NewTrueAPIBackend(etrue)
+	etrue.APIBackend = &TrueAPIBackend{etrue, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.GasPrice
@@ -514,10 +516,6 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.agent.Start()
 
 	s.election.Start()
-	if s.config.RedisHost != "" {
-		s.APIBackend.Start()
-	}
-	//go s.agent.SendBlock()
 
 	//start fruit journal
 	s.snailPool.Start()
@@ -545,11 +543,9 @@ func (s *Truechain) Stop() error {
 	s.txPool.Stop()
 	s.snailPool.Stop()
 	s.miner.Stop()
-	s.APIBackend.Stop()
 	s.eventMux.Stop()
 
 	s.chainDb.Close()
-	consensus.CR.Stop()
 	close(s.shutdownChan)
 
 	return nil
@@ -561,7 +557,7 @@ func (s *Truechain) startPbftServer() error {
 		return err
 	}
 
-	cfg := params.DefaultConfig()
+	cfg := config.DefaultConfig()
 	cfg.P2P.ListenAddress1 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.Port)
 	cfg.P2P.ListenAddress2 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.StandbyPort)
 

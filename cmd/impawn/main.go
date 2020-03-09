@@ -46,6 +46,20 @@ var (
 		Usage: "Input transaction hash",
 		Value: "",
 	}
+	PubKeyKeyFlag = cli.StringFlag{
+		Name:  "pubkey",
+		Usage: "Committee public key for BFT",
+		Value: "",
+	}
+	BFTKeyKeyFlag = cli.StringFlag{
+		Name:  "bftkey",
+		Usage: "Committee bft key for BFT",
+		Value: "",
+	}
+	SnailNumberFlag = cli.Uint64Flag{
+		Name:  "snailnumber",
+		Usage: "Query reward use snail number,please current snail number -14",
+	}
 	ImpawnFlags = []cli.Flag{
 		KeyFlag,
 		KeyStoreFlag,
@@ -71,6 +85,9 @@ func init() {
 		FeeFlag,
 		AddressFlag,
 		TxHashFlag,
+		PubKeyKeyFlag,
+		SnailNumberFlag,
+		BFTKeyKeyFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {
@@ -87,6 +104,7 @@ func init() {
 		sendCommand,
 		delegateCommand,
 		queryTxCommand,
+		queryRewardCommand,
 	}
 	cli.CommandHelpTemplate = utils.OriginCommandHelpTemplate
 	sort.Sort(cli.CommandsByName(app.Commands))

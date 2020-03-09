@@ -43,6 +43,9 @@ var (
 
 	// emptyCode is the known hash of the empty EVM bytecode.
 	emptyCode = crypto.Keccak256Hash(nil)
+
+	// Pos locked key
+	lockedPosition = common.BytesToHash([]byte{1})
 )
 
 type proofList [][]byte
@@ -52,25 +55,23 @@ func (n *proofList) Put(key []byte, value []byte) error {
 	return nil
 }
 
+func lockedKey(addr common.Address) (h common.Hash) {
+	base := append(common.BytesToHash(addr[:]).Bytes(), lockedPosition.Bytes()...)
+	return crypto.Keccak256Hash(base)
+}
+
 // StateDBs within the ethereum protocol are used to store anything
 // within the merkle trie. StateDBs take care of caching and storing
 // nested states. It's the general query interface to retrieve:
 // * Contracts
 // * Accounts
 type StateDB struct {
-	db     Database
-	trie   Trie
-	marked bool
+	db   Database
+	trie Trie
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects      map[common.Address]*stateObject
 	stateObjectsDirty map[common.Address]struct{}
-
-	// This Array record the amount of balance change due to rewards.
-	rewards           []*common.AddressWithBalance
-	rewardSnailNumber uint64
-	rewardSnailHash   common.Hash
-	rewarded          bool
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -87,7 +88,8 @@ type StateDB struct {
 	logs         map[common.Hash][]*types.Log
 	logSize      uint
 
-	preimages map[common.Hash][]byte
+	preimages      map[common.Hash][]byte
+	balancesChange map[common.Address]*big.Int
 
 	// Journal of state modifications. This is the backbone of
 	// Snapshot and RevertToSnapshot.
@@ -107,65 +109,13 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 	return &StateDB{
 		db:                db,
 		trie:              tr,
-		marked:            false,
-		rewarded:          false,
 		stateObjects:      make(map[common.Address]*stateObject),
 		stateObjectsDirty: make(map[common.Address]struct{}),
 		logs:              make(map[common.Hash][]*types.Log),
 		preimages:         make(map[common.Hash][]byte),
+		balancesChange:    make(map[common.Address]*big.Int),
 		journal:           newJournal(),
 	}, nil
-}
-
-// Balances return state info.
-func (db *StateDB) Balances() []*common.AddressWithBalance {
-	balances := make([]*common.AddressWithBalance, len(db.stateObjects))
-	i := 0
-	for _, sto := range db.stateObjects {
-		balances[i] = &common.AddressWithBalance{
-			Address: sto.Address(),
-			Balance: sto.Balance(),
-		}
-		i++
-	}
-	return balances
-}
-
-// Rewarded statedb has corresponding snail block info
-func (db *StateDB) Rewarded() bool {
-	return db.rewarded
-}
-
-// Rewards return rewards info.
-func (db *StateDB) Rewards() (uint64, common.Hash, []*common.AddressWithBalance) {
-	return db.rewardSnailNumber, db.rewardSnailHash, db.rewards
-}
-
-// MarkUp set a flag to indicate that the result of
-// this StateDB's change will eventually be saved in the chain
-// in order to monitor the corresponding event.
-func (db *StateDB) MarkUp() {
-	db.marked = true
-}
-
-// IsMarked return db.marked flag
-func (db *StateDB) IsMarked() bool {
-	return db.marked
-}
-
-// MarkRewardsHeight record the latest rewarded snail block
-func (db *StateDB) MarkRewardsHeight(number uint64, hash common.Hash) {
-	db.rewardSnailNumber = number
-	db.rewardSnailHash = hash
-	db.rewarded = true
-}
-
-// RecordRewards write down balance change
-func (db *StateDB) RecordRewards(ab *common.AddressWithBalance) {
-	if !db.marked {
-		return
-	}
-	db.rewards = append(db.rewards, ab)
 }
 
 // setError remembers the first non-nil error it is called with.
@@ -237,6 +187,11 @@ func (self *StateDB) Preimages() map[common.Hash][]byte {
 	return self.preimages
 }
 
+// BalancesChange returns a list of balance change that have been submitted.
+func (self *StateDB) BalancesChange() map[common.Address]*big.Int {
+	return self.balancesChange
+}
+
 // AddRefund adds gas to the refund counter
 func (self *StateDB) AddRefund(gas uint64) {
 	self.journal.append(refundChange{prev: self.refund})
@@ -273,6 +228,14 @@ func (self *StateDB) GetBalance(addr common.Address) *big.Int {
 		return stateObject.Balance()
 	}
 	return common.Big0
+}
+
+func (self *StateDB) GetValidBalance(addr common.Address) *big.Int {
+	return self.GetUnlockedBalance(addr)
+}
+
+func (self *StateDB) GetUnlockedBalance(addr common.Address) *big.Int {
+	return new(big.Int).Sub(self.GetBalance(addr), self.GetPOSLocked(addr))
 }
 
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
@@ -340,6 +303,11 @@ func (self *StateDB) GetPOSState(a common.Address, b common.Hash) []byte {
 		return stateObject.GetPOSState(self.db, b)
 	}
 	return nil
+}
+
+func (self *StateDB) GetPOSLocked(addr common.Address) *big.Int {
+	key := lockedKey(addr)
+	return self.GetState(types.StakingAddress, key).Big()
 }
 
 // GetProof returns the MerkleProof for a given Account
@@ -451,6 +419,11 @@ func (self *StateDB) SetPOSState(addr common.Address, key common.Hash, value []b
 	if stateObject != nil {
 		stateObject.SetPOSState(self.db, key, value)
 	}
+}
+
+func (self *StateDB) SetPOSLocked(addr common.Address, value *big.Int) {
+	key := lockedKey(addr)
+	self.SetState(types.StakingAddress, key, common.BigToHash(value))
 }
 
 func (self *StateDB) SetState(addr common.Address, key, value common.Hash) {
@@ -721,6 +694,17 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
+
+	for _, v := range s.journal.entries {
+		if _, ok := v.(balanceChange); ok {
+			stateObject, exist := s.stateObjects[*v.dirtied()]
+			if !exist {
+				continue
+			}
+			s.balancesChange[stateObject.address] = stateObject.Balance()
+		}
+	}
+
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }
