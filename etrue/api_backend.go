@@ -37,7 +37,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"github.com/truechain/truechain-engineering-code/truescan"
-    "github.com/truechain/truechain-engineering-code/consensus"
 )
 
 // TRUEAPIBackend implements ethapi.Backend for full nodes
