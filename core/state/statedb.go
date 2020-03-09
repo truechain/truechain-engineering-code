@@ -66,12 +66,19 @@ func lockedKey(addr common.Address) (h common.Hash) {
 // * Contracts
 // * Accounts
 type StateDB struct {
-	db   Database
-	trie Trie
+	db     Database
+	trie   Trie
+	marked bool
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects      map[common.Address]*stateObject
 	stateObjectsDirty map[common.Address]struct{}
+
+	// This Array record the amount of balance change due to rewards.
+	rewards           []*common.AddressWithBalance
+	rewardSnailNumber uint64
+	rewardSnailHash   common.Hash
+	rewarded          bool
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -109,6 +116,8 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 	return &StateDB{
 		db:                db,
 		trie:              tr,
+		marked:            false,
+		rewarded:          false,
 		stateObjects:      make(map[common.Address]*stateObject),
 		stateObjectsDirty: make(map[common.Address]struct{}),
 		logs:              make(map[common.Hash][]*types.Log),
@@ -116,6 +125,57 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		balancesChange:    make(map[common.Address]*big.Int),
 		journal:           newJournal(),
 	}, nil
+}
+
+// Balances return state info.
+func (db *StateDB) Balances() []*common.AddressWithBalance {
+	balances := make([]*common.AddressWithBalance, len(db.stateObjects))
+	i := 0
+	for _, sto := range db.stateObjects {
+		balances[i] = &common.AddressWithBalance{
+			Address: sto.Address(),
+			Balance: sto.Balance(),
+		}
+		i++
+	}
+	return balances
+}
+
+// Rewarded statedb has corresponding snail block info
+func (db *StateDB) Rewarded() bool {
+	return db.rewarded
+}
+
+// Rewards return rewards info.
+func (db *StateDB) Rewards() (uint64, common.Hash, []*common.AddressWithBalance) {
+	return db.rewardSnailNumber, db.rewardSnailHash, db.rewards
+}
+
+// MarkUp set a flag to indicate that the result of
+// this StateDB's change will eventually be saved in the chain
+// in order to monitor the corresponding event.
+func (db *StateDB) MarkUp() {
+	db.marked = true
+}
+
+// IsMarked return db.marked flag
+func (db *StateDB) IsMarked() bool {
+	return db.marked
+}
+
+// MarkRewardsHeight record the latest rewarded snail block
+func (db *StateDB) MarkRewardsHeight(number uint64, hash common.Hash) {
+	db.rewardSnailNumber = number
+	db.rewardSnailHash = hash
+	db.rewarded = true
+}
+
+// RecordRewards write down balance change
+func (db *StateDB) RecordRewards(ab *common.AddressWithBalance) {
+	if !db.marked {
+		return
+	}
+	db.rewards = append(db.rewards, ab)
 }
 
 // setError remembers the first non-nil error it is called with.
