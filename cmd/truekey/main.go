@@ -76,8 +76,8 @@ var (
 		Name:  "keystore",
 		Usage: "Keystore file path",
 	}
-	configdirFlag = cli.StringFlag{
-		Name:  "configdir",
+	DataDirFlag = cli.StringFlag{
+		Name:  "datadir",
 		Value: DefaultConfigDir(),
 		Usage: "Directory for TrueKeyService configuration",
 	}
@@ -94,7 +94,7 @@ var (
 		ArgsUsage: "",
 		Flags: []cli.Flag{
 			logLevelFlag,
-			configdirFlag,
+			DataDirFlag,
 		},
 		Description: `
 The init command generates a keystore which TrueKeyService can use to start service.`,
@@ -107,7 +107,7 @@ func init() {
 	app.Flags = []cli.Flag{
 		logLevelFlag,
 		keystoreFlag,
-		configdirFlag,
+		DataDirFlag,
 		utils.LightKDFFlag,
 		utils.RPCListenAddrFlag,
 		utils.RPCVirtualHostsFlag,
@@ -134,7 +134,7 @@ func initializeKeyStore(c *cli.Context) error {
 		return err
 	}
 	// Ensure the master key does not yet exist, we're not willing to overwrite
-	configDir := c.GlobalString(configdirFlag.Name)
+	configDir := c.GlobalString(DataDirFlag.Name)
 	if err := os.Mkdir(configDir, 0700); err != nil && !os.IsExist(err) {
 		return err
 	}
@@ -210,7 +210,7 @@ func trueKeyService(c *cli.Context) error {
 		return err
 	}
 
-	configDir := c.GlobalString(configdirFlag.Name)
+	configDir := c.GlobalString(DataDirFlag.Name)
 	stretchedKey, err := readMasterKey(c)
 	if err != nil {
 		log.Warn("Failed to open keystore", "err", err)
@@ -273,7 +273,7 @@ func trueKeyService(c *cli.Context) error {
 
 		// start http server
 		httpEndpoint := fmt.Sprintf("%s:%d", c.GlobalString(utils.RPCListenAddrFlag.Name), c.Int(rpcPortFlag.Name))
-		listener, _, err := rpc.StartHTTPEndpoint(httpEndpoint, rpcAPI, []string{"account"}, cors, vhosts)
+		listener, _, err := rpc.StartHTTPEndpoint(httpEndpoint, rpcAPI, []string{"account", "truekey"}, cors, vhosts)
 		if err != nil {
 			utils.Fatalf("Could not start RPC api: %v", err)
 		}
