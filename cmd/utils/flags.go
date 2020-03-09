@@ -422,6 +422,30 @@ var (
 		Name:  "nocompaction",
 		Usage: "Disables db compaction after import",
 	}
+	// Redis settings
+	RedisDisabledFlag = cli.BoolFlag{
+		Name:  "redisdisable",
+		Usage: "Disable the Redis server",
+	}
+	RedisAddrFlag = cli.StringFlag{
+		Name:  "redisaddr",
+		Usage: "Redis server address",
+		Value: "localhost",
+	}
+	RedisPortFlag = cli.IntFlag{
+		Name:  "redisport",
+		Usage: "Redis server port",
+		Value: 6379,
+	}
+	RedisPasswordFlag = cli.StringFlag{
+		Name:  "redispassword",
+		Usage: "Redis server password",
+	}
+	ChannelIDFlag = cli.IntFlag{
+		Name:  "redischannelid",
+		Usage: "Redis server channel ID",
+		Value: 0,
+	}
 	// RPC settings
 	RPCEnabledFlag = cli.BoolFlag{
 		Name:  "rpc",
@@ -1252,6 +1276,14 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if gen := ctx.GlobalInt(TrieCacheGenFlag.Name); gen > 0 {
 		state.MaxTrieCacheGen = uint16(gen)
 	}
+
+	if ctx.GlobalBool(RedisDisabledFlag.Name) {
+		cfg.RedisHost = ctx.GlobalString(RedisAddrFlag.Name)
+		cfg.RedisPort = ctx.GlobalInt(RedisPortFlag.Name)
+		cfg.Password = ctx.GlobalString(RedisPasswordFlag.Name)
+	}
+	cfg.ChannelID = ctx.GlobalInt(ChannelIDFlag.Name)
+	log.Info("", "cfg.SyncMode", cfg.SyncMode)
 }
 
 // SetDashboardConfig applies dashboard related command line flags to the config.
