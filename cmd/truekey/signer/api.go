@@ -29,6 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/log"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -94,6 +95,11 @@ func (api *SignerAPI) registerAdmin(passphrase string, metadata Metadata) error 
 
 	hash := crypto.Keccak256Hash([]byte(passphrase))
 	location := getKeyStoreDir(api.rootLoc, hash)
+
+	err := os.Mkdir(location, 0700)
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
 
 	api.adminWallet[hash] = types.NewAdminWallet(metadata.String(), startTrueKeyAccountManager(location, api.lightKDF), hash)
 	var admins []common.Hash
