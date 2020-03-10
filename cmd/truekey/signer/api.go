@@ -80,15 +80,21 @@ func NewSignerAPI(db etruedb.Database, seed []byte, rootLoc string, lightKdf boo
 func (api *SignerAPI) init() {
 	api.index = rawdb.ReadIndexKey(api.db)
 	admins := rawdb.ReadAdminPassword(api.db, api.seedHash)
+	log.Info("init", "api.seedHash", api.seedHash.String(), "count", len(admins))
 	if len(admins) > 0 {
 		for _, hash := range admins {
 			wallet := rawdb.ReadAdminWallet(api.db, hash)
-			if wallet != nil {
+			log.Info("init", "hash", hash.String(), "wallet", wallet)
+			if wallet == nil {
 				continue
 			}
-			api.adminWallet[hash] = wallet
 			location := getKeyStoreDir(api.rootLoc, hash)
-			api.adminWallet[hash].SetKeystore(startTrueKeyKeyStore(location, api.lightKDF))
+
+			realWallet := types.NewAdminWallet(wallet.Info, startTrueKeyKeyStore(location, api.lightKDF), hash)
+			for k, v := range wallet.Accounts {
+				realWallet.Accounts[k] = v
+			}
+			api.adminWallet[hash] = realWallet
 		}
 	}
 }
@@ -110,6 +116,7 @@ func (api *SignerAPI) registerAdmin(passphrase string, metadata Metadata) error 
 	}
 	admins = append(admins, hash)
 	rawdb.WriteAdminPassword(api.db, api.seedHash, admins)
+	log.Info("WriteAdminPassword", "api.seedHash", api.seedHash.String(), "count", len(admins), "hash", hash.String())
 	return nil
 }
 

@@ -86,10 +86,6 @@ func (aw *AdminWallet) AccountArray() []*ChildAccount {
 	return accs
 }
 
-func (aw *AdminWallet) SetKeystore(keystore *keystore.KeyStore) {
-	aw.keystore = keystore
-}
-
 type ChildAccount struct {
 	ID        uint64           `json:"id"`
 	Account   accounts.Account `json:"account"`
