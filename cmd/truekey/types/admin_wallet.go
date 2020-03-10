@@ -86,12 +86,16 @@ func (aw *AdminWallet) AccountArray() []*ChildAccount {
 }
 
 type ChildAccount struct {
-	ID        uint64         `json:"id"`
-	Address   common.Address `json:"address"` // Ethereum account address derived from the key
-	IPs       []net.IP       `json:"ips"`
-	Lock      bool           `json:"lock"`
-	Timestamp time.Time      `json:"timestamp"`
-	Note      string         `json:"note"`
+	Account   Account   `json:"account"`
+	IPs       []net.IP  `json:"ips"`
+	Lock      bool      `json:"lock"`
+	Timestamp time.Time `json:"timestamp"`
+	Note      string    `json:"note"`
+}
+
+type Account struct {
+	ID      uint64         `json:"id"`
+	Address common.Address `json:"address"` // Ethereum account address derived from the key
 }
 
 type AccountState struct {

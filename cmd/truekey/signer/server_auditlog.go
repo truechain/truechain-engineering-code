@@ -18,7 +18,6 @@ package signer
 
 import (
 	"context"
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/cmd/truekey/types"
 	"github.com/truechain/truechain-engineering-code/log"
 )
@@ -36,7 +35,7 @@ func (l *ServerAuditLogger) RegisterAdmin(ctx context.Context, passphrase string
 	return e
 }
 
-func (l *ServerAuditLogger) DeriveAccounts(ctx context.Context, count uint64, passphrase string) ([]accounts.Account, error) {
+func (l *ServerAuditLogger) DeriveAccounts(ctx context.Context, count uint64, passphrase string) ([]types.Account, error) {
 	l.log.Info("DeriveAccounts", "type", "request", "metadata", MetadataFromContext(ctx).String(),
 		"count", count,
 		"passphrase", passphrase)

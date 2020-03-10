@@ -2,7 +2,6 @@ package types
 
 import (
 	"context"
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 )
@@ -33,7 +32,7 @@ type ServerAPI interface {
 	// Register a admin
 	RegisterAdmin(ctx context.Context, passphrase string) error
 	// Derive account according to passphrase
-	DeriveAccounts(ctx context.Context, count uint64, passphrase string) ([]accounts.Account, error)
+	DeriveAccounts(ctx context.Context, count uint64, passphrase string) ([]Account, error)
 	// Get private key
 	//ExportKey(ctx context.Context, id uint64, addr common.Address) (hexutil.Bytes, error)
 	// List available accounts

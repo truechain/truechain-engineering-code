@@ -58,7 +58,7 @@ func (s *UIServerAPI) RegisterAdmin(ctx context.Context, passphrase string) erro
 // it for later reuse.
 // Example call
 // {"jsonrpc":"2.0","method":"clef_deriveAccount","params":["ledger://","m/44'/60'/0'", false], "id":6}
-func (s *UIServerAPI) DeriveAccounts(ctx context.Context, count uint64, passphrase string) ([]accounts.Account, error) {
+func (s *UIServerAPI) DeriveAccounts(ctx context.Context, count uint64, passphrase string) ([]types.Account, error) {
 	if err := ValidatePasswordFormat(passphrase); err != nil {
 		fmt.Printf("invalid password: %v\n", err)
 	}

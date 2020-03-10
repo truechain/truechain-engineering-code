@@ -129,7 +129,7 @@ func (api *SignerAPI) registerAdmin(passphrase string, metadata Metadata) error 
 	return nil
 }
 
-func (api *SignerAPI) deriveAccounts(passphrase string, count uint64, metadata Metadata) ([]accounts.Account, error) {
+func (api *SignerAPI) deriveAccounts(passphrase string, count uint64, metadata Metadata) ([]types.Account, error) {
 	api.indexMutex.Lock()
 	defer api.indexMutex.Unlock()
 	hash := crypto.Keccak256Hash([]byte(passphrase))
@@ -137,23 +137,27 @@ func (api *SignerAPI) deriveAccounts(passphrase string, count uint64, metadata M
 	if !exists {
 		return nil, ErrNotRegisterAdmin
 	}
-	var ats []accounts.Account
+	var ats []types.Account
 	for i := uint64(0); i < count; i++ {
 		index := i + api.index
-		account, err := api.wallet.Derive(getDerivationPath(index), true)
+		accountHD, err := api.wallet.Derive(getDerivationPath(index), true)
 		if err != nil {
 			api.index += i
 			log.Info("Derive accounts", "err", err)
 			return nil, err
 		}
-		v.Accounts[account.Address] = &types.ChildAccount{
-			ID:        index,
-			Address:   account.Address,
+		account := types.Account{
+			ID:      index,
+			Address: accountHD.Address,
+		}
+
+		v.Accounts[accountHD.Address] = &types.ChildAccount{
+			Account:   account,
 			Lock:      false,
 			Timestamp: time.Now(),
 		}
 		ats = append(ats, account)
-		privateKey, err := api.wallet.PrivateKey(account)
+		privateKey, err := api.wallet.PrivateKey(accountHD)
 		if err != nil {
 			log.Info("Derive accounts", "err", err)
 			return nil, err
@@ -279,7 +283,7 @@ func (api *SignerAPI) List(ctx context.Context) ([]common.Address, error) {
 			if !account.Lock {
 				for _, aip := range account.IPs {
 					if ip.Equal(aip) {
-						addresses = append(addresses, account.Address)
+						addresses = append(addresses, account.Account.Address)
 						break
 					}
 				}
@@ -296,10 +300,10 @@ func (api *SignerAPI) SignHash(ctx context.Context, addr common.Address, hash he
 out:
 	for _, wallet := range api.adminWallet {
 		for _, account := range wallet.Accounts {
-			if !account.Lock && account.Address == addr {
+			if !account.Lock && account.Account.Address == addr {
 				for _, aip := range account.IPs {
 					if ip.Equal(aip) {
-						acc.Address = account.Address
+						acc.Address = account.Account.Address
 						break out
 					}
 				}
