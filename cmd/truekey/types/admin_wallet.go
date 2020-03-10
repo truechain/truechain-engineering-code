@@ -31,18 +31,18 @@ func (i *AdminWallet) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&ei); err != nil {
 		return err
 	}
-	accounts := make(map[common.Address]*ChildAccount)
+	aAccounts := make(map[common.Address]*ChildAccount)
 	for i, account := range ei.Accounts {
-		accounts[ei.Array[i]] = account
+		aAccounts[ei.Array[i]] = account
 	}
 
-	i.Info, i.Accounts, i.Hash, i.keystore = ei.Info, accounts, ei.Hash, &keystore.KeyStore{}
+	i.Info, i.Accounts, i.Hash = ei.Info, aAccounts, ei.Hash
 	return nil
 }
 
 // EncodeRLP serializes b into the truechain RLP AdminWallet format.
 func (i *AdminWallet) EncodeRLP(w io.Writer) error {
-	var accounts []*ChildAccount
+	var aAccounts []*ChildAccount
 	var order []common.Address
 	for i, _ := range i.Accounts {
 		order = append(order, i)
@@ -55,11 +55,11 @@ func (i *AdminWallet) EncodeRLP(w io.Writer) error {
 		}
 	}
 	for _, epoch := range order {
-		accounts = append(accounts, i.Accounts[epoch])
+		aAccounts = append(aAccounts, i.Accounts[epoch])
 	}
 	return rlp.Encode(w, extAdminWallet{
 		Info:     i.Info,
-		Accounts: accounts,
+		Accounts: aAccounts,
 		Array:    order,
 		Hash:     i.Hash,
 	})

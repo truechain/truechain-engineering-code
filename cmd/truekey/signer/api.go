@@ -37,7 +37,8 @@ import (
 )
 
 var (
-	ErrNotRegisterAdmin = errors.New("please call RegisterAdmin")
+	ErrNotRegisterAdmin     = errors.New("please call RegisterAdmin")
+	ErrAlreadyRegisterAdmin = errors.New("already RegisterAdmin")
 )
 
 const (
@@ -102,8 +103,12 @@ func (api *SignerAPI) init() {
 func (api *SignerAPI) registerAdmin(passphrase string, metadata Metadata) error {
 
 	hash := crypto.Keccak256Hash([]byte(passphrase))
-	location := getKeyStoreDir(api.rootLoc, hash)
 
+	if _, exists := api.adminWallet[hash]; exists {
+		return ErrAlreadyRegisterAdmin
+	}
+
+	location := getKeyStoreDir(api.rootLoc, hash)
 	err := os.Mkdir(location, 0700)
 	if err != nil && !os.IsExist(err) {
 		return err
@@ -116,6 +121,7 @@ func (api *SignerAPI) registerAdmin(passphrase string, metadata Metadata) error 
 	}
 	admins = append(admins, hash)
 	rawdb.WriteAdminPassword(api.db, api.seedHash, admins)
+	rawdb.WriteAdminWallet(api.db, hash, api.adminWallet[hash])
 	log.Info("WriteAdminPassword", "api.seedHash", api.seedHash.String(), "count", len(admins), "hash", hash.String())
 	return nil
 }
