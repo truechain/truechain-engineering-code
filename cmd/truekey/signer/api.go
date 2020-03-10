@@ -225,10 +225,24 @@ func (api *SignerAPI) changeAdmin(passphrase string, newPassphrase string, metad
 		return ErrNotRegisterAdmin
 	}
 	newHash := crypto.Keccak256Hash([]byte(newPassphrase))
-	api.adminWallet[newHash] = v
+
+	location := getKeyStoreDir(api.rootLoc, hash)
+	newLocation := getKeyStoreDir(api.rootLoc, newHash)
+
+	err := os.Rename(location, newLocation)
+	if err != nil {
+		return err
+	}
+
+	realWallet := types.NewAdminWallet(v.Info, startTrueKeyKeyStore(newLocation, api.lightKDF), newHash)
+	for k, v := range v.Accounts {
+		realWallet.Accounts[k] = v
+	}
+
+	api.adminWallet[hash] = realWallet
 	delete(api.adminWallet, hash)
 
-	rawdb.WriteAdminWallet(api.db, newHash, v)
+	rawdb.WriteAdminWallet(api.db, newHash, realWallet)
 	rawdb.DeleteAdminWallet(api.db, hash)
 
 	var hashs []common.Hash
