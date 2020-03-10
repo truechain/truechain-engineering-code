@@ -35,7 +35,7 @@ func WriteAccountLookupEntries(db DatabaseWriter, wallet *types.AdminWallet) {
 		if err != nil {
 			log.Crit("Failed to encode account lookup entry", "err", err)
 		}
-		if err := db.Put(accountLookupKey(accout.Account.Address.Hash()), data); err != nil {
+		if err := db.Put(accountLookupKey(accout.Address.Hash()), data); err != nil {
 			log.Crit("Failed to store account lookup entry", "err", err)
 		}
 	}
