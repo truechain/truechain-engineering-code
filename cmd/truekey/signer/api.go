@@ -239,7 +239,7 @@ func (api *SignerAPI) changeAdmin(passphrase string, newPassphrase string, metad
 		realWallet.Accounts[k] = v
 	}
 
-	api.adminWallet[hash] = realWallet
+	api.adminWallet[newHash] = realWallet
 	delete(api.adminWallet, hash)
 
 	rawdb.WriteAdminWallet(api.db, newHash, realWallet)
