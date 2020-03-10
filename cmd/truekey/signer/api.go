@@ -40,6 +40,7 @@ var (
 	ErrNotRegisterAdmin     = errors.New("please call RegisterAdmin")
 	ErrAlreadyRegisterAdmin = errors.New("already RegisterAdmin")
 	ErrUpdateIDError        = errors.New("id too big")
+	ErrAdminAlready         = errors.New("admin already exist")
 )
 
 const (
@@ -146,7 +147,7 @@ func (api *SignerAPI) deriveAccounts(passphrase string, count uint64, metadata M
 		}
 		v.Accounts[account.Address] = &types.ChildAccount{
 			ID:        index,
-			Account:   account,
+			Address:   account.Address,
 			Lock:      false,
 			Timestamp: time.Now(),
 		}
@@ -226,6 +227,10 @@ func (api *SignerAPI) changeAdmin(passphrase string, newPassphrase string, metad
 	}
 	newHash := crypto.Keccak256Hash([]byte(newPassphrase))
 
+	if _, exists := api.adminWallet[newHash]; exists {
+		return ErrAdminAlready
+	}
+
 	location := getKeyStoreDir(api.rootLoc, hash)
 	newLocation := getKeyStoreDir(api.rootLoc, newHash)
 
@@ -262,23 +267,18 @@ func (api *SignerAPI) changeAdmin(passphrase string, newPassphrase string, metad
 func (api *SignerAPI) List(ctx context.Context) ([]common.Address, error) {
 	ip := net.ParseIP(MetadataFromContext(ctx).Remote)
 
-	var accs []accounts.Account
+	addresses := make([]common.Address, 0)
 	for _, wallet := range api.adminWallet {
 		for _, account := range wallet.Accounts {
 			if !account.Lock {
 				for _, aip := range account.IPs {
 					if ip.Equal(aip) {
-						accs = append(accs, account.Account)
+						addresses = append(addresses, account.Address)
 						break
 					}
 				}
 			}
 		}
-	}
-
-	addresses := make([]common.Address, 0)
-	for _, acc := range accs {
-		addresses = append(addresses, acc.Address)
 	}
 
 	return addresses, nil
@@ -290,10 +290,10 @@ func (api *SignerAPI) SignHash(ctx context.Context, addr common.Address, hash he
 out:
 	for _, wallet := range api.adminWallet {
 		for _, account := range wallet.Accounts {
-			if !account.Lock && account.Account.Address == addr {
+			if !account.Lock && account.Address == addr {
 				for _, aip := range account.IPs {
 					if ip.Equal(aip) {
-						acc = account.Account
+						acc.Address = account.Address
 						break out
 					}
 				}
