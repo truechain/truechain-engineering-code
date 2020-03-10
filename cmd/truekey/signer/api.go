@@ -41,6 +41,7 @@ var (
 	ErrAlreadyRegisterAdmin = errors.New("already RegisterAdmin")
 	ErrUpdateIDError        = errors.New("id too big")
 	ErrAdminAlready         = errors.New("admin already exist")
+	ErrAccountNotExist      = errors.New("account not exist")
 )
 
 const (
@@ -198,7 +199,12 @@ func (api *SignerAPI) updateAccount(passphrase string, id uint64, content types.
 		log.Info("Update account", "err", err)
 		return err
 	}
-	realAccount := v.Accounts[account.Address]
+	realAccount, ok := v.Accounts[account.Address]
+
+	if !ok {
+		return ErrAccountNotExist
+	}
+
 	realAccount.Lock, realAccount.Note = content.Lock, content.Note
 	for _, ip := range content.IPs {
 		if net.ParseIP(ip.String()) != nil {
