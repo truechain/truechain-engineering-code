@@ -55,7 +55,7 @@ type SignerAPI struct {
 	index       uint64
 	lightKDF    bool
 	seedHash    common.Hash
-	indexMu     sync.RWMutex
+	indexMutex  *sync.Mutex //block mutex
 }
 
 // NewSignerAPI creates a new API that can be used for Account management.
@@ -74,6 +74,7 @@ func NewSignerAPI(db etruedb.Database, seed []byte, rootLoc string, lightKdf boo
 		rootLoc:     rootLoc,
 		lightKDF:    lightKdf,
 		seedHash:    crypto.Keccak256Hash(seed),
+		indexMutex:  new(sync.Mutex),
 	}
 	signer.init()
 	return signer, nil
@@ -127,6 +128,8 @@ func (api *SignerAPI) registerAdmin(passphrase string, metadata Metadata) error 
 }
 
 func (api *SignerAPI) deriveAccounts(passphrase string, count uint64, metadata Metadata) ([]accounts.Account, error) {
+	api.indexMutex.Lock()
+	defer api.indexMutex.Unlock()
 	hash := crypto.Keccak256Hash([]byte(passphrase))
 	v, exists := api.adminWallet[hash]
 	if !exists {
@@ -214,17 +217,28 @@ func (api *SignerAPI) updateAccount(passphrase string, id uint64, content types.
 }
 
 func (api *SignerAPI) changeAdmin(passphrase string, newPassphrase string, metadata Metadata) error {
+	api.indexMutex.Lock()
+	defer api.indexMutex.Unlock()
 	hash := crypto.Keccak256Hash([]byte(passphrase))
 	v, exists := api.adminWallet[hash]
 	if !exists {
 		return ErrNotRegisterAdmin
 	}
 	newHash := crypto.Keccak256Hash([]byte(newPassphrase))
-	rawdb.WriteAdminWallet(api.db, newHash, v)
 	api.adminWallet[newHash] = v
-
 	delete(api.adminWallet, hash)
+
+	rawdb.WriteAdminWallet(api.db, newHash, v)
 	rawdb.DeleteAdminWallet(api.db, hash)
+
+	var hashs []common.Hash
+	for _, v := range rawdb.ReadAdminPassword(api.db, api.seedHash) {
+		if v == hash {
+			continue
+		}
+		hashs = append(hashs, v)
+	}
+	rawdb.WriteAdminPassword(api.db, api.seedHash, append(hashs, newHash))
 	return nil
 }
 
