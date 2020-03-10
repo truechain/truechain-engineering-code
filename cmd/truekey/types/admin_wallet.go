@@ -92,11 +92,11 @@ type ChildAccount struct {
 	IPs       []net.IP         `json:"ips"`
 	Lock      bool             `json:"lock"`
 	Timestamp time.Time        `json:"timestamp"`
-	Note      string           `json:"timestamp"`
+	Note      string           `json:"note"`
 }
 
 type AccountState struct {
 	IPs  []net.IP `json:"ips"`
 	Lock bool     `json:"lock"`
-	Note string   `json:"timestamp"`
+	Note string   `json:"note"`
 }

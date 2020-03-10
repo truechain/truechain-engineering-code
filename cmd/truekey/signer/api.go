@@ -39,6 +39,7 @@ import (
 var (
 	ErrNotRegisterAdmin     = errors.New("please call RegisterAdmin")
 	ErrAlreadyRegisterAdmin = errors.New("already RegisterAdmin")
+	ErrUpdateIDError        = errors.New("id too big")
 )
 
 const (
@@ -103,7 +104,6 @@ func (api *SignerAPI) init() {
 func (api *SignerAPI) registerAdmin(passphrase string, metadata Metadata) error {
 
 	hash := crypto.Keccak256Hash([]byte(passphrase))
-
 	if _, exists := api.adminWallet[hash]; exists {
 		return ErrAlreadyRegisterAdmin
 	}
@@ -132,8 +132,6 @@ func (api *SignerAPI) deriveAccounts(passphrase string, count uint64, metadata M
 	if !exists {
 		return nil, ErrNotRegisterAdmin
 	}
-	api.indexMu.Lock()
-	defer api.indexMu.RUnlock()
 	var ats []accounts.Account
 	for i := uint64(0); i < count; i++ {
 		index := i + api.index
@@ -187,6 +185,10 @@ func (api *SignerAPI) updateAccount(passphrase string, id uint64, content types.
 	if !exists {
 		return ErrNotRegisterAdmin
 	}
+	if id > api.index {
+		return ErrUpdateIDError
+	}
+
 	account, err := api.wallet.Derive(getDerivationPath(id), false)
 	if err != nil {
 		log.Info("Update account", "err", err)
@@ -194,7 +196,11 @@ func (api *SignerAPI) updateAccount(passphrase string, id uint64, content types.
 	}
 	realAccount := v.Accounts[account.Address]
 	realAccount.Lock, realAccount.Note = content.Lock, content.Note
-	realAccount.IPs = append(realAccount.IPs, content.IPs...)
+	for _, ip := range content.IPs {
+		if net.ParseIP(ip.String()) != nil {
+			realAccount.IPs = append(realAccount.IPs, ip)
+		}
+	}
 	return nil
 }
 
