@@ -97,11 +97,6 @@ func (s *UIServerAPI) ChangeAdmin(ctx context.Context, passphrase string, newPas
 	return s.extApi.changeAdmin(passphrase, newPassphrase, MetadataFromContext(ctx))
 }
 
-// fetchKeystore retrives the encrypted keystore from the account manager.
-func fetchKeystore(am *accounts.Manager) *keystore.KeyStore {
-	return am.Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-}
-
 func getKeyStoreDir(root string, hash common.Hash) string {
 	return filepath.Join(root, common.Bytes2Hex(hash.Bytes()))
 }
@@ -110,21 +105,15 @@ func getDerivationPath(index uint64) accounts.DerivationPath {
 	return hdwallet.MustParseDerivationPath(DefaultBaseDerivationPath + fmt.Sprintf("%x", index))
 }
 
-func startTrueKeyAccountManager(ksLocation string, lightKDF bool) *accounts.Manager {
+func startTrueKeyKeyStore(ksLocation string, lightKDF bool) *keystore.KeyStore {
 	var (
-		backends []accounts.Backend
-		n, p     = keystore.StandardScryptN, keystore.StandardScryptP
+		n, p = keystore.StandardScryptN, keystore.StandardScryptP
 	)
 	if lightKDF {
 		n, p = keystore.LightScryptN, keystore.LightScryptP
 	}
-	// support password based accounts
-	if len(ksLocation) > 0 {
-		backends = append(backends, keystore.NewKeyStore(ksLocation, n, p))
-	}
-
 	// TrueKey doesn't allow insecure http account unlock.
-	return accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: false}, backends...)
+	return keystore.NewKeyStore(ksLocation, n, p)
 }
 
 // types for the requests/response types between signer and UI

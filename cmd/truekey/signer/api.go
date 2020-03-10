@@ -18,6 +18,7 @@ package signer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/cmd/truekey/hdwallet"
@@ -28,6 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/log"
+	"io/ioutil"
 	"net"
 	"os"
 	"sync"
@@ -86,7 +88,7 @@ func (api *SignerAPI) init() {
 			}
 			api.adminWallet[hash] = wallet
 			location := getKeyStoreDir(api.rootLoc, hash)
-			api.adminWallet[hash].SetAm(startTrueKeyAccountManager(location, api.lightKDF))
+			api.adminWallet[hash].SetKeystore(startTrueKeyKeyStore(location, api.lightKDF))
 		}
 	}
 }
@@ -101,7 +103,7 @@ func (api *SignerAPI) registerAdmin(passphrase string, metadata Metadata) error 
 		return err
 	}
 
-	api.adminWallet[hash] = types.NewAdminWallet(metadata.String(), startTrueKeyAccountManager(location, api.lightKDF), hash)
+	api.adminWallet[hash] = types.NewAdminWallet(metadata.String(), startTrueKeyKeyStore(location, api.lightKDF), hash)
 	var admins []common.Hash
 	if rawdb.HasAdminPassword(api.db, api.seedHash) {
 		admins = append(admins, rawdb.ReadAdminPassword(api.db, api.seedHash)...)
@@ -140,7 +142,7 @@ func (api *SignerAPI) deriveAccounts(passphrase string, count uint64, metadata M
 			log.Info("Derive accounts", "err", err)
 			return nil, err
 		}
-		fetchKeystore(v.Am).ImportECDSA(privateKey, passphrase)
+		v.Keystore().ImportECDSA(privateKey, passphrase)
 	}
 	api.index += count
 	rawdb.WriteIndexKey(api.db, api.index)
@@ -249,4 +251,54 @@ out:
 // available via enumeration anyway, and this info does not contain user-specific data
 func (api *SignerAPI) Version(ctx context.Context) (string, error) {
 	return types.ExternalAPIVersion, nil
+}
+
+const jsonIndent = "    "
+
+// Config is the config.json file format. It holds a set of node records
+// as a JSON object.
+type Config struct {
+	Config []*AdminConfig `json:"admins"`
+}
+
+type AdminConfig struct {
+	Admin common.Hash   `json:"admin"`
+	Keys  []common.Hash `json:"keys"`
+}
+
+func loadNodesJSON(file string) Config {
+	var config Config
+	if isExist(file) {
+		if err := common.LoadJSON(file, &config); err != nil {
+			log.Info("loadNodesJSON", "error", err)
+		}
+	}
+	return config
+}
+
+func writeNodesJSON(file string, config Config) {
+	for _, v := range loadNodesJSON(file).Config {
+		for _, n := range config.Config {
+			if v.Admin == n.Admin {
+				n.Keys = append(n.Keys, v.Keys...)
+			}
+		}
+	}
+
+	nodesJSON, err := json.MarshalIndent(config, "", jsonIndent)
+	if err != nil {
+		log.Info("writeNodesJSON MarshalIndent", "error", err)
+	}
+	if file == "-" {
+		os.Stdout.Write(nodesJSON)
+		return
+	}
+	if err := ioutil.WriteFile(file, nodesJSON, 0644); err != nil {
+		log.Info("writeNodesJSON writeFile", "error", err)
+	}
+}
+
+func isExist(f string) bool {
+	_, err := os.Stat(f)
+	return err == nil || os.IsExist(err)
 }

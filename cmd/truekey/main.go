@@ -229,7 +229,7 @@ func trueKeyService(c *cli.Context) error {
 	)
 
 	log.Info("Starting signer", "keystore", rootLoc, "light-kdf", lightKdf)
-	apiImpl, err := signer.NewSignerAPI(keydata, stretchedKey, rootLoc, lightKdf)
+	apiImpl, err := signer.NewSignerAPI(keydata, stretchedKey, configDir, lightKdf)
 	if err != nil {
 		log.Info("NewSignerAPI", "err", err)
 		return err

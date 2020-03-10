@@ -2,6 +2,7 @@ package types
 
 import (
 	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"io"
@@ -10,10 +11,11 @@ import (
 )
 
 type AdminWallet struct {
-	Info     string
-	Accounts map[common.Address]*ChildAccount
-	Am       *accounts.Manager
-	Hash     common.Hash
+	Info      string
+	Accounts  map[common.Address]*ChildAccount
+	keystore  *keystore.KeyStore
+	Hash      common.Hash
+	whitelist []common.Hash
 }
 
 // "external" AdminWallet encoding. used for pos hd.
@@ -34,7 +36,7 @@ func (i *AdminWallet) DecodeRLP(s *rlp.Stream) error {
 		accounts[ei.Array[i]] = account
 	}
 
-	i.Info, i.Accounts, i.Hash = ei.Info, accounts, ei.Hash
+	i.Info, i.Accounts, i.Hash, i.keystore = ei.Info, accounts, ei.Hash, &keystore.KeyStore{}
 	return nil
 }
 
@@ -63,13 +65,17 @@ func (i *AdminWallet) EncodeRLP(w io.Writer) error {
 	})
 }
 
-func NewAdminWallet(info string, am *accounts.Manager, hash common.Hash) *AdminWallet {
+func NewAdminWallet(info string, keystore *keystore.KeyStore, hash common.Hash) *AdminWallet {
 	return &AdminWallet{
 		Info:     info,
 		Accounts: make(map[common.Address]*ChildAccount),
-		Am:       am,
+		keystore: keystore,
 		Hash:     hash,
 	}
+}
+
+func (aw *AdminWallet) Keystore() *keystore.KeyStore {
+	return aw.keystore
 }
 
 func (aw *AdminWallet) AccountArray() []*ChildAccount {
@@ -80,8 +86,8 @@ func (aw *AdminWallet) AccountArray() []*ChildAccount {
 	return accs
 }
 
-func (aw *AdminWallet) SetAm(am *accounts.Manager) {
-	aw.Am = am
+func (aw *AdminWallet) SetKeystore(keystore *keystore.KeyStore) {
+	aw.keystore = keystore
 }
 
 type ChildAccount struct {

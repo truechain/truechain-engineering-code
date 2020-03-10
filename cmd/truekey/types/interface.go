@@ -12,8 +12,14 @@ const (
 	ExternalAPIVersion = "1.0.0"
 )
 
+type UserIdentity struct {
+	PubKey string      `json:"pubkey"`
+	Prompt common.Hash `json:"id"`
+}
+
 // ExternalAPI defines the external API through which signing requests are made.
 type ExternalAPI interface {
+	//Register(ctx context.Context, pubkey string) (, error)
 	// List available accounts
 	List(ctx context.Context) ([]common.Address, error)
 	// SignHash request to sign the specified transaction
