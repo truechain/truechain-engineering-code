@@ -198,6 +198,15 @@ func (api *SignerAPI) updateAccount(passphrase string, id uint64, content types.
 	realAccount.Lock, realAccount.Note = content.Lock, content.Note
 	for _, ip := range content.IPs {
 		if net.ParseIP(ip.String()) != nil {
+			find := false
+			for _, exist := range realAccount.IPs {
+				if ip.Equal(exist) {
+					find = true
+				}
+			}
+			if find {
+				continue
+			}
 			realAccount.IPs = append(realAccount.IPs, ip)
 		}
 	}
