@@ -414,3 +414,11 @@ func (self *stateObject) CopyAccount(other *stateObject) {
 		self.SetCode(common.BytesToHash(other.data.CodeHash), other.Code(other.db.db))
 	}
 }
+
+func (self *stateObject) isContract() bool {
+	if codeHash := self.CodeHash(); bytes.Equal(codeHash, emptyCodeHash) || bytes.Equal(codeHash, (common.Hash{}).Bytes()) {
+		return false
+	}
+
+	return true
+}

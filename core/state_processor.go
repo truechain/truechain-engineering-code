@@ -17,6 +17,9 @@
 package core
 
 import (
+	"github.com/ethereum/go-ethereum/common"
+	"time"
+
 	//"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -57,10 +60,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
 func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-
-	if block.Transactions().Len() != 0 {
-		log.Info("Process:", "block ", block.Number(), "txs count", block.Transactions().Len())
-	}
+	t0 := time.Now()
 
 	if true {
 		var (
@@ -74,10 +74,18 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 			return nil, nil, 0, err
 		}
 
+		d0 := time.Since(t0)
+		t0 = time.Now()
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 		_, err = fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 		if err != nil {
 			return nil, nil, 0, err
+		}
+
+		if block.Transactions().Len() != 0 {
+			log.Info("Process:", "block ", block.Number(), "txs", block.Transactions().Len(),
+				"groups", len(parallelBlock.executionGroups), "execute", common.PrettyDuration(d0),
+				"finalize", common.PrettyDuration(time.Since(t0)))
 		}
 
 		return receipts, allLogs, usedGas, nil
@@ -102,10 +110,24 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 			allLogs = append(allLogs, receipt.Logs...)
 		}
 
+		//if block.Number().Cmp(number) == 0  {
+		//	fmt.Println("merkle root ( local: %x )", statedb.IntermediateRoot(true))
+		//}
+		d0 := time.Since(t0)
+		t0 = time.Now()
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 		_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 		if err != nil {
 			return nil, nil, 0, err
+		}
+
+		//if block.Number().Cmp(number) == 0  {
+		//	fmt.Println("merkle root (remote: %x local: %x local header: %x)", block.Header().Root, statedb.IntermediateRoot(true), header.Root)
+		//}
+
+		if block.Transactions().Len() != 0 {
+			log.Info("Process:", "block ", block.Number(), "txs count", block.Transactions().Len(),
+				"execute", common.PrettyDuration(d0), "finalize", common.PrettyDuration(time.Since(t0)))
 		}
 
 		return receipts, allLogs, *usedGas, nil
@@ -137,6 +159,51 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	var root []byte
 
 	statedb.Finalise(true)
+
+	*usedGas += gas
+	gasFee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
+	feeAmount.Add(gasFee, feeAmount)
+	if msg.Fee() != nil {
+		feeAmount.Add(msg.Fee(), feeAmount) //add fee
+	}
+
+	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
+	// based on the eip phase, we're passing wether the root touch-delete accounts.
+	receipt := types.NewReceipt(root, failed, *usedGas)
+	receipt.TxHash = tx.Hash()
+	receipt.GasUsed = gas
+	// if the transaction created a contract, store the creation address in the receipt.
+	if msg.To() == nil {
+		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
+	}
+	// Set the receipt logs and create a bloom for filtering
+	receipt.Logs = statedb.GetLogs(tx.Hash())
+	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+
+	return receipt, gas, err
+}
+
+// ApplyTransaction attempts to apply a transaction to the given state database
+// and uses the input parameters for its environment. It returns the receipt
+// for the transaction, gas used and an error if the transaction failed,
+// indicating the block was invalid.
+func ApplyTransactionMsg(config *params.ChainConfig, bc ChainContext, gp *GasPool,
+	statedb *state.StateDB, header *types.Header, msg *types.Message, tx *types.Transaction, usedGas *uint64, feeAmount *big.Int, cfg vm.Config) (*types.Receipt, uint64, error) {
+	// Create a new context to be used in the EVM environment
+	context := NewEVMContext(msg, header, bc, nil, nil)
+	// Create a new environment which holds all relevant information
+	// about the transaction and calling mechanisms.
+	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	// Apply the transaction to the current state (included in the env)
+	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+	if err != nil {
+		return nil, 0, err
+	}
+	// Update the state with pending changes
+	var root []byte
+
+	//statedb.Finalise(true)
+	statedb.FinaliseEmptyObjects()
 
 	*usedGas += gas
 	gasFee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())

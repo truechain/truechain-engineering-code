@@ -552,6 +552,11 @@ func (self *StateDB) Copy() *StateDB {
 		preimages:         make(map[common.Hash][]byte, len(self.preimages)),
 		journals:          make(map[common.Hash]*journal),
 		journal:           newJournal(),
+		lastAccountRec:    make(map[common.Address]*Account),
+		currAccountRec:    make(map[common.Address]*Account),
+		lastStorageRec:    make(map[StorageAddress]common.Hash),
+		currStorageRec:    make(map[StorageAddress]common.Hash),
+		touchedAddress:    NewTouchedAddressObject(),
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range self.journal.dirties {
@@ -644,7 +649,64 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
-	// Invalidate journal because reverting across transactions is not allowed.
+	// Invalidate journals.
+	s.clearJournalAndRefund()
+}
+
+// FinaliseEmptyObjects only sets the empty objects as deleted.
+func (s *StateDB) FinaliseEmptyObjects() {
+	for addr := range s.journal.dirties {
+		stateObject, exist := s.stateObjects[addr]
+		if !exist {
+			// ripeMD is 'touched' at block 1714175, in tx 0x1237f737031e40bcde4a8b7e717b2d15e3ecadfe49bb1bbc71ee9deb09c6fcf2
+			// That tx goes out of gas, and although the notion of 'touched' does not exist there, the
+			// touch-event will still be recorded in the journal. Since ripeMD is a special snowflake,
+			// it will persist in the journal even though the journal is reverted. In this special circumstance,
+			// it may exist in `s.journal.dirties` but not in `s.stateObjects`.
+			// Thus, we can safely ignore it here
+			continue
+		}
+
+		if stateObject.suicided || (stateObject.empty()) {
+			stateObject.deleted = true
+		}
+		s.stateObjectsDirty[addr] = struct{}{}
+	}
+	s.journal = newJournal()
+	s.validRevisions = s.validRevisions[:0]
+	s.refund = 0
+}
+
+func (s *StateDB) FinaliseGroup(deleteEmptyObjects bool) {
+	dirties := make(map[common.Address]struct{})
+
+	for _, journal := range s.journals {
+		for k := range journal.dirties {
+			dirties[k] = struct{}{}
+		}
+	}
+
+	for addr := range dirties {
+		stateObject, exist := s.stateObjects[addr]
+		if !exist {
+			// ripeMD is 'touched' at block 1714175, in tx 0x1237f737031e40bcde4a8b7e717b2d15e3ecadfe49bb1bbc71ee9deb09c6fcf2
+			// That tx goes out of gas, and although the notion of 'touched' does not exist there, the
+			// touch-event will still be recorded in the journal. Since ripeMD is a special snowflake,
+			// it will persist in the journal even though the journal is reverted. In this special circumstance,
+			// it may exist in `s.journal.dirties` but not in `s.stateObjects`.
+			// Thus, we can safely ignore it here
+			continue
+		}
+
+		if stateObject.suicided || (deleteEmptyObjects && stateObject.empty()) {
+			s.deleteStateObject(stateObject)
+		} else {
+			stateObject.updateRoot(s.db)
+			s.updateStateObject(stateObject)
+		}
+		s.stateObjectsDirty[addr] = struct{}{}
+	}
+	// Invalidate journal.
 	//s.clearJournalAndRefund()
 	s.journal = newJournal()
 	s.validRevisions = s.validRevisions[:0]
@@ -665,7 +727,7 @@ func (self *StateDB) Prepare(thash, bhash common.Hash, ti int) {
 	self.thash = thash
 	self.bhash = bhash
 	self.txIndex = ti
-	self.journal = newJournal()
+	//self.journal = newJournal()
 	self.journals[thash] = self.journal
 	self.touchedAddress = NewTouchedAddressObject()
 	self.lastAccountRec = make(map[common.Address]*Account)
@@ -801,8 +863,12 @@ func (s *StateDB) prepareAccountAndStorageRecords() {
 	s.currStorageRec = make(map[StorageAddress]common.Hash)
 }
 
-func (s *StateDB) GetTouchedAddress() *TouchedAddressObject {
-	return s.touchedAddress
+func (s *StateDB) FinalizeTouchedAddress() *TouchedAddressObject {
+	result := s.touchedAddress
+
+	s.touchedAddress = NewTouchedAddressObject()
+
+	return result
 }
 
 func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[common.Address]*StateObjectToReuse) {
@@ -817,6 +883,7 @@ func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[c
 		if obj0 != nil {
 			if obj1 == nil {
 				self.Suicide(addr)
+				obj0.deleted = true
 			} else {
 				if stateObjAddr.ReuseData {
 					obj0.CopyAccount(obj1)
@@ -844,4 +911,18 @@ func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[c
 
 func (self *StateDB) CopyTxJournalFromOtherDB(other *StateDB, txHash common.Hash) {
 	self.journals[txHash] = other.journals[txHash]
+}
+
+func (self *StateDB) StateObjIsContract(addr common.Address) bool {
+	if obj := self.getStateObject(addr); obj != nil {
+		return obj.isContract()
+	}
+
+	return false
+}
+
+func (self *StateDB) AddCallArg(arg []byte) {
+	if len(arg) >= common.AddressLength {
+		self.touchedAddress.AddAccountInArg(common.BytesToAddress(arg))
+	}
 }

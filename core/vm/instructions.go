@@ -432,7 +432,9 @@ func opCallValue(pc *uint64, interpreter *EVMInterpreter, contract *Contract, me
 }
 
 func opCallDataLoad(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	stack.push(interpreter.intPool.get().SetBytes(getDataBig(contract.Input, stack.pop(), big32)))
+	dataBig := getDataBig(contract.Input, stack.pop(), big32)
+	stack.push(interpreter.intPool.get().SetBytes(dataBig))
+	interpreter.evm.StateDB.AddCallArg(dataBig)
 	return nil, nil
 }
 
@@ -447,7 +449,9 @@ func opCallDataCopy(pc *uint64, interpreter *EVMInterpreter, contract *Contract,
 		dataOffset = stack.pop()
 		length     = stack.pop()
 	)
-	memory.Set(memOffset.Uint64(), length.Uint64(), getDataBig(contract.Input, dataOffset, length))
+	dataBig := getDataBig(contract.Input, dataOffset, length)
+	memory.Set(memOffset.Uint64(), length.Uint64(), dataBig)
+	interpreter.evm.StateDB.AddCallArg(dataBig)
 
 	interpreter.intPool.put(memOffset, dataOffset, length)
 	return nil, nil

@@ -8,8 +8,9 @@ type StorageAddress struct {
 }
 
 type TouchedAddressObject struct {
-	accountOp map[common.Address]bool
-	storageOp map[StorageAddress]bool
+	accountOp    map[common.Address]bool
+	storageOp    map[StorageAddress]bool
+	accountInArg []common.Address
 }
 
 type StateObjectToReuse struct {
@@ -87,4 +88,18 @@ func (self *TouchedAddressObject) Merge(another *TouchedAddressObject) bool {
 
 func (self *TouchedAddressObject) RemoveAccount(address common.Address) {
 	delete(self.accountOp, address)
+}
+
+func (self *TouchedAddressObject) RemoveStorage(storage StorageAddress) {
+	delete(self.storageOp, storage)
+}
+
+func (self *TouchedAddressObject) AddAccountInArg(address common.Address) {
+	self.accountInArg = append(self.accountInArg, address)
+}
+
+func (self *TouchedAddressObject) RemoveAccountsInArgs() {
+	for _, address := range self.accountInArg {
+		delete(self.accountOp, address)
+	}
 }

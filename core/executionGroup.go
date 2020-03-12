@@ -110,8 +110,6 @@ func (e *ExecutionGroup) reuseTxResults(txsToReuse []TxWithOldGroup, conflictGro
 	for gId, stateObjsMap := range stateObjsFromOtherGroup {
 		e.statedb.CopyStateObjFromOtherDB(conflictGroups[gId].statedb, stateObjsMap)
 	}
-
-	e.statedb.Finalise(true)
 }
 
 func appendStateObjToReuse(stateObjsToReuse map[common.Address]*state.StateObjectToReuse, touchedAddr *state.TouchedAddressObject) {
