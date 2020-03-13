@@ -1,8 +1,10 @@
 package test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"testing"
 
@@ -141,4 +143,24 @@ func TestGetAddress(t *testing.T) {
 	saddr7 := crypto.PubkeyToAddress(skey7.PublicKey)
 
 	fmt.Println("saddr5", saddr5.String(), "saddr6", saddr6.String(), "saddr7", saddr7.String())
+}
+
+func TestParseDepositInput(t *testing.T) {
+	input := "5d322ae80000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000472698b413b4320000000000000000000000000000000000000000000000000000000000000000007d0000000000000000000000000000000000000000000000000000000000000004100a1f64db371ea0e4392d753f4b16d63cd12d84c53faff9593eb6d6e46aa1db18efb8954b1a163a4a40f90b3e44a1a24575730c3591c26bdbd72b904bb7c07341100000000000000000000000000000000000000000000000000000000000000"
+	inputData, _ := hex.DecodeString(input)
+	methodName, err := abiStaking.MethodById(inputData)
+	data := inputData[4:]
+
+	args := struct {
+		Pubkey []byte
+		Fee    *big.Int
+		Value  *big.Int
+	}{}
+	method, _ := abiStaking.Methods[methodName.Name]
+
+	err = method.Inputs.Unpack(&args, data)
+	if err != nil {
+		log.Error("Unpack deposit pubkey error", "err", err)
+	}
+	fmt.Println("Fee ", args.Fee, " Value ", args.Value)
 }
