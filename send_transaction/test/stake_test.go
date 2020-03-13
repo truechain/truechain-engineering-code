@@ -164,3 +164,37 @@ func TestParseDepositInput(t *testing.T) {
 	}
 	fmt.Println("Fee ", args.Fee, " Value ", args.Value)
 }
+
+func TestUnpack(t *testing.T) {
+	args := struct {
+		Pubkey []byte
+		Fee    *big.Int
+		Value  *big.Int
+	}{}
+	// 5d322ae8
+	inputstr := "5d322ae8000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003e8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000004050863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b23522cd470243453a299fa9e77237716103abc11a1df38855ed6f2ee187e9c582ba6"
+	input,e := hex.DecodeString(inputstr)
+	if e != nil {
+		fmt.Println(e)
+	}
+	method, ok := abiStaking.Methods["deposit"]
+	if !ok {
+		fmt.Println("cann't find")
+	}
+	input = input[4:]
+	err := method.Inputs.Unpack(&args, input)
+	if err != nil {
+		fmt.Println("Unpack deposit pubkey error",err)
+	}
+	// vpk,e2 := hex.DecodeString("0450863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b23522cd470243453a299fa9e77237716103abc11a1df38855ed6f2ee187e9c582ba6")
+	// if e2 != nil {
+	// 	fmt.Println("e2:",e2)
+	// }
+	if _, err := crypto.UnmarshalPubkey(args.Pubkey); err != nil {
+		fmt.Println("invalid pk,err:",err)
+	}
+	fmt.Println("pk:",hex.EncodeToString(args.Pubkey))
+	fmt.Println("fee",args.Fee.String())
+	fmt.Println("Value",args.Value.String())
+	fmt.Println("finish")
+}
