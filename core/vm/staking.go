@@ -55,7 +55,7 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	method, err := abiStaking.MethodById(input)
 	if err != nil {
 		log.Error("No method found")
-		return nil, ErrStakingInvalidInput
+		return nil, errExecutionReverted
 	}
 
 	data := input[4:]
@@ -86,6 +86,11 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	default:
 		log.Warn("Staking call fallback function")
 		err = ErrStakingInvalidInput
+	}
+
+	if err != nil {
+		log.Warn("Staking error code", "code", err)
+		err = errExecutionReverted
 	}
 
 	return ret, err

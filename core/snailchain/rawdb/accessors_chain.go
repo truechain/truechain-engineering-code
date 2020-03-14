@@ -386,6 +386,10 @@ func HasFruitsHead(db DatabaseReader, hash common.Hash, number uint64) bool {
 func ReadFruitsHead(db DatabaseReader, hash common.Hash, number uint64) []*types.SnailHeader {
 	data := ReadFHsRLP(db, hash, number)
 	if len(data) == 0 {
+		if HasBody(db, hash, number) {
+			body := ReadBody(db, hash, number)
+			return body.FruitsHeaders()
+		}
 		return nil
 	}
 	var heads []*types.SnailHeader

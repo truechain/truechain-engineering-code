@@ -66,11 +66,11 @@ type Backend interface {
 	GetCommittee(id rpc.BlockNumber) (map[string]interface{}, error)
 	GetCurrentCommitteeNumber() *big.Int
 
-	GetStateChangeByFastNumber(ctx context.Context, fastNumber rpc.BlockNumber) *types.BlockBalance
+	GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BlockBalance
 	GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent
 
 	GetSnailRewardContent(blockNr rpc.BlockNumber) *types.SnailRewardContenet
-	GetChainRewardContent(blockNr rpc.BlockNumber) *types.TimedChainReward
+	GetChainRewardContent(blockNr rpc.BlockNumber) *types.ChainReward
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
