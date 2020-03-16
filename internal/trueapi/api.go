@@ -999,7 +999,7 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"logsBloom":        head.Bloom,
 		"stateRoot":        head.Root,
 		"snailHash":        head.SnailHash,
-		"SnailNumber":      (*hexutil.Big)(head.SnailNumber),
+		"snailNumber":      (*hexutil.Big)(head.SnailNumber),
 		"extraData":        hexutil.Bytes(head.Extra),
 		"size":             hexutil.Uint64(b.Size()),
 		"gasLimit":         hexutil.Uint64(head.GasLimit),
