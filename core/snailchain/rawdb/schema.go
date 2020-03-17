@@ -58,8 +58,6 @@ var (
 
 	configPrefix = []byte("snailchain-truechain-config-") // config prefix for the db
 
-	rewardInfoPrefix = []byte("sri")
-
 	// headBlockKey tracks the latest know full block's hash.
 	headHashPrefix      = []byte("shh") // headHashPrefix + num (uint64 big endian) -> headHash
 	headHashEpochSuffix = []byte("she") // headHashPrefix + num (uint64 big endian) + headHashEpochSuffix -> headHashEpoch
@@ -80,9 +78,6 @@ func encodeBlockNumber(number uint64) []byte {
 	return enc
 }
 
-func rewardInfoKey(number uint64) []byte {
-	return append(rewardInfoPrefix, encodeBlockNumber(number)...)
-}
 // headerKey = headerPrefix + num (uint64 big endian) + hash
 func headerKey(number uint64, hash common.Hash) []byte {
 	return append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...)

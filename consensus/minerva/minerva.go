@@ -391,9 +391,6 @@ func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
 	m.sbc = scr
 }
-func (m *Minerva) SetRewardAccess(ra consensus.RewardInfosAccess) {
-	m.rewardAccess = ra
-}
 
 func (m *Minerva) SetSnailHeaderHash(db etruedb.Database) {
 	m.chainDB = db

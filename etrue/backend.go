@@ -222,10 +222,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.engine.SetElection(etrue.election)
 	etrue.engine.SetSnailChainReader(etrue.snailblockchain)
-	if m,ok := etrue.engine.(*ethash.Minerva); ok {
-		m.SetRewardAccess(etrue.snailblockchain)
-		log.Info("***Set RewardInfoAccess Success****")
-	}
 	etrue.election.SetEngine(etrue.engine)
 
 	//coinbase, _ := etrue.Etherbase()
