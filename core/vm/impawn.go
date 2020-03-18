@@ -864,14 +864,14 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 	if val, ok := i.accounts[eid]; ok {
 		val.sort(height, true)
 		var ee []*StakingAccount
-		for i, v := range val {
+		for _, v := range val {
 			validStaking := v.getValidStakingOnly(height)
 			if validStaking.Cmp(params.ElectionMinLimitForStaking) < 0 {
 				continue
 			}
 			v.Committee = true
 			ee = append(ee, v)
-			if i == params.CountInEpoch-1 {
+			if len(ee) >= params.CountInEpoch {
 				break
 			}
 		}

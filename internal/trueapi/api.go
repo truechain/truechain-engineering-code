@@ -682,12 +682,12 @@ func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr
 	return nil, err
 }
 
-func (s *PublicBlockChainAPI) GetSnailHashByNumber(ctx context.Context, blockNr rpc.BlockNumber) common.Hash {
+func (s *PublicBlockChainAPI) GetSnailHashByNumber(ctx context.Context, blockNr rpc.BlockNumber) string {
 	block, _ := s.b.SnailBlockByNumber(ctx, blockNr)
 	if block != nil {
-		return block.Hash()
+		return hexutil.Encode(block.Hash().Bytes())
 	}
-	return [32]byte{}
+	return ""
 }
 
 // GetSnailBlockByHash returns the requested snail block.
@@ -999,7 +999,7 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"logsBloom":        head.Bloom,
 		"stateRoot":        head.Root,
 		"snailHash":        head.SnailHash,
-		"SnailNumber":      (*hexutil.Big)(head.SnailNumber),
+		"snailNumber":      (*hexutil.Big)(head.SnailNumber),
 		"extraData":        hexutil.Bytes(head.Extra),
 		"size":             hexutil.Uint64(b.Size()),
 		"gasLimit":         hexutil.Uint64(head.GasLimit),
