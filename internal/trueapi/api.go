@@ -683,6 +683,7 @@ func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr
 }
 
 func (s *PublicBlockChainAPI) GetSnailHashByNumber(ctx context.Context, blockNr rpc.BlockNumber) string {
+	fmt.Println("go into GetSnailHashByNumber")
 	block, _ := s.b.SnailBlockByNumber(ctx, blockNr)
 	if block != nil {
 		return hexutil.Encode(block.Hash().Bytes())
