@@ -1240,6 +1240,7 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 }
 
 func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, addr common.Address) map[string]interface{} {
+	fmt.Println("go into getChainRewardContent")
 	content := s.b.GetChainRewardContent(blockNr)
 	if content == nil {
 		return nil
