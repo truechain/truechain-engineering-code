@@ -18,7 +18,6 @@ package etrue
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
@@ -254,37 +253,52 @@ func (b *TrueAPIBackend) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) 
 }
 
 func (b *TrueAPIBackend) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
-	fmt.Println("go into GetBalanceChangeBySnailNumber")
-	var sBlock = b.etrue.SnailBlockChain().GetBlockByNumber(uint64(snailNumber))
 	state, _ := b.etrue.BlockChain().State()
 	var (
-		addrWithBalance          = make(map[common.Address]*big.Int)
-		committeeAddrWithBalance = make(map[common.Address]*big.Int)
-		blockFruits              = sBlock.Body().Fruits
-		blockFruitsLen           = big.NewInt(int64(len(blockFruits)))
+		balance         = new(big.Int)
+		addrWithBalance = make(map[common.Address]*big.Int)
 	)
-	if blockFruitsLen.Uint64() == 0 {
+	content := b.GetChainRewardContent(snailNumber)
+	if content == nil {
 		return nil
 	}
-	//snailBlock miner's award
-	var balance = state.GetBalance(sBlock.Coinbase())
-	addrWithBalance[sBlock.Coinbase()] = balance
 
-	for _, fruit := range blockFruits {
-		if addrWithBalance[fruit.Coinbase()] == nil {
-			addrWithBalance[fruit.Coinbase()] = state.GetBalance(fruit.Coinbase())
+	var foundationReward = content.Foundation
+	var blockminer = content.CoinBase
+	var fruitminer = content.FruitBase
+	var committeReward = content.CommitteeBase
+	if foundationReward != nil {
+		if addrWithBalance[foundationReward.Address] != nil {
+			balance = state.GetBalance(foundationReward.Address)
+			addrWithBalance[foundationReward.Address] = balance
 		}
-		var committeeMembers = b.etrue.election.GetCommittee(fruit.FastNumber())
+	}
+	if blockminer != nil {
+		if addrWithBalance[blockminer.Address] != nil {
+			balance = state.GetBalance(blockminer.Address)
+			addrWithBalance[blockminer.Address] = balance
+		}
+	}
 
-		for _, cm := range committeeMembers {
-			if committeeAddrWithBalance[cm.Coinbase] == nil {
-				committeeAddrWithBalance[cm.Coinbase] = state.GetBalance(cm.Coinbase)
+	if fruitminer != nil && len(fruitminer) != 0 {
+		for _, rewardInfo := range fruitminer {
+			if addrWithBalance[rewardInfo.Address] != nil {
+				balance = state.GetBalance(rewardInfo.Address)
+				addrWithBalance[rewardInfo.Address] = balance
 			}
 		}
 	}
-	for addr, balance := range committeeAddrWithBalance {
-		if addrWithBalance[addr] == nil {
-			addrWithBalance[addr] = balance
+
+	if committeReward != nil && len(committeReward) != 0 {
+		for _, sARewardInfos := range committeReward {
+			if sARewardInfos != nil && len(sARewardInfos.Items) != 0 {
+				for _, rewardInfo := range sARewardInfos.Items {
+					if addrWithBalance[rewardInfo.Address] != nil {
+						balance = state.GetBalance(rewardInfo.Address)
+						addrWithBalance[rewardInfo.Address] = balance
+					}
+				}
+			}
 		}
 	}
 	return &types.BalanceChangeContent{addrWithBalance}
