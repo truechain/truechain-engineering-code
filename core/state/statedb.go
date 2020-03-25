@@ -871,41 +871,80 @@ func (s *StateDB) FinalizeTouchedAddress() *TouchedAddressObject {
 	return result
 }
 
+func (self *StateDB) CopyStateObjRlpDataFromOtherDB(other *StateDB, stateObjAddr *StateObjectToReuse) ([]byte, bool) {
+	if self == other {
+		return nil, false
+	}
+	addr := stateObjAddr.Address
+	var obj0 *stateObject
+	obj1 := other.getStateObject(addr)
+
+	if obj1.deleted == true {
+		obj0 = self.getStateObjectWithoutSet(addr)
+		if obj0 != nil {
+			return nil, true
+		}
+	} else {
+		if stateObjAddr.ReuseData {
+			obj0 = newObject(self, addr, obj1.data)
+
+		}
+		if len(stateObjAddr.Keys) != 0 {
+			if obj0 == nil {
+				obj0 = self.getStateObjectWithoutSet(addr)
+			}
+			if obj0 == nil {
+				obj0 = newObject(self, addr, Account{})
+				obj0.setNonce(0) // sets the object to dirty
+			}
+			for _, key := range stateObjAddr.Keys {
+				obj0.setState(key, obj1.GetState(other.db, key))
+			}
+			obj0.updateRoot(self.db)
+		}
+		data, err := rlp.EncodeToBytes(obj0)
+		if err != nil {
+			panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
+		}
+		return data, true
+	}
+
+	return nil, false
+}
+
 func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[common.Address]*StateObjectToReuse) {
 	if self == other {
 		return
 	}
-
 	for addr, stateObjAddr := range stateObjAddrs {
-		obj0 := self.getStateObject(addr)
+		var obj0 *stateObject
 		obj1 := other.getStateObject(addr)
 
-		if obj0 != nil {
-			if obj1 == nil {
-				self.Suicide(addr)
+		if obj1.deleted == true {
+			obj0 = self.getStateObjectWithoutSet(addr)
+			if obj0 != nil {
 				obj0.deleted = true
-			} else {
-				if stateObjAddr.ReuseData {
-					obj0.CopyAccount(obj1)
-				}
-				for _, key := range stateObjAddr.Keys {
-					obj0.SetState(self.db, key, obj1.GetState(other.db, key))
-				}
 			}
 		} else {
-			if obj1 != nil {
-				if stateObjAddr.ReuseData || len(stateObjAddr.Keys) != 0 {
-					obj0, _ = self.createObject(addr)
+			if stateObjAddr.ReuseData {
+				obj0 = newObject(self, addr, obj1.data)
 
-					if stateObjAddr.ReuseData {
-						obj0.CopyAccount(obj1)
-					}
-					for _, key := range stateObjAddr.Keys {
-						obj0.SetState(self.db, key, obj1.GetState(other.db, key))
-					}
+			}
+			if len(stateObjAddr.Keys) != 0 {
+				if obj0 == nil {
+					obj0 = self.getStateObjectWithoutSet(addr)
+				}
+				if obj0 == nil {
+					obj0 = newObject(self, addr, Account{})
+					obj0.setNonce(0) // sets the object to dirty
+				}
+				for _, key := range stateObjAddr.Keys {
+					obj0.setState(key, obj1.GetState(other.db, key))
 				}
 			}
 		}
+
+		self.setStateObject(obj0)
 	}
 }
 
@@ -914,7 +953,7 @@ func (self *StateDB) CopyTxJournalFromOtherDB(other *StateDB, txHash common.Hash
 }
 
 func (self *StateDB) StateObjIsContract(addr common.Address) bool {
-	if obj := self.getStateObject(addr); obj != nil {
+	if obj := self.getStateObjectWithoutSet(addr); obj != nil {
 		return obj.isContract()
 	}
 
@@ -924,5 +963,40 @@ func (self *StateDB) StateObjIsContract(addr common.Address) bool {
 func (self *StateDB) AddCallArg(arg []byte) {
 	if len(arg) >= common.AddressLength {
 		self.touchedAddress.AddAccountInArg(common.BytesToAddress(arg))
+	}
+}
+
+// Retrieve a state object given by the address. Returns nil if not found.
+func (self *StateDB) getStateObjectWithoutSet(addr common.Address) (stateObject *stateObject) {
+	// Prefer 'live' objects.
+	obj := self.stateObjects[addr]
+	if obj != nil {
+		if obj.deleted {
+			return nil
+		}
+		return obj
+	}
+
+	// Load the object from the database.
+	enc, err := self.trie.TryGet(addr[:])
+	if len(enc) == 0 {
+		self.setError(err)
+		return nil
+	}
+	var data Account
+	if err := rlp.DecodeBytes(enc, &data); err != nil {
+		log.Error("Failed to decode state object", "addr", addr, "err", err)
+		return nil
+	}
+	// Insert into the live set.
+	obj = newObject(self, addr, data)
+	return obj
+}
+
+func (self *StateDB) UpdateDBTrie(addr common.Address, data []byte) {
+	if data == nil {
+		self.setError(self.trie.TryDelete(addr[:]))
+	} else {
+		self.setError(self.trie.TryUpdate(addr[:], data))
 	}
 }

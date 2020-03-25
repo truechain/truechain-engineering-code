@@ -85,7 +85,7 @@ func (e *ExecutionGroup) AddFeeAmount(feeAmount *big.Int) {
 	e.feeAmount.Add(e.feeAmount, feeAmount)
 }
 
-func (e *ExecutionGroup) reuseTxResults(txsToReuse []TxWithOldGroup, conflictGroups map[int]*ExecutionGroup) {
+func (e *ExecutionGroup) reuseTxResults(txsToReuse []TxHashGroupIdPair, conflictGroups map[int]*ExecutionGroup) {
 	stateObjsFromOtherGroup := make(map[int]map[common.Address]*state.StateObjectToReuse)
 
 	for gId, _ := range conflictGroups {
