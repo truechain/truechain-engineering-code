@@ -59,15 +59,6 @@ func (aam *AssociatedAddressMngr) UpdateAssociatedAddresses(associatedAddrs map[
 		// remove accounts which come from args
 		associatedAddr.RemoveAccountsInArgs()
 
-		// the member storage keys of a contract are in format of 0x00, 0x01, 0x02 and so on
-		// blow code removes the keys not in this format which may be a key in a map
-		for storage, _ := range associatedAddr.StorageOp() {
-			keyInByte := storage.Key.Bytes()
-			if keyInByte[0] != 0 || keyInByte[1] != 0 {
-				associatedAddr.RemoveStorage(storage)
-			}
-		}
-
 		if obj, exist := aam.lruCache.Get(addr); !exist {
 			aam.lruCache.Add(addr, associatedAddr)
 			updatedTouchedAddrs[addr] = associatedAddr

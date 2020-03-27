@@ -164,7 +164,6 @@ func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	// If we have a dirty value for this state entry, return it
 	value, dirty := self.dirtyStorage[key]
 	if dirty {
-		self.db.appendReadStorage(self.address, key, value)
 		return value
 	}
 	// Otherwise return the entry's original value
@@ -176,14 +175,12 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 	// If we have the original value cached, return that
 	value, cached := self.originStorage[key]
 	if cached {
-		self.db.appendReadStorage(self.address, key, value)
 		return value
 	}
 	// Otherwise load the value from the database
 	enc, err := self.getTrie(db).TryGet(key[:])
 	if err != nil {
 		self.setError(err)
-		self.db.appendReadStorage(self.address, key, common.Hash{})
 		return common.Hash{}
 	}
 	if len(enc) > 0 {
@@ -194,7 +191,6 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 		value.SetBytes(content)
 	}
 	self.originStorage[key] = value
-	self.db.appendReadStorage(self.address, key, value)
 	return value
 }
 
@@ -212,7 +208,6 @@ func (self *stateObject) SetState(db Database, key, value common.Hash) {
 		prevalue: prev,
 	})
 	self.setState(key, value)
-	self.db.appendWriteStorage(self.address, key, value)
 }
 
 func (self *stateObject) setState(key, value common.Hash) {
@@ -292,7 +287,6 @@ func (self *stateObject) SetBalance(amount *big.Int) {
 		prev:    new(big.Int).Set(self.data.Balance),
 	})
 	self.setBalance(amount)
-	self.db.appendWriteAccount(self.address, &self.data)
 }
 
 func (self *stateObject) setBalance(amount *big.Int) {
@@ -349,7 +343,6 @@ func (self *stateObject) SetCode(codeHash common.Hash, code []byte) {
 		prevcode: prevcode,
 	})
 	self.setCode(codeHash, code)
-	self.db.appendWriteAccount(self.address, &self.data)
 }
 
 func (self *stateObject) setCode(codeHash common.Hash, code []byte) {
@@ -364,7 +357,6 @@ func (self *stateObject) SetNonce(nonce uint64) {
 		prev:    self.data.Nonce,
 	})
 	self.setNonce(nonce)
-	self.db.appendWriteAccount(self.address, &self.data)
 }
 
 func (self *stateObject) setNonce(nonce uint64) {
@@ -401,24 +393,4 @@ func Compare(obj0 *Account, obj1 *Account) bool {
 	default:
 		return true
 	}
-}
-
-func (self *stateObject) CopyAccount(other *stateObject) {
-	if self.data.Balance.Cmp(other.data.Balance) != 0 {
-		self.setBalance(other.data.Balance)
-	}
-	if self.data.Nonce != other.data.Nonce {
-		self.setNonce(other.data.Nonce)
-	}
-	if bytes.Compare(self.data.CodeHash, other.data.CodeHash) != 0 {
-		self.setCode(common.BytesToHash(other.data.CodeHash), other.Code(other.db.db))
-	}
-}
-
-func (self *stateObject) isContract() bool {
-	if codeHash := self.CodeHash(); bytes.Equal(codeHash, emptyCodeHash) || bytes.Equal(codeHash, (common.Hash{}).Bytes()) {
-		return false
-	}
-
-	return true
 }

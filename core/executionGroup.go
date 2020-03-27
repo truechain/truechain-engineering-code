@@ -10,16 +10,14 @@ import (
 type ExecutionGroup struct {
 	id            int
 	header        *types.Header
-	transactions  types.Transactions
+	txInfos       []*txInfo
 	startTrxIndex int
 	statedb       *state.StateDB
 
-	// transaction execution result
-	trxHashToResultMap map[common.Hash]*TrxResult
-	err                error
-	errTxIndex         int
-	usedGas            uint64
-	feeAmount          *big.Int
+	err        error
+	errTxIndex int
+	usedGas    uint64
+	feeAmount  *big.Int
 }
 
 type TrxResult struct {
@@ -35,18 +33,17 @@ func NewTrxResult(receipt *types.Receipt, touchedAddresses *state.TouchedAddress
 
 func NewExecutionGroup() *ExecutionGroup {
 	return &ExecutionGroup{
-		trxHashToResultMap: make(map[common.Hash]*TrxResult),
-		feeAmount:          big.NewInt(0),
-		errTxIndex:         -1,
+		feeAmount:  big.NewInt(0),
+		errTxIndex: -1,
 	}
 }
 
-func (e *ExecutionGroup) Transactions() types.Transactions {
-	return e.transactions
+func (e *ExecutionGroup) getTxInfos() []*txInfo {
+	return e.txInfos
 }
 
-func (e *ExecutionGroup) SetTransactions(transactions types.Transactions) {
-	e.transactions = transactions
+func (e *ExecutionGroup) setTxInfos(txInfos []*txInfo) {
+	e.txInfos = txInfos
 }
 
 func (e *ExecutionGroup) Header() *types.Header {
@@ -57,12 +54,12 @@ func (e *ExecutionGroup) SetHeader(header *types.Header) {
 	e.header = header
 }
 
-func (e *ExecutionGroup) AddTransaction(trx *types.Transaction) {
-	e.transactions = append(e.transactions, trx)
+func (e *ExecutionGroup) addTxInfo(txInfo *txInfo) {
+	e.txInfos = append(e.txInfos, txInfo)
 }
 
-func (e *ExecutionGroup) AddTransactions(transactions types.Transactions) {
-	e.transactions = append(e.transactions, transactions...)
+func (e *ExecutionGroup) addTxInfos(txInfos []*txInfo) {
+	e.txInfos = append(e.txInfos, txInfos...)
 }
 
 func (e *ExecutionGroup) SetId(groupId int) {
@@ -85,26 +82,25 @@ func (e *ExecutionGroup) AddFeeAmount(feeAmount *big.Int) {
 	e.feeAmount.Add(e.feeAmount, feeAmount)
 }
 
-func (e *ExecutionGroup) reuseTxResults(txsToReuse []TxHashGroupIdPair, conflictGroups map[int]*ExecutionGroup) {
-	stateObjsFromOtherGroup := make(map[int]map[common.Address]*state.StateObjectToReuse)
+func (e *ExecutionGroup) reuseTxResults(txsToReuse []*txInfo, conflictGroups map[int]*ExecutionGroup) {
+	stateObjsFromOtherGroup := make(map[int]map[common.Address]struct{})
 
 	for gId, _ := range conflictGroups {
-		stateObjsFromOtherGroup[gId] = make(map[common.Address]*state.StateObjectToReuse)
+		stateObjsFromOtherGroup[gId] = make(map[common.Address]struct{})
 	}
 
 	for i := len(txsToReuse) - 1; i >= 0; i-- {
-		txHash := txsToReuse[i].txHash
-		oldGroupId := txsToReuse[i].oldGroupId
+		txInfo := txsToReuse[i]
+		txHash := txInfo.hash
+		oldGroupId := txInfo.groupId
 
-		if result, ok := conflictGroups[oldGroupId].trxHashToResultMap[txHash]; ok {
+		if result := txsToReuse[i].result; result != nil {
 			appendStateObjToReuse(stateObjsFromOtherGroup[oldGroupId], result.touchedAddresses)
-
 			e.statedb.CopyTxJournalFromOtherDB(conflictGroups[oldGroupId].statedb, txHash)
-
-			e.trxHashToResultMap[txHash] = result
 			e.AddUsedGas(result.usedGas)
 			e.AddFeeAmount(result.feeAmount)
 		}
+		txInfo.groupId = e.id
 	}
 
 	for gId, stateObjsMap := range stateObjsFromOtherGroup {
@@ -112,26 +108,12 @@ func (e *ExecutionGroup) reuseTxResults(txsToReuse []TxHashGroupIdPair, conflict
 	}
 }
 
-func appendStateObjToReuse(stateObjsToReuse map[common.Address]*state.StateObjectToReuse, touchedAddr *state.TouchedAddressObject) {
+func appendStateObjToReuse(stateObjsToReuse map[common.Address]struct{}, touchedAddr *state.TouchedAddressObject) {
 	for addr, op := range touchedAddr.AccountOp() {
 		if op {
-			if stateObj, ok := stateObjsToReuse[addr]; !ok {
-				stateObj = state.NewStateObjectToReuse(addr, nil, true)
-				stateObjsToReuse[addr] = stateObj
-			} else {
-				stateObj.ReuseData = true
+			if _, ok := stateObjsToReuse[addr]; !ok {
+				stateObjsToReuse[addr] = struct{}{}
 			}
-		}
-	}
-	for storage, op := range touchedAddr.StorageOp() {
-		if op {
-			addr := storage.AccountAddress
-			stateObj, ok := stateObjsToReuse[addr]
-			if !ok {
-				stateObj = state.NewStateObjectToReuse(addr, nil, false)
-				stateObjsToReuse[addr] = stateObj
-			}
-			stateObj.Keys = append(stateObj.Keys, storage.Key)
 		}
 	}
 }

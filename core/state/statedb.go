@@ -89,10 +89,6 @@ type StateDB struct {
 	validRevisions []revision
 	nextRevisionId int
 
-	lastAccountRec map[common.Address]*Account
-	currAccountRec map[common.Address]*Account
-	lastStorageRec map[StorageAddress]common.Hash
-	currStorageRec map[StorageAddress]common.Hash
 	touchedAddress *TouchedAddressObject
 
 	lock sync.Mutex
@@ -113,10 +109,6 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		preimages:         make(map[common.Hash][]byte),
 		journals:          make(map[common.Hash]*journal),
 		journal:           newJournal(),
-		lastAccountRec:    make(map[common.Address]*Account),
-		currAccountRec:    make(map[common.Address]*Account),
-		lastStorageRec:    make(map[StorageAddress]common.Hash),
-		currStorageRec:    make(map[StorageAddress]common.Hash),
 		touchedAddress:    NewTouchedAddressObject(),
 	}, nil
 }
@@ -149,10 +141,6 @@ func (self *StateDB) Reset(root common.Hash) error {
 	self.logSize = 0
 	self.preimages = make(map[common.Hash][]byte)
 	self.clearJournalAndRefund()
-	self.lastAccountRec = make(map[common.Address]*Account)
-	self.currAccountRec = make(map[common.Address]*Account)
-	self.lastStorageRec = make(map[StorageAddress]common.Hash)
-	self.currStorageRec = make(map[StorageAddress]common.Hash)
 	self.touchedAddress = NewTouchedAddressObject()
 	return nil
 }
@@ -306,7 +294,6 @@ func (self *StateDB) GetCommittedState(addr common.Address, hash common.Hash) co
 	if stateObject != nil {
 		return stateObject.GetCommittedState(self.db, hash)
 	}
-	self.appendReadStorage(addr, hash, common.Hash{})
 	return common.Hash{}
 }
 
@@ -347,7 +334,6 @@ func (self *StateDB) AddBalanceWithoutLog(addr common.Address, amount *big.Int, 
 			return
 		}
 		stateObject.setBalance(new(big.Int).Add(stateObject.Balance(), amount))
-		//self.appendWriteAccount(addr, &stateObject.data)
 	}
 }
 
@@ -412,7 +398,6 @@ func (self *StateDB) Suicide(addr common.Address) bool {
 	})
 	stateObject.markSuicided()
 	stateObject.data.Balance = new(big.Int)
-	self.appendWriteAccount(addr, nil)
 
 	return true
 }
@@ -440,13 +425,12 @@ func (self *StateDB) deleteStateObject(stateObject *stateObject) {
 
 // Retrieve a state object given by the address. Returns nil if not found.
 func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObject) {
+	self.addTouchedAddress(addr)
 	// Prefer 'live' objects.
 	if obj := self.stateObjects[addr]; obj != nil {
 		if obj.deleted {
-			self.appendReadAccount(addr, nil)
 			return nil
 		}
-		self.appendReadAccount(addr, &obj.data)
 		return obj
 	}
 
@@ -454,19 +438,16 @@ func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObje
 	enc, err := self.trie.TryGet(addr[:])
 	if len(enc) == 0 {
 		self.setError(err)
-		self.appendReadAccount(addr, nil)
 		return nil
 	}
 	var data Account
 	if err := rlp.DecodeBytes(enc, &data); err != nil {
 		log.Error("Failed to decode state object", "addr", addr, "err", err)
-		self.appendReadAccount(addr, nil)
 		return nil
 	}
 	// Insert into the live set.
 	obj := newObject(self, addr, data)
 	self.setStateObject(obj)
-	self.appendReadAccount(addr, &data)
 	return obj
 }
 
@@ -495,7 +476,6 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 		self.journal.append(resetObjectChange{prev: prev})
 	}
 	self.setStateObject(newobj)
-	self.appendWriteAccount(addr, &newobj.data)
 	return newobj, prev
 }
 
@@ -514,7 +494,6 @@ func (self *StateDB) CreateAccount(addr common.Address) {
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
 	}
-	self.appendWriteAccount(addr, &newObj.data)
 }
 
 func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) {
@@ -552,10 +531,6 @@ func (self *StateDB) Copy() *StateDB {
 		preimages:         make(map[common.Hash][]byte, len(self.preimages)),
 		journals:          make(map[common.Hash]*journal),
 		journal:           newJournal(),
-		lastAccountRec:    make(map[common.Address]*Account),
-		currAccountRec:    make(map[common.Address]*Account),
-		lastStorageRec:    make(map[StorageAddress]common.Hash),
-		currStorageRec:    make(map[StorageAddress]common.Hash),
 		touchedAddress:    NewTouchedAddressObject(),
 	}
 	// Copy the dirty states, logs, and preimages
@@ -730,10 +705,6 @@ func (self *StateDB) Prepare(thash, bhash common.Hash, ti int) {
 	//self.journal = newJournal()
 	self.journals[thash] = self.journal
 	self.touchedAddress = NewTouchedAddressObject()
-	self.lastAccountRec = make(map[common.Address]*Account)
-	self.currAccountRec = make(map[common.Address]*Account)
-	self.lastStorageRec = make(map[StorageAddress]common.Hash)
-	self.currStorageRec = make(map[StorageAddress]common.Hash)
 }
 
 func (s *StateDB) clearJournalAndRefund() {
@@ -791,132 +762,62 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 	return root, err
 }
 
-func (s *StateDB) appendReadAccount(addr common.Address, account *Account) {
-	if _, exist := s.lastAccountRec[addr]; !exist {
-		if account == nil {
-			s.lastAccountRec[addr] = nil
-		} else {
-			account2 := *account
-			s.lastAccountRec[addr] = &account2
-		}
-	}
-
-	s.touchedAddress.AddAccountOp(addr, false)
-}
-
-func (s *StateDB) appendWriteAccount(addr common.Address, currRec *Account) {
-	if lastRec, exist := s.lastAccountRec[addr]; !exist {
-		panic(fmt.Errorf("lastAccountRec should exist for address %x", addr))
-	} else {
-		if currRec == nil {
-			s.currAccountRec[addr] = nil
-		} else {
-			account2 := *currRec
-			s.currAccountRec[addr] = &account2
-		}
-		if !Compare(lastRec, currRec) {
-			s.touchedAddress.SetAccountOp(addr, true)
-		} else {
-			s.touchedAddress.SetAccountOp(addr, false)
-		}
-	}
-}
-
-func (s *StateDB) appendReadStorage(addr common.Address, key common.Hash, val common.Hash) {
-	storageAddr := StorageAddress{AccountAddress: addr, Key: key}
-
-	if _, exist := s.lastStorageRec[storageAddr]; !exist {
-		s.lastStorageRec[storageAddr] = val
-	}
-
-	s.touchedAddress.AddStorageOp(storageAddr, false)
-}
-
-func (s *StateDB) appendWriteStorage(addr common.Address, key common.Hash, val common.Hash) {
-	storageAddr := StorageAddress{AccountAddress: addr, Key: key}
-
-	if lastRec, exist := s.lastStorageRec[storageAddr]; !exist {
-		panic(fmt.Errorf("lastStorageRec should be exist for address %x and key %x", addr, key))
-	} else {
-		s.currStorageRec[storageAddr] = val
-		if lastRec != val {
-			s.touchedAddress.SetStorageOp(storageAddr, true)
-		} else {
-			s.touchedAddress.SetStorageOp(storageAddr, false)
-		}
-	}
-}
-
-func (s *StateDB) prepareAccountAndStorageRecords() {
-	s.lastAccountRec = make(map[common.Address]*Account)
-	s.lastStorageRec = make(map[StorageAddress]common.Hash)
-
-	for addr, account := range s.currAccountRec {
-		s.lastAccountRec[addr] = account
-	}
-
-	for storageAddr, value := range s.currStorageRec {
-		s.lastStorageRec[storageAddr] = value
-	}
-
-	s.currAccountRec = make(map[common.Address]*Account)
-	s.currStorageRec = make(map[StorageAddress]common.Hash)
+func (s *StateDB) addTouchedAddress(address common.Address) {
+	s.touchedAddress.AddAccountOp(address, false)
 }
 
 func (s *StateDB) FinalizeTouchedAddress() *TouchedAddressObject {
 	result := s.touchedAddress
+
+	for addr, op := range result.accountOp {
+		if op == false {
+			if _, ok := s.journals[s.thash].dirties[addr]; ok {
+				result.SetAccountOp(addr, true)
+			}
+		}
+	}
 
 	s.touchedAddress = NewTouchedAddressObject()
 
 	return result
 }
 
-func (self *StateDB) CopyStateObjRlpDataFromOtherDB(other *StateDB, stateObjAddr *StateObjectToReuse) ([]byte, bool) {
+func (self *StateDB) CopyStateObjRlpDataFromOtherDB(other *StateDB, addr common.Address) (*stateObject, []byte, bool) {
 	if self == other {
-		return nil, false
+		return nil, nil, false
 	}
-	addr := stateObjAddr.Address
+
 	var obj0 *stateObject
 	obj1 := other.getStateObject(addr)
 
 	if obj1.deleted == true {
 		obj0 = self.getStateObjectWithoutSet(addr)
 		if obj0 != nil {
-			return nil, true
+			return nil, nil, true
 		}
 	} else {
-		if stateObjAddr.ReuseData {
-			obj0 = newObject(self, addr, obj1.data)
-
+		obj0 = newObject(self, addr, obj1.data)
+		obj0.dirtyStorage = obj1.dirtyStorage
+		if obj1.dirtyCode {
+			obj0.setCode(common.BytesToHash(obj1.data.CodeHash), obj1.code)
 		}
-		if len(stateObjAddr.Keys) != 0 {
-			if obj0 == nil {
-				obj0 = self.getStateObjectWithoutSet(addr)
-			}
-			if obj0 == nil {
-				obj0 = newObject(self, addr, Account{})
-				obj0.setNonce(0) // sets the object to dirty
-			}
-			for _, key := range stateObjAddr.Keys {
-				obj0.setState(key, obj1.GetState(other.db, key))
-			}
-			obj0.updateRoot(self.db)
-		}
+		obj0.updateRoot(self.db)
 		data, err := rlp.EncodeToBytes(obj0)
 		if err != nil {
 			panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 		}
-		return data, true
+		return obj0, data, true
 	}
 
-	return nil, false
+	return nil, nil, false
 }
 
-func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[common.Address]*StateObjectToReuse) {
+func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[common.Address]struct{}) {
 	if self == other {
 		return
 	}
-	for addr, stateObjAddr := range stateObjAddrs {
+
+	for addr := range stateObjAddrs {
 		var obj0 *stateObject
 		obj1 := other.getStateObject(addr)
 
@@ -926,22 +827,13 @@ func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[c
 				obj0.deleted = true
 			}
 		} else {
-			if stateObjAddr.ReuseData {
-				obj0 = newObject(self, addr, obj1.data)
+			obj0 = newObject(self, addr, obj1.data)
+			obj0.dirtyStorage = obj1.dirtyStorage
+			if obj1.dirtyCode {
+				obj0.setCode(common.BytesToHash(obj1.data.CodeHash), obj1.code)
+			}
 
-			}
-			if len(stateObjAddr.Keys) != 0 {
-				if obj0 == nil {
-					obj0 = self.getStateObjectWithoutSet(addr)
-				}
-				if obj0 == nil {
-					obj0 = newObject(self, addr, Account{})
-					obj0.setNonce(0) // sets the object to dirty
-				}
-				for _, key := range stateObjAddr.Keys {
-					obj0.setState(key, obj1.GetState(other.db, key))
-				}
-			}
+			obj0.updateRoot(self.db)
 		}
 
 		self.setStateObject(obj0)
@@ -950,14 +842,6 @@ func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[c
 
 func (self *StateDB) CopyTxJournalFromOtherDB(other *StateDB, txHash common.Hash) {
 	self.journals[txHash] = other.journals[txHash]
-}
-
-func (self *StateDB) StateObjIsContract(addr common.Address) bool {
-	if obj := self.getStateObjectWithoutSet(addr); obj != nil {
-		return obj.isContract()
-	}
-
-	return false
 }
 
 func (self *StateDB) AddCallArg(arg []byte) {
@@ -993,10 +877,13 @@ func (self *StateDB) getStateObjectWithoutSet(addr common.Address) (stateObject 
 	return obj
 }
 
-func (self *StateDB) UpdateDBTrie(addr common.Address, data []byte) {
+func (self *StateDB) UpdateDBTrie(addr common.Address, obj interface{}, data []byte) {
 	if data == nil {
 		self.setError(self.trie.TryDelete(addr[:]))
 	} else {
 		self.setError(self.trie.TryUpdate(addr[:], data))
+		stateObj := obj.(*stateObject)
+		self.stateObjects[addr] = stateObj
+		self.stateObjectsDirty[addr] = struct{}{}
 	}
 }
