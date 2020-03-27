@@ -1116,6 +1116,11 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 		}
 	}
 	rewardsInfos := types.NewChainReward(sBlock.NumberU64(),sBlock.Time().Uint64(),found,coinbase,types.ToRewardInfos1(fruitMap),infos)
+	log.Debug("[****accumulateRewardsFast2]", "Height", rewardsInfos.Height, 
+	"committeeCoin",committeeCoin.String(),"minerCoin",minerCoin.String(),
+	"minerFruitCoin",minerFruitCoin.String(),"fundCoin",fundCoin.String(),
+	"Foundation:", rewardsInfos.Foundation.String(), "CoinBase", rewardsInfos.CoinBase.String(),
+	"FruitBase",rewardsInfos.FruitBase,"CommitteeBase",rewardsInfos.CommitteeBase)
 	return rewardsInfos,nil
 }
 
