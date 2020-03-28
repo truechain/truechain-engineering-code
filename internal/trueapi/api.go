@@ -1224,8 +1224,8 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 	fields := map[string]interface{}{
 		"blockminer":       content.BlockMinerReward,
 		"fruitminer":       content.FruitMinerReward,
-		"committeReward":   content.CommitteeReward,
-		"foundationReward": content.FoundationReward,
+		"committeeReward":   content.CommitteeReward,
+		"developerReward": content.FoundationReward,
 	}
 	/*log.Warn("api", "blockminer", content.BlockMinerReward)
 	log.Warn("api", "committeReward", content.CommitteeReward)
@@ -1248,10 +1248,10 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, add
 		fields := map[string]interface{}{
 			"Number":           hexutil.Uint64(blockNr),
 			"time":             hexutil.Uint64(content.St),
-			"foundationReward": content.Foundation,
+			"developerReward": content.Foundation,
 			"blockminer":       content.CoinBase,
 			"fruitminer":       content.FruitBase,
-			"committeReward":   content.CommitteeBase,
+			"committeeReward":   content.CommitteeBase,
 		}
 		return fields
 	} else {
