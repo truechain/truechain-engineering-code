@@ -543,10 +543,10 @@ func (s *SAImpawns) getSA(addr common.Address) *StakingAccount {
 	}
 	return nil
 }
-func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next, move bool) {
+func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next, move bool,effectHeight uint64) {
 	sa := s.getSA(sa1.Unit.Address)
 	if sa == nil {
-		if hh > params.EffectOfStakingModify {
+		if hh >= effectHeight {
 			sa1.changeAlterableInfo()
 		}
 		*s = append(*s, sa1)
@@ -831,7 +831,7 @@ func (i *ImpawnImpl) reward(begin, end uint64, allAmount *big.Int) ([]*types.SAR
 
 /////////////////////////////////////////////////////////////////////////////////
 // move the accounts from prev to next epoch and keeps the prev account still here
-func (i *ImpawnImpl) move(prev, next uint64) error {
+func (i *ImpawnImpl) move(prev, next,effectHeight uint64) error {
 	nextEpoch := types.GetEpochFromID(next)
 	if nextEpoch == nil {
 		return types.ErrOverEpochID
@@ -849,7 +849,7 @@ func (i *ImpawnImpl) move(prev, next uint64) error {
 		vv.merge(prev, nextEpoch.BeginHeight)
 		if vv.isvalid() {
 			vv.Committee = false
-			nextInfos.update(vv, nextEpoch.BeginHeight, true, true)
+			nextInfos.update(vv, nextEpoch.BeginHeight, true, true,effectHeight)
 		}
 	}
 	i.accounts[next] = nextInfos
@@ -895,7 +895,7 @@ func (i *ImpawnImpl) DoElections(epochid, height uint64) ([]*StakingAccount, err
 
 // Shift will move the staking account which has election flag to the next epoch
 // it will be save the whole state in the current epoch end block after it called by consensus
-func (i *ImpawnImpl) Shift(epochid uint64) error {
+func (i *ImpawnImpl) Shift(epochid,effectHeight uint64) error {
 	lastReward := i.lastReward
 	minEpoch := types.GetEpochFromHeight(lastReward)
 	min := i.getMinEpochID()
@@ -910,7 +910,7 @@ func (i *ImpawnImpl) Shift(epochid uint64) error {
 	}
 	i.SetCurrentEpoch(epochid)
 	prev := epochid - 1
-	return i.move(prev, epochid)
+	return i.move(prev, epochid,effectHeight)
 }
 
 // CancelSAccount cancel amount of asset for staking account,it will be work in next epoch

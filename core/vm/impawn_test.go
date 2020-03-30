@@ -42,7 +42,7 @@ func TestImpawnImplDoElections(t *testing.T) {
 	if err != nil {
 		log.Error("ToFastBlock DoElections", "error", err)
 	}
-	err = impl.Shift(1)
+	err = impl.Shift(1,0)
 
 	for i := uint64(0); i < 6; i++ {
 		value := big.NewInt(100)
@@ -71,7 +71,7 @@ func TestImpawnImplDoElections(t *testing.T) {
 	}
 
 	fmt.Println(impl.getCurrentEpochInfo(), " election 2 ", len(impl.getElections3(2)))
-	impl.Shift(2)
+	impl.Shift(2,0)
 	fmt.Println(" Shift 2 ", impl.getCurrentEpochInfo(), " election 3 ", len(impl.getElections3(3)))
 
 	for i := uint64(0); i < 6; i++ {
@@ -89,7 +89,7 @@ func TestImpawnImplDoElections(t *testing.T) {
 	committee, _ = impl.DoElections(3, 900)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 
-	impl.Shift(3)
+	impl.Shift(3,0)
 	fmt.Println(impl.getCurrentEpochInfo(), " election 3 ", len(impl.getElections3(4)))
 }
 
@@ -111,7 +111,7 @@ func TestImpawnImplReward(t *testing.T) {
 	if err != nil {
 		log.Error("ToFastBlock DoElections", "error", err)
 	}
-	err = impl.Shift(1)
+	err = impl.Shift(1,0)
 
 	for i := uint64(0); i < 5; i++ {
 		value := big.NewInt(100)
@@ -158,7 +158,7 @@ func TestImpawnImplReward(t *testing.T) {
 		impl.InsertDAccount2(496+i, daAddress, from, value)
 	}
 
-	impl.Shift(2)
+	impl.Shift(2,0)
 	fmt.Println(" Shift 2 ", impl.getCurrentEpochInfo(), " election 3 ", len(impl.getElections3(3)))
 
 	for i := uint64(0); i < 6; i++ {
@@ -176,7 +176,7 @@ func TestImpawnImplReward(t *testing.T) {
 	committee, _ = impl.DoElections(3, 900)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 
-	impl.Shift(3)
+	impl.Shift(3,0)
 	fmt.Println(impl.getCurrentEpochInfo(), " election 3 ", len(impl.getElections3(4)))
 }
 
@@ -224,7 +224,7 @@ func TestImpawnImplRedeem(t *testing.T) {
 	committee, _ = impl.DoElections(2, 17)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 
-	impl.Shift(2)
+	impl.Shift(2,0)
 
 	impl.Reward(sblock, big.NewInt(int64(70)))
 
@@ -234,13 +234,13 @@ func TestImpawnImplRedeem(t *testing.T) {
 	fmt.Println(" Shift 2 ", impl.getCurrentEpochInfo(), " election  2 ", len(impl.getElections3(2)), " 3 ", len(impl.getElections3(3)))
 	committee, _ = impl.DoElections(3, 22)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
-	impl.Shift(3)
+	impl.Shift(3,0)
 
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(impl.getElections3(1)), " election  2 ", len(impl.getElections3(2)))
 	committee, _ = impl.DoElections(4, 27)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election ", len(impl.getElections3(1)))
 	fmt.Println(" election ", len(impl.getElections3(1)), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
-	impl.Shift(4)
+	impl.Shift(4,0)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election ", len(impl.getElections3(1)))
 	fmt.Println(" election ", len(impl.getElections3(1)), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 

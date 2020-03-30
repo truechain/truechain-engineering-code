@@ -655,7 +655,7 @@ func TestRedeem(t *testing.T) {
 		fmt.Println(err)
 	}
 
-	if err := impl.Shift(1); err != nil  {
+	if err := impl.Shift(1,0); err != nil  {
 		fmt.Println("shift error:",err)
 	}
 	

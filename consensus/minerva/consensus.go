@@ -949,7 +949,7 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 			} else {
 				log.Info("init in first forked, Do pre election", "height", next, "epoch:", first.EpochID, "len:", len(es), "err", error)
 			}
-			if err := i.Shift(first.EpochID); err != nil {
+			if err := i.Shift(first.EpochID,chain.Config().TIP10.FastNumber.Uint64()); err != nil {
 				return err
 			}
 			i.Save(state, types.StakingAddress)
@@ -974,7 +974,7 @@ func (m *Minerva) finalizeValidators(chain consensus.ChainReader, state *state.S
 			i := vm.NewImpawnImpl()
 			err := i.Load(state, types.StakingAddress)
 			log.Info("Force new epoch", "height", fastNumber, "err", err)
-			if err := i.Shift(epoch.EpochID + 1); err != nil {
+			if err := i.Shift(epoch.EpochID + 1,chain.Config().TIP10.FastNumber.Uint64()); err != nil {
 				return err
 			}
 			i.Save(state, types.StakingAddress)

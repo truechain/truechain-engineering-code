@@ -275,7 +275,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		if err != nil {
 			log.Error("ToFastBlock DoElections", "error", err)
 		}
-		err = impl.Shift(1)
+		err = impl.Shift(1,g.Config.TIP10.FastNumber.Uint64())
 		if err != nil {
 			log.Error("ToFastBlock Shift", "error", err)
 		}
