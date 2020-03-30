@@ -211,8 +211,8 @@ func (pb *ParallelBlock) group(chForTxInfo chan *txInfo, chForGroup chan bool) {
 	chForGroup <- true
 }
 
-func (pb *ParallelBlock) reGroupAndRevert(conflictGroups []map[int]struct{}, conflictTxs map[common.Hash]struct{}) {
-	for _, conflictGroupIds := range conflictGroups {
+func (pb *ParallelBlock) reGroupAndRevert(conflictGroupMaps []map[int]struct{}, conflictTxs map[common.Hash]struct{}) {
+	for _, conflictGroupIds := range conflictGroupMaps {
 		var txInfos []*txInfo
 		conflictGroups := make(map[int]*ExecutionGroup)
 
@@ -230,6 +230,15 @@ func (pb *ParallelBlock) reGroupAndRevert(conflictGroups []map[int]struct{}, con
 				txsToReuse []*txInfo
 				conflict   = false
 			)
+
+			if len(tmpExecGroupMap) == 1 && len(pb.executionGroups) == 0 && len(conflictGroupMaps) == 1 {
+				group.SetStatedb(pb.statedb)
+			} else {
+				group.SetStatedb(pb.statedb.Copy())
+			}
+			group.SetId(pb.nextGroupId)
+			pb.executionGroups[pb.nextGroupId] = group
+
 			for index, txInfo := range group.txInfos {
 				txHash := txInfo.hash
 				if !conflict {
@@ -238,19 +247,25 @@ func (pb *ParallelBlock) reGroupAndRevert(conflictGroups []map[int]struct{}, con
 						group.SetStartTrxPos(index)
 					} else {
 						txsToReuse = append(txsToReuse, txInfo)
+						log.Debug("reGroupAndRevert", "reuse tx hash", txInfo.hash.String(),
+							"index", txInfo.index, "group", txInfo.groupId)
 					}
 				}
+			}
 
-				if conflict {
-					// revert txInfos which will be re-executed in reversed order
-					conflictGroups[txInfo.groupId].statedb.RevertTrxResultByHash(txHash)
+			if conflict {
+				// revert txInfos which will be re-executed in reversed order
+				for i := len(group.txInfos) - 1; i >= group.startTrxIndex; i-- {
+					txInfo := group.txInfos[i]
+					log.Debug("reGroupAndRevert", "revert tx hash", txInfo.hash.String(),
+						"index", txInfo.index, "group", txInfo.groupId)
+					conflictGroups[txInfo.groupId].statedb.RevertTrxResultByHash(txInfo.hash)
+					txInfo.groupId = pb.nextGroupId
 				}
 			}
 
 			// copy transaction results and state changes from old group which can be reused
-			group.SetId(pb.nextGroupId)
 			group.reuseTxResults(txsToReuse, conflictGroups)
-			pb.executionGroups[pb.nextGroupId] = group
 			pb.nextGroupId++
 		}
 	}
@@ -366,6 +381,10 @@ func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]st
 		conflictGroups = append(conflictGroups, groups)
 	}
 
+	if len(conflictGroups) != 0 {
+		log.Debug("checkConflict", "conflictGroups", conflictGroups, "conflictTxs", conflictTxs)
+	}
+
 	return conflictGroups, conflictTxs
 }
 
@@ -382,19 +401,20 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg *sync.WaitGroup)
 	defer wg.Done()
 
 	var (
-		feeAmount = big.NewInt(0)
-		gp        = new(GasPool).AddGas(pb.block.GasLimit())
-		statedb   = group.statedb
+		gp      = new(GasPool).AddGas(pb.block.GasLimit())
+		statedb = group.statedb
 	)
 
 	// Iterate over and process the individual txInfos
 	for i := group.startTrxIndex; i < len(group.txInfos); i++ {
+		feeAmount := big.NewInt(0)
 		txInfo := group.txInfos[i]
 		txHash := txInfo.hash
 		ti := txInfo.index
 		statedb.Prepare(txHash, pb.block.Hash(), ti)
 		receipt, trxUsedGas, err := ApplyTransactionMsg(pb.config, pb.context, gp, statedb, pb.block.Header(),
 			txInfo.msg, txInfo.tx, &group.usedGas, feeAmount, pb.vmConfig)
+		group.AddFeeAmount(feeAmount)
 		if err != nil {
 			group.err = err
 			group.errTxIndex = ti
@@ -404,8 +424,6 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg *sync.WaitGroup)
 		}
 		txInfo.result = NewTrxResult(receipt, statedb.FinalizeTouchedAddress(), trxUsedGas, feeAmount)
 	}
-
-	group.feeAmount.Add(feeAmount, group.feeAmount)
 	group.startTrxIndex = -1
 }
 
@@ -598,7 +616,7 @@ func (pb *ParallelBlock) updateStateDB(ch chan *addressRlpDataPair, chForFinish 
 }
 
 func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error) {
-	var d2, d3 time.Duration
+	var d2, d3, d4 time.Duration
 	t0 := time.Now()
 	if err := pb.prepareAndGroup(); err != nil {
 		return nil, nil, 0, err
@@ -608,20 +626,23 @@ func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error)
 	for {
 		t0 = time.Now()
 		pb.executeInParallel()
-		d2 = time.Since(t0)
+		d2 += time.Since(t0)
 
 		t0 = time.Now()
 		if conflictGroups, conflictTxs := pb.checkConflict(); len(conflictGroups) != 0 {
+			d3 += time.Since(t0)
+			t0 = time.Now()
 			pb.reGroupAndRevert(conflictGroups, conflictTxs)
+			d4 += time.Since(t0)
 		} else {
-			d3 = time.Since(t0)
+			d3 += time.Since(t0)
 			break
 		}
 	}
 
 	t0 = time.Now()
 	receipts, logs, gas, err := pb.collectResult()
-	d4 := time.Since(t0)
+	d5 := time.Since(t0)
 
 	if len(pb.executionGroups) != 0 {
 		log.Info("Process:", "block ", pb.block.Number(), "txs", len(pb.txInfos),
@@ -629,7 +650,8 @@ func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error)
 			"prepareAndGroup", common.PrettyDuration(d0),
 			"exec", common.PrettyDuration(d2),
 			"check", common.PrettyDuration(d3),
-			"collectResult", common.PrettyDuration(d4))
+			"reGroupAndRevert", common.PrettyDuration(d5),
+			"collectResult", common.PrettyDuration(d5))
 	}
 
 	return receipts, logs, gas, err

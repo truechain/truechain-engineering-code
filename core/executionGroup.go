@@ -89,12 +89,11 @@ func (e *ExecutionGroup) reuseTxResults(txsToReuse []*txInfo, conflictGroups map
 		stateObjsFromOtherGroup[gId] = make(map[common.Address]struct{})
 	}
 
-	for i := len(txsToReuse) - 1; i >= 0; i-- {
-		txInfo := txsToReuse[i]
+	for _, txInfo := range txsToReuse {
 		txHash := txInfo.hash
 		oldGroupId := txInfo.groupId
 
-		if result := txsToReuse[i].result; result != nil {
+		if result := txInfo.result; result != nil {
 			appendStateObjToReuse(stateObjsFromOtherGroup[oldGroupId], result.touchedAddresses)
 			e.statedb.CopyTxJournalFromOtherDB(conflictGroups[oldGroupId].statedb, txHash)
 			e.AddUsedGas(result.usedGas)
