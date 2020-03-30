@@ -409,7 +409,6 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 	} else {
 		d = time.Duration(*duration) * time.Second
 	}
-	log.Info("UnlockAccount", "Address:", addr, "password", password, "d", d)
 	err := fetchKeystore(s.am).TimedUnlock(accounts.Account{Address: addr}, password, d)
 	return err == nil, err
 }
@@ -1222,9 +1221,9 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 		return nil
 	}
 	fields := map[string]interface{}{
-		"blockminer":       content.BlockMinerReward,
-		"fruitminer":       content.FruitMinerReward,
-		"committeeReward":   content.CommitteeReward,
+		"blockminer":      content.BlockMinerReward,
+		"fruitminer":      content.FruitMinerReward,
+		"committeeReward": content.CommitteeReward,
 		"developerReward": content.FoundationReward,
 	}
 	/*log.Warn("api", "blockminer", content.BlockMinerReward)
@@ -1246,12 +1245,12 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, add
 	empty := common.Address{}
 	if bytes.Equal(addr.Bytes(), empty.Bytes()) {
 		fields := map[string]interface{}{
-			"Number":           hexutil.Uint64(blockNr),
-			"time":             hexutil.Uint64(content.St),
+			"Number":          hexutil.Uint64(blockNr),
+			"time":            hexutil.Uint64(content.St),
 			"developerReward": content.Foundation,
-			"blockminer":       content.CoinBase,
-			"fruitminer":       content.FruitBase,
-			"committeeReward":   content.CommitteeBase,
+			"blockminer":      content.CoinBase,
+			"fruitminer":      content.FruitBase,
+			"committeeReward": content.CommitteeBase,
 		}
 		return fields
 	} else {
