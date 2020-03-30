@@ -388,6 +388,11 @@ func (s *StakingAccount) updateFee(height uint64, fee *big.Int) {
 		s.Modify.Fee = new(big.Int).Set(fee)
 	}
 }
+func (s *StakingAccount) updatePk(height uint64, pk []byte) {
+	if height > s.getMaxHeight() {
+		s.Modify.VotePubkey = types.CopyVotePk(pk)
+	}
+}
 func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) {
 	s.Unit.update(sa.Unit, move)
 	dirty := false
@@ -401,9 +406,13 @@ func (s *StakingAccount) update(sa *StakingAccount, hh uint64, next, move bool) 
 		}
 	}
 	// ignore the pk param
-	if hh > s.getMaxHeight() {
-		s.Modify.Fee = new(big.Int).Set(sa.Modify.Fee)
-		s.Modify.VotePubkey = types.CopyVotePk(s.Votepubkey)
+	if hh > s.getMaxHeight() && s.Modify != nil && sa.Modify != nil {
+		if sa.Modify.Fee != nil {
+			s.Modify.Fee = new(big.Int).Set(sa.Modify.Fee)
+		}
+		if sa.Modify.VotePubkey != nil {
+			s.Modify.VotePubkey = types.CopyVotePk(sa.Modify.VotePubkey)
+		}
 	}
 	if next {
 		s.changeAlterableInfo()
@@ -537,6 +546,9 @@ func (s *SAImpawns) getSA(addr common.Address) *StakingAccount {
 func (s *SAImpawns) update(sa1 *StakingAccount, hh uint64, next, move bool) {
 	sa := s.getSA(sa1.Unit.Address)
 	if sa == nil {
+		if hh > params.EffectOfStakingModify {
+			sa1.changeAlterableInfo()
+		}
 		*s = append(*s, sa1)
 		s.sort(hh, false)
 	} else {
@@ -1105,7 +1117,7 @@ func (i *ImpawnImpl) UpdateSAFee(height uint64, addr common.Address, fee *big.In
 	}
 	epochInfo := types.GetEpochFromHeight(height)
 	if epochInfo.EpochID > i.getCurrentEpoch() {
-		log.Info("insertSAccount", "eid", epochInfo.EpochID, "height", height, "eid2", i.getCurrentEpoch())
+		log.Info("UpdateSAFee", "eid", epochInfo.EpochID, "height", height, "eid2", i.getCurrentEpoch())
 		return types.ErrOverEpochID
 	}
 	sa, err := i.GetStakingAccount(epochInfo.EpochID, addr)
@@ -1113,6 +1125,25 @@ func (i *ImpawnImpl) UpdateSAFee(height uint64, addr common.Address, fee *big.In
 		return err
 	}
 	sa.updateFee(height, fee)
+	return nil
+}
+func (i *ImpawnImpl) UpdateSAPK(height uint64, addr common.Address, pk []byte) error {
+	if height < 0 {
+		return types.ErrInvalidParam
+	}
+	if err := types.ValidPk(pk); err != nil {
+		return err
+	}
+	epochInfo := types.GetEpochFromHeight(height)
+	if epochInfo.EpochID > i.getCurrentEpoch() {
+		log.Info("UpdateSAPK", "eid", epochInfo.EpochID, "height", height, "eid2", i.getCurrentEpoch())
+		return types.ErrOverEpochID
+	}
+	sa, err := i.GetStakingAccount(epochInfo.EpochID, addr)
+	if err != nil {
+		return err
+	}
+	sa.updatePk(height, pk)
 	return nil
 }
 func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*types.SARewardInfos, error) {
