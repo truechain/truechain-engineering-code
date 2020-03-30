@@ -67,6 +67,8 @@ var (
 		utils.RPCPortFlag,
 		TrueValueFlag,
 		FeeFlag,
+		PubKeyKeyFlag,
+		BFTKeyKeyFlag,
 	}
 )
 
@@ -98,6 +100,7 @@ func init() {
 	app.Commands = []cli.Command{
 		AppendCommand,
 		UpdateFeeCommand,
+		UpdatePKCommand,
 		cancelCommand,
 		withdrawCommand,
 		queryStakingCommand,

@@ -45,6 +45,26 @@ func TestGetLockedAsset(t *testing.T) {
 	//epoch  [id:2,begin:2001,end:4000]   5002
 }
 
+func TestFeeAndPK(t *testing.T) {
+	// Create a helper to check if a gas allowance results in an executable transaction
+	executable := func(number uint64, gen *core.BlockGen, blockchain *core.BlockChain, header *types.Header, statedb *state.StateDB) {
+		sendTranction(number, gen, statedb, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
+
+		sendDepositTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+
+		sendUpdateFeeTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendUpdatePkTransaction(number, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+
+		sendCancelTransaction(number-types.GetEpochFromID(2).BeginHeight, gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+
+		sendWithdrawTransaction(number-types.MinCalcRedeemHeight(2), gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+	}
+	manager := newTestPOSManager(101, executable)
+	fmt.Println(" saddr1 ", manager.GetBalance(saddr1))
+	//epoch  [id:1,begin:1,end:2000]   [id:2,begin:2001,end:4000]   [id:3,begin:4001,end:6000]
+	//epoch  [id:2,begin:2001,end:4000]   5002
+}
+
 ///////////////////////////////////////////////////////////////////////
 func TestDeposit(t *testing.T) {
 	// Create a helper to check if a gas allowance results in an executable transaction

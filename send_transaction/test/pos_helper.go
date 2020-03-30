@@ -214,9 +214,11 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
 	params.ElectionMinLimitForStaking = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e18))
+	params.NewEpochLength = 2000 // about 1.5 days
 
 	gspec.Config.TIP7 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)}
+	gspec.Config.TIP10 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 
 	genesis := gspec.MustFastCommit(db)
 	blockchain, _ := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
@@ -291,6 +293,23 @@ func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Addre
 		nonce, _ := getNonce(gen, from, state, "sendDepositTransaction", txPool)
 		pub := crypto.FromECDSAPub(&priKey.PublicKey)
 		input := packInput(abiStaking, "deposit", "sendDepositTransaction", pub, new(big.Int).SetInt64(5000), value)
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
+	}
+}
+
+func sendUpdateFeeTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 45 {
+		nonce, _ := getNonce(gen, from, state, "sendUpdateFeeTransaction", txPool)
+		input := packInput(abiStaking, "setFee", "sendUpdateFeeTransaction", new(big.Int).SetInt64(100))
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
+	}
+}
+
+func sendUpdatePkTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 48 {
+		nonce, _ := getNonce(gen, from, state, "sendUpdatePkTransaction", txPool)
+		pub := crypto.FromECDSAPub(&dkey1.PublicKey)
+		input := packInput(abiStaking, "setPubkey", "sendUpdatePkTransaction", pub)
 		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
 	}
 }
