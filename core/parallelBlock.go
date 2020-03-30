@@ -51,16 +51,6 @@ func newTxInfo(index int, hash common.Hash, msg *types.Message, tx *types.Transa
 	return &txInfo{index: index, hash: hash, msg: msg, tx: tx}
 }
 
-type TxHashGroupIdPair struct {
-	txHash     common.Hash
-	oldGroupId int
-}
-
-type txGroupPair struct {
-	tx    *types.Transaction
-	group *ExecutionGroup
-}
-
 type addressRlpDataPair struct {
 	address  common.Address
 	stateObj interface{}
@@ -78,17 +68,11 @@ func newGrouper(regroup bool) *grouper {
 }
 
 func (gp *grouper) groupNewTxInfo(txInfo *txInfo, pb *ParallelBlock) {
-	d := int64(0)
-
-	t0 := time.Now()
 	groupsToMerge := make(map[int]struct{})
 	groupWrittenAccount := make(map[common.Address]struct{})
 	firstGroup := true
 	var tmpExecutionGroup *ExecutionGroup
 	trxTouchedAddress := pb.getTrxTouchedAddress(txInfo, gp.regroup)
-
-	d0 := time.Since(t0)
-	t1 := time.Now()
 
 	for addr, op := range trxTouchedAddress.AccountOp() {
 		if gId, ok := gp.addrToGroupMap[addr]; ok {
@@ -100,9 +84,6 @@ func (gp *grouper) groupNewTxInfo(txInfo *txInfo, pb *ParallelBlock) {
 		}
 	}
 
-	d1 := time.Since(t1)
-	t2 := time.Now()
-
 	if len(groupsToMerge) == 0 {
 		tmpExecutionGroup = NewExecutionGroup()
 		tmpExecutionGroup.addTxInfo(txInfo)
@@ -110,8 +91,6 @@ func (gp *grouper) groupNewTxInfo(txInfo *txInfo, pb *ParallelBlock) {
 		tmpExecutionGroup.SetId(gp.groupId)
 	}
 
-	d3 := time.Since(t2)
-	t4 := time.Now()
 	for gId := range groupsToMerge {
 		if firstGroup {
 			tmpExecutionGroup = gp.executionGroupMap[gId]
@@ -140,21 +119,9 @@ func (gp *grouper) groupNewTxInfo(txInfo *txInfo, pb *ParallelBlock) {
 		delete(gp.groupWrittenAccountMap, gId)
 	}
 
-	d4 := time.Since(t4)
-	t5 := time.Now()
 	gp.groupWrittenAccountMap[gp.groupId] = groupWrittenAccount
 	gp.executionGroupMap[gp.groupId] = tmpExecutionGroup
 	gp.groupId++
-
-	d5 := time.Since(t5)
-	d += time.Since(t0).Nanoseconds()
-	log.Trace("group",
-		"d0", common.PrettyDuration(d0),
-		"d1", common.PrettyDuration(d1),
-		"d3", common.PrettyDuration(d3),
-		"d4", common.PrettyDuration(d4),
-		"d5", common.PrettyDuration(d5),
-	)
 }
 
 func NewParallelBlock(block *types.Block, statedb *state.StateDB, config *params.ChainConfig, bc ChainContext, cfg vm.Config, feeAmount *big.Int) *ParallelBlock {
@@ -167,26 +134,6 @@ func NewParallelBlock(block *types.Block, statedb *state.StateDB, config *params
 		context:         bc,
 		vmConfig:        cfg,
 		feeAmount:       feeAmount,
-	}
-}
-
-func (pb *ParallelBlock) groupTxs() {
-	tmpExecutionGroupMap := pb.groupTransactions(pb.txInfos, false)
-
-	for _, execGroup := range tmpExecutionGroupMap {
-		execGroup.SetId(pb.nextGroupId)
-		if len(tmpExecutionGroupMap) == 1 {
-			execGroup.SetStatedb(pb.statedb)
-		} else {
-			execGroup.SetStatedb(pb.statedb.Copy())
-		}
-		pb.executionGroups[pb.nextGroupId] = execGroup
-
-		for _, txInfo := range execGroup.txInfos {
-			txInfo.groupId = pb.nextGroupId
-		}
-
-		pb.nextGroupId++
 	}
 }
 
@@ -595,6 +542,7 @@ func (pb *ParallelBlock) processAssociatedAddressOfContract(ch chan *txInfo) {
 			msg := txInfo.msg
 			touchedAddr.RemoveAccount(msg.From())
 			touchedAddr.RemoveAccount(msg.Payment())
+			touchedAddr.RemoveAccountsInArgs()
 			if len(touchedAddr.AccountOp()) > 1 {
 				associatedAddrs[*to] = touchedAddr
 			}

@@ -36,14 +36,10 @@ func (aam *AssociatedAddressMngr) LoadAssociatedAddresses(addrs []common.Address
 
 func (aam *AssociatedAddressMngr) UpdateAssociatedAddresses(associatedAddrs map[common.Address]*state.TouchedAddressObject) {
 	for addr, associatedAddr := range associatedAddrs {
-		// remove accounts which come from args
-		associatedAddr.RemoveAccountsInArgs()
-
-		if obj, exist := aam.lruCache.Get(addr); !exist {
-			aam.lruCache.Add(addr, associatedAddr)
-		} else {
+		if obj, exist := aam.lruCache.Get(addr); exist {
 			touchedAddressObj := obj.(*state.TouchedAddressObject)
-			touchedAddressObj.Merge(associatedAddr)
+			associatedAddr.Merge(touchedAddressObj)
 		}
+		aam.lruCache.Add(addr, associatedAddrs)
 	}
 }

@@ -682,8 +682,7 @@ func (s *StateDB) FinaliseGroup(deleteEmptyObjects bool) {
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
 	// Invalidate journal.
-	//s.clearJournalAndRefund()
-	s.journal = newJournal()
+	s.clearJournalAndRefund()
 	s.validRevisions = s.validRevisions[:0]
 	s.refund = 0
 }
