@@ -34,6 +34,7 @@ var StakingGas = map[string]uint64{
 	"deposit":          2400000,
 	"append":           2400000,
 	"setFee":           2400000,
+	"setPubkey":        2400000,
 	"withdraw":         2520000,
 	"cancel":           2400000,
 	"delegate":         1500000,
@@ -77,6 +78,8 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		ret, err = cancel(evm, contract, data)
 	case "setFee":
 		ret, err = setFeeRate(evm, contract, data)
+	case "setPubkey":
+		ret, err = setPubkey(evm, contract, data)
 	case "delegate":
 		ret, err = delegate(evm, contract, data)
 	case "undelegate":
@@ -267,6 +270,52 @@ func setFeeRate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 
 	event := abiStaking.Events["SetFee"]
 	logData, err := event.Inputs.PackNonIndexed(fee)
+	if err != nil {
+		log.Error("Pack staking log error", "error", err)
+		return nil, err
+	}
+	topics := []common.Hash{
+		event.ID(),
+		common.BytesToHash(from[:]),
+	}
+	logN(evm, contract, topics, logData)
+	return nil, nil
+}
+
+func setPubkey(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	var pubkey []byte
+
+	method, _ := abiStaking.Methods["setPubkey"]
+	err = method.Inputs.Unpack(&pubkey, input)
+	if err != nil {
+		log.Error("Unpack update pubkey error", "err", err)
+		return nil, ErrStakingInvalidInput
+	}
+
+	from := contract.caller.Address()
+
+	log.Info("Staking set pubkey", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "pk", pubkey)
+	impawn := NewImpawnImpl()
+	err = impawn.Load(evm.StateDB, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking load error", "error", err)
+		return nil, err
+	}
+
+	err = impawn.UpdateSAPK(evm.Context.BlockNumber.Uint64(), from, pubkey)
+	if err != nil {
+		log.Error("Staking pubkey", "address", contract.caller.Address(), "error", err)
+		return nil, err
+	}
+
+	err = impawn.Save(evm.StateDB, types.StakingAddress)
+	if err != nil {
+		log.Error("Staking save state error", "error", err)
+		return nil, err
+	}
+
+	event := abiStaking.Events["SetPubkey"]
+	logData, err := event.Inputs.PackNonIndexed(pubkey)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
