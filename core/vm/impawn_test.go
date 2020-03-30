@@ -4,7 +4,9 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"encoding/hex"
 	"testing"
+	"strings"
 	"bytes"
 
 	"github.com/truechain/truechain-engineering-code/common"
@@ -526,9 +528,9 @@ func TestSAImpawns(t *testing.T) {
 	priKeyDA, _ := crypto.GenerateKey()
 	daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
 	saccount := initialStakingAccount(1, 1, 9, saAddress, daAddress, priKey, priKeyDA)
-	SAIs.update(saccount, 30, false, false)
+	SAIs.update(saccount, 30, false, false,0)
 	saccount = initialStakingAccount(1, 1, 15, saAddress, daAddress, priKey, priKeyDA)
-	SAIs.update(saccount, 30, false, false)
+	SAIs.update(saccount, 30, false, false,0)
 
 	SAIs.sort(15, false)
 }
@@ -862,4 +864,101 @@ func TestRlp(t *testing.T) {
 		log.Error("Invalid reward infos RLP", "err", err)
 	}
 	fmt.Println("finish")
+}
+func TestFunc(t *testing.T) {
+	step := 0
+	fmt.Println("test insert sa in same address")
+	test_func(step)
+	step = 1
+	fmt.Println("test update fee sa in same address")
+	test_func(step)
+	step = 2
+	fmt.Println("test update pk sa in same address")
+	test_func(step)
+	fmt.Println("finish")
+}
+func test_func(step int) {
+	impawn := NewImpawnImpl()
+	effectHeight := uint64(10000)
+	priKey, _ := crypto.GenerateKey()
+	pk := crypto.FromECDSAPub(&priKey.PublicKey)
+	fmt.Println("first insert:")
+	err := impawn.InsertSAccount2(0,common.Address{'1'},pk,big.NewInt(2000),big.NewInt(10),true)
+	if err != nil {
+		fmt.Println("InsertSAccount1:",err)
+		return
+	}
+	info := impawn.GetAllStakingAccount()
+	print_sas(info)
+	err = impawn.Shift(1,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	fmt.Println("-----------Shift---------------")
+	info = impawn.GetAllStakingAccount()
+	print_sas(info)
+	if step == 0 {
+		fmt.Println("second insert:")
+		err = impawn.InsertSAccount2(500,common.Address{'1'},pk,big.NewInt(100),big.NewInt(20),true)
+		if err != nil {
+			fmt.Println("InsertSAccount2:",err)
+			return
+		}
+	} else if step == 1 {
+		fmt.Println("update fee:")
+		err = impawn.UpdateSAFee(500,common.Address{'1'},big.NewInt(20))
+		if err != nil {
+			fmt.Println("UpdateSAFee:",err)
+			return
+		}
+	} else {
+		fmt.Println("update pk:")
+		priKey1, _ := crypto.GenerateKey()
+		pk1 := crypto.FromECDSAPub(&priKey1.PublicKey)
+		err = impawn.UpdateSAPK(500,common.Address{'1'},pk1)
+		if err != nil {
+			fmt.Println("UpdateSAFee:",err)
+			return
+		}
+	}
+	
+	info = impawn.GetAllStakingAccount()
+	print_sas(info)
+	err = impawn.Shift(2,effectHeight)
+	if err != nil {
+		fmt.Println("Shift2:",err)
+		return
+	}
+	fmt.Println("-----------Shift---------------")
+	info = impawn.GetAllStakingAccount()
+	print_sas(info)
+}
+func print_sas(sas SAImpawns) {
+	sasStrings := make([]string, len(sas))
+	for i,v := range sas {
+		sasStrings[i] = sa_to_string(v)
+	}
+	fmt.Println("sas:",strings.Join(sasStrings, "\n"))
+}
+func sa_to_string(sa *StakingAccount) string {
+	dasStrings := make([]string, len(sa.Delegation))
+	for i, m := range sa.Delegation {
+		dasStrings[i] = da_to_string(m)
+	}
+	return fmt.Sprintf("SA{Unit:%s,pk:{%s},fee:{%s},Committee:%v,das:{%s},Modify:{%s,%s}}",
+	unit_to_string(sa.Unit), hex.EncodeToString(sa.Votepubkey),sa.Fee.String(),sa.Committee,
+	strings.Join(dasStrings, "\n"),sa.Modify.Fee.String(),hex.EncodeToString(sa.Modify.VotePubkey))
+}
+func da_to_string(da *DelegationAccount) string {
+	return fmt.Sprintf("DA{Addr:%s,{%s}}", da.SaAddress.String(), unit_to_string(da.Unit))
+}
+func unit_to_string(u *impawnUnit) string {
+	valstring := make([]string, len(u.Value))
+	redeemString := make([]string, len(u.RedeemInof))
+	for i, v := range u.Value {
+		valstring[i] = fmt.Sprintf("Amount:{%s},Height:{%s}",v.Amount.String(),v.Height.String())
+	}
+	return fmt.Sprintf("Unit{Addr:%s,Values:{%s},RedeemInof:{%s}}", 
+	u.Address.String(), strings.Join(valstring, "\n  "),strings.Join(redeemString, "\n  "))
 }
