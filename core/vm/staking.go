@@ -819,6 +819,23 @@ const StakeABIJSON = `
     "type": "event"
   },
   {
+    "name": "SetPubkey",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "from",
+        "indexed": true
+      },
+      {
+        "type": "bytes",
+        "name": "pubkey",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
     "name": "deposit",
     "outputs": [],
     "inputs": [
@@ -846,6 +863,19 @@ const StakeABIJSON = `
       {
         "type": "uint256",
         "name": "fee"
+      }
+    ],
+    "constant": false,
+    "payable": false,
+    "type": "function"
+  },
+  {
+    "name": "setPubkey",
+    "outputs": [],
+    "inputs": [
+      {
+        "type": "bytes",
+        "name": "pubkey"
       }
     ],
     "constant": false,
