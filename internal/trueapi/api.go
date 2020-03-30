@@ -409,7 +409,6 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 	} else {
 		d = time.Duration(*duration) * time.Second
 	}
-	log.Info("UnlockAccount", "Address:", addr, "password", password, "d", d)
 	err := fetchKeystore(s.am).TimedUnlock(accounts.Account{Address: addr}, password, d)
 	return err == nil, err
 }
