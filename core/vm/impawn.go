@@ -689,24 +689,21 @@ func (i *ImpawnImpl) getElections3(epochid uint64) []*StakingAccount {
 	}
 	return i.getElections2(eid)
 }
-func (i *ImpawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []common.Address) SAImpawns {
-	if len(addrs) == 0 {
-		return nil
-	}
+func (i *ImpawnImpl) fetchAccountsInEpoch(epochid uint64, addrs []*StakingAccount) []*StakingAccount {
 	if accounts, ok := i.accounts[epochid]; !ok {
-		return nil
+		return addrs
 	} else {
-		find := func(addrs []common.Address, addr common.Address) bool {
+		find := func(addrs []*StakingAccount, addr common.Address) bool {
 			for _, v := range addrs {
-				if bytes.Equal(v.Bytes(), addr.Bytes()) {
+				if bytes.Equal(v.Unit.Address.Bytes(), addr.Bytes()) {
 					return true
 				}
 			}
 			return false
 		}
-		var items SAImpawns
+		items := make([]*StakingAccount,0,0)
 		for _, val := range accounts {
-			if val.isInCommittee() && find(addrs, val.Unit.GetRewardAddress()) {
+			if find(addrs, val.Unit.GetRewardAddress()) {
 				items = append(items, val)
 			}
 		}

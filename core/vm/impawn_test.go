@@ -934,6 +934,57 @@ func test_func(step int) {
 	info = impawn.GetAllStakingAccount()
 	print_sas(info)
 }
+func TestFetch(t *testing.T) {
+	impawn := NewImpawnImpl()
+	effectHeight := uint64(10000)
+	priKey, _ := crypto.GenerateKey()
+	pk := crypto.FromECDSAPub(&priKey.PublicKey)
+	priKey2, _ := crypto.GenerateKey()
+	pk2 := crypto.FromECDSAPub(&priKey2.PublicKey)
+	priKey3, _ := crypto.GenerateKey()
+	pk3 := crypto.FromECDSAPub(&priKey3.PublicKey)
+	priKey4, _ := crypto.GenerateKey()
+	pk4 := crypto.FromECDSAPub(&priKey4.PublicKey)
+
+	err := impawn.InsertSAccount2(0,common.Address{'1'},pk,new(big.Int).Set(params.ElectionMinLimitForStaking),big.NewInt(10),true)
+	if err != nil {
+		fmt.Println("InsertSAccount1:",err)
+		return
+	}
+	err = impawn.InsertSAccount2(0,common.Address{'2'},pk2,new(big.Int).Set(params.ElectionMinLimitForStaking),big.NewInt(10),true)
+	if err != nil {
+		fmt.Println("InsertSAccount1:",err)
+		return
+	}
+	acc1,err1 := impawn.DoElections(1,1)
+	if err1 != nil {
+		fmt.Println("DoElections:",err)
+		return
+	}
+	err = impawn.Shift(1,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	
+	err = impawn.InsertSAccount2(1,common.Address{'1'},pk,new(big.Int).Set(params.ElectionMinLimitForStaking),big.NewInt(10),true)
+	if err != nil {
+		fmt.Println("InsertSAccount1:",err)
+		return
+	}
+	err = impawn.InsertSAccount2(1,common.Address{'3'},pk3,new(big.Int).Set(params.ElectionMinLimitForStaking),big.NewInt(10),true)
+	if err != nil {
+		fmt.Println("InsertSAccount1:",err)
+		return
+	}
+	err = impawn.InsertSAccount2(1,common.Address{'4'},pk4,new(big.Int).Set(params.ElectionMinLimitForStaking),big.NewInt(10),true)
+	if err != nil {
+		fmt.Println("InsertSAccount1:",err)
+		return
+	}
+	acc2 := impawn.fetchAccountsInEpoch(1,acc1)
+	print_sas(SAImpawns(acc2))
+}
 func print_sas(sas SAImpawns) {
 	sasStrings := make([]string, len(sas))
 	for i,v := range sas {
