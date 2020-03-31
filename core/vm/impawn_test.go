@@ -868,10 +868,10 @@ func TestRlp(t *testing.T) {
 func TestFunc(t *testing.T) {
 	step := 0
 	fmt.Println("test insert sa in same address")
-	test_func(step)
+	// test_func(step)
 	step = 1
 	fmt.Println("test update fee sa in same address")
-	test_func(step)
+	// test_func(step)
 	step = 2
 	fmt.Println("test update pk sa in same address")
 	test_func(step)
@@ -883,7 +883,7 @@ func test_func(step int) {
 	priKey, _ := crypto.GenerateKey()
 	pk := crypto.FromECDSAPub(&priKey.PublicKey)
 	fmt.Println("first insert:")
-	err := impawn.InsertSAccount2(0,common.Address{'1'},pk,big.NewInt(2000),big.NewInt(10),true)
+	err := impawn.InsertSAccount2(0,common.Address{'1'},pk,new(big.Int).Set(params.ElectionMinLimitForStaking),big.NewInt(10),true)
 	if err != nil {
 		fmt.Println("InsertSAccount1:",err)
 		return
@@ -925,12 +925,27 @@ func test_func(step int) {
 	
 	info = impawn.GetAllStakingAccount()
 	print_sas(info)
+	print_election(impawn,2)
 	err = impawn.Shift(2,effectHeight)
 	if err != nil {
 		fmt.Println("Shift2:",err)
 		return
 	}
 	fmt.Println("-----------Shift---------------")
+	eid := impawn.getCurrentEpoch()
+	accs := impawn.getElections3(eid)
+	var vv []*types.CommitteeMember
+	for _, v := range accs {
+		pubkey, _ := crypto.UnmarshalPubkey(v.Votepubkey)
+		vv = append(vv, &types.CommitteeMember{
+			CommitteeBase: crypto.PubkeyToAddress(*pubkey),
+			Coinbase:      v.Unit.GetRewardAddress(),
+			Publickey:     types.CopyVotePk(v.Votepubkey),
+			Flag:          types.StateUsedFlag,
+			MType:         types.TypeWorked,
+		})
+	}
+	fmt.Println("accs:",accs)
 	info = impawn.GetAllStakingAccount()
 	print_sas(info)
 }
