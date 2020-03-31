@@ -789,7 +789,7 @@ func (self *StateDB) CopyStateObjRlpDataFromOtherDB(other *StateDB, addr common.
 	var obj0 *stateObject
 	obj1 := other.getStateObject(addr)
 
-	if obj1.deleted == true {
+	if obj1 == nil || obj1.deleted == true {
 		obj0 = self.getStateObjectWithoutSet(addr)
 		if obj0 != nil {
 			return nil, nil, true
@@ -820,10 +820,10 @@ func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[c
 		var obj0 *stateObject
 		obj1 := other.getStateObject(addr)
 
-		if obj1.deleted == true {
+		if obj1 == nil || obj1.deleted == true {
 			obj0 = self.getStateObject(addr)
 			if obj0 != nil {
-				obj0.deleted = true
+				self.setStateObject(obj1)
 			}
 		} else {
 			obj0 = newObject(self, addr, obj1.data)
@@ -837,8 +837,10 @@ func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[c
 	}
 }
 
-func (self *StateDB) CopyTxJournalFromOtherDB(other *StateDB, txHash common.Hash) {
+func (self *StateDB) CopyJournalLogPreImageFromOtherDB(other *StateDB, txHash common.Hash) {
 	self.journals[txHash] = other.journals[txHash]
+	self.logs[txHash] = other.logs[txHash]
+	self.preimages[txHash] = other.preimages[txHash]
 }
 
 func (self *StateDB) AddCallArg(arg []byte) {

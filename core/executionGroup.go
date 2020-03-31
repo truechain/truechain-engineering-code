@@ -95,7 +95,7 @@ func (e *ExecutionGroup) reuseTxResults(txsToReuse []*txInfo, conflictGroups map
 
 		if result := txInfo.result; result != nil {
 			appendStateObjToReuse(stateObjsFromOtherGroup[oldGroupId], result.touchedAddresses)
-			e.statedb.CopyTxJournalFromOtherDB(conflictGroups[oldGroupId].statedb, txHash)
+			e.statedb.CopyJournalLogPreImageFromOtherDB(conflictGroups[oldGroupId].statedb, txHash)
 			e.AddUsedGas(result.usedGas)
 			e.AddFeeAmount(result.feeAmount)
 		}
