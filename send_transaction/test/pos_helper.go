@@ -214,7 +214,8 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
 	params.ElectionMinLimitForStaking = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e18))
-	params.NewEpochLength = 2000 // about 1.5 days
+	params.NewEpochLength = 2000  // about 1.5 days
+	params.MaxRedeemHeight = 1000 // about 15 days
 
 	gspec.Config.TIP7 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)}
@@ -441,7 +442,7 @@ func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value 
 	//2426392 1000000000
 	//866328  1000000
 	//2400000
-	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 2446392, big.NewInt(1000000000), input), signer, priKey)
+	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 2646392, big.NewInt(1000000000), input), signer, priKey)
 	if gen != nil {
 		gen.AddTxWithChain(blockchain, tx)
 	} else {
