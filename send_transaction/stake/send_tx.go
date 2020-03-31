@@ -136,11 +136,22 @@ func impawn(ctx *cli.Context) error {
 		}
 	}
 
+	count := 0
+	blockNumber := firstNumber
 	var err error
 	for {
-		loop(conn, header, ctx)
 		header, err = conn.HeaderByNumber(context.Background(), nil)
-		querySendTx(conn)
+		if header.Number.Uint64() == blockNumber {
+			count++
+		} else {
+			blockNumber = header.Number.Uint64()
+			count = 0
+		}
+		if count < 5 {
+			loop(conn, header, ctx)
+			querySendTx(conn)
+		}
+
 		time.Sleep(time.Second * time.Duration(interval))
 		if err != nil {
 			log.Fatal(err)

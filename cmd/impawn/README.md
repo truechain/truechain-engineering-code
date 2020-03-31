@@ -151,7 +151,7 @@ This command will:
 ### Delegate cancel
  
  ```
- $ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 10 --address 0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2 delegate deposit
+ $ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 10 --address 0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2 delegate cancel
  
  ```
  
