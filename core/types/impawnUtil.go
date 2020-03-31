@@ -104,9 +104,41 @@ type RewardInfo struct {
 func (e *RewardInfo) String() string {
 	return fmt.Sprintf("[Address:%v,Amount:%s\n]", e.Address.String(), ToTrue(e.Amount).Text('f',8))
 }
-
+func FetchOne(sas []*SARewardInfos,addr common.Address) []*RewardInfo {
+	items := make([]*RewardInfo,0,0)
+	for _,val := range sas {
+		if len(val.Items) > 0 {
+			saAddr := val.getSaAddress()
+			if bytes.Equal(saAddr.Bytes(), addr.Bytes()) {
+				items = mergeRewardInfos(items,val.Items)
+			}
+		}
+	}
+	return items
+}
+func mergeRewardInfos(items1,itmes2 []*RewardInfo) []*RewardInfo {
+	for _,v1 := range itmes2 {
+		found := false
+		for _,v2 := range items1 {
+			if bytes.Equal(v1.Address.Bytes(),v2.Address.Bytes()) {
+				found = true
+				v2.Amount = new(big.Int).Add(v2.Amount,v1.Amount)
+			}
+		}
+		if !found {
+			items1 = append(items1,v1)
+		}
+	}	
+	return items1
+}
 type SARewardInfos struct {
 	Items []*RewardInfo
+}
+func (s *SARewardInfos) getSaAddress() common.Address{
+	if len(s.Items) > 0 {
+		return s.Items[0].Address
+	}
+	return common.Address{}
 }
 
 func (s *SARewardInfos) String() string {
