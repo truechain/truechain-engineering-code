@@ -81,9 +81,10 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	case "setPubkey":
 		if evm.chainConfig.IsTIP10(evm.Context.BlockNumber) {
 			ret, err = setPubkey(evm, contract, data)
-			break
+		} else {
+			log.Warn("Staking call fallback function")
+			err = ErrStakingInvalidInput
 		}
-		fallthrough
 	case "delegate":
 		ret, err = delegate(evm, contract, data)
 	case "undelegate":
