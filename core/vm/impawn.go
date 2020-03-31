@@ -474,7 +474,7 @@ func (s *StakingAccount) changeAlterableInfo() {
 			s.Fee = s.Modify.Fee
 		}
 		if s.Modify.VotePubkey != nil {
-			s.Votepubkey = s.Modify.VotePubkey
+			s.Votepubkey = types.CopyVotePk(s.Modify.VotePubkey)
 		}
 	}
 }
