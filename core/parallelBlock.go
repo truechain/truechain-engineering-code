@@ -9,13 +9,17 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
+	"runtime"
 
 	"sort"
 	"sync"
 	"time"
 )
 
-var associatedAddressMngr = NewAssociatedAddressMngr()
+var (
+	associatedAddressMngr = NewAssociatedAddressMngr()
+	cpuNum                = runtime.NumCPU()
+)
 
 type ParallelBlock struct {
 	block                *types.Block
@@ -36,6 +40,9 @@ type grouper struct {
 	addrToGroupMap         map[common.Address]int
 	groupId                int
 	regroup                bool
+	maxGroupCount          int
+	avgTxCountInGroup      int
+	groupTxCountUnderAvg   map[int]struct{}
 }
 
 type txInfo struct {
@@ -57,13 +64,18 @@ type addressRlpDataPair struct {
 	rlpData  []byte
 }
 
-func newGrouper(regroup bool) *grouper {
+func newGrouper(totalTxToGroup int, regroup bool) *grouper {
+	maxGroupCount := cpuNum * 64
+	avgTxCountInGroup := (totalTxToGroup + maxGroupCount - 1) / (maxGroupCount)
 	return &grouper{
 		executionGroupMap:      make(map[int]*ExecutionGroup),
 		groupWrittenAccountMap: make(map[int]map[common.Address]struct{}),
 		addrToGroupMap:         make(map[common.Address]int),
 		groupId:                0,
 		regroup:                regroup,
+		maxGroupCount:          maxGroupCount,
+		avgTxCountInGroup:      avgTxCountInGroup,
+		groupTxCountUnderAvg:   make(map[int]struct{}),
 	}
 }
 
@@ -85,43 +97,57 @@ func (gp *grouper) groupNewTxInfo(txInfo *txInfo, pb *ParallelBlock) {
 	}
 
 	if len(groupsToMerge) == 0 {
-		tmpExecutionGroup = NewExecutionGroup()
-		tmpExecutionGroup.addTxInfo(txInfo)
-		tmpExecutionGroup.SetHeader(pb.block.Header())
-		tmpExecutionGroup.SetId(gp.groupId)
+		if len(gp.executionGroupMap) < gp.maxGroupCount {
+			tmpExecutionGroup = NewExecutionGroup()
+			tmpExecutionGroup.addTxInfo(txInfo)
+			tmpExecutionGroup.SetHeader(pb.block.Header())
+			tmpExecutionGroup.SetId(gp.groupId)
+			gp.groupWrittenAccountMap[gp.groupId] = groupWrittenAccount
+			gp.executionGroupMap[gp.groupId] = tmpExecutionGroup
+			if 1 < gp.avgTxCountInGroup {
+				gp.groupTxCountUnderAvg[gp.groupId] = struct{}{}
+			}
+			gp.groupId++
+			return
+		} else {
+			// find the shortest group
+			var pickedGroupId int
+			for gId := range gp.groupTxCountUnderAvg {
+				pickedGroupId = gId
+				break
+			}
+			groupsToMerge[pickedGroupId] = struct{}{}
+		}
 	}
 
+	var curGroupId int
 	for gId := range groupsToMerge {
 		if firstGroup {
+			curGroupId = gId
 			tmpExecutionGroup = gp.executionGroupMap[gId]
 			tmpExecutionGroup.addTxInfo(txInfo)
-			tmpExecutionGroup.SetId(gp.groupId)
-
-			for k := range gp.groupWrittenAccountMap[gId] {
-				gp.addrToGroupMap[k] = gp.groupId
-			}
 
 			for k, v := range groupWrittenAccount {
 				gp.groupWrittenAccountMap[gId][k] = v
+				gp.addrToGroupMap[k] = gId
 			}
-			groupWrittenAccount = gp.groupWrittenAccountMap[gId]
 
 			firstGroup = false
 		} else {
 			tmpExecutionGroup.addTxInfos(gp.executionGroupMap[gId].getTxInfos())
-			delete(gp.executionGroupMap, gId)
 			for k, v := range gp.groupWrittenAccountMap[gId] {
-				groupWrittenAccount[k] = v
-				gp.addrToGroupMap[k] = gp.groupId
+				gp.groupWrittenAccountMap[curGroupId][k] = v
+				gp.addrToGroupMap[k] = curGroupId
 			}
+			delete(gp.executionGroupMap, gId)
+			delete(gp.groupWrittenAccountMap, gId)
+			delete(gp.groupTxCountUnderAvg, gId)
 		}
-		delete(gp.executionGroupMap, gId)
-		delete(gp.groupWrittenAccountMap, gId)
 	}
 
-	gp.groupWrittenAccountMap[gp.groupId] = groupWrittenAccount
-	gp.executionGroupMap[gp.groupId] = tmpExecutionGroup
-	gp.groupId++
+	if len(gp.executionGroupMap[curGroupId].txInfos) >= gp.avgTxCountInGroup {
+		delete(gp.groupTxCountUnderAvg, curGroupId)
+	}
 }
 
 func NewParallelBlock(block *types.Block, statedb *state.StateDB, config *params.ChainConfig, bc ChainContext, cfg vm.Config, feeAmount *big.Int) *ParallelBlock {
@@ -219,7 +245,7 @@ func (pb *ParallelBlock) reGroupAndRevert(conflictGroupMaps []map[int]struct{}, 
 }
 
 func (pb *ParallelBlock) groupTransactions(txInfos []*txInfo, regroup bool) map[int]*ExecutionGroup {
-	grouper := newGrouper(regroup)
+	grouper := newGrouper(len(txInfos), regroup)
 
 	for _, txInfo := range txInfos {
 		grouper.groupNewTxInfo(txInfo, pb)
@@ -233,7 +259,7 @@ func (pb *ParallelBlock) groupTransactions(txInfos []*txInfo, regroup bool) map[
 }
 
 func (pb *ParallelBlock) groupTransactionsFromChan(ch chan *txInfo, regroup bool) map[int]*ExecutionGroup {
-	grouper := newGrouper(regroup)
+	grouper := newGrouper(pb.block.Transactions().Len(), regroup)
 
 	for tx := range ch {
 		grouper.groupNewTxInfo(tx, pb)
@@ -376,7 +402,6 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg *sync.WaitGroup)
 
 func (pb *ParallelBlock) executeInParallel() {
 	wg := sync.WaitGroup{}
-
 	for _, group := range pb.executionGroups {
 		if group.startTrxIndex != -1 {
 			wg.Add(1)
@@ -598,7 +623,7 @@ func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error)
 			"prepareAndGroup", common.PrettyDuration(d0),
 			"exec", common.PrettyDuration(d2),
 			"check", common.PrettyDuration(d3),
-			"reGroupAndRevert", common.PrettyDuration(d5),
+			"reGroupAndRevert", common.PrettyDuration(d4),
 			"collectResult", common.PrettyDuration(d5))
 	}
 
