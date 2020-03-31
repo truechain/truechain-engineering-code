@@ -982,6 +982,30 @@ func make_cancel_sas(impawn *ImpawnImpl,h uint64,saAddrs []common.Address,values
 	}
 	return nil
 }
+func make_append(impawn *ImpawnImpl,h uint64,addrs []common.Address,values []*big.Int) error {
+	l := len(addrs)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.AppendSAAmount(h,addrs[i],values[i])
+		if err != nil {
+			fmt.Println("AppendSAAmount:",err,"index:",i)
+			return err
+		}
+	}
+	return nil
+}
+func make_update_fee(impawn *ImpawnImpl,h uint64,addrs []common.Address,fees []*big.Int) error {
+	l := len(addrs)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.UpdateSAFee(h,addrs[i],fees[i])
+		if err != nil {
+			fmt.Println("UpdateSAFee:",err,"index:",i)
+			return err
+		}
+	}
+	return nil
+}
 func getPks(n int) [][]byte {
 	res := make([][]byte,0,0)
 	for i:=0;i<n;i++ {
@@ -1048,8 +1072,8 @@ func TestFetch(t *testing.T) {
 		common.Address{'9'},
 	}
 	values2 := []*big.Int{
-		big.NewInt(500000),
-		big.NewInt(500000),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
 	}
 	err = make_das(impawn,10000,saAddrs[0:2],daAddrs,values2)
 	if err != nil {
@@ -1057,23 +1081,50 @@ func TestFetch(t *testing.T) {
 		return
 	}
 	print_sas(impawn.GetAllStakingAccount())
-	print_reward(impawn,100,10000,effectHeight,rewardAmount)
+	print_reward(impawn,100,10001,effectHeight,rewardAmount)
 	fmt.Println("cancel das")
-	make_cancel_das(impawn,24000,saAddrs[0:2],daAddrs,values2)
+	values3 := []*big.Int{
+		new(big.Int).Mul(big.NewInt(5000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(5000), big.NewInt(1e18)),
+	}
+	make_cancel_das(impawn,24890,saAddrs[0:2],daAddrs,values3)
+	fmt.Println("update fee")
+	fee2 := []*big.Int{
+		big.NewInt(5000),
+		big.NewInt(5000),
+	}
+	make_update_fee(impawn,24899,saAddrs[0:2],fee2)
+	// fmt.Println("cancel sas")
+	// calcelvalues := []*big.Int{
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// }
+	// make_cancel_sas(impawn,24900,saAddrs[0:3],calcelvalues)
 	print_sas(impawn.GetAllStakingAccount())
+	// fmt.Println("append sas")
+	// appendvalues := []*big.Int{
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(30000), big.NewInt(1e18)),
+	// }
+	// make_append(impawn,24692,saAddrs,appendvalues)
+	// print_sas(impawn.GetAllStakingAccount())
 	print_election(impawn,2)
+	fmt.Println("cancel sas")
+	calcelvalues := []*big.Int{
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	}
+	make_cancel_sas(impawn,24900,saAddrs[0:3],calcelvalues)
 	err = impawn.Shift(2,effectHeight)
 	if err != nil {
 		fmt.Println("Shift1:",err)
 		return
 	}
 	print_reward(impawn,10000,30000,effectHeight,rewardAmount)
-	// fmt.Println("cancel sas")
-	// make_cancel_sas(impawn,24900,saAddrs,values)
-	// print_sas(impawn.GetAllStakingAccount())
-	// fmt.Println("cancel das")
-	// make_cancel_das(impawn,24000,saAddrs[0:2],daAddrs,values2)
-	// print_sas(impawn.GetAllStakingAccount())
 	
 	print_sas(impawn.GetAllStakingAccount())
 	print_reward(impawn,45001,70000,effectHeight,rewardAmount)
@@ -1096,7 +1147,7 @@ func sa_to_string(sa *StakingAccount) string {
 	strings.Join(dasStrings, "\n"),sa.Modify.Fee.String(),hex.EncodeToString(sa.Modify.VotePubkey))
 }
 func da_to_string(da *DelegationAccount) string {
-	return fmt.Sprintf("DA{Addr:%s,{%s}}", da.SaAddress.String(), unit_to_string(da.Unit))
+	return fmt.Sprintf("DA{SaAddr:%s,{%s}}", da.SaAddress.String(), unit_to_string(da.Unit))
 }
 func unit_to_string(u *impawnUnit) string {
 	valstring := make([]string, len(u.Value))
