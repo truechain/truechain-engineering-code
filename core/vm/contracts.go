@@ -21,6 +21,7 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -34,7 +35,7 @@ import (
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
 type PrecompiledContract interface {
-	RequiredGas(input []byte) uint64                                // RequiredPrice calculates the contract gas use
+	RequiredGas(evm *EVM, input []byte) uint64                                // RequiredPrice calculates the contract gas use
 	Run(evm *EVM, contract *Contract, input []byte) ([]byte, error) // Run runs the precompiled contract
 }
 
@@ -76,7 +77,7 @@ var PrecompiledContractsPoS = map[common.Address]PrecompiledContract{
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
 func RunPrecompiledContract(evm *EVM, p PrecompiledContract, input []byte, contract *Contract) (ret []byte, err error) {
-	gas := p.RequiredGas(input)
+	gas := p.RequiredGas(evm, input)
 	if contract.UseGas(gas) {
 		return p.Run(evm, contract, input)
 	}
@@ -86,7 +87,7 @@ func RunPrecompiledContract(evm *EVM, p PrecompiledContract, input []byte, contr
 // ECRECOVER implemented as a native contract.
 type ecrecover struct{}
 
-func (c *ecrecover) RequiredGas(input []byte) uint64 {
+func (c *ecrecover) RequiredGas(evm *EVM, input []byte) uint64 {
 	return params.EcrecoverGas
 }
 
@@ -123,7 +124,7 @@ type sha256hash struct{}
 //
 // This method does not require any overflow checking as the input size gas costs
 // required for anything significant is so high it's impossible to pay for.
-func (c *sha256hash) RequiredGas(input []byte) uint64 {
+func (c *sha256hash) RequiredGas(evm *EVM, input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.Sha256PerWordGas + params.Sha256BaseGas
 }
 func (c *sha256hash) Run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
@@ -138,7 +139,7 @@ type ripemd160hash struct{}
 //
 // This method does not require any overflow checking as the input size gas costs
 // required for anything significant is so high it's impossible to pay for.
-func (c *ripemd160hash) RequiredGas(input []byte) uint64 {
+func (c *ripemd160hash) RequiredGas(evm *EVM, input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.Ripemd160PerWordGas + params.Ripemd160BaseGas
 }
 func (c *ripemd160hash) Run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
@@ -154,7 +155,7 @@ type dataCopy struct{}
 //
 // This method does not require any overflow checking as the input size gas costs
 // required for anything significant is so high it's impossible to pay for.
-func (c *dataCopy) RequiredGas(input []byte) uint64 {
+func (c *dataCopy) RequiredGas(evm *EVM, input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.IdentityPerWordGas + params.IdentityBaseGas
 }
 func (c *dataCopy) Run(evm *EVM, contract *Contract, in []byte) ([]byte, error) {
@@ -179,7 +180,7 @@ var (
 )
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bigModExp) RequiredGas(input []byte) uint64 {
+func (c *bigModExp) RequiredGas(evm *EVM, input []byte) uint64 {
 	var (
 		baseLen = new(big.Int).SetBytes(getData(input, 0, 32))
 		expLen  = new(big.Int).SetBytes(getData(input, 32, 32))
@@ -290,7 +291,7 @@ func newTwistPoint(blob []byte) (*bn256.G2, error) {
 type bn256Add struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bn256Add) RequiredGas(input []byte) uint64 {
+func (c *bn256Add) RequiredGas(evm *EVM, input []byte) uint64 {
 	return params.Bn256AddGas
 }
 
@@ -312,7 +313,7 @@ func (c *bn256Add) Run(evm *EVM, contract *Contract, input []byte) ([]byte, erro
 type bn256ScalarMul struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bn256ScalarMul) RequiredGas(input []byte) uint64 {
+func (c *bn256ScalarMul) RequiredGas(evm *EVM, input []byte) uint64 {
 	return params.Bn256ScalarMulGas
 }
 
@@ -341,7 +342,7 @@ var (
 type bn256Pairing struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bn256Pairing) RequiredGas(input []byte) uint64 {
+func (c *bn256Pairing) RequiredGas(evm *EVM, input []byte) uint64 {
 	return params.Bn256PairingBaseGas + uint64(len(input)/192)*params.Bn256PairingPerPointGas
 }
 
@@ -376,10 +377,19 @@ func (c *bn256Pairing) Run(evm *EVM, contract *Contract, input []byte) ([]byte, 
 
 type staking struct{}
 
-func (c *staking) RequiredGas(input []byte) uint64 {
-	var baseGas uint64 = 21000
+func (c *staking) RequiredGas(evm *EVM, input []byte) uint64 {
+	var (
+		baseGas uint64 = 21000
+		method *abi.Method
+		err error
+	)
 
-	method, err := abiStaking.MethodById(input)
+	if evm.chainConfig.IsTIP10(evm.Context.BlockNumber) {
+		method, err = abiStaking.MethodById(input)
+	} else {
+		method, err = abiPre10.MethodById(input)
+	}
+
 	if err != nil {
 		return baseGas
 	}
