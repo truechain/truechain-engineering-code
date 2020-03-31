@@ -360,7 +360,7 @@ func sendGetDelegateTransaction(height uint64, gen *core.BlockGen, from, saAddre
 			Unlocked  *big.Int
 		}{}
 		readTx(gen, blockchain, 0, big.NewInt(0), input, txPool, priKey, signer, "getDelegate", &args)
-		printTest("Delegated ", args.Delegated, "Locked ", args.Locked, "Unlocked ", args.Unlocked)
+		printTest("Delegated ", args.Delegated, "Locked ", args.Locked, "Unlocked ", args.Unlocked, "balance", gen.GetStateDB().GetBalance(from))
 	}
 }
 

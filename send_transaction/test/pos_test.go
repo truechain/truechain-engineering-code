@@ -199,3 +199,45 @@ func TestRewardTime(t *testing.T) {
 		parentSnail = snailChainTest.GetBlocksFromNumber(0)
 	}
 }
+
+func TestDelegateReward(t *testing.T) {
+	// Create a helper to check if a gas allowance results in an executable transaction
+	executable := func(number uint64, gen *core.BlockGen, blockchain *core.BlockChain, header *types.Header, statedb *state.StateDB) {
+		sendTranction(number, gen, statedb, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
+		sendTranction(number, gen, statedb, mAccount, daddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
+
+		sendDepositTransaction(number, gen, saddr1, big.NewInt(4000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDepositTransaction(number-51, gen, saddr1, skey1, signer, statedb, blockchain, abiStaking, nil)
+
+		sendCancelTransaction(number-types.GetEpochFromID(2).BeginHeight, gen, saddr1, big.NewInt(3000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDepositTransaction(number-types.GetEpochFromID(2).BeginHeight-11, gen, saddr1, skey1, signer, statedb, blockchain, abiStaking, nil)
+
+		sendWithdrawTransaction(number-types.MinCalcRedeemHeight(2), gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDepositTransaction(number-types.MinCalcRedeemHeight(2)-11, gen, saddr1, skey1, signer, statedb, blockchain, abiStaking, nil)
+
+		sendDelegateTransaction(number-params.NewEpochLength, gen, daddr1, saddr1, big.NewInt(4000000000000000000), dkey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDelegateTransaction(number-61-params.NewEpochLength, gen, daddr1, saddr1, dkey1, signer, statedb, blockchain, abiStaking, nil)
+
+		sendUnDelegateTransaction(number-types.GetEpochFromID(3).BeginHeight, gen, daddr1, saddr1, big.NewInt(3000000000000000000), dkey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDelegateTransaction(number-types.GetEpochFromID(3).BeginHeight-21, gen, daddr1, saddr1, dkey1, signer, statedb, blockchain, abiStaking, nil)
+
+		i := number / params.NewEpochLength
+		if number == 130+params.NewEpochLength*i {
+			impawn := vm.NewImpawnImpl()
+			impawn.Load(statedb, types.StakingAddress)
+			arr := impawn.GetLockedAsset(saddr1)
+			for addr, value := range arr {
+				fmt.Println("value ", value.Value, " addr ", addr.String())
+			}
+			arr1 := impawn.GetLockedAsset(daddr1)
+			for addr, value := range arr1 {
+				fmt.Println("value D ", value.Value, " addr ", addr.String(), "balance", statedb.GetBalance(daddr1), "number", number)
+			}
+		}
+
+		sendWithdrawDelegateTransaction(number-types.MinCalcRedeemHeight(3), gen, daddr1, saddr1, big.NewInt(1000000000000000000), dkey1, signer, statedb, blockchain, abiStaking, nil)
+		sendGetDelegateTransaction(number-types.MinCalcRedeemHeight(3)-21, gen, daddr1, saddr1, dkey1, signer, statedb, blockchain, abiStaking, nil)
+	}
+	manager := newTestPOSManager(101, executable)
+	fmt.Println(" saddr1 ", types.ToTrue(manager.GetBalance(saddr1)), " StakingAddress ", manager.GetBalance(types.StakingAddress), " ", types.ToTrue(manager.GetBalance(types.StakingAddress)))
+}
