@@ -887,17 +887,21 @@ func test_func(step int) {
 	if err != nil {
 		fmt.Println("InsertSAccount1:",err)
 		return
-	}
-	info := impawn.GetAllStakingAccount()
-	print_sas(info)
+	} 
+	print_sas(impawn.GetAllStakingAccount())
+	err = impawn.InsertSAccount2(0,common.Address{'1'},pk,new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),big.NewInt(500),true)
+	if err != nil {
+		fmt.Println("InsertSAccount1:",err)
+		return
+	} 
+	print_sas(impawn.GetAllStakingAccount())
 	err = impawn.Shift(1,effectHeight)
 	if err != nil {
 		fmt.Println("Shift1:",err)
 		return
 	}
 	fmt.Println("-----------Shift---------------")
-	info = impawn.GetAllStakingAccount()
-	print_sas(info)
+	print_sas(impawn.GetAllStakingAccount())
 	if step == 0 {
 		fmt.Println("second insert:")
 		err = impawn.InsertSAccount2(500,common.Address{'1'},pk,big.NewInt(100),big.NewInt(20),true)
@@ -922,9 +926,7 @@ func test_func(step int) {
 			return
 		}
 	}
-	
-	info = impawn.GetAllStakingAccount()
-	print_sas(info)
+	print_sas(impawn.GetAllStakingAccount())
 	print_election(impawn,2)
 	err = impawn.Shift(2,effectHeight)
 	if err != nil {
@@ -946,8 +948,7 @@ func test_func(step int) {
 		})
 	}
 	fmt.Println("accs:",accs)
-	info = impawn.GetAllStakingAccount()
-	print_sas(info)
+	print_sas(impawn.GetAllStakingAccount())
 }
 func make_sas(impawn *ImpawnImpl,h uint64,addrs []common.Address,pk[][]byte,values []*big.Int) error{
 	l := len(addrs)

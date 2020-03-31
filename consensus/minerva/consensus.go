@@ -876,7 +876,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		}
 		var err error
 		if consensus.IsTIP8(endfast, chain.Config(), m.sbc) {
-			infos,err = accumulateRewardsFast2(state, sBlock, header.Number.Uint64(),chain.Config().TIP10.FastNumber.Uint64())
+			infos,err = accumulateRewardsFast2(state, sBlock, header.Number.Uint64(),chain.Config().TIP10.CID.Uint64())
 			if err != nil {
 				log.Error("Finalize Error", "accumulateRewardsFast2", err.Error())
 				return nil,nil, err
@@ -1052,7 +1052,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 	infos := types.NewChainReward(sBlock.NumberU64(),sBlock.Time().Uint64(),developer,coinbase,types.ToRewardInfos1(fruitMap),types.ToRewardInfos2(committeeMap))
 	return infos,nil
 }
-func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fast,effectHeight uint64) (*types.ChainReward,error) {
+func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fast,effectid uint64) (*types.ChainReward,error) {
 	sHeight := sBlock.Header().Number
 	committeeCoin, minerCoin, minerFruitCoin,developerCoin, e := GetBlockReward3(sHeight)
 	if e == ErrRewardEnd {
@@ -1105,7 +1105,7 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 		}
 	}
 	//committee reward
-	infos, err := impawn.Reward(sBlock, committeeCoin,effectHeight)
+	infos, err := impawn.Reward(sBlock, committeeCoin,effectid)
 	if err != nil {
 		return nil,err
 	}
