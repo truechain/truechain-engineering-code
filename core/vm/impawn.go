@@ -473,8 +473,10 @@ func (s *StakingAccount) changeAlterableInfo() {
 			// s.fee = new(big.Int).Set(s.modify.fee)
 			s.Fee = s.Modify.Fee
 		}
-		if s.Modify.VotePubkey != nil {
-			s.Votepubkey = types.CopyVotePk(s.Modify.VotePubkey)
+		if s.Modify.VotePubkey != nil && len(s.Modify.VotePubkey) >= 64 {
+			if err := types.ValidPk(s.Modify.VotePubkey); err == nil {
+				s.Votepubkey = types.CopyVotePk(s.Modify.VotePubkey)
+			}
 		}
 	}
 }
@@ -1146,6 +1148,10 @@ func (i *ImpawnImpl) UpdateSAPK(height uint64, addr common.Address, pk []byte) e
 	}
 	if err := types.ValidPk(pk); err != nil {
 		return err
+	}
+	if i.repeatPK(addr,pk) {
+		log.Error("UpdateSAPK repeat pk", "addr", addr, "pk", pk,)
+		return types.ErrRepeatPk
 	}
 	epochInfo := types.GetEpochFromHeight(height)
 	if epochInfo.EpochID > i.getCurrentEpoch() {
