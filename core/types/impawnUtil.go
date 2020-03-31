@@ -102,7 +102,7 @@ type RewardInfo struct {
 }
 
 func (e *RewardInfo) String() string {
-	return fmt.Sprintf("[Address:%v,Amount:%v\n]", e.Address.String(), ToTrue(e.Amount))
+	return fmt.Sprintf("[Address:%v,Amount:%s\n]", e.Address.String(), ToTrue(e.Amount).Text('f',8))
 }
 
 type SARewardInfos struct {

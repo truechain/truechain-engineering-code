@@ -759,13 +759,20 @@ func (i *ImpawnImpl) calcRewardInSa(target uint64, sa *StakingAccount, allReward
 	item.Staking = new(big.Int).Sub(allStaking,left2)
 	return items, nil
 }
-func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.EpochIDInfo) ([]*types.SARewardInfos, error) {
+func (i *ImpawnImpl) calcReward(target,effectHeight uint64, allAmount *big.Int, einfo *types.EpochIDInfo) ([]*types.SARewardInfos, error) {
 	if _, ok := i.accounts[einfo.EpochID]; !ok {
 		return nil, types.ErrInvalidParam
 	} else {
 		sas := i.getElections3(einfo.EpochID)
 		if sas == nil {
 			return nil, errors.New(fmt.Sprint(types.ErrMatchEpochID, "epochid:", einfo.EpochID))
+		}
+		t_eid := types.GetEpochFromHeight(effectHeight)
+		if einfo.EpochID >= t_eid.EpochID {
+			sas = i.fetchAccountsInEpoch(einfo.EpochID,sas)
+			if len(sas) == 0 {
+				return nil, errors.New(fmt.Sprint(types.ErrMatchEpochID, "epochid:", einfo.EpochID,"sas=0"))
+			}
 		}
 		impawns := SAImpawns(sas)
 		impawns.sort(target, false)
@@ -800,7 +807,7 @@ func (i *ImpawnImpl) calcReward(target uint64, allAmount *big.Int, einfo *types.
 		return res, nil
 	}
 }
-func (i *ImpawnImpl) reward(begin, end uint64, allAmount *big.Int) ([]*types.SARewardInfos, error) {
+func (i *ImpawnImpl) reward(begin, end,effectHeight uint64, allAmount *big.Int) ([]*types.SARewardInfos, error) {
 	ids := types.GetEpochFromRange(begin, end)
 	if ids == nil || len(ids) > 2 {
 		return nil, errors.New(fmt.Sprint(types.ErrMatchEpochID, "more than 2 epochid:", begin, end))
@@ -809,18 +816,27 @@ func (i *ImpawnImpl) reward(begin, end uint64, allAmount *big.Int) ([]*types.SAR
 	if len(ids) == 2 {
 		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-begin+1)), new(big.Int).SetUint64(end-begin+1))
 		amount1, amount2 := tmp, new(big.Int).Sub(allAmount, tmp)
-		if items, err := i.calcReward(ids[0].EndHeight, amount1, ids[0]); err != nil {
+		if items, err := i.calcReward(ids[0].EndHeight,effectHeight, amount1, ids[0]); err != nil {
 			return nil, err
 		} else {
-			if items1, err2 := i.calcReward(ids[1].EndHeight, amount2, ids[1]); err != nil {
-				return nil, err2
+			t_eid := types.GetEpochFromHeight(effectHeight)
+			if ids[1].EpochID >= t_eid.EpochID {
+				if items1, err2 := i.calcReward(end,effectHeight, amount2, ids[1]); err2 != nil {
+					return nil, err2
+				} else {
+					items = append(items, items1[:]...)
+				}
 			} else {
-				items = append(items, items1[:]...)
+				if items1, err2 := i.calcReward(ids[1].EndHeight,effectHeight, amount2, ids[1]); err2 != nil {
+					return nil, err2
+				} else {
+					items = append(items, items1[:]...)
+				}
 			}
 			return items, nil
 		}
 	} else {
-		return i.calcReward(end, allAmount, ids[0])
+		return i.calcReward(end,effectHeight, allAmount, ids[0])
 	}
 }
 
@@ -1143,17 +1159,17 @@ func (i *ImpawnImpl) UpdateSAPK(height uint64, addr common.Address, pk []byte) e
 	sa.updatePk(height, pk)
 	return nil
 }
-func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int) ([]*types.SARewardInfos, error) {
+func (i *ImpawnImpl) Reward(block *types.SnailBlock, allAmount *big.Int,effectHeight uint64) ([]*types.SARewardInfos, error) {
 	begin, end := types.FromBlock(block)
-	res, err := i.reward(begin, end, allAmount)
+	res, err := i.reward(begin, end,effectHeight, allAmount)
 	if err == nil {
 		i.lastReward = end
 	}
 	return res, err
 }
-func (i *ImpawnImpl) Reward2(begin, end uint64, allAmount *big.Int) ([]*types.SARewardInfos, error) {
+func (i *ImpawnImpl) Reward2(begin, end,effectHeight uint64, allAmount *big.Int) ([]*types.SARewardInfos, error) {
 
-	res, err := i.reward(begin, end, allAmount)
+	res, err := i.reward(begin, end,effectHeight, allAmount)
 	if err == nil {
 		i.lastReward = end
 	}
