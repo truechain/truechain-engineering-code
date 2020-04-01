@@ -1,13 +1,19 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"fmt"
+	ethereum "github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etrueclient"
 	"gopkg.in/urfave/cli.v1"
+	"log"
 	"math/big"
+	"reflect"
 )
 
 func cancel(conn *etrueclient.Client, value *big.Int) error {
@@ -102,4 +108,155 @@ func queryTxImpawn(ctx *cli.Context) error {
 	}
 	queryTx(conn, common.HexToHash(txhash), false, true, false)
 	return nil
+}
+
+var queryLogCommand = cli.Command{
+	Name:   "querylog",
+	Usage:  "Query log hash, get transaction result",
+	Action: utils.MigrateFlags(queryLogImpawn),
+	Flags:  append(ImpawnFlags, TxHashFlag),
+}
+
+func queryLogImpawn(ctx *cli.Context) error {
+	conn, url := dialConn(ctx)
+	printBaseInfo(conn, url)
+	filterLogs(conn)
+	return nil
+}
+
+func filterLogs(client *etrueclient.Client) {
+	contractAddress := types.StakingAddress
+	//address := common.HexToAddress("0x25e7ba30a8ca432996553987da8d9f855016059b")
+	event := abiStaking.Events["SetFee"]
+
+	var nodeRule []interface{}
+	//nodeRule = append(nodeRule, address.Bytes())
+
+	// Append the event selector to the query parameters and construct the topic set
+	queryT := append([][]interface{}{{event.ID()}}, nodeRule)
+
+	topics, err := makeTopics(queryT...)
+	if err != nil {
+		fmt.Println(" makeTopics err ", err)
+	}
+
+	header, err := client.HeaderByNumber(context.Background(), nil)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for i := uint64(4706256); i < header.Number.Uint64(); {
+		query := ethereum.FilterQuery{
+			FromBlock: new(big.Int).SetUint64(i),
+			ToBlock:   new(big.Int).SetUint64(i + 100),
+			Addresses: []common.Address{
+				contractAddress,
+			},
+			Topics: topics,
+		}
+
+		logs, err := client.FilterLogs(context.Background(), query)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, vLog := range logs {
+			fmt.Println("BlockHash ", vLog.BlockHash.Hex()) // 0x3404b8c050aa0aacd0223e91b5c32fee6400f357764771d0684fa7b3f448f1a8
+			fmt.Println("BlockNumber ", vLog.BlockNumber)   // 2394201
+			fmt.Println("TxHash ", vLog.TxHash.Hex())       // 0x280201eda63c9ff6f305fcee51d5eb86167fab40ca3108ec784e8652a0e2b1a6
+
+			FeeS := struct {
+				Fee *big.Int
+			}{}
+			err := abiStaking.Unpack(&FeeS, "SetFee", vLog.Data)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println("fee ", FeeS.Fee) // foo
+
+			for i := range vLog.Topics {
+				fmt.Println(vLog.Topics[i]) // 0xe79e73da417710ae99aa2088575580a60415d359acfad9cdd3382d59c80281d4
+			}
+
+		}
+		i = i + 100
+		if i%10000 == 0 {
+			fmt.Println("index ", i)
+		}
+	}
+}
+
+// makeTopics converts a filter query argument list into a filter topic set.
+func makeTopics(query ...[]interface{}) ([][]common.Hash, error) {
+	topics := make([][]common.Hash, len(query))
+	for i, filter := range query {
+		for _, rule := range filter {
+			var topic common.Hash
+
+			// Try to generate the topic based on simple types
+			switch rule := rule.(type) {
+			case common.Hash:
+				copy(topic[:], rule[:])
+			case common.Address:
+				copy(topic[common.HashLength-common.AddressLength:], rule[:])
+			case *big.Int:
+				blob := rule.Bytes()
+				copy(topic[common.HashLength-len(blob):], blob)
+			case bool:
+				if rule {
+					topic[common.HashLength-1] = 1
+				}
+			case int8:
+				blob := big.NewInt(int64(rule)).Bytes()
+				copy(topic[common.HashLength-len(blob):], blob)
+			case int16:
+				blob := big.NewInt(int64(rule)).Bytes()
+				copy(topic[common.HashLength-len(blob):], blob)
+			case int32:
+				blob := big.NewInt(int64(rule)).Bytes()
+				copy(topic[common.HashLength-len(blob):], blob)
+			case int64:
+				blob := big.NewInt(rule).Bytes()
+				copy(topic[common.HashLength-len(blob):], blob)
+			case uint8:
+				blob := new(big.Int).SetUint64(uint64(rule)).Bytes()
+				copy(topic[common.HashLength-len(blob):], blob)
+			case uint16:
+				blob := new(big.Int).SetUint64(uint64(rule)).Bytes()
+				copy(topic[common.HashLength-len(blob):], blob)
+			case uint32:
+				blob := new(big.Int).SetUint64(uint64(rule)).Bytes()
+				copy(topic[common.HashLength-len(blob):], blob)
+			case uint64:
+				blob := new(big.Int).SetUint64(rule).Bytes()
+				copy(topic[common.HashLength-len(blob):], blob)
+			case string:
+				hash := crypto.Keccak256Hash([]byte(rule))
+				copy(topic[:], hash[:])
+			case []byte:
+				hash := crypto.Keccak256Hash(rule)
+				copy(topic[:], hash[:])
+
+			default:
+				// parameters that are not value types i.e. arrays and structs are not
+				// stored directly but instead a keccak256-hash of an encoding is stored.
+				//
+				// We only convert stringS and bytes to hash, still need to deal with
+				// array(both fixed-size and dynamic-size) and struct.
+
+				// Attempt to generate the topic from funky types
+				val := reflect.ValueOf(rule)
+				switch {
+				// static byte array
+				case val.Kind() == reflect.Array && reflect.TypeOf(rule).Elem().Kind() == reflect.Uint8:
+					reflect.Copy(reflect.ValueOf(topic[:val.Len()]), val)
+				default:
+					return nil, fmt.Errorf("unsupported indexed type: %T", rule)
+				}
+			}
+			topics[i] = append(topics[i], topic)
+		}
+	}
+	return topics, nil
 }

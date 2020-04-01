@@ -123,6 +123,7 @@ func init() {
 		queryStakingCommand,
 		sendCommand,
 		queryTxCommand,
+		queryLogCommand,
 	}
 	cli.CommandHelpTemplate = utils.OriginCommandHelpTemplate
 	sort.Sort(cli.CommandsByName(app.Commands))

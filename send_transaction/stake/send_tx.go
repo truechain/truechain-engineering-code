@@ -38,7 +38,7 @@ var (
 )
 
 var (
-	abiStaking, _ = abi.JSON(strings.NewReader(vm.StakeABIJSON))
+	abiStaking, _ = abi.JSON(strings.NewReader(vm.TIP10StakeABIJSON))
 	priKey        *ecdsa.PrivateKey
 	from          common.Address
 	trueValue     uint64
