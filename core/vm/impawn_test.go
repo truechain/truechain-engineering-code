@@ -998,6 +998,30 @@ func make_cancel_sas(impawn *ImpawnImpl,h uint64,saAddrs []common.Address,values
 	}
 	return nil
 }
+func make_redeem_das(impawn *ImpawnImpl,h uint64,saAddrs,daAddrs[]common.Address,values []*big.Int) error {
+	l := len(values)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.RedeemDAccount(h,saAddrs[i],daAddrs[i],values[i])
+		if err != nil {
+			fmt.Println("RedeemDAccount:",err)
+			return err
+		}
+	}
+	return nil
+}
+func make_redeem_sas(impawn *ImpawnImpl,h uint64,saAddrs []common.Address,values []*big.Int) error {
+	l := len(values)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.RedeemSAccount(h,saAddrs[i],values[i])
+		if err != nil {
+			fmt.Println("RedeemSAccount:",err)
+			return err
+		}
+	}
+	return nil
+}
 func make_append(impawn *ImpawnImpl,h uint64,addrs []common.Address,values []*big.Int) error {
 	l := len(addrs)
 	var err error
@@ -1031,9 +1055,9 @@ func getPks(n int) [][]byte {
 	}
 	return res
 }
-func print_reward(impawn *ImpawnImpl,b,e,effectHeight uint64,rewardAmount *big.Int) {
+func print_reward(impawn *ImpawnImpl,b,e,effectid uint64,rewardAmount *big.Int) {
 	fmt.Println("reward [",b,e,types.ToTrue(rewardAmount).Text('f',8),"]")
-	res,err2 := impawn.Reward2(b,e,effectHeight,rewardAmount)
+	res,err2 := impawn.Reward2(b,e,effectid,rewardAmount)
 	if err2 != nil {
 		fmt.Println("Reward2:",err2)
 		return
@@ -1052,7 +1076,7 @@ func print_election(impawn *ImpawnImpl,id uint64) {
 }
 func TestFetch(t *testing.T) {
 	impawn := NewImpawnImpl()
-	effectHeight := uint64(10000)
+	effectHeight,effectid := uint64(10000),uint64(1)
 	rewardAmount := new(big.Int).Mul(big.NewInt(60), big.NewInt(1e18))
 	pks := getPks(4)
 	saAddrs := []common.Address{
@@ -1097,7 +1121,7 @@ func TestFetch(t *testing.T) {
 		return
 	}
 	print_sas(impawn.GetAllStakingAccount())
-	print_reward(impawn,100,10001,effectHeight,rewardAmount)
+	print_reward(impawn,100,10001,effectid,rewardAmount)
 	fmt.Println("cancel das")
 	values3 := []*big.Int{
 		new(big.Int).Mul(big.NewInt(5000), big.NewInt(1e18)),
@@ -1140,14 +1164,92 @@ func TestFetch(t *testing.T) {
 		fmt.Println("Shift1:",err)
 		return
 	}
-	print_reward(impawn,10000,30000,effectHeight,rewardAmount)
+	print_reward(impawn,10000,30000,effectid,rewardAmount)
 	
 	print_sas(impawn.GetAllStakingAccount())
-	print_reward(impawn,45001,70000,effectHeight,rewardAmount)
+	print_reward(impawn,45001,70000,effectid,rewardAmount)
 	fmt.Println()
 }
 func TestClear(t *testing.T) {
+	params.MaxRedeemHeight = uint64(5000)
+	params.NewEpochLength = uint64(10000)
+	impawn := NewImpawnImpl()
+	effectHeight := uint64(2000)
+	effectid := uint64(1)
+	rewardAmount := new(big.Int).Mul(big.NewInt(60), big.NewInt(1e18))
+	pks := getPks(4)
+	saAddrs := []common.Address{
+		common.Address{'1'},
+		common.Address{'2'},
+		common.Address{'3'},
+		common.Address{'4'},
+	}
+	values := []*big.Int{
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		big.NewInt(500000),
+	}
+	err := make_sas(impawn,0,saAddrs,pks,values)
+	if err != nil {
+		fmt.Println("make_sas:",err)
+		return
+	}
+	acc1,err1 := impawn.DoElections(1,1)
+	if err1 != nil {
+		fmt.Println("DoElections:",err)
+		return
+	}
+	print_sas(acc1)
+	err = impawn.Shift(1,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	daAddrs := []common.Address{
+		common.Address{'8'},
+		common.Address{'9'},
+	}
+	values2 := []*big.Int{
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	}
+	err = make_das(impawn,5000,saAddrs[0:2],daAddrs,values2)
+	if err != nil {
+		fmt.Println("make_das:",err)
+		return
+	}
+	print_sas(impawn.GetAllStakingAccount())
+	print_reward(impawn,100,5001,effectid,rewardAmount)
+	fmt.Println("cancel das")
+	make_cancel_das(impawn,8000,saAddrs[0:2],daAddrs,values2)
+	fmt.Println("cancel sas")
+	make_cancel_sas(impawn,8001,saAddrs[0:1],values[0:1])
+	print_sas(impawn.GetAllStakingAccount())
+	fmt.Println("Shift2.................")
+	print_election(impawn,2)
+	err = impawn.Shift(2,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	print_reward(impawn,10001,15000,effectid,rewardAmount)
+	fmt.Println("redeem das")
+	make_redeem_das(impawn,15002,saAddrs[0:2],daAddrs,values2)
+	fmt.Println("redeem sas")
+	make_redeem_sas(impawn,15002,saAddrs[0:1],values[0:1])
+	print_sas(impawn.GetAllStakingAccount())
 
+	fmt.Println("Shift3..................")
+	print_election(impawn,3)
+	err = impawn.Shift(3,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	print_sas(impawn.GetAllStakingAccount())
+	print_reward(impawn,45001,70000,effectid,rewardAmount)
+	fmt.Println()
 }
 func print_sas(sas SAImpawns) {
 	sasStrings := make([]string, len(sas))
