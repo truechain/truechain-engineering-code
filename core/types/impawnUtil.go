@@ -102,39 +102,41 @@ type RewardInfo struct {
 }
 
 func (e *RewardInfo) String() string {
-	return fmt.Sprintf("[Address:%v,Amount:%s\n]", e.Address.String(), ToTrue(e.Amount).Text('f',8))
+	return fmt.Sprintf("[Address:%v,Amount:%s\n]", e.Address.String(), ToTrue(e.Amount).Text('f', 8))
 }
-func FetchOne(sas []*SARewardInfos,addr common.Address) []*RewardInfo {
-	items := make([]*RewardInfo,0,0)
-	for _,val := range sas {
+func FetchOne(sas []*SARewardInfos, addr common.Address) []*RewardInfo {
+	items := make([]*RewardInfo, 0, 0)
+	for _, val := range sas {
 		if len(val.Items) > 0 {
 			saAddr := val.getSaAddress()
 			if bytes.Equal(saAddr.Bytes(), addr.Bytes()) {
-				items = mergeRewardInfos(items,val.Items)
+				items = mergeRewardInfos(items, val.Items)
 			}
 		}
 	}
 	return items
 }
-func mergeRewardInfos(items1,itmes2 []*RewardInfo) []*RewardInfo {
-	for _,v1 := range itmes2 {
+func mergeRewardInfos(items1, itmes2 []*RewardInfo) []*RewardInfo {
+	for _, v1 := range itmes2 {
 		found := false
-		for _,v2 := range items1 {
-			if bytes.Equal(v1.Address.Bytes(),v2.Address.Bytes()) {
+		for _, v2 := range items1 {
+			if bytes.Equal(v1.Address.Bytes(), v2.Address.Bytes()) {
 				found = true
-				v2.Amount = new(big.Int).Add(v2.Amount,v1.Amount)
+				v2.Amount = new(big.Int).Add(v2.Amount, v1.Amount)
 			}
 		}
 		if !found {
-			items1 = append(items1,v1)
+			items1 = append(items1, v1)
 		}
-	}	
+	}
 	return items1
 }
+
 type SARewardInfos struct {
 	Items []*RewardInfo
 }
-func (s *SARewardInfos) getSaAddress() common.Address{
+
+func (s *SARewardInfos) getSaAddress() common.Address {
 	if len(s.Items) > 0 {
 		return s.Items[0].Address
 	}
@@ -157,7 +159,7 @@ type TimedChainReward struct {
 
 type ChainReward struct {
 	Height        uint64
-	St     		  uint64
+	St            uint64
 	Foundation    *RewardInfo
 	CoinBase      *RewardInfo
 	FruitBase     []*RewardInfo
@@ -166,28 +168,38 @@ type ChainReward struct {
 
 type BalanceInfo struct {
 	Address common.Address `json:"address"`
-	Amount  *big.Int       `json:"amount"`
+	Valid   *big.Int       `json:"valid"`
+	Lock    *big.Int       `json:"lock"`
 }
 
 type BlockBalance struct {
 	Balance []*BalanceInfo `json:"addrWithBalance"       gencodec:"required"`
 }
 
-func ToBalanceInfos(items map[common.Address]*big.Int) []*BalanceInfo {
+func (s *BlockBalance) ToMap() map[common.Address]*BalanceInfo {
+	infos := make(map[common.Address]*BalanceInfo)
+	for _, v := range s.Balance {
+		infos[v.Address] = v
+	}
+	return infos
+}
+
+func ToBalanceInfos(items map[common.Address]*BalanceInfo) []*BalanceInfo {
 	infos := make([]*BalanceInfo, 0, 0)
 	for k, v := range items {
 		infos = append(infos, &BalanceInfo{
 			Address: k,
-			Amount:  new(big.Int).Set(v),
+			Valid:   new(big.Int).Set(v.Valid),
+			Lock:    new(big.Int).Set(v.Lock),
 		})
 	}
 	return infos
 }
 
-func NewChainReward(height,tt uint64, found, coin *RewardInfo, fruits []*RewardInfo, committee []*SARewardInfos) *ChainReward {
+func NewChainReward(height, tt uint64, found, coin *RewardInfo, fruits []*RewardInfo, committee []*SARewardInfos) *ChainReward {
 	return &ChainReward{
 		Height:        height,
-		St:			   tt,
+		St:            tt,
 		Foundation:    found,
 		CoinBase:      coin,
 		FruitBase:     fruits,

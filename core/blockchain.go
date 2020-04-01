@@ -70,7 +70,7 @@ const (
 	blockDeleteHeight = 500000
 	blockDeleteLimite = 10000
 	blockDeleteOnce   = 1000
-	balanceCacheLimit = 256
+	balanceCacheLimit = 1024
 )
 
 // CacheConfig contains the configuration values for the trie caching/pruning
@@ -1088,6 +1088,8 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	triedb := bc.stateCache.TrieDB()
 
 	balanceC := &types.BlockBalance{Balance: types.ToBalanceInfos(state.BalancesChange())}
+	// write balance change to memory
+	bc.balanceInfoCache.Add(block.Number().Uint64(), balanceC)
 	// If we're running an archive node, always flush
 	if bc.cacheConfig.Disabled {
 		// write balance change to lvdb
@@ -1097,9 +1099,6 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 			return NonStatTy, err
 		}
 	} else {
-		// write balance change to memory
-		bc.balanceInfoCache.Add(block.Number().Uint64(), balanceC)
-
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -int64(block.NumberU64()))

@@ -89,7 +89,7 @@ type StateDB struct {
 	logSize      uint
 
 	preimages      map[common.Hash][]byte
-	balancesChange map[common.Address]*big.Int
+	balancesChange map[common.Address]*types.BalanceInfo
 
 	// Journal of state modifications. This is the backbone of
 	// Snapshot and RevertToSnapshot.
@@ -113,7 +113,7 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		stateObjectsDirty: make(map[common.Address]struct{}),
 		logs:              make(map[common.Hash][]*types.Log),
 		preimages:         make(map[common.Hash][]byte),
-		balancesChange:    make(map[common.Address]*big.Int),
+		balancesChange:    make(map[common.Address]*types.BalanceInfo),
 		journal:           newJournal(),
 	}, nil
 }
@@ -188,7 +188,7 @@ func (self *StateDB) Preimages() map[common.Hash][]byte {
 }
 
 // BalancesChange returns a list of balance change that have been submitted.
-func (self *StateDB) BalancesChange() map[common.Address]*big.Int {
+func (self *StateDB) BalancesChange() map[common.Address]*types.BalanceInfo {
 	return self.balancesChange
 }
 
@@ -701,7 +701,11 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			if !exist {
 				continue
 			}
-			s.balancesChange[stateObject.address] = stateObject.Balance()
+			b := types.BalanceInfo{}
+			b.Address = stateObject.address
+			b.Valid = s.GetUnlockedBalance(stateObject.address)
+			b.Lock = s.GetPOSLocked(stateObject.address)
+			s.balancesChange[stateObject.address] = &b
 		}
 	}
 
