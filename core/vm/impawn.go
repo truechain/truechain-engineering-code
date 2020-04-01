@@ -449,10 +449,21 @@ func (s *StakingAccount) getValidStaking(hh uint64) *big.Int {
 func (s *StakingAccount) getValidStakingOnly(hh uint64) *big.Int {
 	return s.Unit.getValidStaking(hh)
 }
-func (s *StakingAccount) merge(epochid, hh uint64) {
+func (s *StakingAccount) merge(epochid, hh,effectHeight uint64) {
 	s.Unit.merge(epochid, hh)
-	for _, v := range s.Delegation {
-		v.merge(epochid, hh)
+	if hh >= effectHeight {
+		das := make([]*DelegationAccount,0,0)
+		for _, v := range s.Delegation {
+			v.merge(epochid, hh)
+			if v.isValid() {
+				das = append(das,v)
+			}
+		}
+		s.Delegation = das
+	} else {
+		for _, v := range s.Delegation {
+			v.merge(epochid, hh)
+		}
 	}
 }
 func (s *StakingAccount) getDA(addr common.Address) *DelegationAccount {
@@ -859,7 +870,7 @@ func (i *ImpawnImpl) move(prev, next,effectHeight uint64) error {
 	}
 	for _, v := range prevInfos {
 		vv := v.clone()
-		vv.merge(prev, nextEpoch.BeginHeight)
+		vv.merge(prev, nextEpoch.BeginHeight,effectHeight)
 		if vv.isvalid() {
 			vv.Committee = false
 			nextInfos.update(vv, nextEpoch.BeginHeight, true, true,effectHeight)

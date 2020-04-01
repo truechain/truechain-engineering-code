@@ -504,7 +504,7 @@ func TestStakingAccount(t *testing.T) {
 
 	saccount.finishRedeemed()
 
-	saccount.merge(1, 300)
+	saccount.merge(1, 300,0)
 }
 
 func TestSAImpawns(t *testing.T) {
@@ -1145,6 +1145,9 @@ func TestFetch(t *testing.T) {
 	print_sas(impawn.GetAllStakingAccount())
 	print_reward(impawn,45001,70000,effectHeight,rewardAmount)
 	fmt.Println()
+}
+func TestClear(t *testing.T) {
+
 }
 func print_sas(sas SAImpawns) {
 	sasStrings := make([]string, len(sas))
