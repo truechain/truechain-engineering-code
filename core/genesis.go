@@ -265,7 +265,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			hh = hh - 1
 		}
 		for _, member := range g.Committee {
-			err := impl.InsertSAccount2(hh, member.Coinbase, member.Publickey, big.NewInt(1000000000000000000), big.NewInt(100), true)
+			err := impl.InsertSAccount2(hh,g.Config.TIP10.FastNumber.Uint64(), member.Coinbase, member.Publickey, big.NewInt(1000000000000000000), big.NewInt(100), true)
 			if err != nil {
 				log.Error("ToFastBlock InsertSAccount", "error", err)
 			}

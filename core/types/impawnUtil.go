@@ -17,6 +17,7 @@ var (
 	fbaseUnit = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
 	mixImpawn = new(big.Int).Mul(big.NewInt(1000), baseUnit)
 	Base      = new(big.Int).SetUint64(10000)
+	InvalidFee = big.NewInt(65535)
 	// StakingAddress is defined as Address('truestaking')
 	// i.e. contractAddress = 0x000000000000000000747275657374616b696E67
 	StakingAddress    = common.BytesToAddress([]byte("truestaking"))

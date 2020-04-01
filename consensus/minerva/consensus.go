@@ -856,7 +856,16 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, *types.ChainReward,error) {
 		
 	consensus.OnceInitImpawnState(chain.Config(),state,new(big.Int).Set(header.Number))
-	
+	if chain.Config().TIP10.FastNumber.Uint64() == header.Number.Uint64() {
+		i := vm.NewImpawnImpl()
+		if err := i.Load(state, types.StakingAddress); err != nil {
+			log.Error("Load impawn:make modify state", "height", header.Number, "err", err)
+			return nil,nil, err
+		}
+		i.MakeModifyStateByTip10()	
+		i.Save(state, types.StakingAddress)
+		log.Info("MakeModifyStateByTip10")		
+	}
 	var infos *types.ChainReward
 	if header != nil && header.SnailHash != (common.Hash{}) && header.SnailNumber != nil {
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
