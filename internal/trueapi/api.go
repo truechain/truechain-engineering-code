@@ -409,7 +409,6 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 	} else {
 		d = time.Duration(*duration) * time.Second
 	}
-	log.Info("UnlockAccount", "Address:", addr, "password", password, "d", d)
 	err := fetchKeystore(s.am).TimedUnlock(accounts.Account{Address: addr}, password, d)
 	return err == nil, err
 }
@@ -1255,17 +1254,12 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, add
 		}
 		return fields
 	} else {
-		for _, val := range content.CommitteeBase {
-			if len(val.Items) > 0 && bytes.Equal(val.Items[0].Address.Bytes(), addr.Bytes()) {
-				fields := map[string]interface{}{
-					"Number":        hexutil.Uint64(blockNr),
-					"time":          hexutil.Uint64(content.St),
-					"stakingReward": val.Items,
-				}
-				return fields
-			}
+		fields := map[string]interface{}{
+			"Number":        hexutil.Uint64(blockNr),
+			"time":          hexutil.Uint64(content.St),
+			"stakingReward": types.FetchOne(content.CommitteeBase,addr),
 		}
-		return nil
+		return fields
 	}
 }
 

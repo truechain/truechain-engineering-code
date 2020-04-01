@@ -77,6 +77,10 @@ var (
 		Name:  "withdraw",
 		Usage: "withdraw the value",
 	}
+	RewardVerifyFlag = cli.BoolFlag{
+		Name:  "rewardverify",
+		Usage: "Verify reward valid time",
+	}
 	ImpawnFlags = []cli.Flag{
 		KeyFlag,
 		KeyStoreFlag,
@@ -107,6 +111,7 @@ func init() {
 		OverFlag,
 		CancelFlag,
 		WithdrawFlag,
+		RewardVerifyFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {

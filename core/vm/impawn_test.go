@@ -4,7 +4,9 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"encoding/hex"
 	"testing"
+	"strings"
 	"bytes"
 
 	"github.com/truechain/truechain-engineering-code/common"
@@ -42,7 +44,7 @@ func TestImpawnImplDoElections(t *testing.T) {
 	if err != nil {
 		log.Error("ToFastBlock DoElections", "error", err)
 	}
-	err = impl.Shift(1)
+	err = impl.Shift(1,0)
 
 	for i := uint64(0); i < 6; i++ {
 		value := big.NewInt(100)
@@ -71,7 +73,7 @@ func TestImpawnImplDoElections(t *testing.T) {
 	}
 
 	fmt.Println(impl.getCurrentEpochInfo(), " election 2 ", len(impl.getElections3(2)))
-	impl.Shift(2)
+	impl.Shift(2,0)
 	fmt.Println(" Shift 2 ", impl.getCurrentEpochInfo(), " election 3 ", len(impl.getElections3(3)))
 
 	for i := uint64(0); i < 6; i++ {
@@ -89,7 +91,7 @@ func TestImpawnImplDoElections(t *testing.T) {
 	committee, _ = impl.DoElections(3, 900)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 
-	impl.Shift(3)
+	impl.Shift(3,0)
 	fmt.Println(impl.getCurrentEpochInfo(), " election 3 ", len(impl.getElections3(4)))
 }
 
@@ -111,7 +113,7 @@ func TestImpawnImplReward(t *testing.T) {
 	if err != nil {
 		log.Error("ToFastBlock DoElections", "error", err)
 	}
-	err = impl.Shift(1)
+	err = impl.Shift(1,0)
 
 	for i := uint64(0); i < 5; i++ {
 		value := big.NewInt(100)
@@ -139,7 +141,7 @@ func TestImpawnImplReward(t *testing.T) {
 	}
 
 	sblock := types.NewSnailBlock(sh, fruits, nil, nil, params.TestChainConfig)
-	rinfo, _ := impl.Reward(sblock, big.NewInt(int64(100)))
+	rinfo, _ := impl.Reward(sblock, big.NewInt(int64(100)),1)
 	for i, info := range rinfo {
 		fmt.Println("i ", i, " info ", len(info.Items), " rinfo ", len(rinfo))
 		for j, item := range info.Items {
@@ -158,7 +160,7 @@ func TestImpawnImplReward(t *testing.T) {
 		impl.InsertDAccount2(496+i, daAddress, from, value)
 	}
 
-	impl.Shift(2)
+	impl.Shift(2,0)
 	fmt.Println(" Shift 2 ", impl.getCurrentEpochInfo(), " election 3 ", len(impl.getElections3(3)))
 
 	for i := uint64(0); i < 6; i++ {
@@ -176,7 +178,7 @@ func TestImpawnImplReward(t *testing.T) {
 	committee, _ = impl.DoElections(3, 900)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 
-	impl.Shift(3)
+	impl.Shift(3,0)
 	fmt.Println(impl.getCurrentEpochInfo(), " election 3 ", len(impl.getElections3(4)))
 }
 
@@ -224,9 +226,9 @@ func TestImpawnImplRedeem(t *testing.T) {
 	committee, _ = impl.DoElections(2, 17)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 
-	impl.Shift(2)
+	impl.Shift(2,0)
 
-	impl.Reward(sblock, big.NewInt(int64(70)))
+	impl.Reward(sblock, big.NewInt(int64(70)),1)
 
 	impl.RedeemSAccount(29, impl.accounts[1][3].Unit.Address, big.NewInt(int64(70)))
 	impl.RedeemDAccount(29, impl.accounts[1][3].Unit.Address, impl.accounts[1][3].Delegation[0].Unit.Address, big.NewInt(int64(70)))
@@ -234,13 +236,13 @@ func TestImpawnImplRedeem(t *testing.T) {
 	fmt.Println(" Shift 2 ", impl.getCurrentEpochInfo(), " election  2 ", len(impl.getElections3(2)), " 3 ", len(impl.getElections3(3)))
 	committee, _ = impl.DoElections(3, 22)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
-	impl.Shift(3)
+	impl.Shift(3,0)
 
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(impl.getElections3(1)), " election  2 ", len(impl.getElections3(2)))
 	committee, _ = impl.DoElections(4, 27)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election ", len(impl.getElections3(1)))
 	fmt.Println(" election ", len(impl.getElections3(1)), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
-	impl.Shift(4)
+	impl.Shift(4,0)
 	fmt.Println(impl.getCurrentEpochInfo(), " committee ", len(committee), " election ", len(impl.getElections3(1)))
 	fmt.Println(" election ", len(impl.getElections3(1)), " election 2 ", len(impl.getElections3(2)), " election 3 ", len(impl.getElections3(3)))
 
@@ -502,7 +504,7 @@ func TestStakingAccount(t *testing.T) {
 
 	saccount.finishRedeemed()
 
-	saccount.merge(1, 300)
+	saccount.merge(1, 300,0)
 }
 
 func TestSAImpawns(t *testing.T) {
@@ -526,9 +528,9 @@ func TestSAImpawns(t *testing.T) {
 	priKeyDA, _ := crypto.GenerateKey()
 	daAddress := crypto.PubkeyToAddress(priKeyDA.PublicKey)
 	saccount := initialStakingAccount(1, 1, 9, saAddress, daAddress, priKey, priKeyDA)
-	SAIs.update(saccount, 30, false, false)
+	SAIs.update(saccount, 30, false, false,0)
 	saccount = initialStakingAccount(1, 1, 15, saAddress, daAddress, priKey, priKeyDA)
-	SAIs.update(saccount, 30, false, false)
+	SAIs.update(saccount, 30, false, false,0)
 
 	SAIs.sort(15, false)
 }
@@ -862,4 +864,421 @@ func TestRlp(t *testing.T) {
 		log.Error("Invalid reward infos RLP", "err", err)
 	}
 	fmt.Println("finish")
+}
+func TestFunc(t *testing.T) {
+	step := 0
+	fmt.Println("test insert sa in same address")
+	// test_func(step)
+	step = 1
+	fmt.Println("test update fee sa in same address")
+	// test_func(step)
+	step = 2
+	fmt.Println("test update pk sa in same address")
+	test_func(step)
+	fmt.Println("finish")
+}
+func test_func(step int) {
+	impawn := NewImpawnImpl()
+	effectHeight := uint64(10000)
+	priKey, _ := crypto.GenerateKey()
+	pk := crypto.FromECDSAPub(&priKey.PublicKey)
+	fmt.Println("first insert:")
+	err := impawn.InsertSAccount2(0,common.Address{'1'},pk,new(big.Int).Set(params.ElectionMinLimitForStaking),big.NewInt(10),true)
+	if err != nil {
+		fmt.Println("InsertSAccount1:",err)
+		return
+	} 
+	print_sas(impawn.GetAllStakingAccount())
+	err = impawn.InsertSAccount2(0,common.Address{'1'},pk,new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),big.NewInt(500),true)
+	if err != nil {
+		fmt.Println("InsertSAccount1:",err)
+		return
+	} 
+	print_sas(impawn.GetAllStakingAccount())
+	err = impawn.Shift(1,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	fmt.Println("-----------Shift---------------")
+	print_sas(impawn.GetAllStakingAccount())
+	if step == 0 {
+		fmt.Println("second insert:")
+		err = impawn.InsertSAccount2(500,common.Address{'1'},pk,big.NewInt(100),big.NewInt(20),true)
+		if err != nil {
+			fmt.Println("InsertSAccount2:",err)
+			return
+		}
+	} else if step == 1 {
+		fmt.Println("update fee:")
+		err = impawn.UpdateSAFee(500,common.Address{'1'},big.NewInt(20))
+		if err != nil {
+			fmt.Println("UpdateSAFee:",err)
+			return
+		}
+	} else {
+		fmt.Println("update pk:")
+		priKey1, _ := crypto.GenerateKey()
+		pk1 := crypto.FromECDSAPub(&priKey1.PublicKey)
+		err = impawn.UpdateSAPK(500,common.Address{'1'},pk1)
+		if err != nil {
+			fmt.Println("UpdateSAFee:",err)
+			return
+		}
+	}
+	print_sas(impawn.GetAllStakingAccount())
+	print_election(impawn,2)
+	err = impawn.Shift(2,effectHeight)
+	if err != nil {
+		fmt.Println("Shift2:",err)
+		return
+	}
+	fmt.Println("-----------Shift---------------")
+	eid := impawn.getCurrentEpoch()
+	accs := impawn.getElections3(eid)
+	var vv []*types.CommitteeMember
+	for _, v := range accs {
+		pubkey, _ := crypto.UnmarshalPubkey(v.Votepubkey)
+		vv = append(vv, &types.CommitteeMember{
+			CommitteeBase: crypto.PubkeyToAddress(*pubkey),
+			Coinbase:      v.Unit.GetRewardAddress(),
+			Publickey:     types.CopyVotePk(v.Votepubkey),
+			Flag:          types.StateUsedFlag,
+			MType:         types.TypeWorked,
+		})
+	}
+	fmt.Println("accs:",accs)
+	print_sas(impawn.GetAllStakingAccount())
+}
+func make_sas(impawn *ImpawnImpl,h uint64,addrs []common.Address,pk[][]byte,values []*big.Int) error{
+	l := len(addrs)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.InsertSAccount2(h,addrs[i],pk[i],values[i],big.NewInt(10),true)
+		if err != nil {
+			fmt.Println("InsertSAccount1:",err,"index:",i)
+			return err
+		}
+	}
+	return nil
+}
+func make_das(impawn *ImpawnImpl,h uint64,saAddrs,daAddrs[]common.Address,values []*big.Int) error {
+	l := len(values)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.InsertDAccount2(h,saAddrs[i],daAddrs[i],values[i])
+		if err != nil {
+			fmt.Println("InsertDAccount1:",err)
+			return err
+		}
+	}
+	return nil
+}
+func make_cancel_das(impawn *ImpawnImpl,h uint64,saAddrs,daAddrs[]common.Address,values []*big.Int) error {
+	l := len(values)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.CancelDAccount(h,saAddrs[i],daAddrs[i],values[i])
+		if err != nil {
+			fmt.Println("CancelDAccount:",err)
+			return err
+		}
+	}
+	return nil
+}
+func make_cancel_sas(impawn *ImpawnImpl,h uint64,saAddrs []common.Address,values []*big.Int) error {
+	l := len(values)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.CancelSAccount(h,saAddrs[i],values[i])
+		if err != nil {
+			fmt.Println("CancelSAccount:",err)
+			return err
+		}
+	}
+	return nil
+}
+func make_redeem_das(impawn *ImpawnImpl,h uint64,saAddrs,daAddrs[]common.Address,values []*big.Int) error {
+	l := len(values)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.RedeemDAccount(h,saAddrs[i],daAddrs[i],values[i])
+		if err != nil {
+			fmt.Println("RedeemDAccount:",err)
+			return err
+		}
+	}
+	return nil
+}
+func make_redeem_sas(impawn *ImpawnImpl,h uint64,saAddrs []common.Address,values []*big.Int) error {
+	l := len(values)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.RedeemSAccount(h,saAddrs[i],values[i])
+		if err != nil {
+			fmt.Println("RedeemSAccount:",err)
+			return err
+		}
+	}
+	return nil
+}
+func make_append(impawn *ImpawnImpl,h uint64,addrs []common.Address,values []*big.Int) error {
+	l := len(addrs)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.AppendSAAmount(h,addrs[i],values[i])
+		if err != nil {
+			fmt.Println("AppendSAAmount:",err,"index:",i)
+			return err
+		}
+	}
+	return nil
+}
+func make_update_fee(impawn *ImpawnImpl,h uint64,addrs []common.Address,fees []*big.Int) error {
+	l := len(addrs)
+	var err error
+	for i:=0;i<l;i++ {
+		err = impawn.UpdateSAFee(h,addrs[i],fees[i])
+		if err != nil {
+			fmt.Println("UpdateSAFee:",err,"index:",i)
+			return err
+		}
+	}
+	return nil
+}
+func getPks(n int) [][]byte {
+	res := make([][]byte,0,0)
+	for i:=0;i<n;i++ {
+		priKey, _ := crypto.GenerateKey()
+		pk := crypto.FromECDSAPub(&priKey.PublicKey)
+		res = append(res,pk)
+	}
+	return res
+}
+func print_reward(impawn *ImpawnImpl,b,e,effectid uint64,rewardAmount *big.Int) {
+	fmt.Println("reward [",b,e,types.ToTrue(rewardAmount).Text('f',8),"]")
+	res,err2 := impawn.Reward2(b,e,effectid,rewardAmount)
+	if err2 != nil {
+		fmt.Println("Reward2:",err2)
+		return
+	}
+	fmt.Println("rewardinfo:",res)
+}
+func print_election(impawn *ImpawnImpl,id uint64) {
+	e := types.GetEpochFromID(id-1)
+	info,err := impawn.DoElections(id,e.EndHeight-params.ElectionPoint)
+	if err != nil {
+		fmt.Println("DoElections:",err)
+	} else {
+		fmt.Println("election id:",id)
+		print_sas(info)
+	}
+}
+func TestFetch(t *testing.T) {
+	impawn := NewImpawnImpl()
+	effectHeight,effectid := uint64(10000),uint64(1)
+	rewardAmount := new(big.Int).Mul(big.NewInt(60), big.NewInt(1e18))
+	pks := getPks(4)
+	saAddrs := []common.Address{
+		common.Address{'1'},
+		common.Address{'2'},
+		common.Address{'3'},
+		common.Address{'4'},
+	}
+	values := []*big.Int{
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		big.NewInt(500000),
+	}
+	err := make_sas(impawn,0,saAddrs,pks,values)
+	if err != nil {
+		fmt.Println("make_sas:",err)
+		return
+	}
+	acc1,err1 := impawn.DoElections(1,1)
+	if err1 != nil {
+		fmt.Println("DoElections:",err)
+		return
+	}
+	print_sas(acc1)
+	err = impawn.Shift(1,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	daAddrs := []common.Address{
+		common.Address{'8'},
+		common.Address{'9'},
+	}
+	values2 := []*big.Int{
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	}
+	err = make_das(impawn,10000,saAddrs[0:2],daAddrs,values2)
+	if err != nil {
+		fmt.Println("make_das:",err)
+		return
+	}
+	print_sas(impawn.GetAllStakingAccount())
+	print_reward(impawn,100,10001,effectid,rewardAmount)
+	fmt.Println("cancel das")
+	values3 := []*big.Int{
+		new(big.Int).Mul(big.NewInt(5000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(5000), big.NewInt(1e18)),
+	}
+	make_cancel_das(impawn,24890,saAddrs[0:2],daAddrs,values3)
+	fmt.Println("update fee")
+	fee2 := []*big.Int{
+		big.NewInt(5000),
+		big.NewInt(5000),
+	}
+	make_update_fee(impawn,24899,saAddrs[0:2],fee2)
+	// fmt.Println("cancel sas")
+	// calcelvalues := []*big.Int{
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// }
+	// make_cancel_sas(impawn,24900,saAddrs[0:3],calcelvalues)
+	print_sas(impawn.GetAllStakingAccount())
+	// fmt.Println("append sas")
+	// appendvalues := []*big.Int{
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	// 	new(big.Int).Mul(big.NewInt(30000), big.NewInt(1e18)),
+	// }
+	// make_append(impawn,24692,saAddrs,appendvalues)
+	// print_sas(impawn.GetAllStakingAccount())
+	print_election(impawn,2)
+	fmt.Println("cancel sas")
+	calcelvalues := []*big.Int{
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	}
+	make_cancel_sas(impawn,24900,saAddrs[0:3],calcelvalues)
+	err = impawn.Shift(2,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	print_reward(impawn,10000,30000,effectid,rewardAmount)
+	
+	print_sas(impawn.GetAllStakingAccount())
+	print_reward(impawn,45001,70000,effectid,rewardAmount)
+	fmt.Println()
+}
+func TestClear(t *testing.T) {
+	params.MaxRedeemHeight = uint64(5000)
+	params.NewEpochLength = uint64(10000)
+	impawn := NewImpawnImpl()
+	effectHeight := uint64(2000)
+	effectid := uint64(1)
+	rewardAmount := new(big.Int).Mul(big.NewInt(60), big.NewInt(1e18))
+	pks := getPks(4)
+	saAddrs := []common.Address{
+		common.Address{'1'},
+		common.Address{'2'},
+		common.Address{'3'},
+		common.Address{'4'},
+	}
+	values := []*big.Int{
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		big.NewInt(500000),
+	}
+	err := make_sas(impawn,0,saAddrs,pks,values)
+	if err != nil {
+		fmt.Println("make_sas:",err)
+		return
+	}
+	acc1,err1 := impawn.DoElections(1,1)
+	if err1 != nil {
+		fmt.Println("DoElections:",err)
+		return
+	}
+	print_sas(acc1)
+	err = impawn.Shift(1,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	daAddrs := []common.Address{
+		common.Address{'8'},
+		common.Address{'9'},
+	}
+	values2 := []*big.Int{
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	}
+	err = make_das(impawn,5000,saAddrs[0:2],daAddrs,values2)
+	if err != nil {
+		fmt.Println("make_das:",err)
+		return
+	}
+	print_sas(impawn.GetAllStakingAccount())
+	print_reward(impawn,100,5001,effectid,rewardAmount)
+	fmt.Println("cancel das")
+	make_cancel_das(impawn,8000,saAddrs[0:2],daAddrs,values2)
+	fmt.Println("cancel sas")
+	make_cancel_sas(impawn,8001,saAddrs[0:1],values[0:1])
+	print_sas(impawn.GetAllStakingAccount())
+	fmt.Println("Shift2.................")
+	print_election(impawn,2)
+	err = impawn.Shift(2,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	print_reward(impawn,10001,15000,effectid,rewardAmount)
+	fmt.Println("redeem das")
+	make_redeem_das(impawn,15002,saAddrs[0:2],daAddrs,values2)
+	fmt.Println("redeem sas")
+	make_redeem_sas(impawn,15002,saAddrs[0:1],values[0:1])
+	print_sas(impawn.GetAllStakingAccount())
+
+	fmt.Println("Shift3..................")
+	print_election(impawn,3)
+	err = impawn.Shift(3,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	print_sas(impawn.GetAllStakingAccount())
+	print_reward(impawn,45001,70000,effectid,rewardAmount)
+	fmt.Println()
+}
+func print_sas(sas SAImpawns) {
+	sasStrings := make([]string, len(sas))
+	for i,v := range sas {
+		sasStrings[i] = sa_to_string(v)
+	}
+	fmt.Println("sas:",strings.Join(sasStrings, "\n"))
+}
+func sa_to_string(sa *StakingAccount) string {
+	dasStrings := make([]string, len(sa.Delegation))
+	for i, m := range sa.Delegation {
+		dasStrings[i] = da_to_string(m)
+	}
+	return fmt.Sprintf("SA{Unit:%s,pk:{%s},fee:{%s},Committee:%v,das:{%s},Modify:{%s,%s}}",
+	unit_to_string(sa.Unit), hex.EncodeToString(sa.Votepubkey),sa.Fee.String(),sa.Committee,
+	strings.Join(dasStrings, "\n"),sa.Modify.Fee.String(),hex.EncodeToString(sa.Modify.VotePubkey))
+}
+func da_to_string(da *DelegationAccount) string {
+	return fmt.Sprintf("DA{SaAddr:%s,{%s}}", da.SaAddress.String(), unit_to_string(da.Unit))
+}
+func unit_to_string(u *impawnUnit) string {
+	valstring := make([]string, len(u.Value))
+	redeemString := make([]string, len(u.RedeemInof))
+	for i, v := range u.Value {
+		valstring[i] = fmt.Sprintf("Amount:{%s},Height:{%s}",v.Amount.String(),v.Height.String())
+	}
+	for i, v := range u.RedeemInof {
+		redeemString[i] = fmt.Sprintf("Amount:{%s},EpochID:{%v}",v.Amount.String(),v.EpochID)
+	}
+	return fmt.Sprintf("Unit{Addr:%s,Values:{%s},RedeemInof:{%s}}", 
+	u.Address.String(), strings.Join(valstring, "\n  "),strings.Join(redeemString, "\n  "))
 }

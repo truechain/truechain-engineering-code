@@ -56,7 +56,7 @@ var (
 	delegateSu    map[common.Address]bool
 	delegateFail  map[common.Address]bool
 	withdrawTx    map[common.Address]*withdraw
-	withdrawFail  map[common.Address]bool
+	rewardTx      map[common.Address]*delegateReward
 	deleValue     = new(big.Int).SetInt64(0)
 	sendValue     = new(big.Int).SetInt64(0)
 	deleEValue    = new(big.Int).SetInt64(0)
@@ -73,6 +73,7 @@ var (
 	startCancel   bool
 	startWithdraw bool
 	load          bool
+	rewardVerify  bool
 	gas           = new(big.Int).Exp(big.NewInt(10), big.NewInt(9), nil)
 	mixDelegate   = new(big.Int).Mul(big.NewInt(5000000), gas)
 	minValue      = new(big.Int).Mul(big.NewInt(4000000), gas)
@@ -88,6 +89,12 @@ const (
 type withdraw struct {
 	txhash common.Hash
 	value  *big.Int
+}
+
+type delegateReward struct {
+	txhash         common.Hash
+	delegateNumber uint64
+	delegateSnail  uint64
 }
 
 func impawn(ctx *cli.Context) error {
@@ -110,7 +117,7 @@ func impawn(ctx *cli.Context) error {
 		delegateSu = make(map[common.Address]bool)
 		delegateFail = make(map[common.Address]bool)
 		withdrawTx = make(map[common.Address]*withdraw)
-		withdrawFail = make(map[common.Address]bool)
+		rewardTx = make(map[common.Address]*delegateReward)
 		var err error
 		gasPrice, err = conn.SuggestGasPrice(context.Background())
 		if err != nil {
@@ -136,11 +143,26 @@ func impawn(ctx *cli.Context) error {
 		}
 	}
 
+	if ctx.GlobalIsSet(RewardVerifyFlag.Name) {
+		rewardVerify = ctx.GlobalBool(RewardVerifyFlag.Name)
+	}
+
+	count := 0
+	blockNumber := firstNumber
 	var err error
 	for {
-		loop(conn, header, ctx)
 		header, err = conn.HeaderByNumber(context.Background(), nil)
-		querySendTx(conn)
+		if header.Number.Uint64() == blockNumber {
+			count++
+		} else {
+			blockNumber = header.Number.Uint64()
+			count = 0
+		}
+		if count < 5 {
+			loop(conn, header, ctx)
+			querySendTx(conn, header.Number.Uint64())
+		}
+
 		time.Sleep(time.Second * time.Duration(interval))
 		if err != nil {
 			log.Fatal(err)
@@ -203,12 +225,13 @@ func loop(conn *etrueclient.Client, header *types.Header, ctx *cli.Context) {
 					cancelDImpawn(conn, new(big.Int).SetUint64(value), addr, key)
 				}
 			}
-			//if number == types.MinCalcRedeemHeight(epoch+1) {
-			//	withdrawDImpawn(conn, deleEValue, addr, key)
-			//}
 			if loopCount == uint64(len(delegateAddr)) {
-				fmt.Println("Tx send Over.")
-				os.Exit(0)
+				if len(rewardTx) > 0 {
+					fmt.Println("Waiting reward query.")
+				} else {
+					fmt.Println("Tx send Over.")
+					os.Exit(0)
+				}
 			}
 		}
 	}
@@ -352,12 +375,32 @@ func startDelegateTx(conn *etrueclient.Client, diff, number uint64, query bool) 
 
 		if v, ok := delegateSu[addr]; ok {
 			if v {
+				var (
+					err error
+					tx  common.Hash
+				)
 				if find {
-					delegateImpawn(conn, minValue, addr, key)
+					tx, err = delegateImpawn(conn, minValue, addr, key)
 				} else {
-					delegateImpawn(conn, deleEValue, addr, key)
+					tx, err = delegateImpawn(conn, deleEValue, addr, key)
 				}
-				delegateSu[addr] = false
+				if err != nil {
+					fmt.Println("delegate error ", err)
+				} else {
+					if rewardVerify {
+						d := delegateReward{}
+						d.txhash = tx
+						d.delegateNumber = number
+						sheader, err := conn.SnailHeaderByNumber(context.Background(), nil)
+						if err != nil {
+							printError("get snail block error", err)
+						}
+						d.delegateSnail = sheader.Number.ToInt().Uint64()
+						rewardTx[from] = &d
+					}
+
+					delegateSu[addr] = false
+				}
 			}
 		}
 	}
@@ -605,7 +648,7 @@ func getResult(conn *etrueclient.Client, txHash common.Hash, contract bool, dele
 	//queryTx(conn, txHash, contract, false, delegate)
 }
 
-func querySendTx(conn *etrueclient.Client) {
+func querySendTx(conn *etrueclient.Client, number uint64) {
 	for addr, v := range delegateTx {
 		_, isPending, err := conn.TransactionByHash(context.Background(), v)
 		if err != nil {
@@ -637,9 +680,32 @@ func querySendTx(conn *etrueclient.Client) {
 				if sub == 0 {
 					fmt.Println("Withdraw balance correct", "gas", gas)
 				} else {
-					fmt.Println("Withdraw balance error !!!!!!!!!!!!!!!!!", sub, " ", new(big.Int).Sub(v.value, value), " gas ", gas)
+					fmt.Println("Withdraw balance error !!!!!!!!!!!!!!!!!", sub, " ", new(big.Int).Sub(v.value, value), " gas ", gas, " addr ", addr.String())
 				}
 				delete(withdrawTx, addr)
+			}
+		}
+	}
+
+	for addr, v := range rewardTx {
+		_, isPending, err := conn.TransactionByHash(context.Background(), v.txhash)
+		if err != nil {
+			delete(rewardTx, addr)
+			continue
+		}
+		if !isPending {
+			if queryTx(conn, v.txhash, false, false, false) {
+				sheader, err := conn.SnailHeaderByNumber(context.Background(), nil)
+				if err != nil {
+					printError("get snail block error", err)
+				}
+				if sheader.Number.ToInt().Uint64() > v.delegateSnail {
+					find, snailNumber := queryRewardInfo(conn, sheader.Number.ToInt().Uint64(), addr)
+					if find {
+						fmt.Println("Reward Snail Number", snailNumber, " fast ", number, " start fast", v.delegateNumber, " start snail", v.delegateSnail)
+						delete(withdrawTx, addr)
+					}
+				}
 			}
 		}
 	}
@@ -888,4 +954,22 @@ func writeNodesJSON(file string, nodes KeyAccount) {
 func isExist(f string) bool {
 	_, err := os.Stat(f)
 	return err == nil || os.IsExist(err)
+}
+
+func queryRewardInfo(conn *etrueclient.Client, snailNumber uint64, address common.Address) (bool, uint64) {
+	queryReward := snailNumber - 14
+
+	var crc map[string]interface{}
+	crc, err := conn.GetChainRewardContent(context.Background(), from, new(big.Int).SetUint64(queryReward))
+	if err != nil {
+		printError("get chain reward content error", err)
+	}
+	if info, ok := crc["stakingReward"]; ok {
+		if info, ok := info.([]interface{}); ok {
+			if strings.Contains(fmt.Sprintf("%s", info), address.String()) {
+				return true, queryReward
+			}
+		}
+	}
+	return false, queryReward
 }

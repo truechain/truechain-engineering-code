@@ -64,11 +64,11 @@ func sendTX(ctx *cli.Context) error {
 	return nil
 }
 
-func delegateImpawn(conn *etrueclient.Client, value *big.Int, address common.Address, key *ecdsa.PrivateKey) error {
+func delegateImpawn(conn *etrueclient.Client, value *big.Int, address common.Address, key *ecdsa.PrivateKey) (common.Hash, error) {
 	input := packInput("delegate", from, value)
 	txHash, err := sendOtherContractTransaction(conn, address, types.StakingAddress, nil, key, input, "delegateImpawn")
 	getResult(conn, txHash, true, true)
-	return err
+	return txHash, err
 }
 
 func cancelDImpawn(conn *etrueclient.Client, value *big.Int, address common.Address, key *ecdsa.PrivateKey) error {

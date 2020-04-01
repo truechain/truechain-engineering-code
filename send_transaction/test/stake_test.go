@@ -1,8 +1,10 @@
 package test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"testing"
 
@@ -141,4 +143,79 @@ func TestGetAddress(t *testing.T) {
 	saddr7 := crypto.PubkeyToAddress(skey7.PublicKey)
 
 	fmt.Println("saddr5", saddr5.String(), "saddr6", saddr6.String(), "saddr7", saddr7.String())
+}
+
+func TestDepositCancelInSameEpoch(t *testing.T) {
+	StakerValidNumber := uint64(60)
+	// Create a helper to check if a gas allowance results in an executable transaction
+	executable := func(number uint64, gen *core.BlockGen, fastChain *core.BlockChain, header *types.Header, statedb *state.StateDB) {
+		sendTranction(number, gen, statedb, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
+		sendDepositTransaction(number, gen, saddr1, big.NewInt(4000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendGetDepositTransaction(number-61, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendCancelTransaction(number-StakerValidNumber, gen, saddr1, big.NewInt(3000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendGetDepositTransaction(number-StakerValidNumber-11, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendWithdrawTransaction(number-types.MinCalcRedeemHeight(2), gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendGetDepositTransaction(number-types.MinCalcRedeemHeight(2)-11, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
+	}
+
+	manager := newTestPOSManager(101, executable)
+	fmt.Println(" saddr1 ", manager.GetBalance(saddr1), " StakingAddress ", manager.GetBalance(types.StakingAddress), " ", types.ToTrue(manager.GetBalance(types.StakingAddress)))
+	fmt.Println("epoch ", types.GetEpochFromID(1), " ", types.GetEpochFromID(2), " ", types.GetEpochFromID(3), " ", types.GetEpochFromID(4), " ", types.GetEpochFromID(5))
+	fmt.Println("epoch ", types.GetEpochFromID(2), " ", types.MinCalcRedeemHeight(2))
+	//epoch  [id:1,begin:1,end:2000]   [id:2,begin:2001,end:4000]   [id:3,begin:4001,end:6000]
+	//epoch  [id:2,begin:2001,end:4000]   5002
+}
+
+func TestParseDepositInput(t *testing.T) {
+	input := "5d322ae80000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000472698b413b4320000000000000000000000000000000000000000000000000000000000000000007d0000000000000000000000000000000000000000000000000000000000000004100a1f64db371ea0e4392d753f4b16d63cd12d84c53faff9593eb6d6e46aa1db18efb8954b1a163a4a40f90b3e44a1a24575730c3591c26bdbd72b904bb7c07341100000000000000000000000000000000000000000000000000000000000000"
+	inputData, _ := hex.DecodeString(input)
+	methodName, err := abiStaking.MethodById(inputData)
+	data := inputData[4:]
+
+	args := struct {
+		Pubkey []byte
+		Fee    *big.Int
+		Value  *big.Int
+	}{}
+	method, _ := abiStaking.Methods[methodName.Name]
+
+	err = method.Inputs.Unpack(&args, data)
+	if err != nil {
+		log.Error("Unpack deposit pubkey error", "err", err)
+	}
+	fmt.Println("Fee ", args.Fee, " Value ", args.Value)
+}
+
+func TestUnpack(t *testing.T) {
+	args := struct {
+		Pubkey []byte
+		Fee    *big.Int
+		Value  *big.Int
+	}{}
+	// 5d322ae8
+	inputstr := "5d322ae8000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003e8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000004050863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b23522cd470243453a299fa9e77237716103abc11a1df38855ed6f2ee187e9c582ba6"
+	input, e := hex.DecodeString(inputstr)
+	if e != nil {
+		fmt.Println(e)
+	}
+	method, ok := abiStaking.Methods["deposit"]
+	if !ok {
+		fmt.Println("cann't find")
+	}
+	input = input[4:]
+	err := method.Inputs.Unpack(&args, input)
+	if err != nil {
+		fmt.Println("Unpack deposit pubkey error", err)
+	}
+	// vpk,e2 := hex.DecodeString("0450863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b23522cd470243453a299fa9e77237716103abc11a1df38855ed6f2ee187e9c582ba6")
+	// if e2 != nil {
+	// 	fmt.Println("e2:",e2)
+	// }
+	if _, err := crypto.UnmarshalPubkey(args.Pubkey); err != nil {
+		fmt.Println("invalid pk,err:", err)
+	}
+	fmt.Println("pk:", hex.EncodeToString(args.Pubkey))
+	fmt.Println("fee", args.Fee.String())
+	fmt.Println("Value", args.Value.String())
+	fmt.Println("finish")
 }
