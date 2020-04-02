@@ -845,6 +845,8 @@ func (i *ImpawnImpl) reward(begin, end,effectid uint64, allAmount *big.Int) ([]*
 	if len(ids) == 2 {
 		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-begin+1)), new(big.Int).SetUint64(end-begin+1))
 		amount1, amount2 := tmp, new(big.Int).Sub(allAmount, tmp)
+		// log.Info("*****reward", "begin", begin, "end", end, "allAmount", allAmount,"amount1",amount1,"amount2",
+		// amount2,"ids[0]",ids[0].String(),"ids[1]",ids[1].String())
 		if items, err := i.calcReward(ids[0].EndHeight,effectid, amount1, ids[0]); err != nil {
 			return nil, err
 		} else {
@@ -988,6 +990,10 @@ func (i *ImpawnImpl) CancelDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	da, err2 := i.getDAfromSA(sa, addrDA)
 	if err2 != nil {
 		return err
+	}
+	if da == nil {
+		log.Error("CancelDAccount error", "height", curHeight, "SA",addrSA.String(), "DA", addrDA.String())
+		return types.ErrNotDelegation
 	}
 	err3 := da.stopStakingInfo(amount, new(big.Int).SetUint64(curHeight))
 	// fmt.Println("[DA]insert a redeem,address:[", addrSA.String(), "],DA address:[", addrDA.String(), "],amount:[", amount.String(), "],height:", curHeight, "]err:", err3)
