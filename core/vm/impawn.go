@@ -1033,6 +1033,10 @@ func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	if err2 != nil {
 		return err
 	}
+	if da == nil {
+		log.Error("RedeemDAccount error", "height", curHeight, "SA",addrSA.String(), "DA", addrDA.String())
+		return types.ErrNotDelegation
+	}
 	return i.redeemByDa(da, curHeight, amount)
 }
 
