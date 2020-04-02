@@ -1876,7 +1876,7 @@ func (bc *BlockChain) GetRewardInfos(number uint64) *types.ChainReward {
 		return nil
 	}
 	// Cache the found body for next time and return
-	bc.rewardinfoCache.Add(number, infos)
+	bc.rewardinfoCache.Add(number, types.CloneChainReward(infos))
 	return infos
 }
 func (bc *BlockChain) WriteRewardInfos(infos *types.ChainReward) error {
