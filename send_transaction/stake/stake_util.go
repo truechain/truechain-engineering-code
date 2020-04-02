@@ -7,9 +7,11 @@ import (
 	ethereum "github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etrueclient"
+	"github.com/truechain/truechain-engineering-code/rpc"
 	"gopkg.in/urfave/cli.v1"
 	"log"
 	"math/big"
@@ -259,4 +261,72 @@ func makeTopics(query ...[]interface{}) ([][]common.Hash, error) {
 		}
 	}
 	return topics, nil
+}
+
+var queryRewardCommand = cli.Command{
+	Name:   "queryreward",
+	Usage:  "Query committee reward info, contain deposit and delegate reward",
+	Action: utils.MigrateFlags(queryRewardImpawn),
+	Flags:  append(ImpawnFlags, AddressFlag),
+}
+
+func queryRewardImpawn(ctx *cli.Context) error {
+	ip = ctx.GlobalString(utils.RPCListenAddrFlag.Name)
+	port = ctx.GlobalInt(utils.RPCPortFlag.Name)
+	url := fmt.Sprintf("http://%s", fmt.Sprintf("%s:%d", ip, port))
+
+	client, err := rpc.Dial(url)
+	if err != nil {
+		fmt.Println("Dail:", ip, err.Error())
+		return err
+	}
+	head := struct {
+		Number *hexutil.Big `json:"number"`
+	}{}
+
+	err = client.Call(&head, "etrue_getSnailBlockByNumber", "latest", false)
+	if err != nil {
+		fmt.Println("etrue_getSnailBlockByNumber:", err.Error())
+		return err
+	}
+
+	var (
+		snailNumber uint64
+		start       uint64
+	)
+
+	if ctx.GlobalIsSet(SnailNumberFlag.Name) {
+		snailNumber = ctx.GlobalUint64(SnailNumberFlag.Name)
+	}
+
+	if snailNumber < 1 {
+		start = head.Number.ToInt().Uint64() - 100
+	} else {
+		start = snailNumber
+	}
+
+	for i := start; i < head.Number.ToInt().Uint64()-14; i++ {
+
+		var reward types.ChainReward
+		address := common.HexToAddress("0x0000000000000000000000000000000000000000")
+		err = client.Call(&reward, "etrue_getChainRewardContent", hexutil.EncodeBig(new(big.Int).SetUint64(i)), address)
+		if err != nil {
+			fmt.Println("etrue_getChainRewardContent:", err.Error())
+			return err
+		}
+
+		total := new(big.Int).SetUint64(0)
+		for _, v := range reward.CommitteeBase {
+			for _, vv := range v.Items {
+				total.Add(total, vv.Amount)
+			}
+		}
+		committeeReward, _ := new(big.Int).SetString("19268837169230000000", 10)
+		if total.Cmp(committeeReward) > 0 {
+			fmt.Println("----------------------------------------------------------------")
+		}
+		fmt.Println("Block Number", i, " committeeReward total ", total)
+	}
+
+	return nil
 }

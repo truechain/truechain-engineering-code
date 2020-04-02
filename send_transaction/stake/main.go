@@ -91,6 +91,11 @@ var (
 		Usage: "Committee bft key for BFT (no 0x prefix)",
 		Value: "",
 	}
+	SnailNumberFlag = cli.Uint64Flag{
+		Name:  "snailnumber",
+		Usage: "Query reward use snail number,please current snail number -14",
+		Value: 0,
+	}
 	ImpawnFlags = []cli.Flag{
 		KeyFlag,
 		KeyStoreFlag,
@@ -124,6 +129,7 @@ func init() {
 		RewardVerifyFlag,
 		PubKeyKeyFlag,
 		BFTKeyKeyFlag,
+		SnailNumberFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {
@@ -136,6 +142,7 @@ func init() {
 		sendCommand,
 		queryTxCommand,
 		queryLogCommand,
+		queryRewardCommand,
 	}
 	cli.CommandHelpTemplate = utils.OriginCommandHelpTemplate
 	sort.Sort(cli.CommandsByName(app.Commands))

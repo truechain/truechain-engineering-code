@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	baseUnit  = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	fbaseUnit = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
-	mixImpawn = new(big.Int).Mul(big.NewInt(1000), baseUnit)
-	Base      = new(big.Int).SetUint64(10000)
+	baseUnit   = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	fbaseUnit  = new(big.Float).SetFloat64(float64(baseUnit.Int64()))
+	mixImpawn  = new(big.Int).Mul(big.NewInt(1000), baseUnit)
+	Base       = new(big.Int).SetUint64(10000)
 	InvalidFee = big.NewInt(65535)
 	// StakingAddress is defined as Address('truestaking')
 	// i.e. contractAddress = 0x000000000000000000747275657374616b696E67
@@ -97,9 +97,9 @@ func ToJSON(ii *ImpawnSummay) map[string]interface{} {
 }
 
 type RewardInfo struct {
-	Address common.Address
-	Amount  *big.Int
-	Staking *big.Int
+	Address common.Address `json:"Address"`
+	Amount  *big.Int       `json:"Amount"`
+	Staking *big.Int       `json:"Staking"`
 }
 func (e *RewardInfo) clone() *RewardInfo {
 	return &RewardInfo{
@@ -140,7 +140,7 @@ func mergeRewardInfos(items1, itmes2 []*RewardInfo) []*RewardInfo {
 }
 
 type SARewardInfos struct {
-	Items []*RewardInfo
+	Items []*RewardInfo `json:"Items"`
 }
 func (s *SARewardInfos) clone() *SARewardInfos {
 	var res SARewardInfos
@@ -173,10 +173,10 @@ type TimedChainReward struct {
 type ChainReward struct {
 	Height        uint64
 	St            uint64
-	Foundation    *RewardInfo
-	CoinBase      *RewardInfo
-	FruitBase     []*RewardInfo
-	CommitteeBase []*SARewardInfos
+	Foundation    *RewardInfo      `json:"developerReward"`
+	CoinBase      *RewardInfo      `json:"blockminer"`
+	FruitBase     []*RewardInfo    `json:"fruitminer"`
+	CommitteeBase []*SARewardInfos `json:"committeeReward"`
 }
 func CloneChainReward(reward *ChainReward) *ChainReward {
 	var res ChainReward
