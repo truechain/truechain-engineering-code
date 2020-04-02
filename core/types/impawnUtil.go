@@ -101,7 +101,13 @@ type RewardInfo struct {
 	Amount  *big.Int
 	Staking *big.Int
 }
-
+func (e *RewardInfo) clone() *RewardInfo {
+	return &RewardInfo{
+		Address:	e.Address,
+		Amount:		new(big.Int).Set(e.Amount),
+		Staking:	new(big.Int).Set(e.Staking),
+	}
+}
 func (e *RewardInfo) String() string {
 	return fmt.Sprintf("[Address:%v,Amount:%s\n]", e.Address.String(), ToTrue(e.Amount).Text('f', 8))
 }
@@ -136,7 +142,13 @@ func mergeRewardInfos(items1, itmes2 []*RewardInfo) []*RewardInfo {
 type SARewardInfos struct {
 	Items []*RewardInfo
 }
-
+func (s *SARewardInfos) clone() *SARewardInfos {
+	var res SARewardInfos
+	for _,v := range s.Items {
+		res.Items = append(res.Items,v.clone())
+	}
+	return &res
+}
 func (s *SARewardInfos) getSaAddress() common.Address {
 	if len(s.Items) > 0 {
 		return s.Items[0].Address
@@ -165,6 +177,19 @@ type ChainReward struct {
 	CoinBase      *RewardInfo
 	FruitBase     []*RewardInfo
 	CommitteeBase []*SARewardInfos
+}
+func CloneChainReward(reward *ChainReward) *ChainReward {
+	var res ChainReward
+	res.Height,res.St = reward.Height,reward.St
+	res.Foundation = reward.Foundation.clone()
+	res.CoinBase = reward.CoinBase.clone()
+	for _,v := range reward.FruitBase {
+		res.FruitBase = append(res.FruitBase,v.clone())
+	}
+	for _,v := range reward.CommitteeBase {
+		res.CommitteeBase = append(res.CommitteeBase,v.clone())
+	}
+	return &res
 }
 
 type BalanceInfo struct {

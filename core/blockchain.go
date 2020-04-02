@@ -1869,7 +1869,7 @@ func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscr
 func (bc *BlockChain) GetRewardInfos(number uint64) *types.ChainReward {
 	// Short circuit if the td's already in the cache, retrieve otherwise
 	if cached, ok := bc.rewardinfoCache.Get(number); ok {
-		return cached.(*types.ChainReward)
+		return types.CloneChainReward(cached.(*types.ChainReward))
 	}
 	infos := rawdb.ReadRewardInfo(bc.db, number)
 	if infos == nil {
