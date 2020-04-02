@@ -1296,3 +1296,86 @@ func TestCalc(t *testing.T) {
 	left := new(big.Int).Sub(allReward,aa)
 	fmt.Println("left:",left.String())
 }
+func TestModify(t *testing.T) {
+	params.MaxRedeemHeight = uint64(5000)
+	params.NewEpochLength = uint64(10000)
+	impawn := NewImpawnImpl()
+	effectHeight := uint64(20000)
+	// effectid := uint64(3)
+	// rewardAmount := new(big.Int).Mul(big.NewInt(60), big.NewInt(1e18))
+	pks := getPks(4)
+	saAddrs := []common.Address{
+		common.Address{'1'},
+		common.Address{'2'},
+		common.Address{'3'},
+		common.Address{'4'},
+	}
+	values := []*big.Int{
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		new(big.Int).Set(params.ElectionMinLimitForStaking),
+		big.NewInt(500000),
+	}
+	err := make_sas(impawn,0,effectHeight,saAddrs,pks,values)
+	if err != nil {
+		fmt.Println("make_sas:",err)
+		return
+	}
+	acc1,err1 := impawn.DoElections(1,1)
+	if err1 != nil {
+		fmt.Println("DoElections:",err)
+		return
+	}
+	print_sas(acc1)
+	err = impawn.Shift(1,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	daAddrs := []common.Address{
+		common.Address{'8'},
+		common.Address{'9'},
+	}
+	values2 := []*big.Int{
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+		new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)),
+	}
+	err = make_das(impawn,5000,saAddrs[0:2],daAddrs,values2)
+	if err != nil {
+		fmt.Println("make_das:",err)
+		return
+	}
+	sa1,_ := impawn.GetStakingAccount(1,common.Address{'1'})
+	sa1.Modify = &AlterableInfo{
+		Fee: 		big.NewInt(1000),
+		VotePubkey:	[]byte{},
+	}
+	if sa1.Modify.VotePubkey == nil {
+		fmt.Println("sa1.Modify.VotePubkey is nil")
+	} else if len(sa1.Modify.VotePubkey) == 0 {
+		fmt.Println("sa1.Modify.VotePubkey len is 0")
+	}
+	fmt.Println("sa1",sa_to_string(sa1))
+	print_sas(impawn.GetAllStakingAccount())
+
+
+	fmt.Println("Shift2.................")
+	print_election(impawn,2)
+	err = impawn.Shift(2,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	fmt.Println("MakeModifyStateByTip10")
+	impawn.MakeModifyStateByTip10()
+	print_sas(impawn.GetAllStakingAccount())
+	fmt.Println("Shift3..................")
+	print_election(impawn,3)
+	err = impawn.Shift(3,effectHeight)
+	if err != nil {
+		fmt.Println("Shift1:",err)
+		return
+	}
+	print_sas(impawn.GetAllStakingAccount())
+	fmt.Println()
+}
