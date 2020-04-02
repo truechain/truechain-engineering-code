@@ -81,6 +81,16 @@ var (
 		Name:  "rewardverify",
 		Usage: "Verify reward valid time",
 	}
+	PubKeyKeyFlag = cli.StringFlag{
+		Name:  "pubkey",
+		Usage: "Committee public key for BFT (no 0x prefix)",
+		Value: "",
+	}
+	BFTKeyKeyFlag = cli.StringFlag{
+		Name:  "bftkey",
+		Usage: "Committee bft key for BFT (no 0x prefix)",
+		Value: "",
+	}
 	ImpawnFlags = []cli.Flag{
 		KeyFlag,
 		KeyStoreFlag,
@@ -112,6 +122,8 @@ func init() {
 		CancelFlag,
 		WithdrawFlag,
 		RewardVerifyFlag,
+		PubKeyKeyFlag,
+		BFTKeyKeyFlag,
 	}
 	app.Action = utils.MigrateFlags(impawn)
 	app.CommandNotFound = func(ctx *cli.Context, cmd string) {
