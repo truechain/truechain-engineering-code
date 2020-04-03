@@ -128,21 +128,48 @@ func TestGetAddress(t *testing.T) {
 	saddr := crypto.PubkeyToAddress(skey.PublicKey)
 	skey2, _ := crypto.HexToECDSA("48552cb89a19028d116c7853c460f0c76d50cddaf2d7c217ac611b696e4680c6")
 	saddr2 := crypto.PubkeyToAddress(skey2.PublicKey)
+	//103
 	skey3, _ := crypto.HexToECDSA("6e7595dcb8eda2213c1a0940c4920ce7db89d8f805fc4e85567fd1355c83cff2")
 	saddr3 := crypto.PubkeyToAddress(skey3.PublicKey)
+	//104
 	skey4, _ := crypto.HexToECDSA("62eab9d8657c25330f587c2fbb292a559ed27ddb391b9efe6014f920e67d2f1a")
 	saddr4 := crypto.PubkeyToAddress(skey4.PublicKey)
 
-	fmt.Println("saddr", saddr.String(), "saddr2", saddr2.String(), "saddr3", saddr3.String(), "saddr26 ", saddr4.String())
+	fmt.Println("saddr", saddr.String(), "saddr2", saddr2.String(), "saddr3", saddr3.String(), "saddr4 ", saddr4.String())
 
+	//105
 	skey5, _ := crypto.HexToECDSA("dbb0d9954bef0db91d7d15c44855cb0d0e662d01ac2a15d31d38724236802fbd")
 	saddr5 := crypto.PubkeyToAddress(skey5.PublicKey)
+	//106
 	skey6, _ := crypto.HexToECDSA("2801712bcc44a58f4b2d0e74df50b9875747d60f0b8a133ea591276ca004ad3e")
 	saddr6 := crypto.PubkeyToAddress(skey6.PublicKey)
+	// 011
 	skey7, _ := crypto.HexToECDSA("5e6ea3e3ba8a3d8940088247eda01a0909320f729ae3afcdc5747b2ced1ac460")
 	saddr7 := crypto.PubkeyToAddress(skey7.PublicKey)
 
 	fmt.Println("saddr5", saddr5.String(), "saddr6", saddr6.String(), "saddr7", saddr7.String())
+
+	// 107
+	skey8, _ := crypto.HexToECDSA("597bce6754f85ddf16f3ef04d5561da43b9cf9b6418b25ca3987a7af42d2e47c")
+	saddr8 := crypto.PubkeyToAddress(skey8.PublicKey)
+	//031
+	skey9, _ := crypto.HexToECDSA("3e1a89b7f3ed62a8a7b7a7511ccfb303d1fa76f9c12d954071984b5209d068a3")
+	saddr9 := crypto.PubkeyToAddress(skey9.PublicKey)
+	//111
+	skey10, _ := crypto.HexToECDSA("f0f9fa54c701cdbc3e87adbe3936d2cafef66c9e018d0302587e932dab58fd85")
+	saddr10 := crypto.PubkeyToAddress(skey10.PublicKey)
+
+	fmt.Println("saddr8", saddr8.String(), "saddr9", saddr9.String(), "saddr10", saddr10.String())
+
+	pub101 := hex.EncodeToString(crypto.FromECDSAPub(&skey2.PublicKey))
+	pub102 := hex.EncodeToString(crypto.FromECDSAPub(&skey2.PublicKey))
+	pub103 := hex.EncodeToString(crypto.FromECDSAPub(&skey3.PublicKey))
+	pub104 := hex.EncodeToString(crypto.FromECDSAPub(&skey4.PublicKey))
+	pub105 := hex.EncodeToString(crypto.FromECDSAPub(&skey5.PublicKey))
+	pub106 := hex.EncodeToString(crypto.FromECDSAPub(&skey6.PublicKey))
+	pub011 := hex.EncodeToString(crypto.FromECDSAPub(&skey7.PublicKey))
+	fmt.Println("pub101", pub101, "pub102", pub102, "pub103", pub103, "pub104 ", pub104)
+	fmt.Println("pub105", pub105, "pub106", pub106, "pub011", pub011)
 }
 
 func TestDepositCancelInSameEpoch(t *testing.T) {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	ethereum "github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
@@ -127,9 +128,10 @@ func queryLogImpawn(ctx *cli.Context) error {
 }
 
 func filterLogs(client *etrueclient.Client) {
+	method := "Deposit"
 	contractAddress := types.StakingAddress
 	//address := common.HexToAddress("0x25e7ba30a8ca432996553987da8d9f855016059b")
-	event := abiStaking.Events["SetFee"]
+	event := abiStaking.Events[method]
 
 	var nodeRule []interface{}
 	//nodeRule = append(nodeRule, address.Bytes())
@@ -148,7 +150,7 @@ func filterLogs(client *etrueclient.Client) {
 		log.Fatal(err)
 	}
 
-	for i := uint64(4706256); i < header.Number.Uint64(); {
+	for i := uint64(4706111); i < header.Number.Uint64(); {
 		query := ethereum.FilterQuery{
 			FromBlock: new(big.Int).SetUint64(i),
 			ToBlock:   new(big.Int).SetUint64(i + 100),
@@ -164,26 +166,35 @@ func filterLogs(client *etrueclient.Client) {
 		}
 
 		for _, vLog := range logs {
-			fmt.Println("BlockHash ", vLog.BlockHash.Hex()) // 0x3404b8c050aa0aacd0223e91b5c32fee6400f357764771d0684fa7b3f448f1a8
-			fmt.Println("BlockNumber ", vLog.BlockNumber)   // 2394201
-			fmt.Println("TxHash ", vLog.TxHash.Hex())       // 0x280201eda63c9ff6f305fcee51d5eb86167fab40ca3108ec784e8652a0e2b1a6
-
-			FeeS := struct {
-				Fee *big.Int
-			}{}
-			err := abiStaking.Unpack(&FeeS, "SetFee", vLog.Data)
-			if err != nil {
-				log.Fatal(err)
+			fmt.Println("BlockNumber ", vLog.BlockNumber, " TxHash ", vLog.TxHash.Hex(), " BlockHash ", vLog.BlockHash.Hex()) // 2394201
+			if method == "SetFee" {
+				FeeS := struct {
+					Fee *big.Int
+				}{}
+				err := abiStaking.Unpack(&FeeS, "SetFee", vLog.Data)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("fee ", FeeS.Fee) // foo
+			} else if method == "Deposit" {
+				deposit := struct {
+					Pubkey []byte
+					Value  *big.Int
+					Fee    *big.Int
+				}{}
+				err := abiStaking.Unpack(&deposit, "Deposit", vLog.Data)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("value", types.ToTrue(deposit.Value), "fee ", deposit.Fee, "pk", hex.EncodeToString(deposit.Pubkey)) // foo
 			}
-			fmt.Println("fee ", FeeS.Fee) // foo
 
 			for i := range vLog.Topics {
-				fmt.Println(vLog.Topics[i]) // 0xe79e73da417710ae99aa2088575580a60415d359acfad9cdd3382d59c80281d4
+				fmt.Println("i ", i, " topic ", vLog.Topics[i].String()) // 0xe79e73da417710ae99aa2088575580a60415d359acfad9cdd3382d59c80281d4
 			}
-
 		}
 		i = i + 100
-		if i%10000 == 0 {
+		if i%1000 == 0 {
 			fmt.Println("index ", i)
 		}
 	}
@@ -267,7 +278,7 @@ var queryRewardCommand = cli.Command{
 	Name:   "queryreward",
 	Usage:  "Query committee reward info, contain deposit and delegate reward",
 	Action: utils.MigrateFlags(queryRewardImpawn),
-	Flags:  append(ImpawnFlags, AddressFlag),
+	Flags:  append(ImpawnFlags, SnailNumberFlag),
 }
 
 func queryRewardImpawn(ctx *cli.Context) error {
