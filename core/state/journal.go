@@ -94,7 +94,8 @@ type (
 	}
 	suicideChange struct {
 		account     *common.Address
-		prev        bool // whether account had already suicided
+		prevSuicide bool // whether account had already suicided
+		prevDeleted bool // whether account had already deleted, add for cross txs revert
 		prevbalance *big.Int
 	}
 
@@ -152,9 +153,14 @@ func (ch resetObjectChange) dirtied() *common.Address {
 
 func (ch suicideChange) revert(s *StateDB) {
 	obj := s.getStateObject(*ch.account)
+	// support cross txs revert, need to get the deleted object
+	if obj == nil {
+		obj = s.stateObjects[*ch.account]
+	}
 	if obj != nil {
-		obj.suicided = ch.prev
+		obj.suicided = ch.prevSuicide
 		obj.setBalance(ch.prevbalance)
+		obj.deleted = ch.prevDeleted
 	}
 }
 

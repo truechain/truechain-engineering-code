@@ -393,7 +393,8 @@ func (self *StateDB) Suicide(addr common.Address) bool {
 	}
 	self.journal.append(suicideChange{
 		account:     &addr,
-		prev:        stateObject.suicided,
+		prevSuicide: stateObject.suicided,
+		prevDeleted: stateObject.deleted,
 		prevbalance: new(big.Int).Set(stateObject.Balance()),
 	})
 	stateObject.markSuicided()
@@ -468,6 +469,13 @@ func (self *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
 // the given address, it is overwritten and returned as the second return value.
 func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) {
 	prev = self.getStateObject(addr)
+
+	// In case the account is deleted in the same block before in parallel mode,
+	// this should be treated as resetObjectChange to be reverted correctly
+	if prev == nil {
+		prev = self.stateObjects[addr]
+	}
+
 	newobj = newObject(self, addr, Account{})
 	newobj.setNonce(0) // sets the object to dirty
 	if prev == nil {
@@ -786,26 +794,18 @@ func (self *StateDB) CopyStateObjRlpDataFromOtherDB(other *StateDB, addr common.
 		return nil, nil, false
 	}
 
-	var obj0 *stateObject
-	obj1 := other.getStateObject(addr)
+	obj := other.getStateObject(addr)
 
-	if obj1 == nil || obj1.deleted == true {
-		obj0 = self.getStateObjectWithoutSet(addr)
-		if obj0 != nil {
-			return nil, nil, true
-		}
+	if obj == nil {
+		return nil, nil, true
 	} else {
-		obj0 = newObject(self, addr, obj1.data)
-		obj0.dirtyStorage = obj1.dirtyStorage
-		if obj1.dirtyCode {
-			obj0.setCode(common.BytesToHash(obj1.data.CodeHash), obj1.code)
-		}
-		obj0.updateRoot(self.db)
-		data, err := rlp.EncodeToBytes(obj0)
+		obj.db = self
+		obj.updateRoot(self.db)
+		data, err := rlp.EncodeToBytes(obj)
 		if err != nil {
 			panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 		}
-		return obj0, data, true
+		return obj, data, true
 	}
 
 	return nil, nil, false
@@ -817,22 +817,13 @@ func (self *StateDB) CopyStateObjFromOtherDB(other *StateDB, stateObjAddrs map[c
 	}
 
 	for addr := range stateObjAddrs {
-		var obj0 *stateObject
-		obj1 := other.getStateObject(addr)
+		obj := other.stateObjects[addr]
 
-		if obj1 == nil || obj1.deleted == true {
-			obj0 = self.getStateObject(addr)
-			if obj0 != nil {
-				self.setStateObject(obj1)
-			}
+		if obj != nil {
+			obj.db = self
+			self.setStateObject(obj)
 		} else {
-			obj0 = newObject(self, addr, obj1.data)
-			obj0.dirtyStorage = obj1.dirtyStorage
-			if obj1.dirtyCode {
-				obj0.setCode(common.BytesToHash(obj1.data.CodeHash), obj1.code)
-			}
-
-			self.setStateObject(obj0)
+			log.Info("Unexpected nil object in CopyStateObjFromOtherDB", "addr", addr.String())
 		}
 	}
 }

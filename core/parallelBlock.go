@@ -64,14 +64,15 @@ type addressRlpDataPair struct {
 	rlpData  []byte
 }
 
-func newGrouper(totalTxToGroup int, regroup bool) *grouper {
-	maxGroupCount := cpuNum * 64
+func newGrouper(totalTxToGroup int, startGroupId int, regroup bool) *grouper {
+	maxGroupCount := cpuNum * 8
+
 	avgTxCountInGroup := (totalTxToGroup + maxGroupCount - 1) / (maxGroupCount)
 	return &grouper{
 		executionGroupMap:      make(map[int]*ExecutionGroup),
 		groupWrittenAccountMap: make(map[int]map[common.Address]struct{}),
 		addrToGroupMap:         make(map[common.Address]int),
-		groupId:                0,
+		groupId:                startGroupId,
 		regroup:                regroup,
 		maxGroupCount:          maxGroupCount,
 		avgTxCountInGroup:      avgTxCountInGroup,
@@ -110,7 +111,6 @@ func (gp *grouper) groupNewTxInfo(txInfo *txInfo, pb *ParallelBlock) {
 			gp.groupId++
 			return
 		} else {
-			// find the shortest group
 			var pickedGroupId int
 			for gId := range gp.groupTxCountUnderAvg {
 				pickedGroupId = gId
@@ -167,19 +167,16 @@ func (pb *ParallelBlock) group(chForTxInfo chan *txInfo, chForGroup chan bool) {
 	tmpExecutionGroupMap := pb.groupTransactionsFromChan(chForTxInfo, false)
 
 	for _, execGroup := range tmpExecutionGroupMap {
-		execGroup.SetId(pb.nextGroupId)
 		if len(tmpExecutionGroupMap) == 1 {
 			execGroup.SetStatedb(pb.statedb)
 		} else {
 			execGroup.SetStatedb(pb.statedb.Copy())
 		}
-		pb.executionGroups[pb.nextGroupId] = execGroup
+		pb.executionGroups[execGroup.id] = execGroup
 
 		for _, txInfo := range execGroup.txInfos {
-			txInfo.groupId = pb.nextGroupId
+			txInfo.groupId = execGroup.id
 		}
-
-		pb.nextGroupId++
 	}
 	chForGroup <- true
 }
@@ -201,7 +198,7 @@ func (pb *ParallelBlock) reGroupAndRevert(conflictGroupMaps []map[int]struct{}, 
 		for _, group := range tmpExecGroupMap {
 			var (
 				txsToReuse []*txInfo
-				conflict   = false
+				revert     = false
 			)
 
 			if len(tmpExecGroupMap) == 1 && len(pb.executionGroups) == 0 && len(conflictGroupMaps) == 1 {
@@ -209,43 +206,46 @@ func (pb *ParallelBlock) reGroupAndRevert(conflictGroupMaps []map[int]struct{}, 
 			} else {
 				group.SetStatedb(pb.statedb.Copy())
 			}
-			group.SetId(pb.nextGroupId)
-			pb.executionGroups[pb.nextGroupId] = group
+			pb.executionGroups[group.id] = group
 
 			for index, txInfo := range group.txInfos {
 				txHash := txInfo.hash
-				if !conflict {
-					if _, ok := conflictTxs[txHash]; ok {
-						conflict = true
+				if !revert {
+					if _, ok := conflictTxs[txHash]; ok || txInfo.result == nil {
+						revert = true
 						group.SetStartTrxPos(index)
+						break
 					} else {
 						txsToReuse = append(txsToReuse, txInfo)
-						log.Debug("reGroupAndRevert", "reuse tx hash", txInfo.hash.String(),
-							"index", txInfo.index, "group", txInfo.groupId)
 					}
 				}
 			}
 
-			if conflict {
+			if revert {
 				// revert txInfos which will be re-executed in reversed order
 				for i := len(group.txInfos) - 1; i >= group.startTrxIndex; i-- {
 					txInfo := group.txInfos[i]
 					log.Debug("reGroupAndRevert", "revert tx hash", txInfo.hash.String(),
-						"index", txInfo.index, "group", txInfo.groupId)
-					conflictGroups[txInfo.groupId].statedb.RevertTrxResultByHash(txInfo.hash)
-					txInfo.groupId = pb.nextGroupId
+						"index", txInfo.index, "group", txInfo.groupId, "start", group.startTrxIndex)
+					if txInfo.result != nil {
+						conflictGroups[txInfo.groupId].statedb.RevertTrxResultByHash(txInfo.hash)
+						txInfo.result = nil
+					}
+					txInfo.groupId = group.id
 				}
+			} else {
+				group.SetStartTrxPos(-1)
 			}
 
 			// copy transaction results and state changes from old group which can be reused
 			group.reuseTxResults(txsToReuse, conflictGroups)
-			pb.nextGroupId++
+
 		}
 	}
 }
 
 func (pb *ParallelBlock) groupTransactions(txInfos []*txInfo, regroup bool) map[int]*ExecutionGroup {
-	grouper := newGrouper(len(txInfos), regroup)
+	grouper := newGrouper(len(txInfos), pb.nextGroupId, regroup)
 
 	for _, txInfo := range txInfos {
 		grouper.groupNewTxInfo(txInfo, pb)
@@ -254,12 +254,13 @@ func (pb *ParallelBlock) groupTransactions(txInfos []*txInfo, regroup bool) map[
 	for _, group := range grouper.executionGroupMap {
 		group.txInfos = sortTxInfosByIndex(group.txInfos)
 	}
+	pb.nextGroupId = grouper.groupId
 
 	return grouper.executionGroupMap
 }
 
 func (pb *ParallelBlock) groupTransactionsFromChan(ch chan *txInfo, regroup bool) map[int]*ExecutionGroup {
-	grouper := newGrouper(pb.block.Transactions().Len(), regroup)
+	grouper := newGrouper(pb.block.Transactions().Len(), pb.nextGroupId, regroup)
 
 	for tx := range ch {
 		grouper.groupNewTxInfo(tx, pb)
@@ -268,6 +269,7 @@ func (pb *ParallelBlock) groupTransactionsFromChan(ch chan *txInfo, regroup bool
 	for _, group := range grouper.executionGroupMap {
 		group.txInfos = sortTxInfosByIndex(group.txInfos)
 	}
+	pb.nextGroupId = grouper.groupId
 
 	return grouper.executionGroupMap
 }
@@ -355,7 +357,7 @@ func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]st
 	}
 
 	if len(conflictGroups) != 0 {
-		log.Debug("checkConflict", "conflictGroups", conflictGroups, "conflictTxs", conflictTxs)
+		log.Debug("checkConflict", "conflictGroups", conflictGroups)
 	}
 
 	return conflictGroups, conflictTxs
@@ -392,12 +394,12 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg *sync.WaitGroup)
 			group.err = err
 			group.errTxIndex = ti
 			txInfo.result = NewTrxResult(nil, statedb.FinalizeTouchedAddress(), trxUsedGas, feeAmount)
-			group.startTrxIndex = -1
+			group.SetStartTrxPos(-1)
 			return
 		}
 		txInfo.result = NewTrxResult(receipt, statedb.FinalizeTouchedAddress(), trxUsedGas, feeAmount)
 	}
-	group.startTrxIndex = -1
+	group.SetStartTrxPos(-1)
 }
 
 func (pb *ParallelBlock) executeInParallel() {
@@ -485,7 +487,7 @@ func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, 
 		cumulative          = uint64(0)
 		wg                  = sync.WaitGroup{}
 		chForAssociatedAddr = make(chan *txInfo, len(pb.txInfos))
-		chForUpdateCache    = make(chan *addressRlpDataPair, len(pb.txInfos))
+		chForUpdateCache    = make(chan *addressRlpDataPair, len(pb.txInfos)*2)
 		chForFinish         = make(chan bool)
 	)
 
@@ -493,28 +495,31 @@ func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, 
 	go pb.updateStateDB(chForUpdateCache, chForFinish)
 
 	// Copy updated state object to pb.stateDB
-	for _, group := range pb.executionGroups {
-		stateObjsToReuse := make(map[common.Address]struct{})
+	if len(pb.executionGroups) != 1 {
+		for _, group := range pb.executionGroups {
+			stateObjsToReuse := make(map[common.Address]struct{})
 
-		for _, txInfo := range group.txInfos {
-			if result := txInfo.result; result != nil {
-				appendStateObjToReuse(stateObjsToReuse, result.touchedAddresses)
-			}
-		}
-		wg.Add(1)
-		go func(db *state.StateDB, stateObjsToReuse map[common.Address]struct{}) {
-			defer wg.Done()
-			for addr := range stateObjsToReuse {
-				stateObj, data, changed := pb.statedb.CopyStateObjRlpDataFromOtherDB(db, addr)
-				if changed {
-					chForUpdateCache <- &addressRlpDataPair{
-						address:  addr,
-						stateObj: stateObj,
-						rlpData:  data,
-					}
+			for _, txInfo := range group.txInfos {
+				if result := txInfo.result; result != nil {
+					appendStateObjToReuse(stateObjsToReuse, result.touchedAddresses)
 				}
 			}
-		}(group.statedb, stateObjsToReuse)
+
+			wg.Add(1)
+			go func(db *state.StateDB, stateObjsToReuse map[common.Address]struct{}) {
+				defer wg.Done()
+				for addr := range stateObjsToReuse {
+					stateObj, data, changed := pb.statedb.CopyStateObjRlpDataFromOtherDB(db, addr)
+					if changed {
+						chForUpdateCache <- &addressRlpDataPair{
+							address:  addr,
+							stateObj: stateObj,
+							rlpData:  data,
+						}
+					}
+				}
+			}(group.statedb, stateObjsToReuse)
+		}
 	}
 
 	for _, group := range pb.executionGroups {
