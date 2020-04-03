@@ -40,6 +40,6 @@ func (aam *AssociatedAddressMngr) UpdateAssociatedAddresses(associatedAddrs map[
 			touchedAddressObj := obj.(*state.TouchedAddressObject)
 			associatedAddr.Merge(touchedAddressObj)
 		}
-		aam.lruCache.Add(addr, associatedAddrs)
+		aam.lruCache.Add(addr, associatedAddr)
 	}
 }
