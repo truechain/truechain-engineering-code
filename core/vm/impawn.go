@@ -491,6 +491,7 @@ func (s *StakingAccount) changeAlterableInfo() {
 		if s.Modify.VotePubkey != nil && len(s.Modify.VotePubkey) >= 64 {
 			if err := types.ValidPk(s.Modify.VotePubkey); err == nil {
 				s.Votepubkey = types.CopyVotePk(s.Modify.VotePubkey)
+				s.Modify.VotePubkey = []byte{}
 			}
 		}
 	}
