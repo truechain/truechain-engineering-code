@@ -293,11 +293,7 @@ func (pb *ParallelBlock) getTrxTouchedAddress(txInfo *txInfo, regroup bool) *sta
 		if associatedAddressObj, ok := pb.associatedAddressMap[*to]; ok {
 			touchedAddressObj.Merge(associatedAddressObj)
 		} else {
-			if msg.Value().Sign() != 0 {
-				touchedAddressObj.AddAccountOp(*to, true)
-			} else {
-				touchedAddressObj.AddAccountOp(*to, false)
-			}
+			touchedAddressObj.AddAccountOp(*to, true)
 		}
 	}
 
