@@ -502,7 +502,7 @@ func TestReward(t *testing.T) {
 	
 	impl := vm.NewImpawnImpl()
 	for _,val := range accounts {
-		impl.InsertSAccount2(want, val.address, val.pk, val.amount, val.fee, true)
+		impl.InsertSAccount2(want,0, val.address, val.pk, val.amount, val.fee, true)
 		for _,val2 := range val.das {
 			impl.InsertDAccount2(want, val.address, val2.address, val2.amount)
 		}
@@ -641,7 +641,7 @@ func TestRedeem(t *testing.T) {
 	
 	impl := vm.NewImpawnImpl()
 	for _,val := range accounts {
-		impl.InsertSAccount2(want-5, val.address, val.pk, val.amount, val.fee, true)
+		impl.InsertSAccount2(want-5,0, val.address, val.pk, val.amount, val.fee, true)
 		for _,val2 := range val.das {
 			impl.InsertDAccount2(want-5, val.address, val2.address, val2.amount)
 		}

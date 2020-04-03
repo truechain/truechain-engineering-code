@@ -70,7 +70,7 @@ const (
 	blockDeleteHeight = 500000
 	blockDeleteLimite = 10000
 	blockDeleteOnce   = 1000
-	balanceCacheLimit = 256
+	balanceCacheLimit = 1024
 )
 
 // CacheConfig contains the configuration values for the trie caching/pruning
@@ -1091,6 +1091,8 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	triedb := bc.stateCache.TrieDB()
 
 	balanceC := &types.BlockBalance{Balance: types.ToBalanceInfos(state.BalancesChange())}
+	// write balance change to memory
+	bc.balanceInfoCache.Add(block.Number().Uint64(), balanceC)
 	// If we're running an archive node, always flush
 	if bc.cacheConfig.Disabled {
 		// write balance change to lvdb
@@ -1100,9 +1102,6 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 			return NonStatTy, err
 		}
 	} else {
-		// write balance change to memory
-		bc.balanceInfoCache.Add(block.Number().Uint64(), balanceC)
-
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -int64(block.NumberU64()))
@@ -1919,14 +1918,14 @@ func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscr
 func (bc *BlockChain) GetRewardInfos(number uint64) *types.ChainReward {
 	// Short circuit if the td's already in the cache, retrieve otherwise
 	if cached, ok := bc.rewardinfoCache.Get(number); ok {
-		return cached.(*types.ChainReward)
+		return types.CloneChainReward(cached.(*types.ChainReward))
 	}
 	infos := rawdb.ReadRewardInfo(bc.db, number)
 	if infos == nil {
 		return nil
 	}
 	// Cache the found body for next time and return
-	bc.rewardinfoCache.Add(number, infos)
+	bc.rewardinfoCache.Add(number, types.CloneChainReward(infos))
 	return infos
 }
 func (bc *BlockChain) WriteRewardInfos(infos *types.ChainReward) error {

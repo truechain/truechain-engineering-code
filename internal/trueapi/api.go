@@ -698,16 +698,13 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 	return nil, err
 }
 
-func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BalanceChangeContent {
-	var addrWithBalance = make(map[common.Address]*big.Int)
+func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.FastBalanceChangeContent {
 	info := s.b.GetStateChangeByFastNumber(fastNumber)
 	if info == nil || info.Balance == nil || len(info.Balance) == 0 {
-		return &types.BalanceChangeContent{addrWithBalance}
+		return nil
 	}
-	for _, balanceInfo := range info.Balance {
-		addrWithBalance[balanceInfo.Address] = balanceInfo.Amount
-	}
-	return &types.BalanceChangeContent{addrWithBalance}
+	addrWithBalance := info.ToMap()
+	return &types.FastBalanceChangeContent{addrWithBalance}
 }
 
 func (s *PublicBlockChainAPI) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {

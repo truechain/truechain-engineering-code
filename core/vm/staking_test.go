@@ -29,7 +29,7 @@ func TestDeposit(t *testing.T) {
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, types.StakingAddress)
 
-	impawn.InsertSAccount2(1000, from, pub, value, big.NewInt(0), true)
+	impawn.InsertSAccount2(1000,0, from, pub, value, big.NewInt(0), true)
 	impawn.Save(evm.StateDB, types.StakingAddress)
 
 	impawn1 := NewImpawnImpl()

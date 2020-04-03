@@ -480,13 +480,18 @@ func (s *StakingAccount) getMaxHeight() uint64 {
 }
 func (s *StakingAccount) changeAlterableInfo() {
 	if s.Modify != nil {
-		if s.Modify.Fee != nil {
-			// s.fee = new(big.Int).Set(s.modify.fee)
-			s.Fee = s.Modify.Fee
+		if s.Modify.Fee != nil && 0 != s.Modify.Fee.Cmp(types.InvalidFee) {
+			if s.Modify.Fee.Sign() >= 0 && s.Modify.Fee.Cmp(types.Base) <= 0 {
+				preFee := new(big.Int).Set(s.Fee)
+				s.Fee = new(big.Int).Set(s.Modify.Fee)
+				s.Modify.Fee = new(big.Int).Set(types.InvalidFee)
+				log.Info("apply fee", "Address", s.Unit.GetRewardAddress(), "pre-fee", preFee.String(), "fee", s.Fee.String())
+			}
 		}
 		if s.Modify.VotePubkey != nil && len(s.Modify.VotePubkey) >= 64 {
 			if err := types.ValidPk(s.Modify.VotePubkey); err == nil {
 				s.Votepubkey = types.CopyVotePk(s.Modify.VotePubkey)
+				s.Modify.VotePubkey = []byte{}
 			}
 		}
 	}
@@ -521,7 +526,20 @@ func (s *StakingAccount) isvalid() bool {
 	}
 	return s.Unit.isValid()
 }
-
+// MakeModifyStateByTip10 once called by tip10 
+func (s *StakingAccount) makeModifyStateByTip10() {
+	if s.Modify == nil {
+		s.Modify = &AlterableInfo{
+			Fee: 		new(big.Int).Set(types.InvalidFee),
+			VotePubkey:	[]byte{},
+		}
+	} else {
+		if s.Modify.Fee == nil || s.Modify.Fee.Sign() == 0 {
+			s.Modify.Fee = new(big.Int).Set(types.InvalidFee)
+			s.Modify.VotePubkey = []byte{}
+		}
+	}
+}
 type SAImpawns []*StakingAccount
 
 func (s *SAImpawns) getAllStaking(hh uint64) *big.Int {
@@ -828,6 +846,8 @@ func (i *ImpawnImpl) reward(begin, end,effectid uint64, allAmount *big.Int) ([]*
 	if len(ids) == 2 {
 		tmp := new(big.Int).Quo(new(big.Int).Mul(allAmount, new(big.Int).SetUint64(ids[0].EndHeight-begin+1)), new(big.Int).SetUint64(end-begin+1))
 		amount1, amount2 := tmp, new(big.Int).Sub(allAmount, tmp)
+		// log.Info("*****reward", "begin", begin, "end", end, "allAmount", allAmount,"amount1",amount1,"amount2",
+		// amount2,"ids[0]",ids[0].String(),"ids[1]",ids[1].String())
 		if items, err := i.calcReward(ids[0].EndHeight,effectid, amount1, ids[0]); err != nil {
 			return nil, err
 		} else {
@@ -972,6 +992,10 @@ func (i *ImpawnImpl) CancelDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	if err2 != nil {
 		return err
 	}
+	if da == nil {
+		log.Error("CancelDAccount error", "height", curHeight, "SA",addrSA.String(), "DA", addrDA.String())
+		return types.ErrNotDelegation
+	}
 	err3 := da.stopStakingInfo(amount, new(big.Int).SetUint64(curHeight))
 	// fmt.Println("[DA]insert a redeem,address:[", addrSA.String(), "],DA address:[", addrDA.String(), "],amount:[", amount.String(), "],height:", curHeight, "]err:", err3)
 	return err3
@@ -1009,6 +1033,10 @@ func (i *ImpawnImpl) RedeemDAccount(curHeight uint64, addrSA, addrDA common.Addr
 	da, err2 := i.getDAfromSA(sa, addrDA)
 	if err2 != nil {
 		return err
+	}
+	if da == nil {
+		log.Error("RedeemDAccount error", "height", curHeight, "SA",addrSA.String(), "DA", addrDA.String())
+		return types.ErrNotDelegation
 	}
 	return i.redeemByDa(da, curHeight, amount)
 }
@@ -1088,7 +1116,7 @@ func (i *ImpawnImpl) insertSAccount(height uint64, sa *StakingAccount) error {
 	}
 	return nil
 }
-func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Int, auto bool) error {
+func (i *ImpawnImpl) InsertSAccount2(height,effectHeight uint64, addr common.Address, pk []byte, val *big.Int, fee *big.Int, auto bool) error {
 	if val.Sign() <= 0 || height < 0 || fee.Sign() < 0 || fee.Cmp(types.Base) > 0 {
 		return types.ErrInvalidParam
 	}
@@ -1116,6 +1144,12 @@ func (i *ImpawnImpl) InsertSAccount2(height uint64, addr common.Address, pk []by
 			RedeemInof: make([]*RedeemItem, 0),
 		},
 		Modify: &AlterableInfo{},
+	}
+	if height >= effectHeight {
+		sa.Modify = &AlterableInfo{
+			Fee: 		new(big.Int).Set(types.InvalidFee),
+			VotePubkey:	[]byte{},
+		}
 	}
 	return i.insertSAccount(height, sa)
 }
@@ -1299,7 +1333,14 @@ func (i *ImpawnImpl) getAsset(addr common.Address, epoch uint64, op uint8) (map[
 	}
 	return nil, nil
 }
-
+func (i *ImpawnImpl) MakeModifyStateByTip10() {
+	if val, ok := i.accounts[i.curEpochID]; ok {
+		for _, v := range val {
+			v.makeModifyStateByTip10()
+		}
+		log.Info("impawn: MakeModifyStateByTip10")
+	}
+}
 /////////////////////////////////////////////////////////////////////////////////
 // storage layer
 func (i *ImpawnImpl) GetRoot() common.Hash {

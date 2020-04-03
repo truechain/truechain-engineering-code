@@ -38,7 +38,7 @@ var (
 )
 
 var (
-	abiStaking, _ = abi.JSON(strings.NewReader(vm.StakeABIJSON))
+	abiStaking, _ = abi.JSON(strings.NewReader(vm.TIP10StakeABIJSON))
 	priKey        *ecdsa.PrivateKey
 	from          common.Address
 	trueValue     uint64
@@ -454,24 +454,6 @@ func getBalance(conn *etrueclient.Client, address common.Address) *big.Int {
 	return balance
 }
 
-func getPubKey(ctx *cli.Context, conn *etrueclient.Client) (string, []byte, error) {
-	var (
-		pubkey string
-		err    error
-	)
-
-	pubkey, err = conn.Pubkey(context.Background())
-	if err != nil {
-		printError("get pubkey error", err)
-	}
-
-	pk := common.Hex2Bytes(pubkey)
-	if err = types.ValidPk(pk); err != nil {
-		printError("ValidPk error", err)
-	}
-	return pubkey, pk, err
-}
-
 func sendOtherContractTransaction(client *etrueclient.Client, f, toAddress common.Address, value *big.Int, privateKey *ecdsa.PrivateKey, input []byte, method string) (common.Hash, error) {
 	blockMutex.Lock()
 	defer blockMutex.Unlock()
@@ -796,6 +778,35 @@ func dialConn(ctx *cli.Context) (*etrueclient.Client, string) {
 		log.Fatalf("Failed to connect to the Truechain client: %v", err)
 	}
 	return conn, url
+}
+
+func getPubKey(ctx *cli.Context, conn *etrueclient.Client) (string, []byte, error) {
+	var (
+		pubkey string
+		err    error
+	)
+
+	if ctx.GlobalIsSet(PubKeyKeyFlag.Name) {
+		pubkey = ctx.GlobalString(PubKeyKeyFlag.Name)
+	} else if ctx.GlobalIsSet(BFTKeyKeyFlag.Name) {
+		bftKey, err := crypto.HexToECDSA(ctx.GlobalString(BFTKeyKeyFlag.Name))
+		if err != nil {
+			printError("bft key error", err)
+		}
+		pk := crypto.FromECDSAPub(&bftKey.PublicKey)
+		pubkey = common.Bytes2Hex(pk)
+	} else {
+		pubkey, err = conn.Pubkey(context.Background())
+		if err != nil {
+			printError("get pubkey error", err)
+		}
+	}
+
+	pk := common.Hex2Bytes(pubkey)
+	if err = types.ValidPk(pk); err != nil {
+		printError("ValidPk error", err)
+	}
+	return pubkey, pk, err
 }
 
 func printBaseInfo(conn *etrueclient.Client, url string) *types.Header {
