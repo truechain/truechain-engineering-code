@@ -805,7 +805,7 @@ func (m *Minerva) PrepareSnailWithParent(fastchain consensus.ChainReader, chain 
 // Finalize implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
+	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int, newBlock bool) (*types.Block, error) {
 	if header != nil && header.SnailHash != (common.Hash{}) && header.SnailNumber != nil {
 		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber, "number", header.Number)
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
@@ -830,7 +830,11 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		return nil, err
 	}
 	header.Root = state.IntermediateRoot(true)
-	return types.NewBlock(header, txs, receipts, nil, nil), nil
+
+	if newBlock {
+		return types.NewBlock(header, txs, receipts, nil, nil), nil
+	}
+	return nil, nil
 }
 
 // FinalizeSnail implements consensus.Engine, accumulating the block fruit and uncle rewards,

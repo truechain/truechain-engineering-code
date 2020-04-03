@@ -290,8 +290,8 @@ func (bc *BlockChain) loadLastState() error {
 	if rewardHead != nil {
 		bc.currentReward.Store(rewardHead)
 		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
-	}else {
-		reward := &types.BlockReward{SnailNumber:big.NewInt(0),}
+	} else {
+		reward := &types.BlockReward{SnailNumber: big.NewInt(0)}
 		bc.currentReward.Store(reward)
 		rawdb.WriteHeadRewardNumber(bc.db, 0)
 	}
@@ -361,7 +361,6 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.futureBlocks.Purge()
 	bc.signCache.Purge()
 	bc.rewardCache.Purge()
-
 
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
 		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
@@ -1067,7 +1066,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		bc.currentReward.Store(br)
 
 	}
-	root, err := state.Commit(true)
+	root, err := state.CommitAfterFinalize(true)
 	if err != nil {
 		return NonStatTy, err
 	}

@@ -103,7 +103,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
-	b.feeAmout  =feeAmount
+	b.feeAmout = feeAmount
 }
 
 // Number returns the block number of the block being generated.
@@ -175,7 +175,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	}
 
 	if n <= 0 {
-		return nil,nil
+		return nil, nil
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	chainreader := &fakeChainReader{config: config}
@@ -188,7 +188,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		if b.engine != nil {
-			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, b.feeAmout)
+			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, b.feeAmout, true)
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
 			block.SetSign(sign)
@@ -236,7 +236,7 @@ func GenerateChainWithReward(config *params.ChainConfig, parent *types.Block, re
 		}
 
 		if b.engine != nil {
-			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, new(big.Int))
+			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, new(big.Int), true)
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
 			block.SetSign(sign)

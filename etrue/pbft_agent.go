@@ -786,7 +786,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		//calculate snailBlock reward
 		agent.rewardSnailBlock(header)
 		//padding Header.Root, TxHash, ReceiptHash.  Create the new block to seal with the consensus engine
-		if fastBlock, err = agent.engine.Finalize(agent.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
+		if fastBlock, err = agent.engine.Finalize(agent.fastChain, header, work.state, work.txs, work.receipts, feeAmount, true); err != nil {
 			log.Error("Failed to finalize block for sealing", "err", err)
 			return fastBlock, err
 		}

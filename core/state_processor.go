@@ -77,7 +77,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		d0 := time.Since(t0)
 		t0 = time.Now()
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-		_, err = fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
+		_, err = fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount, false)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -116,7 +116,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		d0 := time.Since(t0)
 		t0 = time.Now()
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-		_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
+		_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount, false)
 		if err != nil {
 			return nil, nil, 0, err
 		}
