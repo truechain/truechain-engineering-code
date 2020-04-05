@@ -889,33 +889,6 @@ func (self *StateDB) AddCallArg(arg []byte) {
 	}
 }
 
-// Retrieve a state object given by the address. Returns nil if not found.
-func (self *StateDB) getStateObjectWithoutSet(addr common.Address) (stateObject *stateObject) {
-	// Prefer 'live' objects.
-	obj := self.stateObjects[addr]
-	if obj != nil {
-		if obj.deleted {
-			return nil
-		}
-		return obj
-	}
-
-	// Load the object from the database.
-	enc, err := self.trie.TryGet(addr[:])
-	if len(enc) == 0 {
-		self.setError(err)
-		return nil
-	}
-	var data Account
-	if err := rlp.DecodeBytes(enc, &data); err != nil {
-		log.Error("Failed to decode state object", "addr", addr, "err", err)
-		return nil
-	}
-	// Insert into the live set.
-	obj = newObject(self, addr, data)
-	return obj
-}
-
 func (self *StateDB) UpdateDBTrie(addr common.Address, obj interface{}, data []byte) {
 	if data == nil {
 		self.setError(self.trie.TryDelete(addr[:]))

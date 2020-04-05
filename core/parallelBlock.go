@@ -590,42 +590,43 @@ func (pb *ParallelBlock) updateStateDB(ch chan *addressRlpDataPair, chForFinish 
 }
 
 func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error) {
-	var d2, d3, d4 time.Duration
+	var d0, d1, d2, d3, d4 time.Duration
 	t0 := time.Now()
 	if err := pb.prepareAndGroup(); err != nil {
 		return nil, nil, 0, err
 	}
-	d0 := time.Since(t0)
+	d0 = time.Since(t0)
 
 	for {
 		t0 = time.Now()
 		pb.executeInParallel()
-		d2 += time.Since(t0)
+		d1 += time.Since(t0)
 
 		t0 = time.Now()
 		if conflictGroups, conflictTxs := pb.checkConflict(); len(conflictGroups) != 0 {
-			d3 += time.Since(t0)
+			d2 += time.Since(t0)
 			t0 = time.Now()
 			pb.reGroupAndRevert(conflictGroups, conflictTxs)
-			d4 += time.Since(t0)
-		} else {
 			d3 += time.Since(t0)
+		} else {
+			d2 += time.Since(t0)
 			break
 		}
 	}
 
 	t0 = time.Now()
 	receipts, logs, gas, err := pb.collectResult()
-	d5 := time.Since(t0)
+	d4 = time.Since(t0)
 
 	if len(pb.executionGroups) != 0 {
-		log.Info("Process:", "block ", pb.block.Number(), "txs", len(pb.txInfos),
+		log.Debug("Process:", "block ", pb.block.Number(),
+			"txs", len(pb.txInfos),
 			"group", len(pb.executionGroups),
 			"prepareAndGroup", common.PrettyDuration(d0),
-			"exec", common.PrettyDuration(d2),
-			"check", common.PrettyDuration(d3),
-			"reGroupAndRevert", common.PrettyDuration(d4),
-			"collectResult", common.PrettyDuration(d5))
+			"exec", common.PrettyDuration(d1),
+			"check", common.PrettyDuration(d2),
+			"reGroupAndRevert", common.PrettyDuration(d3),
+			"collectResult", common.PrettyDuration(d4))
 	}
 
 	return receipts, logs, gas, err

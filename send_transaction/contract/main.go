@@ -11,6 +11,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
 	"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etrueclient"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
@@ -28,7 +29,6 @@ var CoinBin = "0x608060405234801561001057600080fd5b50610383806100206000396000f3f
 
 func main() {
 	var accounts []string
-	//var privKeys []*ecdsa.PrivateKey
 	contractCount := 4000
 	step := 1
 	contract := true
@@ -79,22 +79,23 @@ func main() {
 		if contract {
 			// deploy one contract for each private key
 			contracts := deployContractsInBatch(rpcClient, client, privKeys)
+			time.Sleep(time.Duration(4) * time.Second)
 
 			// recharge the receiver accounts
 			for i := 0; i < 15; i++ {
-				time.Sleep(time.Duration(4) * time.Second)
 				rechargeToAccountsByContract(rpcClient, client, privKeys, contracts, receivers,
 					nonce, step, randomReceiver)
 				nonce += uint64(step)
+				time.Sleep(time.Duration(4) * time.Second)
 			}
 		}
 
 		if raw {
 			// send raw transactions
 			for i := 0; i < 15; i++ {
-				time.Sleep(time.Duration(4) * time.Second)
 				rechargeToAccountsByTx(rpcClient, privKeys, receivers, nonce, 1)
 				nonce++
+				time.Sleep(time.Duration(4) * time.Second)
 			}
 		}
 	}
@@ -184,12 +185,6 @@ func rechargeToAccountsByContract(rpcClient *rpc.Client, client *etrueclient.Cli
 				Args:   []interface{}{hexutil.Encode(data)},
 				Result: new(string),
 			}
-			//log.Println("tx", tx.Hash().String(),
-			//	"from", crypto.PubkeyToAddress(key.PublicKey).String(),
-			//	"contract", contracts[i].String(),
-			//	"value", value.String(),
-			//	"receiver0", receivers[receiverIndex0].String(),
-			//	"receiver1", receivers[receiverIndex1].String())
 		}
 	}
 
@@ -277,7 +272,7 @@ func newContractTransaction(key *ecdsa.PrivateKey, nonce uint64, data []byte) (*
 	opts := bind.NewKeyedTransactor(key)
 	value := new(big.Int)
 	gasLimit := uint64(500000)
-	gasPrice := big.NewInt(10000)
+	gasPrice := etrue.DefaultConfig.GasPrice
 
 	rawTx := types.NewContractCreation(nonce, value, gasLimit, gasPrice, data)
 	signer := types.NewTIP1Signer(params.SingleNodeChainConfig.ChainID)
@@ -290,7 +285,7 @@ func newContractTransaction(key *ecdsa.PrivateKey, nonce uint64, data []byte) (*
 func newCallTransaction(key *ecdsa.PrivateKey, to common.Address, nonce uint64, input []byte, value *big.Int) *types.Transaction {
 	opts := bind.NewKeyedTransactor(key)
 	gasLimit := uint64(500000)
-	gasPrice := big.NewInt(10000)
+	gasPrice := etrue.DefaultConfig.GasPrice
 
 	rawTx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, input)
 	signer := types.NewTIP1Signer(params.SingleNodeChainConfig.ChainID)
