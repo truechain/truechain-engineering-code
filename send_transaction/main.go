@@ -196,7 +196,13 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 			accounts[account[i]] = i
 		}
 	}
-	for i := 0; i < count; i++ {
+
+	loop := count
+	if to > 1 {
+		loop = to
+	}
+
+	for i := 0; i < loop; i++ {
 		for k, v := range accounts {
 			waitGroup.Add(1)
 			go sendTransaction(client, k, v, "", "0x2100", waitGroup)
@@ -204,7 +210,7 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	}
 
 	waitGroup.Wait()
-	fmt.Println(" Complete ", Count, " time ", Time, " count ", len(accounts)*len(accounts))
+	fmt.Println(" Complete ", Count, " time ", Time, " count ", len(accounts)*loop)
 }
 
 //send one transaction
