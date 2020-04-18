@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"math/big"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -23,9 +23,6 @@ var interval = time.Millisecond * 0
 
 //get all account
 var account []string
-
-//get all account
-var noBalance []int
 
 // The message state
 var msg = make(chan bool)
@@ -121,24 +118,25 @@ func send(count int, ip string) {
 	}
 	if len(account) == 0 {
 		fmt.Println("no account")
+		msg <- false
+		return
+	}
+
+	// get balance
+	result := getAccountBalance(client, account[from])
+	if result == nil {
+		return
+	}
+
+	if result.Uint64() < 21000 {
+		fmt.Println("Lack of balance ", account[from], " from ", from)
+		msg <- false
 		return
 	}
 
 	fmt.Println("already have accounts is in local:", len(account))
 
 	fmt.Println("personal_newAccount success ", len(account), " result ", createSonAccount(client, count), "main address ", account[from])
-
-	// get balance
-	result := getAccountBalance(client, account[from])
-	if result == "" {
-		return
-	}
-	balance := getBalanceValue(result, true)
-
-	if balance.Uint64() < 21000 {
-		fmt.Println("Lack of balance ", account[from], " from ", from)
-		return
-	}
 
 	//main unlock account
 	_, err = unlockAccount(client, account[from], "admin", 9000000, "main")
@@ -149,10 +147,10 @@ func send(count int, ip string) {
 	}
 
 	//send main to son address
-	fmt.Println("send balance to ", count, "  new account ", sendBalanceNewAccount(client, count, balance))
+	fmt.Println("send balance to ", count, "  new account ", sendBalanceNewAccount(client, count, result))
 
 	//son address check account
-	fmt.Println("check ", count, " son account ", checkSonAccountBalance(client, count, balance))
+	fmt.Println("check ", count, " son account ", checkSonAccountBalance(client, count, result))
 
 	// send
 	fmt.Println("start sendTransactions from ", count, " account to other new account")
@@ -176,33 +174,37 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	waitGroup := &sync.WaitGroup{}
 	Time := time.Now()
 
+	accounts := make(map[string]int)
 	for i := 0; i < count; i++ {
-
-		result := getAccountBalance(client, account[i])
-		if result == "" {
+		balance := getAccountBalance(client, account[i])
+		if balance == nil {
 			return
 		}
-
-		balance := getBalanceValue(result, false)
 		if balance.Cmp(big.NewInt(int64(100000))) < 0 {
 			fmt.Println(" Lack of balance  ", balance, " i ", i)
 			// get balance
-			result := getAccountBalance(client, account[from])
-			if result == "" {
+			balance := getAccountBalance(client, account[from])
+			if balance == nil {
 				return
 			}
-			balance := getBalanceValue(result, true)
-			sendBalanceNewAccount(client, count, balance)
-			continue
-		}
-
-		for i := 0; i < to; i++ {
+			average := new(big.Int).Div(balance, big.NewInt(int64(len(account)*1000)))
+			value := "0x" + fmt.Sprintf("%x", average)
 			waitGroup.Add(1)
-			go sendTransaction(client, account[i], i, "", "0x2100", waitGroup)
+			go sendTransaction(client, account[from], i, account[i], value, waitGroup)
+			continue
+		} else {
+			accounts[account[i]] = i
 		}
 	}
+	for i := 0; i < count; i++ {
+		for k, v := range accounts {
+			waitGroup.Add(1)
+			go sendTransaction(client, k, v, "", "0x2100", waitGroup)
+		}
+	}
+
 	waitGroup.Wait()
-	fmt.Println(" Complete ", Count, " time ", Time, " count ", count)
+	fmt.Println(" Complete ", Count, " time ", Time, " count ", len(accounts)*len(accounts))
 }
 
 //send one transaction
@@ -212,11 +214,7 @@ func sendTransaction(client *rpc.Client, from string, index int, son string, val
 	var address string
 
 	if son == "" {
-		if to%2 == 0 {
-			address = account[to]
-		} else {
-			address = genAddress()
-		}
+		address = genAddress()
 	} else {
 		address = son
 	}
@@ -259,28 +257,28 @@ func genAddress() string {
 	return address.Hex()
 }
 
-func getBalanceValue(hex string, print bool) *big.Int {
-	if strings.HasPrefix(hex, "0x") {
-		hex = strings.TrimPrefix(hex, "0x")
-	}
-	value, _ := new(big.Int).SetString(hex, 16)
-	balance := new(big.Int).Set(value)
-	if print {
-		fmt.Println("etrue_getBalance Ok:", " true ", balance.Div(balance, big.NewInt(1000000000000000000)), " value ", value, " hex ", hex)
-	}
-	return value
-}
-
-func getAccountBalance(client *rpc.Client, account string) string {
-	var result string
+func getAccountBalance(client *rpc.Client, account string) *big.Int {
+	var result hexutil.Big
 	// get balance
 	err := client.Call(&result, "etrue_getBalance", account, "latest")
 	if err != nil {
 		fmt.Println("etrue_getBalance Error:", err)
 		msg <- false
-		return ""
+		return nil
 	}
-	return result
+	return (*big.Int)(&result)
+}
+
+func trueToWei(trueValue uint64) *big.Int {
+	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	value := new(big.Int).Mul(big.NewInt(int64(trueValue)), baseUnit)
+	return value
+}
+
+func weiToTrue(value *big.Int) uint64 {
+	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	valueT := new(big.Int).Div(value, baseUnit).Uint64()
+	return valueT
 }
 
 func createSonAccount(client *rpc.Client, count int) bool {
@@ -300,10 +298,9 @@ func createSonAccount(client *rpc.Client, count int) bool {
 }
 
 func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
-	average := main.Div(main, big.NewInt(int64(len(account)*2)))
+	average := new(big.Int).Div(main, big.NewInt(int64(len(account)*1000)))
 	value := "0x" + fmt.Sprintf("%x", average)
-	averageTrue := new(big.Int).Set(average)
-	fmt.Println("sendBalanceNewAccount ", " true ", averageTrue.Div(averageTrue, big.NewInt(1000000000000000000)), " average ", average, " hex ", value)
+	fmt.Println("sendBalanceNewAccount ", " true ", weiToTrue(average), " average ", average)
 
 	waitGroup := &sync.WaitGroup{}
 	for i := 0; i < count; i++ {
@@ -314,15 +311,14 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 		result := getAccountBalance(client, account[i])
 
 		fmt.Println("unlock ", count, " son account index", i)
-
+		waitGroup.Add(1)
 		unlockSonAccount(client, account[i], i, waitGroup)
 
-		if result == "" {
+		if result == nil {
 			return false
 		}
-		balance := getBalanceValue(result, true)
 
-		if balance.Cmp(average) < 0 {
+		if result.Cmp(average) < 0 {
 			waitGroup.Add(1)
 			go sendTransaction(client, account[from], i, account[i], value, waitGroup)
 		}
@@ -333,66 +329,30 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 }
 
 func checkSonAccountBalance(client *rpc.Client, count int, main *big.Int) bool {
-	find := false
-	getBalance := true
-	average := main
+	average := new(big.Int).Div(main, big.NewInt(int64(len(account)*1000)))
 	value := "0x" + fmt.Sprintf("%x", average)
-	averageTrue := new(big.Int).Set(average)
-	fmt.Println("checkSonAccountBalance ", " true ", averageTrue.Div(averageTrue, big.NewInt(1000000000000000000)), " average ", average, " hex ", value)
+	fmt.Println("sendBalanceNewAccount ", " true ", weiToTrue(average), " average ", average)
 
-	for {
-		for i := 0; i < count; i++ {
-			//main unlock account
-			if from == i {
-				continue
-			}
-
-			for j := 0; j < len(noBalance); j++ {
-				if i == noBalance[j] {
-					getBalance = true
-					noBalance = append(noBalance[:j], noBalance[j+1:]...)
-					break
-				} else if i > noBalance[j] {
-					getBalance = true
-				} else {
-					getBalance = false
-				}
-			}
-
-			if !getBalance {
-				continue
-			}
-
-			if getBalance {
-				// get balance
-				result := getAccountBalance(client, account[i])
-				if result == "" {
-					return false
-				}
-				balance := getBalanceValue(result, true)
-				balanceTrue := new(big.Int).Set(balance)
-				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i, " true ", balanceTrue.Div(balanceTrue, big.NewInt(1000000000000000000)))
-				if balance.Cmp(average) >= 0 {
-					if i == count-1 && len(noBalance) == 0 {
-						find = true
-						break
-					}
-					continue
-				} else {
-					noBalance = append(noBalance, i)
-				}
-			}
+	for i, v := range account {
+		// get balance
+		balance := getAccountBalance(client, account[i])
+		if balance == nil {
+			return false
+		}
+		balanceTrue := new(big.Int).Set(balance)
+		fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i, " true ", balanceTrue.Div(balanceTrue, big.NewInt(1000000000000000000)))
+		if balance.Cmp(average) < 0 {
 			fmt.Println(i, " Transaction main address ", account[from], " son address ", account[i], " value ", value)
-			if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
+			if result, err := sendRawTransaction(client, account[from], v, value); err != nil {
 				fmt.Println("sendRawTransaction son address error ", result, " err ", err)
 				return false
 			}
 		}
-
-		if find {
+		if i > count {
 			break
 		}
 	}
+
 	return true
 }
 
