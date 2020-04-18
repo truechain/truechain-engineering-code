@@ -135,6 +135,11 @@ func send(count int, ip string) {
 	}
 	balance := getBalanceValue(result, true)
 
+	if balance.Uint64() < 21000 {
+		fmt.Println("Lack of balance ", account[from], " from ", from)
+		return
+	}
+
 	//main unlock account
 	_, err = unlockAccount(client, account[from], "admin", 9000000, "main")
 	if err != nil {
@@ -145,9 +150,6 @@ func send(count int, ip string) {
 
 	//send main to son address
 	fmt.Println("send balance to ", count, "  new account ", sendBalanceNewAccount(client, count, balance))
-
-	//son address unlock account
-	fmt.Println("unlock ", count, " son account ", unlockCountNewAccount(client, count))
 
 	//son address check account
 	fmt.Println("check ", count, " son account ", checkSonAccountBalance(client, count, balance))
@@ -184,6 +186,13 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 		balance := getBalanceValue(result, false)
 		if balance.Cmp(big.NewInt(int64(100000))) < 0 {
 			fmt.Println(" Lack of balance  ", balance, " i ", i)
+			// get balance
+			result := getAccountBalance(client, account[from])
+			if result == "" {
+				return
+			}
+			balance := getBalanceValue(result, true)
+			sendBalanceNewAccount(client, count, balance)
 			continue
 		}
 
@@ -298,8 +307,16 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 
 	waitGroup := &sync.WaitGroup{}
 	for i := 0; i < count; i++ {
+		if from == i {
+			continue
+		}
 		// get balance
 		result := getAccountBalance(client, account[i])
+
+		fmt.Println("unlock ", count, " son account index", i)
+
+		unlockSonAccount(client, account[i], i, waitGroup)
+
 		if result == "" {
 			return false
 		}
@@ -376,20 +393,6 @@ func checkSonAccountBalance(client *rpc.Client, count int, main *big.Int) bool {
 			break
 		}
 	}
-	return true
-}
-
-func unlockCountNewAccount(client *rpc.Client, count int) bool {
-	waitGroup := &sync.WaitGroup{}
-	for i := 0; i < count; i++ {
-		if from == i {
-			continue
-		}
-		waitGroup.Add(1)
-
-		unlockSonAccount(client, account[i], i, waitGroup)
-	}
-	waitGroup.Wait()
 	return true
 }
 
