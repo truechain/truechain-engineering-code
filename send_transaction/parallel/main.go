@@ -29,7 +29,7 @@ var (
 		Usage: "Private key hex string",
 	}
 	SonFlag = cli.Uint64Flag{
-		Name:  "son count",
+		Name:  "sonaccount",
 		Usage: "son num",
 		Value: 0,
 	}
