@@ -17,8 +17,12 @@
 package core
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	//"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"time"
+
 	//"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -64,6 +68,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs   []*types.Log
 		gp        = new(GasPool).AddGas(block.GasLimit())
 	)
+	start := time.Now()
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
@@ -74,12 +79,17 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
+	t1 := time.Now()
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 	if err != nil {
 		return nil, nil, 0, err
 	}
-
+	log.Info("Process:", "block ", block.Number().Uint64(),
+		"txs", len(block.Transactions()),
+		"applyTxs", common.PrettyDuration(t1.Sub(start)),
+		"finalize", common.PrettyDuration(time.Since(t1)),
+		"all time", common.PrettyDuration(time.Since(start)))
 	return receipts, allLogs, *usedGas, nil
 }
 
@@ -95,7 +105,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	}
 
 	// Create a new context to be used in the EVM environment
-	context := NewEVMContext(msg, header, bc,nil,nil)
+	context := NewEVMContext(msg, header, bc, nil, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)

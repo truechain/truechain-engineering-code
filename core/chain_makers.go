@@ -70,6 +70,11 @@ func (b *BlockGen) SetExtra(data []byte) {
 func (b *BlockGen) SetNonce(nonce types.BlockNonce) {
 }
 
+// SetNonce sets the nonce field of the generated block.
+func (b *BlockGen) GetState() *state.StateDB {
+	return b.statedb
+}
+
 // AddTx adds a transaction to the generated block. If no coinbase has
 // been set, the block's coinbase is set to the zero address.
 //
@@ -103,7 +108,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	}
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
-	b.feeAmout  =feeAmount
+	b.feeAmout = feeAmount
 }
 
 // Number returns the block number of the block being generated.
@@ -175,7 +180,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	}
 
 	if n <= 0 {
-		return nil,nil
+		return nil, nil
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	chainreader := &fakeChainReader{config: config}
