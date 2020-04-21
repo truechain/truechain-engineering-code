@@ -17,8 +17,12 @@
 package core
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	//"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"time"
+
 	//"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -60,19 +64,23 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		feeAmount = big.NewInt(0)
 		header    = block.Header()
 	)
-
+	start := time.Now()
 	parallelBlock := NewParallelBlock(block, statedb, fp.config, fp.bc, cfg, feeAmount)
 	receipts, allLogs, usedGas, err := parallelBlock.Process()
 	if err != nil {
 		return nil, nil, 0, err
 	}
-
+	t1 := time.Now()
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	_, err = fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount, false)
 	if err != nil {
 		return nil, nil, 0, err
 	}
-
+	log.Info("Process:", "block ", block.Number().Uint64(),
+		"txs", len(block.Transactions()),
+		"applyTxs", common.PrettyDuration(t1.Sub(start)),
+		"finalize", common.PrettyDuration(time.Since(t1)),
+		"all time", common.PrettyDuration(time.Since(start)))
 	return receipts, allLogs, usedGas, nil
 }
 
