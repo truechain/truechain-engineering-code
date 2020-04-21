@@ -592,6 +592,7 @@ func (pb *ParallelBlock) updateStateDB(ch chan *addressRlpDataPair, chForFinish 
 func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error) {
 	var d0, d1, d2, d3, d4 time.Duration
 	t0 := time.Now()
+	start := t0
 	if err := pb.prepareAndGroup(); err != nil {
 		return nil, nil, 0, err
 	}
@@ -626,7 +627,8 @@ func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error)
 			"exec", common.PrettyDuration(d1),
 			"check", common.PrettyDuration(d2),
 			"reGroupAndRevert", common.PrettyDuration(d3),
-			"collectResult", common.PrettyDuration(d4))
+			"collectResult", common.PrettyDuration(d4),
+			"elapsed", common.PrettyDuration(time.Since(start)))
 	}
 
 	return receipts, logs, gas, err
