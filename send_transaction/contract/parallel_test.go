@@ -8,15 +8,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"os"
 	"testing"
-
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/params"
+	"time"
 )
 
 func init() {
@@ -72,7 +72,6 @@ func TestParallelTX(t *testing.T) {
 		delegateAddr[i] = crypto.PubkeyToAddress(delegateKey[i].PublicKey)
 	}
 	genesis := gspec.MustFastCommit(db)
-	blockchain, _ := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
 	chain, _ := core.GenerateChain(gspec.Config, genesis, engine, db, 10, func(i int, gen *core.BlockGen) {
 		switch i {
 		case 0:
@@ -94,27 +93,6 @@ func TestParallelTX(t *testing.T) {
 				gen.AddTx(tx)
 				nonce = nonce + 1
 			}
-		case 2:
-			// In block 2, addr1 sends some more ether to addr2.
-			nonce := gen.TxNonce(mAccount)
-			for i := 0; i < sendNumber; i++ {
-				key, _ := crypto.GenerateKey()
-				coinbase := crypto.PubkeyToAddress(key.PublicKey)
-				tx, _ := types.SignTx(types.NewTransaction(nonce, coinbase, trueToWei(2), params.TxGas, nil, nil), signer, priKey)
-				gen.AddTx(tx)
-				nonce = nonce + 1
-			}
-		case 3:
-			key, _ := crypto.GenerateKey()
-			coinbase := crypto.PubkeyToAddress(key.PublicKey)
-			for k, v := range delegateAddr {
-				nonce := gen.TxNonce(v)
-				for i := 0; i < 1; i++ {
-					tx, _ := types.SignTx(types.NewTransaction(nonce, coinbase, new(big.Int).SetInt64(30000), params.TxGas, nil, nil), signer, delegateKey[k])
-					gen.AddTx(tx)
-					nonce = nonce + 1
-				}
-			}
 		case 4:
 			for k, v := range delegateAddr {
 				key, _ := crypto.GenerateKey()
@@ -128,9 +106,28 @@ func TestParallelTX(t *testing.T) {
 			}
 		}
 	})
-	if _, err := blockchain.InsertChain(chain); err != nil {
-		panic(err)
+	params.ApplytxTime = 0
+	params.FinalizeTime = 0
+	params.ProcessTime = 0
+	params.InsertBlockTime = 0
+	repeat := int64(2)
+	for i := 0; i < int(repeat); i++ {
+		db1 := etruedb.NewMemDatabase()
+		gspec.MustFastCommit(db1)
+
+		blockchain, err := core.NewBlockChain(db1, nil, gspec.Config, engine, vm.Config{})
+		if err != nil {
+			fmt.Println("NewBlockChain ", err)
+		}
+		if _, err := blockchain.InsertChain(chain); err != nil {
+			panic(err)
+		}
 	}
+	log.Info("Process:",
+		"applyTxs", common.PrettyDuration(time.Duration(int64(params.ApplytxTime)/repeat)),
+		"finalize", common.PrettyDuration(time.Duration(int64(params.FinalizeTime)/repeat)),
+		"Process", common.PrettyDuration(time.Duration(int64(params.ProcessTime)/repeat)),
+		"insertblock", common.PrettyDuration(time.Duration(int64(params.InsertBlockTime)/repeat)))
 }
 
 func trueToWei(trueValue uint64) *big.Int {

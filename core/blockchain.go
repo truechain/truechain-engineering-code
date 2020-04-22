@@ -1328,7 +1328,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 				"sings", len(block.Signs()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"elapsed", common.PrettyDuration(time.Since(start)),
 				"root", block.Root())
-
+			calTimeBlock5 := block.Number().Uint64() == params.CalBlockNumber
+			if calTimeBlock5 {
+				params.InsertBlockTime = params.InsertBlockTime + time.Since(start)
+			}
 			coalescedLogs = append(coalescedLogs, logs...)
 			events = append(events, types.FastChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
 			lastCanon = block

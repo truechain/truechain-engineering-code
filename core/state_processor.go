@@ -64,6 +64,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		feeAmount = big.NewInt(0)
 		header    = block.Header()
 	)
+	calTimeBlock5 := block.Number().Uint64() == params.CalBlockNumber
 	start := time.Now()
 	parallelBlock := NewParallelBlock(block, statedb, fp.config, fp.bc, cfg, feeAmount)
 	receipts, allLogs, usedGas, err := parallelBlock.Process()
@@ -71,10 +72,19 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		return nil, nil, 0, err
 	}
 	t1 := time.Now()
+	if calTimeBlock5 {
+		params.ApplytxTime = params.ApplytxTime + t1.Sub(start)
+	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	_, err = fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount, false)
 	if err != nil {
 		return nil, nil, 0, err
+	}
+	if calTimeBlock5 {
+		params.FinalizeTime = time.Since(t1) + params.FinalizeTime
+	}
+	if calTimeBlock5 {
+		params.ProcessTime = params.ProcessTime + time.Since(start)
 	}
 	log.Info("Process:", "block ", block.Number().Uint64(),
 		"txs", len(block.Transactions()),
