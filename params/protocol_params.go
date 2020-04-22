@@ -16,7 +16,10 @@
 
 package params
 
-import "math/big"
+import (
+	"math/big"
+	"time"
+)
 
 var (
 	// TargetGasLimit is the artificial target
@@ -130,4 +133,11 @@ var (
 	MaximumCommitteeNumber  = big.NewInt(50)
 	ProposalCommitteeNumber = 20
 	MinimumCommitteeNumber  = 7
+
+	ApplytxTime     time.Duration
+	FinalizeTime    time.Duration
+	ProcessTime     time.Duration
+	InsertBlockTime time.Duration
+	CalBlockNumber  = uint64(5)
+	RepeatCount     = 20
 )

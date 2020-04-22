@@ -68,6 +68,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs   []*types.Log
 		gp        = new(GasPool).AddGas(block.GasLimit())
 	)
+	calTimeBlock5 := block.Number().Uint64() == params.CalBlockNumber
 	start := time.Now()
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
@@ -80,10 +81,19 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	t1 := time.Now()
+	if calTimeBlock5 {
+		params.ApplytxTime = params.ApplytxTime + t1.Sub(start)
+	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 	if err != nil {
 		return nil, nil, 0, err
+	}
+	if calTimeBlock5 {
+		params.FinalizeTime = time.Since(t1) + params.FinalizeTime
+	}
+	if calTimeBlock5 {
+		params.ProcessTime = params.ProcessTime + time.Since(start)
 	}
 	log.Info("Process:", "block ", block.Number().Uint64(),
 		"txs", len(block.Transactions()),

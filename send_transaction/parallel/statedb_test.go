@@ -1,9 +1,10 @@
-package state
+package main
 
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"math/big"
 	"testing"
@@ -11,9 +12,9 @@ import (
 )
 
 func TestStateTime(t *testing.T) {
-	// Create an empty state database
+	// Create an empty state0 database
 	db := etruedb.NewMemDatabase()
-	state, _ := New(common.Hash{}, NewDatabase(db))
+	state0, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	mAccount := common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69")
 	key, _ := crypto.GenerateKey()
 	coinbase := crypto.PubkeyToAddress(key.PublicKey)
@@ -29,28 +30,28 @@ func TestStateTime(t *testing.T) {
 		toAddr[i] = crypto.PubkeyToAddress(key.PublicKey)
 	}
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-	state.AddBalance(mAccount, i)
-	state.SetNonce(mAccount, 1)
+	state0.AddBalance(mAccount, i)
+	state0.SetNonce(mAccount, 1)
 
-	nonce := state.GetNonce(mAccount)
+	nonce := state0.GetNonce(mAccount)
 	for _, v := range delegateAddr {
-		state.SubBalance(mAccount, trueToWei(2))
-		state.AddBalance(v, trueToWei(2))
+		state0.SubBalance(mAccount, trueToWei(2))
+		state0.AddBalance(v, trueToWei(2))
 		nonce = nonce + 1
-		state.SetNonce(mAccount, nonce)
+		state0.SetNonce(mAccount, nonce)
 	}
-	root := state.IntermediateRoot(true)
-	// Write state changes to db
-	root, err := state.Commit(true)
+	root := state0.IntermediateRoot(true)
+	// Write state0 changes to db
+	root, err := state0.Commit(true)
 	if err != nil {
-		panic(fmt.Sprintf("state write error: %v", err))
+		panic(fmt.Sprintf("state0 write error: %v", err))
 	}
-	if err := state.Database().TrieDB().Commit(root, false); err != nil {
+	if err := state0.Database().TrieDB().Commit(root, false); err != nil {
 		panic(fmt.Sprintf("trie write error: %v", err))
 	}
 
 	start := time.Now()
-	state1, _ := New(root, NewDatabase(db))
+	state1, _ := state.New(root, state.NewDatabase(db))
 	nonce = state1.GetNonce(mAccount)
 	for i := 0; i < sendNumber; i++ {
 		state1.SubBalance(mAccount, trueToWei(2))
@@ -60,11 +61,11 @@ func TestStateTime(t *testing.T) {
 	}
 	t1 := time.Now()
 	root1 := state1.IntermediateRoot(true)
-	// Write state changes to db
+	// Write state0 changes to db
 	t2 := time.Now()
 	root1, err = state1.Commit(true)
 	if err != nil {
-		panic(fmt.Sprintf("state write error: %v", err))
+		panic(fmt.Sprintf("state0 write error: %v", err))
 	}
 	t3 := time.Now()
 	if err := state1.Database().TrieDB().Commit(root1, false); err != nil {
@@ -78,7 +79,7 @@ func TestStateTime(t *testing.T) {
 	)
 
 	start = time.Now()
-	state1, _ = New(root, NewDatabase(db))
+	state1, _ = state.New(root, state.NewDatabase(db))
 	nonce = state1.GetNonce(mAccount)
 	for k, v := range delegateAddr {
 		state1.SubBalance(v, trueToWei(1))
@@ -88,11 +89,11 @@ func TestStateTime(t *testing.T) {
 
 	t1 = time.Now()
 	root1 = state1.IntermediateRoot(true)
-	// Write state changes to db
+	// Write state0 changes to db
 	t2 = time.Now()
 	root1, err = state1.Commit(true)
 	if err != nil {
-		panic(fmt.Sprintf("state write error: %v", err))
+		panic(fmt.Sprintf("state0 write error: %v", err))
 	}
 	t3 = time.Now()
 	if err := state1.Database().TrieDB().Commit(root1, false); err != nil {
@@ -107,7 +108,7 @@ func TestStateTime(t *testing.T) {
 
 	start = time.Now()
 	type task struct {
-		state *StateDB
+		state *state.StateDB
 		from  []common.Address
 		to    []common.Address
 		index int
@@ -148,7 +149,7 @@ func TestStateTime(t *testing.T) {
 		return ts[i:]
 	}
 
-	scheduleTasks := func(state *StateDB, from []common.Address, to []common.Address, index int) int {
+	scheduleTasks := func(state *state.StateDB, from []common.Address, to []common.Address, index int) int {
 		// Start from queue first.
 		queuedTasks = startTasks(queuedTasks)
 		// Query dialer for new tasks and start as many as possible now.
@@ -165,8 +166,8 @@ func TestStateTime(t *testing.T) {
 		}
 		return index
 	}
-	var stateArr []*StateDB
-	state1, _ = New(root, NewDatabase(db))
+	var stateArr []*state.StateDB
+	state1, _ = state.New(root, state.NewDatabase(db))
 	index := 0
 
 running:
@@ -188,16 +189,4 @@ running:
 	}
 
 	fmt.Println("time ", common.PrettyDuration(time.Since(start)))
-}
-
-func trueToWei(trueValue uint64) *big.Int {
-	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	value := new(big.Int).Mul(big.NewInt(int64(trueValue)), baseUnit)
-	return value
-}
-
-func weiToTrue(value *big.Int) uint64 {
-	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	valueT := new(big.Int).Div(value, baseUnit).Uint64()
-	return valueT
 }
