@@ -1,12 +1,13 @@
-package main
+package state
 
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"math/big"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -14,7 +15,7 @@ import (
 func TestStateTime(t *testing.T) {
 	// Create an empty state0 database
 	db := etruedb.NewMemDatabase()
-	state0, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	state0, _ := New(common.Hash{}, NewDatabase(db))
 	mAccount := common.HexToAddress("0xC02f50f4F41f46b6a2f08036ae65039b2F9aCd69")
 	key, _ := crypto.GenerateKey()
 	coinbase := crypto.PubkeyToAddress(key.PublicKey)
@@ -51,7 +52,7 @@ func TestStateTime(t *testing.T) {
 	}
 
 	start := time.Now()
-	state1, _ := state.New(root, state.NewDatabase(db))
+	state1, _ := New(root, NewDatabase(db))
 	nonce = state1.GetNonce(mAccount)
 	for i := 0; i < sendNumber; i++ {
 		state1.SubBalance(mAccount, trueToWei(2))
@@ -79,7 +80,7 @@ func TestStateTime(t *testing.T) {
 	)
 
 	start = time.Now()
-	state1, _ = state.New(root, state.NewDatabase(db))
+	state1, _ = New(root, NewDatabase(db))
 	nonce = state1.GetNonce(mAccount)
 	for k, v := range delegateAddr {
 		state1.SubBalance(v, trueToWei(1))
@@ -104,17 +105,18 @@ func TestStateTime(t *testing.T) {
 		"Commit", common.PrettyDuration(t3.Sub(t2)),
 		"DBCommit", common.PrettyDuration(time.Since(t3)),
 		"all time", common.PrettyDuration(time.Since(start)),
+		"root", root1.String(),
 	)
 
 	start = time.Now()
 	type task struct {
-		state *state.StateDB
+		state *StateDB
 		from  []common.Address
 		to    []common.Address
 		index int
 	}
 	taskdone := make(chan task, 16)
-	maxActiveDialTasks := 32
+	maxActiveDialTasks := runtime.NumCPU() * 6
 	var runningTasks []task
 	var queuedTasks []task // tasks that can't run yet
 
@@ -149,8 +151,7 @@ func TestStateTime(t *testing.T) {
 		return ts[i:]
 	}
 
-	scheduleTasks := func(state *state.StateDB, from []common.Address, to []common.Address, index int) int {
-		// Start from queue first.
+	scheduleTasks := func(state *StateDB, from []common.Address, to []common.Address, index int) int {
 		queuedTasks = startTasks(queuedTasks)
 		// Query dialer for new tasks and start as many as possible now.
 		if len(runningTasks) < maxActiveDialTasks {
@@ -166,16 +167,18 @@ func TestStateTime(t *testing.T) {
 		}
 		return index
 	}
-	var stateArr []*state.StateDB
-	state1, _ = state.New(root, state.NewDatabase(db))
+	var stateArr []*StateDB
+	state1, _ = New(root, NewDatabase(db))
 	index := 0
 
 running:
 	for {
-		if index < stateNum && len(queuedTasks) < 2 {
-			index = scheduleTasks(state1, delegateAddr, toAddr, index)
-		} else if len(queuedTasks) > 0 {
-			queuedTasks = startTasks(queuedTasks)
+		if len(runningTasks) < maxActiveDialTasks {
+			if index < stateNum {
+				index = scheduleTasks(state1, delegateAddr, toAddr, index)
+			} else if len(queuedTasks) > 0 {
+				queuedTasks = startTasks(queuedTasks)
+			}
 		}
 
 		select {
@@ -188,5 +191,94 @@ running:
 		}
 	}
 
-	fmt.Println("time ", common.PrettyDuration(time.Since(start)))
+	t05 := time.Now()
+	stateP := state1
+	// Copy the dirty states, logs, and preimages
+	for _, stateC := range stateArr {
+		for addr := range stateC.journal.dirties {
+			_, exist := stateP.journal.dirties[addr]
+			if exist {
+				continue
+			}
+			_, exist = stateP.stateObjects[addr]
+			if exist {
+				continue
+			}
+			if object, exist := stateC.stateObjects[addr]; exist {
+				stateP.stateObjects[addr] = object.deepCopy(stateP)
+				stateP.stateObjectsDirty[addr] = struct{}{}
+			}
+			stateP.journal.dirties[addr] = 1
+		}
+	}
+
+	for _, stateC := range stateArr {
+		for addr := range stateC.stateObjectsDirty {
+			if _, exist := stateP.stateObjects[addr]; exist {
+				continue
+			}
+			if _, exist := stateC.stateObjects[addr]; !exist {
+				stateP.stateObjects[addr] = stateC.stateObjects[addr].deepCopy(stateP)
+				stateP.stateObjectsDirty[addr] = struct{}{}
+			}
+		}
+	}
+
+	for _, stateC := range stateArr {
+		for hash, logs := range stateC.logs {
+			if _, exist := stateP.logs[hash]; exist {
+				continue
+			}
+			cpy := make([]*types.Log, len(logs))
+			for i, l := range logs {
+				cpy[i] = new(types.Log)
+				*cpy[i] = *l
+			}
+			stateP.logs[hash] = cpy
+		}
+	}
+
+	for _, stateC := range stateArr {
+		for hash, preimage := range stateC.preimages {
+			if _, exist := stateP.preimages[hash]; exist {
+				continue
+			}
+			stateP.preimages[hash] = preimage
+		}
+	}
+
+	t1 = time.Now()
+	root1 = stateP.IntermediateRoot(true)
+	// Write state0 changes to db
+	t2 = time.Now()
+	root1, err = stateP.Commit(true)
+	if err != nil {
+		panic(fmt.Sprintf("state0 write error: %v", err))
+	}
+	t3 = time.Now()
+	if err := stateP.Database().TrieDB().Commit(root1, false); err != nil {
+		panic(fmt.Sprintf("trie write error: %v", err))
+	}
+	fmt.Println("time ", common.PrettyDuration(t05.Sub(start)),
+		"time ", common.PrettyDuration(t1.Sub(t05)),
+		"root1", root1.String())
+	fmt.Println("balance", weiToTrue(state1.GetBalance(mAccount)), "apply", common.PrettyDuration(t1.Sub(start)),
+		"IntermediateRoot", common.PrettyDuration(t2.Sub(t1)),
+		"Commit", common.PrettyDuration(t3.Sub(t2)),
+		"DBCommit", common.PrettyDuration(time.Since(t3)),
+		"all time", common.PrettyDuration(time.Since(start)),
+		"root", root1.String(),
+	)
+}
+
+func trueToWei(trueValue uint64) *big.Int {
+	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	value := new(big.Int).Mul(big.NewInt(int64(trueValue)), baseUnit)
+	return value
+}
+
+func weiToTrue(value *big.Int) uint64 {
+	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	valueT := new(big.Int).Div(value, baseUnit).Uint64()
+	return valueT
 }
