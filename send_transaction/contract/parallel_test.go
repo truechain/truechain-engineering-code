@@ -110,7 +110,7 @@ func TestParallelTX(t *testing.T) {
 	params.FinalizeTime = 0
 	params.ProcessTime = 0
 	params.InsertBlockTime = 0
-	repeat := int64(2)
+	repeat := int64(params.RepeatCount)
 	for i := 0; i < int(repeat); i++ {
 		db1 := etruedb.NewMemDatabase()
 		gspec.MustFastCommit(db1)

@@ -139,4 +139,5 @@ var (
 	ProcessTime     time.Duration
 	InsertBlockTime time.Duration
 	CalBlockNumber  = uint64(5)
+	RepeatCount     = 20
 )
