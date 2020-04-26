@@ -57,3 +57,15 @@ func (tao *TouchedAddressObject) RemoveAccountsInArgs() {
 		delete(tao.accountOp, address)
 	}
 }
+
+func (tao *TouchedAddressObject) Copy() *TouchedAddressObject {
+	touchedAddress := NewTouchedAddressObject()
+
+	for address, op := range tao.accountOp {
+		touchedAddress.AddAccountOp(address, op)
+	}
+
+	touchedAddress.accountInArg = tao.accountInArg
+
+	return touchedAddress
+}

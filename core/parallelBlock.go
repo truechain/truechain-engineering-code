@@ -13,7 +13,6 @@ import (
 
 	"sort"
 	"sync"
-	"time"
 )
 
 var (
@@ -65,7 +64,7 @@ type addressRlpDataPair struct {
 }
 
 func newGrouper(totalTxToGroup int, startGroupId int, regroup bool) *grouper {
-	maxGroupCount := cpuNum * 8
+	maxGroupCount := cpuNum * 2
 
 	avgTxCountInGroup := (totalTxToGroup + maxGroupCount - 1) / (maxGroupCount)
 	return &grouper{
@@ -300,32 +299,44 @@ func (pb *ParallelBlock) getTrxTouchedAddress(txInfo *txInfo, regroup bool) *sta
 	return touchedAddressObj
 }
 
-func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]struct{}) {
+type conflictInfo struct {
+	conflictGroups []map[int]struct{}
+	conflictTxs    map[common.Hash]struct{}
+}
+
+func (pb *ParallelBlock) checkGroupsConflict(ch0 chan *txInfo, ch1 chan *conflictInfo) {
 	var conflictGroups []map[int]struct{}
 	conflictTxs := make(map[common.Hash]struct{})
 	addrGroupIdsMap := make(map[common.Address]map[int]struct{})
+	txInfos := make([]*txInfo, len(pb.txInfos))
+	nextIndex := 0
 
-	if len(pb.executionGroups) == 1 {
-		return conflictGroups, conflictTxs
-	}
+	for tx := range ch0 {
+		txInfos[tx.index] = tx
+		if tx.index == nextIndex {
+			for ; nextIndex < len(txInfos) && txInfos[nextIndex] != nil; nextIndex++ {
+				txInfo := txInfos[nextIndex]
+				var touchedAddressObj *state.TouchedAddressObject = nil
+				trxHash := txInfo.hash
+				curTrxGroup := txInfo.groupId
+				touchedAddressObj = pb.getTrxTouchedAddress(txInfo, true)
 
-	for _, txInfo := range pb.txInfos {
-		var touchedAddressObj *state.TouchedAddressObject = nil
-		trxHash := txInfo.hash
-		curTrxGroup := txInfo.groupId
-		touchedAddressObj = pb.getTrxTouchedAddress(txInfo, true)
-
-		for addr, op := range touchedAddressObj.AccountOp() {
-			if groupIds, ok := addrGroupIdsMap[addr]; ok {
-				if _, ok := groupIds[curTrxGroup]; !ok {
-					groupIds[curTrxGroup] = struct{}{}
-					conflictTxs[trxHash] = struct{}{}
+				for addr, op := range touchedAddressObj.AccountOp() {
+					if groupIds, ok := addrGroupIdsMap[addr]; ok {
+						if _, ok := groupIds[curTrxGroup]; !ok {
+							groupIds[curTrxGroup] = struct{}{}
+							conflictTxs[trxHash] = struct{}{}
+						}
+					} else if op {
+						groupSet := make(map[int]struct{})
+						groupSet[curTrxGroup] = struct{}{}
+						addrGroupIdsMap[addr] = groupSet
+					}
 				}
-			} else if op {
-				groupSet := make(map[int]struct{})
-				groupSet[curTrxGroup] = struct{}{}
-				addrGroupIdsMap[addr] = groupSet
 			}
+		}
+		if nextIndex == len(txInfos) {
+			break
 		}
 	}
 
@@ -342,7 +353,7 @@ func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]st
 		for i := len(conflictGroups) - 1; i >= 0; i-- {
 			conflictGroupId := conflictGroups[i]
 			if overlapped(conflictGroupId, groups) {
-				for k, _ := range conflictGroupId {
+				for k := range conflictGroupId {
 					groups[k] = struct{}{}
 				}
 				conflictGroups = append(conflictGroups[:i], conflictGroups[i+1:]...)
@@ -356,7 +367,10 @@ func (pb *ParallelBlock) checkConflict() ([]map[int]struct{}, map[common.Hash]st
 		log.Debug("checkConflict", "conflictGroups", conflictGroups)
 	}
 
-	return conflictGroups, conflictTxs
+	ch1 <- &conflictInfo{
+		conflictGroups: conflictGroups,
+		conflictTxs:    conflictTxs,
+	}
 }
 
 func overlapped(set0 map[int]struct{}, set1 map[int]struct{}) bool {
@@ -368,16 +382,18 @@ func overlapped(set0 map[int]struct{}, set1 map[int]struct{}) bool {
 	return false
 }
 
-func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, ch chan *txInfo) {
 	var (
 		gp      = new(GasPool).AddGas(pb.block.GasLimit())
 		statedb = group.statedb
 	)
 
 	// Iterate over and process the individual txInfos
-	for i := group.startTrxIndex; i < len(group.txInfos); i++ {
+	for i := 0; i < len(group.txInfos); i++ {
+		if i < group.startTrxIndex {
+			ch <- group.txInfos[i]
+			continue
+		}
 		feeAmount := big.NewInt(0)
 		txInfo := group.txInfos[i]
 		txHash := txInfo.hash
@@ -391,24 +407,139 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, wg *sync.WaitGroup)
 			group.errTxIndex = ti
 			txInfo.result = NewTrxResult(nil, statedb.FinalizeTouchedAddress(), trxUsedGas, feeAmount)
 			group.SetStartTrxPos(-1)
+			ch <- txInfo
 			return
 		}
 		txInfo.result = NewTrxResult(receipt, statedb.FinalizeTouchedAddress(), trxUsedGas, feeAmount)
+		ch <- txInfo
 	}
 	group.SetStartTrxPos(-1)
 }
 
-func (pb *ParallelBlock) executeInParallel() {
-	wg := sync.WaitGroup{}
-	for _, group := range pb.executionGroups {
-		if group.startTrxIndex != -1 {
+func (pb *ParallelBlock) executeInParallelAndCheckConflict() (types.Receipts, []*types.Log, uint64, error) {
+	var (
+		err                 error
+		errIndex            = -1
+		receipts            = make(types.Receipts, len(pb.txInfos))
+		usedGas             = uint64(0)
+		allLogs             []*types.Log
+		gp                  = new(GasPool).AddGas(pb.block.GasLimit())
+		cumulative          = uint64(0)
+		wg                  = sync.WaitGroup{}
+		chForAssociatedAddr = make(chan *txInfo, len(pb.txInfos))
+		chForUpdateCache    = make(chan *addressRlpDataPair, len(pb.txInfos)*2)
+		chForFinish         = make(chan *state.StateDB)
+	)
+
+	for {
+		ch := make(chan *txInfo, len(pb.txInfos))
+		ch1 := make(chan *conflictInfo)
+		var chsForExist []chan bool
+
+		go pb.checkGroupsConflict(ch, ch1)
+		go pb.updateStateDB(chForUpdateCache, chForFinish)
+		go pb.processAssociatedAddressOfContract(chForAssociatedAddr)
+
+		for _, group := range pb.executionGroups {
 			wg.Add(1)
-			go pb.executeGroup(group, &wg)
+			chForExist := make(chan bool)
+			chsForExist = append(chsForExist, chForExist)
+
+			go func(group *ExecutionGroup, chForExit chan bool) {
+				defer wg.Done()
+				if group.startTrxIndex != -1 {
+					pb.executeGroup(group, ch)
+				} else {
+					for _, txInfo := range group.txInfos {
+						ch <- txInfo
+					}
+				}
+
+				if len(pb.executionGroups) == 1 {
+					pb.statedb.FinaliseGroup(true)
+					return
+				}
+				stateObjsToReuse := make(map[common.Address]struct{})
+				for _, txInfo := range group.txInfos {
+					if result := txInfo.result; result != nil {
+						appendStateObjToReuse(stateObjsToReuse, result.touchedAddresses)
+					}
+				}
+
+				for addr := range stateObjsToReuse {
+					select {
+					case <-chForExist:
+						return
+					default:
+						stateObj, data, changed := pb.statedb.CopyStateObjRlpDataFromOtherDB(group.statedb, addr)
+						if changed {
+							chForUpdateCache <- &addressRlpDataPair{
+								address:  addr,
+								stateObj: stateObj,
+								rlpData:  data,
+							}
+						}
+					}
+				}
+			}(group, chForExist)
 		}
+
+		result := <-ch1
+		if len(result.conflictGroups) != 0 {
+			for _, ch := range chsForExist {
+				close(ch)
+			}
+			wg.Wait()
+			close(chForUpdateCache)
+			<-chForFinish
+
+			pb.reGroupAndRevert(result.conflictGroups, result.conflictTxs)
+			chForUpdateCache = make(chan *addressRlpDataPair, len(pb.txInfos)*2)
+			continue
+		}
+		break
 	}
 
+	for _, group := range pb.executionGroups {
+		if group.err != nil && (group.errTxIndex < errIndex || errIndex == -1) {
+			err = group.err
+			errIndex = group.errTxIndex
+		}
+		usedGas += group.usedGas
+		pb.feeAmount.Add(group.feeAmount, pb.feeAmount)
+
+		// Update contract associated address
+		for _, txInfo := range group.txInfos {
+			if result := txInfo.result; result != nil {
+				receipts[txInfo.index] = result.receipt
+				chForAssociatedAddr <- txInfo
+			}
+		}
+	}
+	close(chForAssociatedAddr)
+
+	for index, tx := range pb.block.Transactions() {
+		if gasErr := gp.SubGas(tx.Gas()); gasErr != nil {
+			return nil, nil, 0, gasErr
+		}
+
+		if errIndex != -1 && index >= errIndex {
+			return nil, nil, 0, err
+		}
+
+		gp.AddGas(tx.Gas() - receipts[index].GasUsed)
+		cumulative += receipts[index].GasUsed
+		receipts[index].CumulativeGasUsed = cumulative
+		allLogs = append(allLogs, receipts[index].Logs...)
+	}
 	wg.Wait()
+	close(chForUpdateCache)
+	db := <-chForFinish
+	*pb.statedb = *db
+
+	return receipts, allLogs, usedGas, nil
 }
+
 func (pb *ParallelBlock) prepare() error {
 	txCount := pb.block.Transactions().Len()
 	contractAddrs := make([]common.Address, 0, txCount)
@@ -472,100 +603,14 @@ func (pb *ParallelBlock) prepareAndGroup() error {
 	return nil
 }
 
-func (pb *ParallelBlock) collectResult() (types.Receipts, []*types.Log, uint64, error) {
-	var (
-		err                 error
-		errIndex            = -1
-		receipts            = make(types.Receipts, len(pb.txInfos))
-		usedGas             = uint64(0)
-		allLogs             []*types.Log
-		gp                  = new(GasPool).AddGas(pb.block.GasLimit())
-		cumulative          = uint64(0)
-		wg                  = sync.WaitGroup{}
-		chForAssociatedAddr = make(chan *txInfo, len(pb.txInfos))
-		chForUpdateCache    = make(chan *addressRlpDataPair, len(pb.txInfos)*2)
-		chForFinish         = make(chan bool)
-	)
-
-	go pb.processAssociatedAddressOfContract(chForAssociatedAddr)
-	go pb.updateStateDB(chForUpdateCache, chForFinish)
-
-	// Copy updated state object to pb.stateDB
-	if len(pb.executionGroups) != 1 {
-		for _, group := range pb.executionGroups {
-			stateObjsToReuse := make(map[common.Address]struct{})
-
-			for _, txInfo := range group.txInfos {
-				if result := txInfo.result; result != nil {
-					appendStateObjToReuse(stateObjsToReuse, result.touchedAddresses)
-				}
-			}
-
-			wg.Add(1)
-			go func(db *state.StateDB, stateObjsToReuse map[common.Address]struct{}) {
-				defer wg.Done()
-				for addr := range stateObjsToReuse {
-					stateObj, data, changed := pb.statedb.CopyStateObjRlpDataFromOtherDB(db, addr)
-					if changed {
-						chForUpdateCache <- &addressRlpDataPair{
-							address:  addr,
-							stateObj: stateObj,
-							rlpData:  data,
-						}
-					}
-				}
-			}(group.statedb, stateObjsToReuse)
-		}
-	}
-
-	for _, group := range pb.executionGroups {
-		if group.err != nil && (group.errTxIndex < errIndex || errIndex == -1) {
-			err = group.err
-			errIndex = group.errTxIndex
-		}
-		usedGas += group.usedGas
-		pb.feeAmount.Add(group.feeAmount, pb.feeAmount)
-
-		// Update contract associated address
-		for _, txInfo := range group.txInfos {
-			if result := txInfo.result; result != nil {
-				receipts[txInfo.index] = result.receipt
-				chForAssociatedAddr <- txInfo
-			}
-		}
-	}
-
-	close(chForAssociatedAddr)
-
-	for index, tx := range pb.block.Transactions() {
-		if gasErr := gp.SubGas(tx.Gas()); gasErr != nil {
-			return nil, nil, 0, gasErr
-		}
-
-		if errIndex != -1 && index >= errIndex {
-			return nil, nil, 0, err
-		}
-
-		gp.AddGas(tx.Gas() - receipts[index].GasUsed)
-		cumulative += receipts[index].GasUsed
-		receipts[index].CumulativeGasUsed = cumulative
-		allLogs = append(allLogs, receipts[index].Logs...)
-	}
-
-	wg.Wait()
-	close(chForUpdateCache)
-	<-chForFinish
-
-	return receipts, allLogs, usedGas, nil
-}
-
 func (pb *ParallelBlock) processAssociatedAddressOfContract(ch chan *txInfo) {
 	associatedAddrs := make(map[common.Address]*state.TouchedAddressObject)
 
 	for txInfo := range ch {
 		if to := txInfo.tx.To(); to != nil {
-			touchedAddr := txInfo.result.touchedAddresses
+			touchedAddr := txInfo.result.touchedAddresses.Copy()
 			msg := txInfo.msg
+
 			touchedAddr.RemoveAccount(msg.From())
 			touchedAddr.RemoveAccount(msg.Payment())
 			touchedAddr.RemoveAccountsInArgs()
@@ -578,60 +623,27 @@ func (pb *ParallelBlock) processAssociatedAddressOfContract(ch chan *txInfo) {
 	associatedAddressMngr.UpdateAssociatedAddresses(associatedAddrs)
 }
 
-func (pb *ParallelBlock) updateStateDB(ch chan *addressRlpDataPair, chForFinish chan bool) {
-	if len(pb.executionGroups) == 1 {
-		pb.statedb.FinaliseGroup(true)
-	} else {
+func (pb *ParallelBlock) updateStateDB(ch chan *addressRlpDataPair, chForFinish chan *state.StateDB) {
+	if len(pb.executionGroups) != 1 {
+		db := pb.statedb.Copy()
 		for addrData := range ch {
-			pb.statedb.UpdateDBTrie(addrData.address, addrData.stateObj, addrData.rlpData)
+			db.UpdateDBTrie(addrData.address, addrData.stateObj, addrData.rlpData)
 		}
+		chForFinish <- db
+	} else {
+		chForFinish <- pb.statedb
 	}
-	chForFinish <- true
 }
 
 func (pb *ParallelBlock) Process() (types.Receipts, []*types.Log, uint64, error) {
-	var d0, d1, d2, d3, d4 time.Duration
-	t0 := time.Now()
-	start := t0
+	if pb.block.Transactions().Len() == 0 {
+		return nil, nil, 0, nil
+	}
 	if err := pb.prepareAndGroup(); err != nil {
 		return nil, nil, 0, err
 	}
-	d0 = time.Since(t0)
 
-	for {
-		t0 = time.Now()
-		pb.executeInParallel()
-		d1 += time.Since(t0)
-
-		t0 = time.Now()
-		if conflictGroups, conflictTxs := pb.checkConflict(); len(conflictGroups) != 0 {
-			d2 += time.Since(t0)
-			t0 = time.Now()
-			pb.reGroupAndRevert(conflictGroups, conflictTxs)
-			d3 += time.Since(t0)
-		} else {
-			d2 += time.Since(t0)
-			break
-		}
-	}
-
-	t0 = time.Now()
-	receipts, logs, gas, err := pb.collectResult()
-	d4 = time.Since(t0)
-
-	if len(pb.executionGroups) != 0 {
-		log.Debug("Process:", "block ", pb.block.Number(),
-			"txs", len(pb.txInfos),
-			"group", len(pb.executionGroups),
-			"prepareAndGroup", common.PrettyDuration(d0),
-			"exec", common.PrettyDuration(d1),
-			"check", common.PrettyDuration(d2),
-			"reGroupAndRevert", common.PrettyDuration(d3),
-			"collectResult", common.PrettyDuration(d4),
-			"elapsed", common.PrettyDuration(time.Since(start)))
-	}
-
-	return receipts, logs, gas, err
+	return pb.executeInParallelAndCheckConflict()
 }
 
 func sortTxInfosByIndex(txInfos []*txInfo) []*txInfo {
