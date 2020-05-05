@@ -416,6 +416,43 @@ func (pb *ParallelBlock) executeGroup(group *ExecutionGroup, ch chan *txInfo) {
 	group.SetStartTrxPos(-1)
 }
 
+func (pb *ParallelBlock) execute(group *ExecutionGroup, ch chan *txInfo, chForUpdateCache chan *addressRlpDataPair, chForExit chan bool) {
+	if group.startTrxIndex != -1 {
+		pb.executeGroup(group, ch)
+	} else {
+		for _, txInfo := range group.txInfos {
+			ch <- txInfo
+		}
+	}
+
+	if len(pb.executionGroups) == 1 {
+		pb.statedb.FinaliseGroup(true)
+		return
+	}
+	stateObjsToReuse := make(map[common.Address]struct{})
+	for _, txInfo := range group.txInfos {
+		if result := txInfo.result; result != nil {
+			appendStateObjToReuse(stateObjsToReuse, result.touchedAddresses)
+		}
+	}
+
+	for addr := range stateObjsToReuse {
+		select {
+		case <-chForExit:
+			return
+		default:
+			stateObj, data, changed := pb.statedb.CopyStateObjRlpDataFromOtherDB(group.statedb, addr)
+			if changed {
+				chForUpdateCache <- &addressRlpDataPair{
+					address:  addr,
+					stateObj: stateObj,
+					rlpData:  data,
+				}
+			}
+		}
+	}
+}
+
 func (pb *ParallelBlock) executeInParallelAndCheckConflict() (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		err                 error
@@ -432,11 +469,13 @@ func (pb *ParallelBlock) executeInParallelAndCheckConflict() (types.Receipts, []
 	)
 
 	for {
-		ch := make(chan *txInfo, len(pb.txInfos))
-		ch1 := make(chan *conflictInfo)
+		txInfoCh := make(chan *txInfo, len(pb.txInfos))
+		conflictInfoCh := make(chan *conflictInfo)
 		var chsForExist []chan bool
 
-		go pb.checkGroupsConflict(ch, ch1)
+		if len(pb.executionGroups) != 1 {
+			go pb.checkGroupsConflict(txInfoCh, conflictInfoCh)
+		}
 		go pb.updateStateDB(chForUpdateCache, chForFinish)
 		go pb.processAssociatedAddressOfContract(chForAssociatedAddr)
 
@@ -447,55 +486,26 @@ func (pb *ParallelBlock) executeInParallelAndCheckConflict() (types.Receipts, []
 
 			go func(group *ExecutionGroup, chForExit chan bool) {
 				defer wg.Done()
-				if group.startTrxIndex != -1 {
-					pb.executeGroup(group, ch)
-				} else {
-					for _, txInfo := range group.txInfos {
-						ch <- txInfo
-					}
-				}
-
-				if len(pb.executionGroups) == 1 {
-					pb.statedb.FinaliseGroup(true)
-					return
-				}
-				stateObjsToReuse := make(map[common.Address]struct{})
-				for _, txInfo := range group.txInfos {
-					if result := txInfo.result; result != nil {
-						appendStateObjToReuse(stateObjsToReuse, result.touchedAddresses)
-					}
-				}
-
-				for addr := range stateObjsToReuse {
-					select {
-					case <-chForExist:
-						return
-					default:
-						stateObj, data, changed := pb.statedb.CopyStateObjRlpDataFromOtherDB(group.statedb, addr)
-						if changed {
-							chForUpdateCache <- &addressRlpDataPair{
-								address:  addr,
-								stateObj: stateObj,
-								rlpData:  data,
-							}
-						}
-					}
-				}
+				pb.execute(group, txInfoCh, chForUpdateCache, chForExit)
 			}(group, chForExist)
 		}
 
-		result := <-ch1
-		if len(result.conflictGroups) != 0 {
-			for _, ch := range chsForExist {
-				close(ch)
-			}
-			wg.Wait()
-			close(chForUpdateCache)
-			<-chForFinish
+		if len(pb.executionGroups) != 1 {
+			result := <-conflictInfoCh
+			if len(result.conflictGroups) != 0 {
+				for _, ch := range chsForExist {
+					close(ch)
+				}
+				wg.Wait()
+				close(chForUpdateCache)
+				<-chForFinish
 
-			pb.reGroupAndRevert(result.conflictGroups, result.conflictTxs)
-			chForUpdateCache = make(chan *addressRlpDataPair, len(pb.txInfos)*2)
-			continue
+				pb.reGroupAndRevert(result.conflictGroups, result.conflictTxs)
+				chForUpdateCache = make(chan *addressRlpDataPair, len(pb.txInfos)*2)
+				continue
+			}
+		} else {
+			wg.Wait()
 		}
 		break
 	}
