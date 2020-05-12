@@ -7,7 +7,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"math/big"
-	"runtime"
 	"testing"
 	"time"
 )
@@ -116,7 +115,7 @@ func TestStateTime(t *testing.T) {
 		index int
 	}
 	taskdone := make(chan task, 16)
-	maxActiveDialTasks := runtime.NumCPU() * 6
+	maxActiveDialTasks := 16
 	var runningTasks []task
 	var queuedTasks []task // tasks that can't run yet
 
@@ -167,9 +166,10 @@ func TestStateTime(t *testing.T) {
 		}
 		return index
 	}
-	var stateArr []*StateDB
-	state1, _ = New(root, NewDatabase(db))
+
+	stateP, _ := New(root, NewDatabase(db))
 	index := 0
+	done := 0
 
 running:
 	for {
@@ -183,16 +183,50 @@ running:
 
 		select {
 		case t := <-taskdone:
-			stateArr = append(stateArr, t.state)
-			delTask(t)
-			if len(stateArr) == stateNum {
+			stateP = makeState(stateP, []*StateDB{t.state})
+			done = done + len(t.to)
+			if done == sendNumber {
 				break running
 			}
+			delTask(t)
+		default:
 		}
 	}
 
-	t05 := time.Now()
-	stateP := state1
+	t1 = time.Now()
+	root1 = stateP.IntermediateRoot(true)
+	// Write state0 changes to db
+	t2 = time.Now()
+	root1, err = stateP.Commit(true)
+	if err != nil {
+		panic(fmt.Sprintf("state0 write error: %v", err))
+	}
+	t3 = time.Now()
+	if err := stateP.Database().TrieDB().Commit(root1, false); err != nil {
+		panic(fmt.Sprintf("trie write error: %v", err))
+	}
+	fmt.Println("balance", weiToTrue(state1.GetBalance(mAccount)), "apply", common.PrettyDuration(t1.Sub(start)),
+		"IntermediateRoot", common.PrettyDuration(t2.Sub(t1)),
+		"Commit", common.PrettyDuration(t3.Sub(t2)),
+		"DBCommit", common.PrettyDuration(time.Since(t3)),
+		"all time", common.PrettyDuration(time.Since(start)),
+		"root", root1.String(),
+	)
+}
+
+func trueToWei(trueValue uint64) *big.Int {
+	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	value := new(big.Int).Mul(big.NewInt(int64(trueValue)), baseUnit)
+	return value
+}
+
+func weiToTrue(value *big.Int) uint64 {
+	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	valueT := new(big.Int).Div(value, baseUnit).Uint64()
+	return valueT
+}
+
+func makeState(stateP *StateDB, stateArr []*StateDB) *StateDB {
 	// Copy the dirty states, logs, and preimages
 	for _, stateC := range stateArr {
 		for addr := range stateC.journal.dirties {
@@ -246,39 +280,5 @@ running:
 			stateP.preimages[hash] = preimage
 		}
 	}
-
-	t1 = time.Now()
-	root1 = stateP.IntermediateRoot(true)
-	// Write state0 changes to db
-	t2 = time.Now()
-	root1, err = stateP.Commit(true)
-	if err != nil {
-		panic(fmt.Sprintf("state0 write error: %v", err))
-	}
-	t3 = time.Now()
-	if err := stateP.Database().TrieDB().Commit(root1, false); err != nil {
-		panic(fmt.Sprintf("trie write error: %v", err))
-	}
-	fmt.Println("time ", common.PrettyDuration(t05.Sub(start)),
-		"time ", common.PrettyDuration(t1.Sub(t05)),
-		"root1", root1.String())
-	fmt.Println("balance", weiToTrue(state1.GetBalance(mAccount)), "apply", common.PrettyDuration(t1.Sub(start)),
-		"IntermediateRoot", common.PrettyDuration(t2.Sub(t1)),
-		"Commit", common.PrettyDuration(t3.Sub(t2)),
-		"DBCommit", common.PrettyDuration(time.Since(t3)),
-		"all time", common.PrettyDuration(time.Since(start)),
-		"root", root1.String(),
-	)
-}
-
-func trueToWei(trueValue uint64) *big.Int {
-	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	value := new(big.Int).Mul(big.NewInt(int64(trueValue)), baseUnit)
-	return value
-}
-
-func weiToTrue(value *big.Int) uint64 {
-	baseUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	valueT := new(big.Int).Div(value, baseUnit).Uint64()
-	return valueT
+	return stateP
 }
