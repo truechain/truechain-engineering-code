@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -109,6 +110,45 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	b.txs = append(b.txs, tx)
 	b.receipts = append(b.receipts, receipt)
 	b.feeAmout = feeAmount
+}
+
+func (b *BlockGen) ReadTxWithChain(bc *BlockChain, tx *types.Transaction) ([]byte, uint64) {
+	if b.gasPool == nil {
+		b.SetCoinbase(common.Address{})
+		b.feeAmout = big.NewInt(0)
+	}
+	stateDb, err := bc.StateAt(b.parent.Root())
+
+	result, gas, err := ReadTransaction(b.config, bc, stateDb, b.header, tx, vm.Config{})
+	if err != nil {
+		panic(err)
+	}
+	return result, gas
+}
+
+func ReadTransaction(config *params.ChainConfig, bc ChainContext,
+	statedb *state.StateDB, header *types.Header, tx *types.Transaction, cfg vm.Config) ([]byte, uint64, error) {
+
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
+
+	msgCopy := types.NewMessage(msg.From(), msg.To(), msg.Payment(), 0, msg.Value(), msg.Fee(), msg.Gas(), msg.GasPrice(), msg.Data(), false)
+
+	if err != nil {
+		return nil, 0, err
+	}
+	// Create a new context to be used in the EVM environment
+	context := NewEVMContext(msgCopy, header, bc, nil, nil)
+	// Create a new environment which holds all relevant information
+	// about the transaction and calling mechanisms.
+	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	// Apply the transaction to the current state (included in the env)
+	gp := new(GasPool).AddGas(math.MaxUint64)
+	result, gas, _, err := ApplyMessage(vmenv, msgCopy, gp)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return result, gas, err
 }
 
 // Number returns the block number of the block being generated.
