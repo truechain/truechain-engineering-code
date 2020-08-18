@@ -48,12 +48,12 @@ var (
 	}
 	PubKeyKeyFlag = cli.StringFlag{
 		Name:  "pubkey",
-		Usage: "Committee public key for BFT",
+		Usage: "Committee public key for BFT (no 0x prefix)",
 		Value: "",
 	}
 	BFTKeyKeyFlag = cli.StringFlag{
 		Name:  "bftkey",
-		Usage: "Committee bft key for BFT",
+		Usage: "Committee bft key for BFT (no 0x prefix)",
 		Value: "",
 	}
 	SnailNumberFlag = cli.Uint64Flag{
@@ -67,6 +67,8 @@ var (
 		utils.RPCPortFlag,
 		TrueValueFlag,
 		FeeFlag,
+		PubKeyKeyFlag,
+		BFTKeyKeyFlag,
 	}
 )
 
@@ -98,6 +100,7 @@ func init() {
 	app.Commands = []cli.Command{
 		AppendCommand,
 		UpdateFeeCommand,
+		UpdatePKCommand,
 		cancelCommand,
 		withdrawCommand,
 		queryStakingCommand,

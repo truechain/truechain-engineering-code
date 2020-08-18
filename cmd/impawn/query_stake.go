@@ -57,6 +57,29 @@ func UpdateFeeImpawn(ctx *cli.Context) error {
 	return nil
 }
 
+var UpdatePKCommand = cli.Command{
+	Name:   "updatepk",
+	Usage:  "Update staking pk will take effect in next epoch",
+	Action: utils.MigrateFlags(UpdatePKImpawn),
+	Flags:  ImpawnFlags,
+}
+
+func UpdatePKImpawn(ctx *cli.Context) error {
+	loadPrivate(ctx)
+
+	conn, url := dialConn(ctx)
+	printBaseInfo(conn, url)
+
+	pubkey, pk, _ := getPubKey(ctx, conn)
+	fmt.Println(" Pubkey ", pubkey)
+
+	input := packInput("setPubkey", pk)
+	txHash := sendContractTransaction(conn, from, types.StakingAddress, new(big.Int).SetInt64(0), priKey, input)
+
+	getResult(conn, txHash, true, false)
+	return nil
+}
+
 var cancelCommand = cli.Command{
 	Name:   "cancel",
 	Usage:  "Call this staking will cancelled at the next epoch",

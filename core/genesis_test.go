@@ -502,7 +502,7 @@ func TestReward(t *testing.T) {
 	
 	impl := vm.NewImpawnImpl()
 	for _,val := range accounts {
-		impl.InsertSAccount2(want, val.address, val.pk, val.amount, val.fee, true)
+		impl.InsertSAccount2(want,0, val.address, val.pk, val.amount, val.fee, true)
 		for _,val2 := range val.das {
 			impl.InsertDAccount2(want, val.address, val2.address, val2.amount)
 		}
@@ -513,7 +513,7 @@ func TestReward(t *testing.T) {
 		fmt.Println(err)
 	}
 
-	rinfo, _ := impl.Reward2(0,want, allReward)
+	rinfo, _ := impl.Reward2(0,want,1, allReward)
 	
 	for i,v := range accounts {
 		wReward := getReward(v.address,rinfo)
@@ -588,7 +588,10 @@ func getReward(addr common.Address,infos []*types.SARewardInfos) *big.Int {
 	}
 	return reward
 }
-
+func Test1(t *testing.T) {
+	fmt.Println(generateAddr())
+	fmt.Println("finish")
+}
 func TestRedeem(t *testing.T) {
 	want := uint64(100)
 	params.DposForkPoint = want
@@ -638,7 +641,7 @@ func TestRedeem(t *testing.T) {
 	
 	impl := vm.NewImpawnImpl()
 	for _,val := range accounts {
-		impl.InsertSAccount2(want-5, val.address, val.pk, val.amount, val.fee, true)
+		impl.InsertSAccount2(want-5,0, val.address, val.pk, val.amount, val.fee, true)
 		for _,val2 := range val.das {
 			impl.InsertDAccount2(want-5, val.address, val2.address, val2.amount)
 		}
@@ -655,7 +658,7 @@ func TestRedeem(t *testing.T) {
 		fmt.Println(err)
 	}
 
-	if err := impl.Shift(1); err != nil  {
+	if err := impl.Shift(1,0); err != nil  {
 		fmt.Println("shift error:",err)
 	}
 	

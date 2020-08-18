@@ -698,16 +698,13 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 	return nil, err
 }
 
-func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.BalanceChangeContent {
-	var addrWithBalance = make(map[common.Address]*big.Int)
+func (s *PublicBlockChainAPI) GetStateChangeByFastNumber(fastNumber rpc.BlockNumber) *types.FastBalanceChangeContent {
 	info := s.b.GetStateChangeByFastNumber(fastNumber)
 	if info == nil || info.Balance == nil || len(info.Balance) == 0 {
-		return &types.BalanceChangeContent{addrWithBalance}
+		return nil
 	}
-	for _, balanceInfo := range info.Balance {
-		addrWithBalance[balanceInfo.Address] = balanceInfo.Amount
-	}
-	return &types.BalanceChangeContent{addrWithBalance}
+	addrWithBalance := info.ToMap()
+	return &types.FastBalanceChangeContent{addrWithBalance}
 }
 
 func (s *PublicBlockChainAPI) GetBalanceChangeBySnailNumber(snailNumber rpc.BlockNumber) *types.BalanceChangeContent {
@@ -1221,10 +1218,10 @@ func RPCMarshalRewardContent(content *types.SnailRewardContenet) map[string]inte
 		return nil
 	}
 	fields := map[string]interface{}{
-		"blockminer":       content.BlockMinerReward,
-		"fruitminer":       content.FruitMinerReward,
-		"committeReward":   content.CommitteeReward,
-		"foundationReward": content.FoundationReward,
+		"blockminer":      content.BlockMinerReward,
+		"fruitminer":      content.FruitMinerReward,
+		"committeeReward": content.CommitteeReward,
+		"developerReward": content.FoundationReward,
 	}
 	/*log.Warn("api", "blockminer", content.BlockMinerReward)
 	log.Warn("api", "committeReward", content.CommitteeReward)
@@ -1245,26 +1242,21 @@ func (s *PublicBlockChainAPI) GetChainRewardContent(blockNr rpc.BlockNumber, add
 	empty := common.Address{}
 	if bytes.Equal(addr.Bytes(), empty.Bytes()) {
 		fields := map[string]interface{}{
-			"Number":           hexutil.Uint64(blockNr),
-			"time":             hexutil.Uint64(content.St),
-			"foundationReward": content.Foundation,
-			"blockminer":       content.CoinBase,
-			"fruitminer":       content.FruitBase,
-			"committeReward":   content.CommitteeBase,
+			"Number":          hexutil.Uint64(blockNr),
+			"time":            hexutil.Uint64(content.St),
+			"developerReward": content.Foundation,
+			"blockminer":      content.CoinBase,
+			"fruitminer":      content.FruitBase,
+			"committeeReward": content.CommitteeBase,
 		}
 		return fields
 	} else {
-		for _, val := range content.CommitteeBase {
-			if len(val.Items) > 0 && bytes.Equal(val.Items[0].Address.Bytes(), addr.Bytes()) {
-				fields := map[string]interface{}{
-					"Number":        hexutil.Uint64(blockNr),
-					"time":          hexutil.Uint64(content.St),
-					"stakingReward": val.Items,
-				}
-				return fields
-			}
+		fields := map[string]interface{}{
+			"Number":        hexutil.Uint64(blockNr),
+			"time":          hexutil.Uint64(content.St),
+			"stakingReward": types.FetchOne(content.CommitteeBase, addr),
 		}
-		return nil
+		return fields
 	}
 }
 

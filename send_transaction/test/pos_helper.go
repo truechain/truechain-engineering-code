@@ -214,9 +214,12 @@ func newTestPOSManager(sBlocks int, executableTx func(uint64, *core.BlockGen, *c
 	params.MinTimeGap = big.NewInt(0)
 	params.SnailRewardInterval = big.NewInt(3)
 	params.ElectionMinLimitForStaking = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e18))
+	params.NewEpochLength = 2000  // about 1.5 days
+	params.MaxRedeemHeight = 1000 // about 15 days
 
 	gspec.Config.TIP7 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)}
+	gspec.Config.TIP10 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 
 	genesis := gspec.MustFastCommit(db)
 	blockchain, _ := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
@@ -295,6 +298,23 @@ func sendDepositTransaction(height uint64, gen *core.BlockGen, from common.Addre
 	}
 }
 
+func sendUpdateFeeTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 45 {
+		nonce, _ := getNonce(gen, from, state, "sendUpdateFeeTransaction", txPool)
+		input := packInput(abiStaking, "setFee", "sendUpdateFeeTransaction", new(big.Int).SetInt64(100))
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
+	}
+}
+
+func sendUpdatePkTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
+	if height == 48 {
+		nonce, _ := getNonce(gen, from, state, "sendUpdatePkTransaction", txPool)
+		pub := crypto.FromECDSAPub(&dkey1.PublicKey)
+		input := packInput(abiStaking, "setPubkey", "sendUpdatePkTransaction", pub)
+		addTx(gen, blockchain, nonce, nil, input, txPool, priKey, signer)
+	}
+}
+
 func sendDepositAppendTransaction(height uint64, gen *core.BlockGen, from common.Address, value *big.Int, priKey *ecdsa.PrivateKey, signer types.TIP1Signer, state *state.StateDB, blockchain *core.BlockChain, abiStaking abi.ABI, txPool txPool) {
 	if height == 50 {
 		nonce, _ := getNonce(gen, from, state, "sendDepositAppendTransaction", txPool)
@@ -341,7 +361,7 @@ func sendGetDelegateTransaction(height uint64, gen *core.BlockGen, from, saAddre
 			Unlocked  *big.Int
 		}{}
 		readTx(gen, blockchain, 0, big.NewInt(0), input, txPool, priKey, signer, "getDelegate", &args)
-		printTest("Delegated ", args.Delegated, "Locked ", args.Locked, "Unlocked ", args.Unlocked)
+		printTest("Delegated ", args.Delegated, "Locked ", args.Locked, "Unlocked ", args.Unlocked, "balance", gen.GetStateDB().GetBalance(from))
 	}
 }
 
@@ -422,7 +442,7 @@ func addTx(gen *core.BlockGen, blockchain *core.BlockChain, nonce uint64, value 
 	//2426392 1000000000
 	//866328  1000000
 	//2400000
-	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 2446392, big.NewInt(1000000000), input), signer, priKey)
+	tx, _ := types.SignTx(types.NewTransaction(nonce, types.StakingAddress, value, 2646392, big.NewInt(1000000000), input), signer, priKey)
 	if gen != nil {
 		gen.AddTxWithChain(blockchain, tx)
 	} else {

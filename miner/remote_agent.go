@@ -25,9 +25,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 )
 
@@ -133,7 +133,14 @@ func (a *RemoteAgent) GetWork() ([4]string, error) {
 
 	if a.currentWork != nil {
 		block := a.currentWork.Block
-		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
+		// epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
+
+		blockNum := block.Number().Uint64()
+		tip9 := a.chain.Config().TIP9.SnailNumber.Uint64()
+		if tip9 < blockNum {
+			blockNum = tip9
+		}
+		epoch := uint64((blockNum - 1) / UPDATABLOCKLENGTH)
 		block.Number()
 		res[0] = block.HashNoNonce().Hex()
 		//DatasetHash := a.engine.DataSetHash(block.NumberU64())

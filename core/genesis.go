@@ -265,7 +265,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			hh = hh - 1
 		}
 		for _, member := range g.Committee {
-			err := impl.InsertSAccount2(hh, member.Coinbase, member.Publickey, big.NewInt(1000000000000000000), big.NewInt(100), true)
+			err := impl.InsertSAccount2(hh,g.Config.TIP10.FastNumber.Uint64(), member.Coinbase, member.Publickey, big.NewInt(1000000000000000000), big.NewInt(100), true)
 			if err != nil {
 				log.Error("ToFastBlock InsertSAccount", "error", err)
 			}
@@ -275,7 +275,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		if err != nil {
 			log.Error("ToFastBlock DoElections", "error", err)
 		}
-		err = impl.Shift(1)
+		err = impl.Shift(1,g.Config.TIP10.FastNumber.Uint64())
 		if err != nil {
 			log.Error("ToFastBlock Shift", "error", err)
 		}

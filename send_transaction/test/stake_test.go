@@ -128,21 +128,69 @@ func TestGetAddress(t *testing.T) {
 	saddr := crypto.PubkeyToAddress(skey.PublicKey)
 	skey2, _ := crypto.HexToECDSA("48552cb89a19028d116c7853c460f0c76d50cddaf2d7c217ac611b696e4680c6")
 	saddr2 := crypto.PubkeyToAddress(skey2.PublicKey)
+	//103
 	skey3, _ := crypto.HexToECDSA("6e7595dcb8eda2213c1a0940c4920ce7db89d8f805fc4e85567fd1355c83cff2")
 	saddr3 := crypto.PubkeyToAddress(skey3.PublicKey)
+	//104
 	skey4, _ := crypto.HexToECDSA("62eab9d8657c25330f587c2fbb292a559ed27ddb391b9efe6014f920e67d2f1a")
 	saddr4 := crypto.PubkeyToAddress(skey4.PublicKey)
 
-	fmt.Println("saddr", saddr.String(), "saddr2", saddr2.String(), "saddr3", saddr3.String(), "saddr26 ", saddr4.String())
+	fmt.Println("saddr", saddr.String(), "saddr2", saddr2.String(), "saddr3", saddr3.String(), "saddr4 ", saddr4.String())
 
+	//105
 	skey5, _ := crypto.HexToECDSA("dbb0d9954bef0db91d7d15c44855cb0d0e662d01ac2a15d31d38724236802fbd")
 	saddr5 := crypto.PubkeyToAddress(skey5.PublicKey)
+	//106
 	skey6, _ := crypto.HexToECDSA("2801712bcc44a58f4b2d0e74df50b9875747d60f0b8a133ea591276ca004ad3e")
 	saddr6 := crypto.PubkeyToAddress(skey6.PublicKey)
+	// 011
 	skey7, _ := crypto.HexToECDSA("5e6ea3e3ba8a3d8940088247eda01a0909320f729ae3afcdc5747b2ced1ac460")
 	saddr7 := crypto.PubkeyToAddress(skey7.PublicKey)
 
 	fmt.Println("saddr5", saddr5.String(), "saddr6", saddr6.String(), "saddr7", saddr7.String())
+
+	// 107
+	skey8, _ := crypto.HexToECDSA("597bce6754f85ddf16f3ef04d5561da43b9cf9b6418b25ca3987a7af42d2e47c")
+	saddr8 := crypto.PubkeyToAddress(skey8.PublicKey)
+	//031
+	skey9, _ := crypto.HexToECDSA("3e1a89b7f3ed62a8a7b7a7511ccfb303d1fa76f9c12d954071984b5209d068a3")
+	saddr9 := crypto.PubkeyToAddress(skey9.PublicKey)
+	//111
+	skey10, _ := crypto.HexToECDSA("f0f9fa54c701cdbc3e87adbe3936d2cafef66c9e018d0302587e932dab58fd85")
+	saddr10 := crypto.PubkeyToAddress(skey10.PublicKey)
+
+	fmt.Println("saddr8", saddr8.String(), "saddr9", saddr9.String(), "saddr10", saddr10.String())
+
+	pub101 := hex.EncodeToString(crypto.FromECDSAPub(&skey2.PublicKey))
+	pub102 := hex.EncodeToString(crypto.FromECDSAPub(&skey2.PublicKey))
+	pub103 := hex.EncodeToString(crypto.FromECDSAPub(&skey3.PublicKey))
+	pub104 := hex.EncodeToString(crypto.FromECDSAPub(&skey4.PublicKey))
+	pub105 := hex.EncodeToString(crypto.FromECDSAPub(&skey5.PublicKey))
+	pub106 := hex.EncodeToString(crypto.FromECDSAPub(&skey6.PublicKey))
+	pub011 := hex.EncodeToString(crypto.FromECDSAPub(&skey7.PublicKey))
+	fmt.Println("pub101", pub101, "pub102", pub102, "pub103", pub103, "pub104 ", pub104)
+	fmt.Println("pub105", pub105, "pub106", pub106, "pub011", pub011)
+}
+
+func TestDepositCancelInSameEpoch(t *testing.T) {
+	StakerValidNumber := uint64(60)
+	// Create a helper to check if a gas allowance results in an executable transaction
+	executable := func(number uint64, gen *core.BlockGen, fastChain *core.BlockChain, header *types.Header, statedb *state.StateDB) {
+		sendTranction(number, gen, statedb, mAccount, saddr1, big.NewInt(6000000000000000000), priKey, signer, nil, header)
+		sendDepositTransaction(number, gen, saddr1, big.NewInt(4000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendGetDepositTransaction(number-61, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendCancelTransaction(number-StakerValidNumber, gen, saddr1, big.NewInt(3000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendGetDepositTransaction(number-StakerValidNumber-11, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendWithdrawTransaction(number-types.MinCalcRedeemHeight(2), gen, saddr1, big.NewInt(1000000000000000000), skey1, signer, statedb, fastChain, abiStaking, nil)
+		sendGetDepositTransaction(number-types.MinCalcRedeemHeight(2)-11, gen, saddr1, skey1, signer, statedb, fastChain, abiStaking, nil)
+	}
+
+	manager := newTestPOSManager(101, executable)
+	fmt.Println(" saddr1 ", manager.GetBalance(saddr1), " StakingAddress ", manager.GetBalance(types.StakingAddress), " ", types.ToTrue(manager.GetBalance(types.StakingAddress)))
+	fmt.Println("epoch ", types.GetEpochFromID(1), " ", types.GetEpochFromID(2), " ", types.GetEpochFromID(3), " ", types.GetEpochFromID(4), " ", types.GetEpochFromID(5))
+	fmt.Println("epoch ", types.GetEpochFromID(2), " ", types.MinCalcRedeemHeight(2))
+	//epoch  [id:1,begin:1,end:2000]   [id:2,begin:2001,end:4000]   [id:3,begin:4001,end:6000]
+	//epoch  [id:2,begin:2001,end:4000]   5002
 }
 
 func TestParseDepositInput(t *testing.T) {
@@ -173,7 +221,7 @@ func TestUnpack(t *testing.T) {
 	}{}
 	// 5d322ae8
 	inputstr := "5d322ae8000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003e8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000004050863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b23522cd470243453a299fa9e77237716103abc11a1df38855ed6f2ee187e9c582ba6"
-	input,e := hex.DecodeString(inputstr)
+	input, e := hex.DecodeString(inputstr)
 	if e != nil {
 		fmt.Println(e)
 	}
@@ -184,17 +232,17 @@ func TestUnpack(t *testing.T) {
 	input = input[4:]
 	err := method.Inputs.Unpack(&args, input)
 	if err != nil {
-		fmt.Println("Unpack deposit pubkey error",err)
+		fmt.Println("Unpack deposit pubkey error", err)
 	}
 	// vpk,e2 := hex.DecodeString("0450863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b23522cd470243453a299fa9e77237716103abc11a1df38855ed6f2ee187e9c582ba6")
 	// if e2 != nil {
 	// 	fmt.Println("e2:",e2)
 	// }
 	if _, err := crypto.UnmarshalPubkey(args.Pubkey); err != nil {
-		fmt.Println("invalid pk,err:",err)
+		fmt.Println("invalid pk,err:", err)
 	}
-	fmt.Println("pk:",hex.EncodeToString(args.Pubkey))
-	fmt.Println("fee",args.Fee.String())
-	fmt.Println("Value",args.Value.String())
+	fmt.Println("pk:", hex.EncodeToString(args.Pubkey))
+	fmt.Println("fee", args.Fee.String())
+	fmt.Println("Value", args.Value.String())
 	fmt.Println("finish")
 }

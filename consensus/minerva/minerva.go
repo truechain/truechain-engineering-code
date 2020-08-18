@@ -81,7 +81,7 @@ var (
 	SqrtMax = 6400
 
 	RewardMinerDecayEpoch = 50000
-	NewRewardBegin = 58441
+	NewRewardBegin = 53550
 	NewRewardCoin = new(big.Int).Mul(big.NewInt(80),BaseBig)
 	RewardEndSnailHeight = 1000000
 )

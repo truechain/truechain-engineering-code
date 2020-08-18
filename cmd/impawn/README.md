@@ -100,6 +100,18 @@ This command will:
  * Load private key in key/bftkey file, connect http://39.100.97.129:8545 node.
  * Sub command only update validator fee(0-10000), which will influence delegator benefit.
 
+### UpdatePK
+
+```
+$ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --bftkey f0f9fa54c701cdbc3e87adbe3936d2cafef66c9e018d0302587e932dab58fd85 updatepk
+
+```
+
+This command will:
+
+ * Load private key in key/bftkey file, connect http://39.100.97.129:8545 node.
+ * Sub command only update validator pk, you can use --bftkey + private key or --pubkey + public key .
+
 ### Send
 
 ```
@@ -151,7 +163,7 @@ This command will:
 ### Delegate cancel
  
  ```
- $ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 10 --address 0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2 delegate deposit
+ $ impawn --key key/bftkey --rpcaddr 39.100.97.129 --rpcport 8545 --value 10 --address 0x3f944d3f12e904e1A647E5FF9f531B8deE2346B2 delegate cancel
  
  ```
  
