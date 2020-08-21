@@ -99,7 +99,7 @@ func (mw *memoryWrapper) slice(begin, end int64) []byte {
 		log.Warn("Tracer accessed out of bound memory", "available", mw.memory.Len(), "offset", begin, "size", end-begin)
 		return nil
 	}
-	return mw.memory.Get(begin, end-begin)
+	return mw.memory.GetCopy(begin, end-begin)
 }
 
 // getUint returns the 32 bytes at the specified address interpreted as a uint.
@@ -153,7 +153,7 @@ func (sw *stackWrapper) peek(idx int) *big.Int {
 		log.Warn("Tracer accessed out of bound stack", "size", len(sw.stack.Data()), "index", idx)
 		return new(big.Int)
 	}
-	return sw.stack.Data()[len(sw.stack.Data())-idx-1]
+	return sw.stack.Back(idx).ToBig()
 }
 
 // pushObject assembles a JSVM object wrapping a swappable stack and pushes it
@@ -510,7 +510,7 @@ func (jst *Tracer) CaptureStart(from common.Address, to common.Address, create b
 }
 
 // CaptureState implements the Tracer interface to trace a single step of VM execution.
-func (jst *Tracer) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, memory *vm.Memory, stack *vm.Stack, contract *vm.Contract, depth int, err error) error {
+func (jst *Tracer) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, memory *vm.Memory, stack *vm.Stack, rStack *vm.ReturnStack, rdata []byte, contract *vm.Contract, depth int, err error) error {
 	if jst.err == nil {
 		// Initialize the context if it wasn't done yet
 		if !jst.inited {
@@ -549,7 +549,7 @@ func (jst *Tracer) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost 
 
 // CaptureFault implements the Tracer interface to trace an execution fault
 // while running an opcode.
-func (jst *Tracer) CaptureFault(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, memory *vm.Memory, stack *vm.Stack, contract *vm.Contract, depth int, err error) error {
+func (jst *Tracer) CaptureFault(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, memory *vm.Memory, stack *vm.Stack, rStack *vm.ReturnStack, contract *vm.Contract, depth int, err error) error {
 	if jst.err == nil {
 		// Apart from the error, everything matches the previous invocation
 		jst.errorValue = new(string)

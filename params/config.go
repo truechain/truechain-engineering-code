@@ -56,12 +56,12 @@ var (
 			MinimumFruitDifficulty: big.NewInt(262144),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP3: &BlockConfig{FastNumber: big.NewInt(1500000)},
-		TIP5: &BlockConfig{SnailNumber: big.NewInt(12800)},
-		TIP7: &BlockConfig{FastNumber: big.NewInt(6226000)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(293)},
-		TIP9: &BlockConfig{SnailNumber: big.NewInt(47000)},
-		TIP10: &BlockConfig{FastNumber: big.NewInt(6520000),CID: big.NewInt(302)},
+		TIP3:  &BlockConfig{FastNumber: big.NewInt(1500000)},
+		TIP5:  &BlockConfig{SnailNumber: big.NewInt(12800)},
+		TIP7:  &BlockConfig{FastNumber: big.NewInt(6226000)},
+		TIP8:  &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(293)},
+		TIP9:  &BlockConfig{SnailNumber: big.NewInt(47000)},
+		TIP10: &BlockConfig{FastNumber: big.NewInt(6520000), CID: big.NewInt(302)},
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
@@ -93,11 +93,11 @@ var (
 			MinimumFruitDifficulty: big.NewInt(200),
 			DurationLimit:          big.NewInt(600),
 		}),
-		TIP3: &BlockConfig{FastNumber: big.NewInt(450000)},
-		TIP5: &BlockConfig{SnailNumber: big.NewInt(4000)},
-		TIP7: &BlockConfig{FastNumber: big.NewInt(4666000)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(215)},
-		TIP9: &BlockConfig{SnailNumber: big.NewInt(38648)},
+		TIP3:  &BlockConfig{FastNumber: big.NewInt(450000)},
+		TIP5:  &BlockConfig{SnailNumber: big.NewInt(4000)},
+		TIP7:  &BlockConfig{FastNumber: big.NewInt(4666000)},
+		TIP8:  &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(215)},
+		TIP9:  &BlockConfig{SnailNumber: big.NewInt(38648)},
 		TIP10: &BlockConfig{FastNumber: big.NewInt(5034600), CID: big.NewInt(229)},
 	}
 
@@ -130,12 +130,12 @@ var (
 			MinimumFruitDifficulty: big.NewInt(100),
 			DurationLimit:          big.NewInt(150),
 		}),
-		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
-		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
-		TIP7: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(0)},
-		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
-		TIP10: &BlockConfig{FastNumber: big.NewInt(40000),CID: big.NewInt(117)},
+		TIP3:  &BlockConfig{FastNumber: big.NewInt(380000)},
+		TIP5:  &BlockConfig{SnailNumber: big.NewInt(5000)},
+		TIP7:  &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP8:  &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(0)},
+		TIP9:  &BlockConfig{SnailNumber: big.NewInt(20)},
+		TIP10: &BlockConfig{FastNumber: big.NewInt(40000), CID: big.NewInt(117)},
 	}
 
 	SingleNodeChainConfig = &ChainConfig{
@@ -145,12 +145,12 @@ var (
 			MinimumFruitDifficulty: big.NewInt(2),
 			DurationLimit:          big.NewInt(120),
 		}),
-		TIP3: &BlockConfig{FastNumber: big.NewInt(380000)},
-		TIP5: &BlockConfig{SnailNumber: big.NewInt(5000)},
-		TIP7: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP8: &BlockConfig{FastNumber: big.NewInt(100), CID: big.NewInt(-1)},
-		TIP9: &BlockConfig{SnailNumber: big.NewInt(20)},
-		TIP10: &BlockConfig{FastNumber: big.NewInt(0),CID: big.NewInt(1)},
+		TIP3:  &BlockConfig{FastNumber: big.NewInt(380000)},
+		TIP5:  &BlockConfig{SnailNumber: big.NewInt(5000)},
+		TIP7:  &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP8:  &BlockConfig{FastNumber: big.NewInt(100), CID: big.NewInt(-1)},
+		TIP9:  &BlockConfig{SnailNumber: big.NewInt(20)},
+		TIP10: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(1)},
 	}
 
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
@@ -168,13 +168,13 @@ var (
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil,TIP10: nil}
+		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil, TIP10: nil}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
 	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil,TIP10: nil}
+		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil, TIP10: nil}
 )
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
@@ -236,11 +236,12 @@ type ChainConfig struct {
 
 	TIP3 *BlockConfig `json:"tip3"`
 
-	TIP5 *BlockConfig `json:"tip5"`
-	TIP7 *BlockConfig `json:"tip7"`
-	TIP8 *BlockConfig `json:"tip8"`
-	TIP9 *BlockConfig `json:"tip9"`
+	TIP5  *BlockConfig `json:"tip5"`
+	TIP7  *BlockConfig `json:"tip7"`
+	TIP8  *BlockConfig `json:"tip8"`
+	TIP9  *BlockConfig `json:"tip9"`
 	TIP10 *BlockConfig `json:"tip10"`
+	TIP11 *BlockConfig `json:"tip11"`
 
 	TIPStake *BlockConfig `json:"tipstake"`
 }
@@ -352,14 +353,6 @@ func (c *ChainConfig) String() string {
 	)
 }
 
-// GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
-//
-// The returned GasTable's fields shouldn't, under any circumstances, be changed.
-func (c *ChainConfig) GasTable(num *big.Int) GasTable {
-	return GasTableConstantinople
-
-}
-
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
 func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *ConfigCompatError {
@@ -443,8 +436,8 @@ func (err *ConfigCompatError) Error() string {
 // Rules is a one time interface meaning that it shouldn't be used in between transition
 // phases.
 type Rules struct {
-	ChainID *big.Int
-	IsTIP3  bool
+	ChainID                 *big.Int
+	IsTIP3, IsTIP7, IsTIP11 bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -456,6 +449,8 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	return Rules{
 		ChainID: new(big.Int).Set(chainID),
 		IsTIP3:  c.IsTIP3(num),
+		IsTIP7:  c.IsTIP7(num),
+		IsTIP11: c.IsTIP11(num),
 	}
 }
 
@@ -499,6 +494,13 @@ func (c *ChainConfig) IsTIP9(num *big.Int) bool {
 	return isForked(c.TIP9.SnailNumber, num)
 }
 func (c *ChainConfig) IsTIP10(num *big.Int) bool {
+	if c.TIP10 == nil {
+		return false
+	}
+	return isForked(c.TIP10.FastNumber, num)
+}
+
+func (c *ChainConfig) IsTIP11(num *big.Int) bool {
 	if c.TIP10 == nil {
 		return false
 	}

@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -29,10 +28,9 @@ func TestDeposit(t *testing.T) {
 	impawn := NewImpawnImpl()
 	impawn.Load(evm.StateDB, types.StakingAddress)
 
-	impawn.InsertSAccount2(1000,0, from, pub, value, big.NewInt(0), true)
+	impawn.InsertSAccount2(1000, 0, from, pub, value, big.NewInt(0), true)
 	impawn.Save(evm.StateDB, types.StakingAddress)
 
 	impawn1 := NewImpawnImpl()
 	impawn1.Load(evm.StateDB, types.StakingAddress)
-	fmt.Println(impawn1.curEpochID, " ", len(impawn1.accounts), " ", impawn1.accounts[0][0].getAllStaking(1000))
 }

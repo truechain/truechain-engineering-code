@@ -65,7 +65,7 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 
 	if err != nil {
 		log.Error("No method found")
-		return nil, errExecutionReverted
+		return nil, ErrExecutionReverted
 	}
 
 	data := input[4:]
@@ -107,7 +107,7 @@ func RunStaking(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 
 	if err != nil {
 		log.Warn("Staking error code", "code", err)
-		err = errExecutionReverted
+		err = ErrExecutionReverted
 	}
 
 	return ret, err
@@ -163,9 +163,9 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 		log.Error("Staking load error", "error", err)
 		return nil, err
 	}
-  t2 := time.Now()
-  effectHeight := evm.chainConfig.TIP10.FastNumber.Uint64()
-	err = impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(),effectHeight, from, args.Pubkey, args.Value, args.Fee, true)
+	t2 := time.Now()
+	effectHeight := evm.chainConfig.TIP10.FastNumber.Uint64()
+	err = impawn.InsertSAccount2(evm.Context.BlockNumber.Uint64(), effectHeight, from, args.Pubkey, args.Value, args.Fee, true)
 	if err != nil {
 		log.Error("Staking deposit", "address", contract.caller.Address(), "value", args.Value, "error", err)
 		return nil, err
