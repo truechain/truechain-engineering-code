@@ -62,6 +62,7 @@ var (
 		TIP8:  &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(293)},
 		TIP9:  &BlockConfig{SnailNumber: big.NewInt(47000)},
 		TIP10: &BlockConfig{FastNumber: big.NewInt(6520000), CID: big.NewInt(302)},
+		TIP11: &BlockConfig{FastNumber: big.NewInt(8878855), CID: big.NewInt(400)},
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
@@ -501,8 +502,8 @@ func (c *ChainConfig) IsTIP10(num *big.Int) bool {
 }
 
 func (c *ChainConfig) IsTIP11(num *big.Int) bool {
-	if c.TIP10 == nil {
+	if c.TIP11 == nil {
 		return false
 	}
-	return isForked(c.TIP10.FastNumber, num)
+	return isForked(c.TIP11.FastNumber, num)
 }
