@@ -45,4 +45,11 @@ var (
 	ErrExceedNumber = errors.New("number exceed specified number")
 
 	ErrIsFallback = errors.New("block and state is falling back")
+
+	// ErrInsufficientFundsForTransfer is returned if the transaction sender doesn't
+	// have enough funds for transfer(topmost call only).
+	ErrInsufficientFundsForTransfer = errors.New("insufficient funds for transfer")
+
+	// ErrGasUintOverflow is returned when calculating gas usage.
+	ErrGasUintOverflow = errors.New("gas uint64 overflow")
 )

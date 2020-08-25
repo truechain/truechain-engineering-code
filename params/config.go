@@ -62,7 +62,7 @@ var (
 		TIP8:  &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(293)},
 		TIP9:  &BlockConfig{SnailNumber: big.NewInt(47000)},
 		TIP10: &BlockConfig{FastNumber: big.NewInt(6520000), CID: big.NewInt(302)},
-		TIP11: &BlockConfig{FastNumber: big.NewInt(8878855), CID: big.NewInt(400)},
+		TIP11: &BlockConfig{FastNumber: big.NewInt(9878855), CID: big.NewInt(400)},
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
@@ -165,7 +165,7 @@ var (
 		DSRoot:        common.HexToHash("0x4f234caa182b92a792929fe6ff9aa85fe30c81b8525a1c8f73f044de1b31b2cf"),
 	}
 
-	chainId = big.NewInt(9223372036854775790)
+	chainId = big.NewInt(10000)
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)},

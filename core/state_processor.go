@@ -64,8 +64,8 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, 
-	cfg vm.Config) (types.Receipts, []*types.Log, uint64,*types.ChainReward, error) {
+func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB,
+	cfg vm.Config) (types.Receipts, []*types.Log, uint64, *types.ChainReward, error) {
 	var (
 		receipts  types.Receipts
 		usedGas   = new(uint64)
@@ -78,22 +78,22 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB,
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		receipt, _, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
+		receipt, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
 		if err != nil {
-			return nil, nil, 0, nil,err
+			return nil, nil, 0, nil, err
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	t1 := time.Now()
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	_,infos, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
+	_, infos, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 	if err != nil {
-		return nil, nil, 0,nil, err
+		return nil, nil, 0, nil, err
 	}
 	blockExecutionTxTimer.Update(t1.Sub(start))
 	blockFinalizeTimer.Update(time.Since(t1))
-	return receipts, allLogs, *usedGas,infos, nil
+	return receipts, allLogs, *usedGas, infos, nil
 }
 
 // ApplyTransaction attempts to apply a transaction to the given state database
@@ -101,13 +101,13 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB,
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
-	statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, feeAmount *big.Int, cfg vm.Config) (*types.Receipt, uint64, error) {
+	statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, feeAmount *big.Int, cfg vm.Config) (*types.Receipt, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if err := types.ForbidAddress(msg.From()); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, nil, nil)
@@ -115,17 +115,18 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 	// Apply the transaction to the current state (included in the env)
-	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+	result, err := ApplyMessage(vmenv, msg, gp)
+
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	// Update the state with pending changes
 	var root []byte
 
 	statedb.Finalise(true)
 
-	*usedGas += gas
-	gasFee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
+	*usedGas += result.UsedGas
+	gasFee := new(big.Int).Mul(new(big.Int).SetUint64(result.UsedGas), msg.GasPrice())
 	feeAmount.Add(gasFee, feeAmount)
 	if msg.Fee() != nil {
 		feeAmount.Add(msg.Fee(), feeAmount) //add fee
@@ -133,9 +134,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing wether the root touch-delete accounts.
-	receipt := types.NewReceipt(root, failed, *usedGas)
+	receipt := types.NewReceipt(root, result.Failed(), *usedGas)
 	receipt.TxHash = tx.Hash()
-	receipt.GasUsed = gas
+	receipt.GasUsed = result.UsedGas
 	// if the transaction created a contract, store the creation address in the receipt.
 	if msg.To() == nil {
 		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
@@ -147,7 +148,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
-	return receipt, gas, err
+	return receipt, err
 }
 
 // ReadTransaction attempts to apply a transaction to the given state database
@@ -174,10 +175,10 @@ func ReadTransaction(config *params.ChainConfig, bc ChainContext,
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 	// Apply the transaction to the current state (included in the env)
 	gp := new(GasPool).AddGas(math.MaxUint64)
-	result, gas, _, err := ApplyMessage(vmenv, msgCopy, gp)
+	result, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return result, gas, err
+	return result.ReturnData, result.UsedGas, err
 }

@@ -187,7 +187,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 		return nil, err
 	}
 	topics := []common.Hash{
-		event.ID(),
+		event.ID,
 		common.BytesToHash(from[:]),
 	}
 	logN(evm, contract, topics, logData)
@@ -244,7 +244,7 @@ func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err 
 		return nil, err
 	}
 	topics := []common.Hash{
-		event.ID(),
+		event.ID,
 		common.BytesToHash(from[:]),
 	}
 	logN(evm, contract, topics, logData)
@@ -290,7 +290,7 @@ func setFeeRate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		return nil, err
 	}
 	topics := []common.Hash{
-		event.ID(),
+		event.ID,
 		common.BytesToHash(from[:]),
 	}
 	logN(evm, contract, topics, logData)
@@ -336,7 +336,7 @@ func setPubkey(evm *EVM, contract *Contract, input []byte) (ret []byte, err erro
 		return nil, err
 	}
 	topics := []common.Hash{
-		event.ID(),
+		event.ID,
 		common.BytesToHash(from[:]),
 	}
 	logN(evm, contract, topics, logData)
@@ -392,7 +392,7 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		return nil, err
 	}
 	topics := []common.Hash{
-		event.ID(),
+		event.ID,
 		common.BytesToHash(from[:]),
 		common.BytesToHash(args.Holder[:]),
 	}
@@ -449,7 +449,7 @@ func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		return nil, err
 	}
 	topics := []common.Hash{
-		event.ID(),
+		event.ID,
 		common.BytesToHash(from[:]),
 		common.BytesToHash(args.Holder[:]),
 	}
@@ -495,7 +495,7 @@ func cancel(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) 
 		return nil, err
 	}
 	topics := []common.Hash{
-		event.ID(),
+		event.ID,
 		common.BytesToHash(from[:]),
 	}
 	logN(evm, contract, topics, logData)
@@ -547,7 +547,7 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 		return nil, err
 	}
 	topics := []common.Hash{
-		event.ID(),
+		event.ID,
 		common.BytesToHash(from[:]),
 	}
 	logN(evm, contract, topics, logData)
@@ -601,7 +601,7 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 		return nil, err
 	}
 	topics := []common.Hash{
-		event.ID(),
+		event.ID,
 		common.BytesToHash(from[:]),
 		common.BytesToHash(args.Holder[:]),
 	}

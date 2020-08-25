@@ -983,7 +983,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		//calculate snailBlock reward
 		agent.rewardSnailBlock(header)
 		//padding Header.Root, TxHash, ReceiptHash.  Create the new block to seal with the consensus engine
-		if fastBlock, _,err = agent.engine.Finalize(agent.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
+		if fastBlock, _, err = agent.engine.Finalize(agent.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
 			log.Error("Failed to finalize block for sealing", "err", err)
 			return fastBlock, err
 		}
@@ -1146,7 +1146,7 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		return voteSign, err
 	}
 
-	receipts, _, usedGas,_, err := bc.Processor().Process(fb, state, agent.vmConfig) //update
+	receipts, _, usedGas, _, err := bc.Processor().Process(fb, state, agent.vmConfig) //update
 	if err != nil {
 		if err == types.ErrSnailHeightNotYet {
 			log.Warn("verifyFastBlock :Snail height not yet", "currentFastNumber", fb.NumberU64(),
@@ -1323,7 +1323,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 
 func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool, feeAmount *big.Int) ([]*types.Log, error) {
 	snap := env.state.Snapshot()
-	receipt, _, err := core.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, feeAmount, vm.Config{})
+	receipt, err := core.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, feeAmount, vm.Config{})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return nil, err

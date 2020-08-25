@@ -852,11 +852,23 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
-	res, gas, failed, err := core.ApplyMessage(evm, msg, gp)
+	result, err := core.ApplyMessage(evm, msg, gp)
 	if err := vmError(); err != nil {
 		return nil, 0, false, err
 	}
-	return res, gas, failed, err
+	// If the timer caused an abort, return an appropriate error message
+	if evm.Cancelled() {
+		return nil, 0, false, fmt.Errorf("execution aborted (timeout = %v)", timeout)
+	}
+	if err != nil {
+		if result != nil {
+			return result.ReturnData, 0, false, fmt.Errorf("err: %w (supplied gas %d)", err, msg.Gas())
+		} else {
+			return nil, 0, false, fmt.Errorf("err: %w (supplied gas %d)", err, msg.Gas())
+		}
+	}
+
+	return result.Return(), result.UsedGas, result.Failed(), err
 }
 
 // Call executes the given transaction on the state for the given block number.
