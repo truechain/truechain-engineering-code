@@ -257,7 +257,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			statedb.SetState(addr, key, value)
 		}
 	}
-	consensus.OnceInitImpawnState(g.Config,statedb,new(big.Int).SetUint64(g.Number))
+	consensus.OnceInitImpawnState(g.Config, statedb, new(big.Int).SetUint64(g.Number))
 	if consensus.IsTIP8(new(big.Int).SetUint64(g.Number), g.Config, nil) {
 		impl := vm.NewImpawnImpl()
 		hh := g.Number
@@ -265,7 +265,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 			hh = hh - 1
 		}
 		for _, member := range g.Committee {
-			err := impl.InsertSAccount2(hh,g.Config.TIP10.FastNumber.Uint64(), member.Coinbase, member.Publickey, big.NewInt(1000000000000000000), big.NewInt(100), true)
+			err := impl.InsertSAccount2(hh, g.Config.TIP10.FastNumber.Uint64(), member.Coinbase, member.Publickey, params.ElectionMinLimitForStaking, big.NewInt(100), true)
 			if err != nil {
 				log.Error("ToFastBlock InsertSAccount", "error", err)
 			}
@@ -275,7 +275,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		if err != nil {
 			log.Error("ToFastBlock DoElections", "error", err)
 		}
-		err = impl.Shift(1,g.Config.TIP10.FastNumber.Uint64())
+		err = impl.Shift(1, g.Config.TIP10.FastNumber.Uint64())
 		if err != nil {
 			log.Error("ToFastBlock Shift", "error", err)
 		}
@@ -583,7 +583,7 @@ func DefaultSingleNodeGenesisBlock() *Genesis {
 			common.HexToAddress("0x3c2e0a65a023465090aaedaa6ed2975aec9ef7f9"): {Balance: i},
 			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
 			common.HexToAddress("0xeeb69c67751e9f4917b605840fa9a28be4517871"): {Balance: i},
-			common.HexToAddress("0x9810a954bb88fdc251374d666ed7e06748ea672d"): {Balance: i},
+			common.HexToAddress("0x76ea2f3a002431fede1141b660dbb75c26ba6d97"): {Balance: i},
 		},
 		Committee: []*types.CommitteeMember{
 			{Coinbase: common.HexToAddress("0x76ea2f3a002431fede1141b660dbb75c26ba6d97"), Publickey: key1},
