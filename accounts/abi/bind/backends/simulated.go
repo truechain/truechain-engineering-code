@@ -1,10 +1,13 @@
 package backends
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"sync"
 	"time"
 
@@ -53,6 +56,12 @@ type SimulatedBackend struct {
 // for testing purposes. for fast blockchain
 func NewSimulatedBackendWithDatabase(database etruedb.Database, alloc types.GenesisAlloc, gasLimit uint64) *SimulatedBackend {
 	genesis := core.Genesis{Config: params.AllMinervaProtocolChanges, GasLimit: gasLimit, Alloc: alloc}
+	params.MinTimeGap = big.NewInt(0)
+	params.SnailRewardInterval = big.NewInt(3)
+	genesis.Config.TIP7 = &params.BlockConfig{FastNumber: big.NewInt(10000)}
+	genesis.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(1000), CID: big.NewInt(10)}
+	genesis.Config.TIP9 = &params.BlockConfig{SnailNumber: big.NewInt(1000)}
+	genesis.Config.TIP10 = &params.BlockConfig{FastNumber: big.NewInt(1000)}
 	genesis.MustFastCommit(database)
 	// genesis.MustSnailCommit(database)
 	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{})
@@ -189,6 +198,10 @@ func (b *SimulatedBackend) PendingCodeAt(ctx context.Context, contract common.Ad
 	return b.pendingState.GetCode(contract), nil
 }
 
+var (
+	SimulateDebug = false
+)
+
 // CallContract executes a contract call.
 func (b *SimulatedBackend) CallContract(ctx context.Context, call truechain.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	b.mu.Lock()
@@ -302,10 +315,41 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call truechain.Call
 	evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain, nil, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(evmContext, statedb, b.config, vm.Config{})
+	debug := SimulateDebug
+	var (
+		vmConf    vm.Config
+		dump      *os.File
+		writer    *bufio.Writer
+		logConfig vm.LogConfig
+	)
+	logConfig.Debug = debug
+	// Generate a unique temporary file to dump it into
+	if debug {
+		prefix := fmt.Sprintf("block_%d-%d-%#x-", block.NumberU64(), 0, call.From.Hash().Bytes()[:4])
+		dump, _ = ioutil.TempFile(os.TempDir(), prefix)
+		// Swap out the noop logger to the standard tracer
+		writer = bufio.NewWriter(dump)
+		vmConf = vm.Config{
+			Debug:                   true,
+			Tracer:                  vm.NewJSONLogger(&logConfig, writer),
+			EnablePreimageRecording: true,
+		}
+	}
+	vmenv := vm.NewEVM(evmContext, statedb, b.config, vmConf)
 	gaspool := new(core.GasPool).AddGas(math.MaxUint64)
 
-	return core.NewStateTransition(vmenv, msg, gaspool).TransitionDb()
+	result, gas, failed, err := core.NewStateTransition(vmenv, msg, gaspool).TransitionDb()
+
+	if debug && !failed {
+		if writer != nil {
+			writer.Flush()
+		}
+		if dump != nil {
+			dump.Close()
+			fmt.Println("Wrote SimulatedBackend standard trace", "file", dump.Name())
+		}
+	}
+	return result, gas, failed, err
 }
 
 // SendTransaction updates the pending block to include the given transaction.
