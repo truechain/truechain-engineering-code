@@ -18,7 +18,7 @@ and operators of DApps, and provide better infrastructure for decentralized eco-
 ## Building the source
 
 
-Building getrue requires both a Go (version 1.9 or later) and a C compiler.
+Building getrue requires both a Go (version 1.14 or later) and a C compiler.
 You can install them using your favourite package manager.
 Once the dependencies are installed, run
 
