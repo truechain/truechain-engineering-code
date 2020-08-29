@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -397,7 +398,7 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 		pubkey, _ := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
 		member := e.GetMemberByPubkey(committeeMembers, crypto.FromECDSAPub(pubkey))
 		if member == nil {
-			errs[i] = ErrInvalidMember
+			errs[i] = errors.New(fmt.Sprintf("%s %d ", ErrInvalidMember.Error(), len(committeeMembers)))
 		} else {
 			members[i] = member
 		}

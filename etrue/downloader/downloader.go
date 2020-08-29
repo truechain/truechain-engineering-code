@@ -1450,7 +1450,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	log.Info("Snail insert download chain", "results", len(results),
 		"firstnum", first.Number, "firsthash", first.Hash(),
 		"lastnum", last.Number, "lasthash", last.Hash(), "mode", d.mode,
-	)
+		"current", d.blockchain.CurrentHeader().Number)
 	sblocks := []*types.SnailBlock{}
 	for _, result := range results {
 		block := types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, nil)
@@ -1467,7 +1467,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	}
 
 	txLen := len(sblocks)
-	log.Info("Snail insert download", "blocks", txLen, "current number", d.blockchain.CurrentHeader().Number)
 	if d.mode == LightSync {
 		if err := d.importBlockAndSyncFast(sblocks, p, hash); err != nil {
 			return err
@@ -1511,8 +1510,7 @@ func (d *Downloader) importBlockAndSyncFast(blocks []*types.SnailBlock, p etrue.
 	}
 
 	switch d.mode {
-	case FastSync:
-	case SnapShotSync:
+	case SnapShotSync, FastSync:
 		if index, err := d.blockchain.FastInsertChain(blocks); err != nil {
 			log.Error("Snail Fastdownloaded item processing failed", "number", blocks[index].NumberU64(), "hash", blocks[index].Hash(), "err", err)
 			if err == types.ErrSnailHeightNotYet {
