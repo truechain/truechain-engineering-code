@@ -137,7 +137,7 @@ func filterLogs(client *etrueclient.Client) {
 	//nodeRule = append(nodeRule, address.Bytes())
 
 	// Append the event selector to the query parameters and construct the topic set
-	queryT := append([][]interface{}{{event.ID()}}, nodeRule)
+	queryT := append([][]interface{}{{event.ID}}, nodeRule)
 
 	topics, err := makeTopics(queryT...)
 	if err != nil {
