@@ -20,13 +20,13 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"os"
@@ -49,8 +49,11 @@ func ExampleGenerateChain() {
 		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
 		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
 		gspec   = &Genesis{
-			Config: &params.ChainConfig{ChainID: chainId},
-			Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(3000000)}},
+			Config: &params.ChainConfig{ChainID: chainId,
+				TIP7: &params.BlockConfig{FastNumber: big.NewInt(0)},
+				TIP8: &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)},
+				TIP9: &params.BlockConfig{SnailNumber: big.NewInt(20)}},
+			Alloc: types.GenesisAlloc{addr1: {Balance: big.NewInt(3000000)}},
 		}
 		genesis = gspec.MustFastCommit(db)
 		pow     = minerva.NewFaker()
@@ -143,7 +146,7 @@ func TestTransactionCost(t *testing.T) {
 	blockchain, _ := NewBlockChain(db, nil, gspec.Config, pow, vm.Config{})
 	defer blockchain.Stop()
 
-	fastBlocks, _ := GenerateChain(gspec.Config, fastParent, pow, db, params.MinimumFruits, func(i int, gen *BlockGen) () {
+	fastBlocks, _ := GenerateChain(gspec.Config, fastParent, pow, db, params.MinimumFruits, func(i int, gen *BlockGen) {
 		tx1, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addresses[0]), addresses[1], tx_amount, params.TxGas, tx_price, nil), signer, privateKeys[0])
 		gen.AddTx(tx1)
 	})
@@ -171,7 +174,7 @@ func TestTransactionCost(t *testing.T) {
 		log.Error("[TestTransactionCost error]:tx1 gas is not equal")
 	}
 	//test transaction2  payment
-	fastBlocks, _ = GenerateChain(gspec.Config, fastParent, pow, db, params.MinimumFruits, func(i int, gen *BlockGen) () {
+	fastBlocks, _ = GenerateChain(gspec.Config, fastParent, pow, db, params.MinimumFruits, func(i int, gen *BlockGen) {
 		signTx_sender, _ := types.SignTx(types.NewTransaction_Payment(gen.TxNonce(addresses[0]), addresses[1], tx_amount, tx_fee, params.TxGas, tx_price, nil, addresses[2]), signer, privateKeys[0])
 		tx2, _ := types.SignTx_Payment(signTx_sender, signer, privateKeys[2])
 		gen.AddTx(tx2)
@@ -194,7 +197,7 @@ func TestTransactionCost(t *testing.T) {
 	tx2_value := new(big.Int).Add(tx_amount, tx_fee)
 	tx2_gas := new(big.Int).Mul(tx_price, big.NewInt(int64(params.TxGas)))
 	if new(big.Int).Add(tx2_addr0_balance, tx2_value).Cmp(tx1_addr0_balance) != 0 {
-		log.Info("[TestTransactionCost info]:", " tx2_value", tx2_value, "addr0_balance", tx2_addr0_balance, )
+		log.Info("[TestTransactionCost info]:", " tx2_value", tx2_value, "addr0_balance", tx2_addr0_balance)
 		log.Error("[TestTransactionCost error]:tx2 tx2_addr0_balance execution error")
 	}
 	if new(big.Int).Sub(tx2_addr1_balance, tx_amount).Cmp(tx1_addr1_balance) != 0 {
@@ -232,16 +235,16 @@ func getCommitteeMemberReward(pow *minerva.Minerva, statedb *state.StateDB) (bal
 	balance_get = new(big.Int)
 	for _, member := range members {
 		balance := statedb.GetBalance(member.Coinbase)
-	if reward.Cmp(balance) != 0 {
-		return nil, false
+		if reward.Cmp(balance) != 0 {
+			return nil, false
+		}
+		balance_get = new(big.Int).Add(balance_get, balance)
+		log.Info("getBalance[committe member]", "addr", member.Coinbase, "balance", statedb.GetBalance(member.Coinbase))
 	}
-	balance_get = new(big.Int).Add(balance_get, balance)
-	log.Info("getBalance[committe member]", "addr", member.Coinbase, "balance", statedb.GetBalance(member.Coinbase))
-}
 	return balance_get, true
 }
 
-func getAddressBalance(addresses [] common.Address, statedb *state.StateDB) (balance_given *big.Int) {
+func getAddressBalance(addresses []common.Address, statedb *state.StateDB) (balance_given *big.Int) {
 	balance_given = new(big.Int)
 	for _, addr := range addresses {
 		balance_given = new(big.Int).Add(balance_given, statedb.GetBalance(addr))

@@ -24,7 +24,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -143,15 +142,5 @@ func makeSnail(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engi
 	blocks := GenerateChain(params.TestChainConfig, fastChain, []*types.SnailBlock{parent}, n, 7, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
-	return blocks
-}
-
-// makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeFast(parent *types.Block, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.Block {
-	engine.SetElection(election.NewFakeElection())
-	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
-		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
-	})
-
 	return blocks
 }

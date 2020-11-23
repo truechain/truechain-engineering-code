@@ -20,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/log"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -147,15 +147,12 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock, verifyFruits bool
 		}
 		wg.Add(1)
 		go v.parallelValidateFruit(fruit, block, &wg, ch, verifyFruits)
-		/*if err := v.ValidateFruit(fruit, block, false); err != nil {
-			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "hash", fruit.FastHash(), "err", err)
-			return err
-		}*/
 
 		temp = fruit.FastNumber().Uint64()
 	}
 	wg.Wait()
-	for i := 0; i < len(ch); i++ {
+	n := len(ch)
+	for i := 0; i < n; i++ {
 		if err := <-ch; err != nil {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "err", err)
 			return err
@@ -262,7 +259,7 @@ func (v *BlockValidator) parallelValidateFruit(fruit, block *types.SnailBlock, w
 	}
 
 	//check fruit's time
-	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(fb.Time) < 0 {
+	if fruit.Time() == nil || fb.Time == nil || fruit.Time().Cmp(new(big.Int).Sub(fb.Time, common.Big1)) < 0 {
 		log.Info("parallelValidateFruit fruit time failed.", "number", fruit.FastNumber(), "hash", fruit.Hash())
 		ch <- ErrFruitTime
 		return
