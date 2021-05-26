@@ -50,3 +50,11 @@ type Batch interface {
 	// Reset resets the batch for reuse
 	Reset()
 }
+
+// Batcher wraps the NewBatch method of a backing data store.
+type Batcher interface {
+	// NewBatch creates a write-only database that buffers changes to its host db
+	// until a final write is called.
+	NewBatch() Batch
+}
+

@@ -540,7 +540,9 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call truechain.Call
 	// Execute the call.
 	msg := callmsg{call}
 
-	evmContext := core.NewEVMContext(msg, block.Header(), b.blockchain, nil, nil)
+	txContext := core.NewEVMTxContext(msg)
+	blockContext := core.NewEVMBlockContext(block.Header(), b.blockchain, nil, nil)
+
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	debug := SimulateDebug
@@ -564,7 +566,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call truechain.Call
 			EnablePreimageRecording: true,
 		}
 	}
-	vmenv := vm.NewEVM(evmContext, statedb, b.config, vmConf)
+	vmenv := vm.NewEVM(blockContext, txContext, statedb, b.config, vmConf)
 
 	gaspool := new(core.GasPool).AddGas(math.MaxUint64)
 	result, err := core.NewStateTransition(vmenv, msg, gaspool).TransitionDb()

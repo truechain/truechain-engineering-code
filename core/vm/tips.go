@@ -28,7 +28,7 @@ var activators = map[int]func(*JumpTable){
 	2200: enable2200,
 	1884: enable1884,
 	1344: enable1344,
-	2315: enable2315,
+	2929: enable2929,
 }
 
 // EnableEIP enables the given EIP on the config.
@@ -76,9 +76,9 @@ func enable1884(jt *JumpTable) {
 	}
 }
 
-func opSelfBalance(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
-	balance, _ := uint256.FromBig(interpreter.evm.StateDB.GetBalance(callContext.contract.Address()))
-	callContext.stack.push(balance)
+func opSelfBalance(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
+	balance, _ := uint256.FromBig(interpreter.evm.StateDB.GetBalance(scope.Contract.Address()))
+	scope.Stack.push(balance)
 	return nil, nil
 }
 
@@ -95,9 +95,9 @@ func enable1344(jt *JumpTable) {
 }
 
 // opChainID implements CHAINID opcode
-func opChainID(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
+func opChainID(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	chainId, _ := uint256.FromBig(interpreter.evm.chainConfig.ChainID)
-	callContext.stack.push(chainId)
+	scope.Stack.push(chainId)
 	return nil, nil
 }
 
@@ -107,30 +107,6 @@ func enable2200(jt *JumpTable) {
 	jt[SSTORE].dynamicGas = gasSStoreEIP2200
 }
 
-// enable2315 applies EIP-2315 (Simple Subroutines)
-// - Adds opcodes that jump to and return from subroutines
-func enable2315(jt *JumpTable) {
-	// New opcode
-	jt[BEGINSUB] = &operation{
-		execute:     opBeginSub,
-		constantGas: GasQuickStep,
-		minStack:    minStack(0, 0),
-		maxStack:    maxStack(0, 0),
-	}
-	// New opcode
-	jt[JUMPSUB] = &operation{
-		execute:     opJumpSub,
-		constantGas: GasSlowStep,
-		minStack:    minStack(1, 0),
-		maxStack:    maxStack(1, 0),
-		jumps:       true,
-	}
-	// New opcode
-	jt[RETURNSUB] = &operation{
-		execute:     opReturnSub,
-		constantGas: GasFastStep,
-		minStack:    minStack(0, 0),
-		maxStack:    maxStack(0, 0),
-		jumps:       true,
-	}
-}
+// enable2929 enables "EIP-2929: Gas cost increases for state access opcodes"
+// https://eips.ethereum.org/EIPS/eip-2929
+func enable2929(jt *JumpTable) {}
