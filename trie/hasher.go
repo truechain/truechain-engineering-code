@@ -21,8 +21,8 @@ import (
 	"sync"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"golang.org/x/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 type hasher struct {
@@ -31,6 +31,7 @@ type hasher struct {
 	cachegen   uint16
 	cachelimit uint16
 	onleaf     LeafCallback
+	parallel   bool // Whether to use paralallel threads when hashing
 }
 
 // keccakState wraps sha3.state. In addition to the usual hash methods, it also supports
@@ -65,6 +66,12 @@ var hasherPool = sync.Pool{
 func newHasher(cachegen, cachelimit uint16, onleaf LeafCallback) *hasher {
 	h := hasherPool.Get().(*hasher)
 	h.cachegen, h.cachelimit, h.onleaf = cachegen, cachelimit, onleaf
+	return h
+}
+
+func newHasherWithParallel(parallel bool) *hasher {
+	h := hasherPool.Get().(*hasher)
+	h.parallel = parallel
 	return h
 }
 

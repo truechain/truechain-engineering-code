@@ -13,6 +13,7 @@
 //
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
 package vm
 
 import (
@@ -129,7 +130,7 @@ func logN(evm *EVM, contract *Contract, topics []common.Hash, data []byte) ([]by
 		Data:    data,
 		// This is a non-consensus field, but assigned here because
 		// core/state doesn't know the current block number.
-		BlockNumber: evm.BlockNumber.Uint64(),
+		BlockNumber: evm.Context.BlockNumber.Uint64(),
 	})
 	return nil, nil
 }
