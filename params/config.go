@@ -63,6 +63,7 @@ var (
 		TIP9:  &BlockConfig{SnailNumber: big.NewInt(47000)},
 		TIP10: &BlockConfig{FastNumber: big.NewInt(6520000), CID: big.NewInt(302)},
 		TIP11: &BlockConfig{FastNumber: big.NewInt(8996000)},
+		TIP12: &BlockConfig{FastNumber: big.NewInt(12569566)}, // todo block number
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
@@ -248,6 +249,7 @@ type ChainConfig struct {
 	TIP9  *BlockConfig `json:"tip9"`
 	TIP10 *BlockConfig `json:"tip10"`
 	TIP11 *BlockConfig `json:"tip11"`
+	TIP12 *BlockConfig `json:"tip12"`
 
 	TIPStake *BlockConfig `json:"tipstake"`
 }
@@ -442,8 +444,8 @@ func (err *ConfigCompatError) Error() string {
 // Rules is a one time interface meaning that it shouldn't be used in between transition
 // phases.
 type Rules struct {
-	ChainID                 *big.Int
-	IsTIP3, IsTIP7, IsTIP11 bool
+	ChainID                          *big.Int
+	IsTIP3, IsTIP7, IsTIP11, IsTIP12 bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -457,6 +459,7 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		IsTIP3:  c.IsTIP3(num),
 		IsTIP7:  c.IsTIP7(num),
 		IsTIP11: c.IsTIP11(num),
+		IsTIP12: c.IsTIP12(num),
 	}
 }
 
@@ -511,4 +514,11 @@ func (c *ChainConfig) IsTIP11(num *big.Int) bool {
 		return false
 	}
 	return isForked(c.TIP11.FastNumber, num)
+}
+
+func (c *ChainConfig) IsTIP12(num *big.Int) bool {
+	if c.TIP11 == nil {
+		return false
+	}
+	return isForked(c.TIP12.FastNumber, num)
 }

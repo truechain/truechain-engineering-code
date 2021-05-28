@@ -49,6 +49,8 @@ func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 		precompiles = PrecompiledContractsPoS
 	case evm.chainRules.IsTIP11:
 		precompiles = PrecompiledContractsYoloPos
+	case evm.chainRules.IsTIP12:
+		precompiles = PrecompiledContractsBerlin
 	default:
 		precompiles = PrecompiledContractsByzantium
 	}
