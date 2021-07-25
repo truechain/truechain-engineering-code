@@ -51,6 +51,12 @@
 			"revisionTime": "2018-01-16T20:38:02Z"
 		},
 		{
+			"checksumSHA1": "0asolGBBsMJJ09DNgKbpJ4LWYy4=",
+			"path": "github.com/VictoriaMetrics/fastcache",
+			"revision": "f25ad798ea2c00be6a00c06f3346c93684643e71",
+			"revisionTime": "2021-03-03T13:49:45Z"
+		},
+		{
 			"checksumSHA1": "8skJYOdQytXjimcDPLRW4tonX3A=",
 			"path": "github.com/allegro/bigcache",
 			"revision": "e24eb225f15679bbe54f91bfa7da3b00e59b9768",
@@ -85,6 +91,16 @@
 			"path": "github.com/cespare/cp",
 			"revision": "165db2f241fd235aec29ba6d9b1ccd5f1c14637c",
 			"revisionTime": "2015-01-22T07:26:53Z"
+		},
+		{
+			"checksumSHA1": "LpUvobGdw5DIIzJxD5VEckBWpCo=",
+			"path": "github.com/cespare/xxhash",
+			"revision": "1a548c8655f85f3ffcf3578aa1dc8f922ecb6a98",
+			"revisionTime": "2020-12-05T09:12:55Z"
+		},
+		{
+			"path": "github.com/cespare/xxhash/v2",
+			"revision": ""
 		},
 		{
 			"checksumSHA1": "dvabztWVQX8f6oMLRyv4dLH+TGY=",
@@ -227,6 +243,18 @@
 			"path": "github.com/hashicorp/golang-lru/simplelru",
 			"revision": "0a025b7e63adc15a622f29b0b2c4c3848243bbf6",
 			"revisionTime": "2016-08-13T22:13:03Z"
+		},
+		{
+			"checksumSHA1": "OwoK1aftVdU6cqVHC+gqiO9DPWI=",
+			"path": "github.com/holiman/bloomfilter/v2",
+			"revision": "59a86729025f265874bc744ca32f2535341b0291",
+			"revisionTime": "2021-01-07T08:02:24Z"
+		},
+		{
+			"checksumSHA1": "30/h5eEkP9mlc7JrWjaGBDChkAs=",
+			"path": "github.com/holiman/uint256",
+			"revision": "46b8ad94199afbcc12f2ca653481891165d829d5",
+			"revisionTime": "2021-04-26T19:33:36Z"
 		},
 		{
 			"checksumSHA1": "fgO9qjMQTWdpSt8iCUOZ27yvLEc=",
