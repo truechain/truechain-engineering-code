@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	//"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/metrics"
@@ -75,12 +76,19 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB,
 		gp        = new(GasPool).AddGas(block.GasLimit())
 	)
 	start := time.Now()
+	blockContext := NewEVMBlockContext(header, fp.bc, nil, nil)
+	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, fp.config, cfg)
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
-		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		receipt, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
+		msg, err := tx.AsMessage(types.MakeSigner(fp.config, header.Number))
 		if err != nil {
 			return nil, nil, 0, nil, err
+		}
+		statedb.Prepare(tx.Hash(), block.Hash(), i)
+		//receipt, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
+		receipt, err := applyTransaction(msg, gp, statedb, header, tx, usedGas, vmenv, feeAmount)
+		if err != nil {
+			return nil, nil, 0, nil, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
@@ -100,22 +108,12 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB,
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
-	statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, feeAmount *big.Int, cfg vm.Config) (*types.Receipt, error) {
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
-	if err != nil {
-		return nil, err
-	}
-	if err := types.ForbidAddress(msg.From()); err != nil {
-		return nil, err
-	}
-	// Create a new context to be used in the EVM environment
-	context := NewEVMContext(msg, header, bc, nil, nil)
-	// Create a new environment which holds all relevant information
-	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(context, statedb, config, cfg)
+func applyTransaction(msg types.Message, gp *GasPool, statedb *state.StateDB, header *types.Header,
+	tx *types.Transaction, usedGas *uint64, evm *vm.EVM, feeAmount *big.Int) (*types.Receipt, error) {
+	txContext := NewEVMTxContext(msg)
+	evm.Reset(txContext, statedb)
 	// Apply the transaction to the current state (included in the env)
-	result, err := ApplyMessage(vmenv, msg, gp)
+	result, err := ApplyMessage(evm, msg, gp)
 
 	if err != nil {
 		return nil, err
@@ -132,14 +130,19 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 		feeAmount.Add(msg.Fee(), feeAmount) //add fee
 	}
 
-	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
-	// based on the eip phase, we're passing wether the root touch-delete accounts.
-	receipt := types.NewReceipt(root, result.Failed(), *usedGas)
+	// Create a new receipt for the transaction, storing the intermediate root and gas used
+	// by the tx.
+	receipt := &types.Receipt{PostState: root, CumulativeGasUsed: *usedGas}
+	if result.Failed() {
+		receipt.Status = types.ReceiptStatusFailed
+	} else {
+		receipt.Status = types.ReceiptStatusSuccessful
+	}
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = result.UsedGas
 	// if the transaction created a contract, store the creation address in the receipt.
 	if msg.To() == nil {
-		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
+		receipt.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, tx.Nonce())
 	}
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
@@ -151,6 +154,25 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	return receipt, err
 }
 
+// ApplyTransaction attempts to apply a transaction to the given state database
+// and uses the input parameters for its environment. It returns the receipt
+// for the transaction, gas used and an error if the transaction failed,
+// indicating the block was invalid.
+func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool, statedb *state.StateDB,
+	header *types.Header, tx *types.Transaction, usedGas *uint64, feeAmount *big.Int, cfg vm.Config) (*types.Receipt, error) {
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
+	if err != nil {
+		return nil, err
+	}
+	if err := types.ForbidAddress(msg.From()); err != nil {
+		return nil, err
+	}
+	// Create a new context to be used in the EVM environment
+	blockContext := NewEVMBlockContext(header, bc, nil, nil)
+	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
+	return applyTransaction(msg, gp, statedb, header, tx, usedGas, vmenv, feeAmount)
+}
+
 // ReadTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. It returns the result
 // for the transaction, gas used and an error if the transaction failed,
@@ -159,20 +181,21 @@ func ReadTransaction(config *params.ChainConfig, bc ChainContext,
 	statedb *state.StateDB, header *types.Header, tx *types.Transaction, cfg vm.Config) ([]byte, uint64, error) {
 
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
-
-	msgCopy := types.NewMessage(msg.From(), msg.To(), msg.Payment(), 0, msg.Value(), msg.Fee(), msg.Gas(), msg.GasPrice(), msg.Data(), false)
-
 	if err != nil {
 		return nil, 0, err
 	}
+
+	msgCopy := types.NewMessage(msg.From(), msg.To(), msg.Payment(), 0, msg.Value(), msg.Fee(), msg.Gas(), msg.GasPrice(), msg.Data(), false)
+
 	if err := types.ForbidAddress(msgCopy.From()); err != nil {
 		return nil, 0, err
 	}
 	// Create a new context to be used in the EVM environment
-	context := NewEVMContext(msgCopy, header, bc, nil, nil)
+	txCtx := NewEVMTxContext(msgCopy)
+	blockCtx := NewEVMBlockContext(header, bc, nil, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	vmenv := vm.NewEVM(blockCtx, txCtx, statedb, config, cfg)
 	// Apply the transaction to the current state (included in the env)
 	gp := new(GasPool).AddGas(math.MaxUint64)
 	result, err := ApplyMessage(vmenv, msg, gp)
