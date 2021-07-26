@@ -520,7 +520,7 @@ func (c *ChainConfig) IsTIP11(num *big.Int) bool {
 }
 
 func (c *ChainConfig) IsTIP12(num *big.Int) bool {
-	if c.TIP11 == nil {
+	if c.TIP12 == nil {
 		return false
 	}
 	return isForked(c.TIP12.FastNumber, num)
