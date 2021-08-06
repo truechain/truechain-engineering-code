@@ -1,19 +1,16 @@
 ## TrueChain Engineering Code
 
-TrueChain is a truly fast, permissionless, secure and scalable public blockchain platform 
-which is supported by hybrid consensus technology called Minerva and a global developer community. 
- 
-TrueChain uses hybrid consensus combining PBFT and fPoW to solve the biggest problem confronting public blockchain: 
-the contradiction between decentralization and efficiency. 
+TrueChain is a truly fast, permissionless, secure and scalable public blockchain platform.
 
-TrueChain uses PBFT as fast-chain to process transactions, and leave the oversight and election of PBFT to the hands of PoW nodes. 
-Besides, TrueChain integrates fruitchain technology into the traditional PoW protocol to become fPoW, 
-to make the chain even more decentralized and fair. 
- 
-TrueChain also creates a hybrid consensus incentive model and a stable gas fee mechanism to lower the cost for the developers 
-and operators of DApps, and provide better infrastructure for decentralized eco-system. 
 
 <a href="https://github.com/truechain/truechain-engineering-code/blob/master/COPYING"><img src="https://img.shields.io/badge/license-GPL%20%20truechain-lightgrey.svg"></a>
+
+
+## Connect TrueChain
+
+Chain ID `19330`
+
+RPC `https://rpc.truechain.network`
 
 ## Building the source
 
