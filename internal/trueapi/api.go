@@ -1058,7 +1058,7 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"hash":             b.Hash(),
 		"parentHash":       head.ParentHash,
 		"committeeRoot":    head.CommitteeHash,
-		"maker":            head.Proposer,
+		"miner":            head.Proposer,
 		"logsBloom":        head.Bloom,
 		"stateRoot":        head.Root,
 		"snailHash":        head.SnailHash,

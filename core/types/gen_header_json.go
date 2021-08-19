@@ -21,7 +21,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		TxHash        common.Hash    `json:"transactionsRoot" gencodec:"required"`
 		ReceiptHash   common.Hash    `json:"receiptsRoot"     gencodec:"required"`
 		CommitteeHash common.Hash    `json:"committeeRoot"    gencodec:"required"`
-		Proposer      common.Address `json:"maker"            gencodec:"required"`
+		Proposer      common.Address `json:"miner"            gencodec:"required"`
 		Bloom         Bloom          `json:"logsBloom"        gencodec:"required"`
 		SnailHash     common.Hash    `json:"snailHash"        gencodec:"required"`
 		SnailNumber   *hexutil.Big   `json:"snailNumber"      gencodec:"required"`
@@ -59,7 +59,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		TxHash        *common.Hash    `json:"transactionsRoot" gencodec:"required"`
 		ReceiptHash   *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
 		CommitteeHash *common.Hash    `json:"committeeRoot"    gencodec:"required"`
-		Proposer      *common.Address `json:"maker"            gencodec:"required"`
+		Proposer      *common.Address `json:"miner"            gencodec:"required"`
 		Bloom         *Bloom          `json:"logsBloom"        gencodec:"required"`
 		SnailHash     *common.Hash    `json:"snailHash"        gencodec:"required"`
 		SnailNumber   *hexutil.Big    `json:"snailNumber"      gencodec:"required"`
@@ -94,7 +94,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	h.CommitteeHash = *dec.CommitteeHash
 	if dec.Proposer == nil {
-		return errors.New("missing required field 'maker' for Header")
+		return errors.New("missing required field 'miner' for Header")
 	}
 	h.Proposer = *dec.Proposer
 	if dec.Bloom == nil {

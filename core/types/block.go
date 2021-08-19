@@ -154,7 +154,7 @@ type Header struct {
 	TxHash        common.Hash    `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash   common.Hash    `json:"receiptsRoot"     gencodec:"required"`
 	CommitteeHash common.Hash    `json:"committeeRoot"    gencodec:"required"`
-	Proposer      common.Address `json:"maker"            gencodec:"required"`
+	Proposer      common.Address `json:"miner"            gencodec:"required"`
 	Bloom         Bloom          `json:"logsBloom"        gencodec:"required"`
 	SnailHash     common.Hash    `json:"snailHash"        gencodec:"required"`
 	SnailNumber   *big.Int       `json:"snailNumber"      gencodec:"required"`
