@@ -828,10 +828,10 @@ type CallArgs struct {
 	Fee      hexutil.Big     `json:"fee"`
 }
 
-func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
+func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockHr rpc.BlockNumberOrHash, vmCfg vm.Config, timeout time.Duration) (*core.ExecutionResult, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 
-	state, header, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	state, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockHr)
 	if state == nil || err != nil {
 		return nil, err
 	}
@@ -899,8 +899,8 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 
 // Call executes the given transaction on the state for the given block number.
 // It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
-func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber) (hexutil.Bytes, error) {
-	result, err := s.doCall(ctx, args, blockNr, vm.Config{}, 5*time.Second)
+func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockHr rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
+	result, err := s.doCall(ctx, args, blockHr, vm.Config{}, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -935,8 +935,8 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	// Create a helper to check if a gas allowance results in an executable transaction
 	executable := func(gas uint64) (bool, *core.ExecutionResult, error) {
 		args.Gas = hexutil.Uint64(gas)
-
-		result, err := s.doCall(ctx, args, rpc.PendingBlockNumber, vm.Config{}, 0)
+		blockhr := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+		result, err := s.doCall(ctx, args, blockhr, vm.Config{}, 0)
 		if err != nil {
 			if errors.Is(err, core.ErrIntrinsicGas) {
 				return true, nil, nil // Special case, raise gas limit
