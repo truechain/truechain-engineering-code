@@ -64,20 +64,6 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256Pairing{},
 }
 
-// PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
-// contracts used in the Istanbul release.
-var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
-	common.BytesToAddress([]byte{1}): &ecrecover{},
-	common.BytesToAddress([]byte{2}): &sha256hash{},
-	common.BytesToAddress([]byte{3}): &ripemd160hash{},
-	common.BytesToAddress([]byte{4}): &dataCopy{},
-	common.BytesToAddress([]byte{5}): &bigModExp{eip2565: false},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
-	common.BytesToAddress([]byte{9}): &blake2F{},
-}
-
 // PrecompiledContractsPoS contains the default set of pre-compiled Ethereum
 // contracts used in the dpos release.
 var PrecompiledContractsPoS = map[common.Address]PrecompiledContract{
@@ -138,42 +124,6 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{17}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 	types.StakingAddress:              &staking{},
-}
-
-var (
-	PrecompiledAddressesBerlin    []common.Address
-	PrecompiledAddressesIstanbul  []common.Address
-	PrecompiledAddressesByzantium []common.Address
-	PrecompiledAddressesHomestead []common.Address
-)
-
-func init() {
-	for k := range PrecompiledContractsHomestead {
-		PrecompiledAddressesHomestead = append(PrecompiledAddressesHomestead, k)
-	}
-	for k := range PrecompiledContractsByzantium {
-		PrecompiledAddressesByzantium = append(PrecompiledAddressesByzantium, k)
-	}
-	for k := range PrecompiledContractsIstanbul {
-		PrecompiledAddressesIstanbul = append(PrecompiledAddressesIstanbul, k)
-	}
-	for k := range PrecompiledContractsBerlin {
-		PrecompiledAddressesBerlin = append(PrecompiledAddressesBerlin, k)
-	}
-}
-
-// ActivePrecompiles returns the precompiles enabled with the current configuration.
-func ActivePrecompiles(rules params.Rules) []common.Address {
-	switch {
-	case rules.IsBerlin:
-		return PrecompiledAddressesBerlin
-	case rules.IsIstanbul:
-		return PrecompiledAddressesIstanbul
-	case rules.IsByzantium:
-		return PrecompiledAddressesByzantium
-	default:
-		return PrecompiledAddressesHomestead
-	}
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -479,7 +429,7 @@ type bn256Add struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256Add) RequiredGas(evm *EVM, input []byte) uint64 {
-	return params.Bn256AddGasByzantium
+	return params.Bn256AddGas
 }
 
 func (c *bn256Add) Run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
@@ -516,7 +466,7 @@ type bn256ScalarMul struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256ScalarMul) RequiredGas(evm *EVM, input []byte) uint64 {
-	return params.Bn256ScalarMulGasByzantium
+	return params.Bn256ScalarMulGas
 }
 
 func (c *bn256ScalarMul) Run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
@@ -583,7 +533,7 @@ type bn256Pairing struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256Pairing) RequiredGas(evm *EVM, input []byte) uint64 {
-	return params.Bn256PairingBaseGasByzantium + uint64(len(input)/192)*params.Bn256PairingPerPointGasByzantium
+	return params.Bn256PairingBaseGas + uint64(len(input)/192)*params.Bn256PairingPerPointGas
 }
 
 func (c *bn256Pairing) Run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {

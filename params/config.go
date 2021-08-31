@@ -468,11 +468,8 @@ func (err *ConfigCompatError) Error() string {
 // Rules is a one time interface meaning that it shouldn't be used in between transition
 // phases.
 type Rules struct {
-	ChainID                                                 *big.Int
-	IsTIP3, IsTIP7, IsTIP11, IsTIP12                        bool
-	IsHomestead, IsEIP150, IsEIP155, IsEIP158               bool
-	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
-	IsBerlin, IsLondon, IsCatalyst                          bool
+	ChainID                          *big.Int
+	IsTIP3, IsTIP7, IsTIP11, IsTIP12 bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -482,22 +479,11 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		chainID = new(big.Int)
 	}
 	return Rules{
-		ChainID:          new(big.Int).Set(chainID),
-		IsTIP3:           c.IsTIP3(num),
-		IsTIP7:           c.IsTIP7(num),
-		IsTIP11:          c.IsTIP11(num),
-		IsTIP12:          c.IsTIP12(num),
-		IsHomestead:      c.IsHomestead(num),
-		IsEIP150:         c.IsEIP150(num),
-		IsEIP155:         c.IsEIP155(num),
-		IsEIP158:         c.IsEIP158(num),
-		IsByzantium:      c.IsByzantium(num),
-		IsConstantinople: c.IsConstantinople(num),
-		IsPetersburg:     c.IsPetersburg(num),
-		IsIstanbul:       c.IsIstanbul(num),
-		IsBerlin:         c.IsBerlin(num),
-		IsLondon:         c.IsLondon(num),
-		IsCatalyst:       c.IsCatalyst(num),
+		ChainID: new(big.Int).Set(chainID),
+		IsTIP3:  c.IsTIP3(num),
+		IsTIP7:  c.IsTIP7(num),
+		IsTIP11: c.IsTIP11(num),
+		IsTIP12: c.IsTIP12(num),
 	}
 }
 
@@ -559,71 +545,4 @@ func (c *ChainConfig) IsTIP12(num *big.Int) bool {
 		return false
 	}
 	return isForked(c.TIP12.FastNumber, num)
-}
-
-// IsHomestead returns whether num is either equal to the homestead block or greater.
-func (c *ChainConfig) IsHomestead(num *big.Int) bool {
-	return isForked(c.HomesteadBlock, num)
-}
-
-// IsDAOFork returns whether num is either equal to the DAO fork block or greater.
-func (c *ChainConfig) IsDAOFork(num *big.Int) bool {
-	return isForked(c.DAOForkBlock, num)
-}
-
-// IsEIP150 returns whether num is either equal to the EIP150 fork block or greater.
-func (c *ChainConfig) IsEIP150(num *big.Int) bool {
-	return isForked(c.EIP150Block, num)
-}
-
-// IsEIP155 returns whether num is either equal to the EIP155 fork block or greater.
-func (c *ChainConfig) IsEIP155(num *big.Int) bool {
-	return isForked(c.EIP155Block, num)
-}
-
-// IsEIP158 returns whether num is either equal to the EIP158 fork block or greater.
-func (c *ChainConfig) IsEIP158(num *big.Int) bool {
-	return isForked(c.EIP158Block, num)
-}
-
-// IsByzantium returns whether num is either equal to the Byzantium fork block or greater.
-func (c *ChainConfig) IsByzantium(num *big.Int) bool {
-	return isForked(c.ByzantiumBlock, num)
-}
-
-// IsConstantinople returns whether num is either equal to the Constantinople fork block or greater.
-func (c *ChainConfig) IsConstantinople(num *big.Int) bool {
-	return isForked(c.ConstantinopleBlock, num)
-}
-
-// IsMuirGlacier returns whether num is either equal to the Muir Glacier (EIP-2384) fork block or greater.
-func (c *ChainConfig) IsMuirGlacier(num *big.Int) bool {
-	return isForked(c.MuirGlacierBlock, num)
-}
-
-// IsPetersburg returns whether num is either
-// - equal to or greater than the PetersburgBlock fork block,
-// - OR is nil, and Constantinople is active
-func (c *ChainConfig) IsPetersburg(num *big.Int) bool {
-	return isForked(c.PetersburgBlock, num) || c.PetersburgBlock == nil && isForked(c.ConstantinopleBlock, num)
-}
-
-// IsIstanbul returns whether num is either equal to the Istanbul fork block or greater.
-func (c *ChainConfig) IsIstanbul(num *big.Int) bool {
-	return isForked(c.IstanbulBlock, num)
-}
-
-// IsBerlin returns whether num is either equal to the Berlin fork block or greater.
-func (c *ChainConfig) IsBerlin(num *big.Int) bool {
-	return isForked(c.BerlinBlock, num)
-}
-
-// IsLondon returns whether num is either equal to the London fork block or greater.
-func (c *ChainConfig) IsLondon(num *big.Int) bool {
-	return isForked(c.LondonBlock, num)
-}
-
-// IsCatalyst returns whether num is either equal to the Merge fork block or greater.
-func (c *ChainConfig) IsCatalyst(num *big.Int) bool {
-	return isForked(c.CatalystBlock, num)
 }
