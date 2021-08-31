@@ -49,8 +49,14 @@ type operation struct {
 }
 
 var (
-	constantinopleInstructionSet = newConstantinopleInstructionSet()
-	berlinInstructionSet         = newBerlinInstructionSet()
+	constantinopleInstructionSet   = newConstantinopleInstructionSet()
+	berlinInstructionSet           = newBerlinInstructionSet()
+	frontierInstructionSet         = newFrontierInstructionSet()
+	homesteadInstructionSet        = newHomesteadInstructionSet()
+	tangerineWhistleInstructionSet = newTangerineWhistleInstructionSet()
+	spuriousDragonInstructionSet   = newSpuriousDragonInstructionSet()
+	byzantiumInstructionSet        = newByzantiumInstructionSet()
+	istanbulInstructionSet         = newIstanbulInstructionSet()
 )
 
 // JumpTable contains the EVM opcodes supported at a given fork.
@@ -64,8 +70,8 @@ func newBerlinInstructionSet() JumpTable {
 	return instructionSet
 }
 
-// newIstanbulInstructionSet returns the frontier, homestead
-// byzantium, contantinople and petersburg instructions.
+// newIstanbulInstructionSet returns the frontier, homestead, byzantium,
+// contantinople, istanbul and petersburg instructions.
 func newIstanbulInstructionSet() JumpTable {
 	instructionSet := newConstantinopleInstructionSet()
 
@@ -76,7 +82,7 @@ func newIstanbulInstructionSet() JumpTable {
 	return instructionSet
 }
 
-// newConstantinopleInstructionSet returns the frontier, homestead
+// newConstantinopleInstructionSet returns the frontier, homestead,
 // byzantium and contantinople instructions.
 func newConstantinopleInstructionSet() JumpTable {
 	instructionSet := newByzantiumInstructionSet()
@@ -100,7 +106,7 @@ func newConstantinopleInstructionSet() JumpTable {
 	}
 	instructionSet[EXTCODEHASH] = &operation{
 		execute:     opExtCodeHash,
-		constantGas: params.ExtcodeHashGas,
+		constantGas: params.ExtcodeHashGasConstantinople,
 		minStack:    minStack(1, 1),
 		maxStack:    maxStack(1, 1),
 	}
@@ -159,7 +165,7 @@ func newByzantiumInstructionSet() JumpTable {
 // EIP 158 a.k.a Spurious Dragon
 func newSpuriousDragonInstructionSet() JumpTable {
 	instructionSet := newTangerineWhistleInstructionSet()
-	instructionSet[EXP].dynamicGas = gasExp
+	instructionSet[EXP].dynamicGas = gasExpEIP158
 	return instructionSet
 
 }
@@ -184,7 +190,7 @@ func newHomesteadInstructionSet() JumpTable {
 	instructionSet[DELEGATECALL] = &operation{
 		execute:     opDelegateCall,
 		dynamicGas:  gasDelegateCall,
-		constantGas: params.CallGas,
+		constantGas: params.CallGasFrontier,
 		minStack:    minStack(6, 1),
 		maxStack:    maxStack(6, 1),
 		memorySize:  memoryDelegateCall,
@@ -260,7 +266,7 @@ func newFrontierInstructionSet() JumpTable {
 		},
 		EXP: {
 			execute:    opExp,
-			dynamicGas: gasExp,
+			dynamicGas: gasExpFrontier,
 			minStack:   minStack(2, 1),
 			maxStack:   maxStack(2, 1),
 		},
@@ -352,7 +358,7 @@ func newFrontierInstructionSet() JumpTable {
 		},
 		BALANCE: {
 			execute:     opBalance,
-			constantGas: params.BalanceGas,
+			constantGas: params.BalanceGasFrontier,
 			minStack:    minStack(1, 1),
 			maxStack:    maxStack(1, 1),
 		},
@@ -416,13 +422,13 @@ func newFrontierInstructionSet() JumpTable {
 		},
 		EXTCODESIZE: {
 			execute:     opExtCodeSize,
-			constantGas: params.ExtcodeSizeGas,
+			constantGas: params.ExtcodeSizeGasFrontier,
 			minStack:    minStack(1, 1),
 			maxStack:    maxStack(1, 1),
 		},
 		EXTCODECOPY: {
 			execute:     opExtCodeCopy,
-			constantGas: params.ExtcodeCopyBase,
+			constantGas: params.ExtcodeCopyBaseFrontier,
 			dynamicGas:  gasExtCodeCopy,
 			minStack:    minStack(4, 0),
 			maxStack:    maxStack(4, 0),
@@ -496,7 +502,7 @@ func newFrontierInstructionSet() JumpTable {
 		},
 		SLOAD: {
 			execute:     opSload,
-			constantGas: params.SloadGas,
+			constantGas: params.SloadGasFrontier,
 			minStack:    minStack(1, 1),
 			maxStack:    maxStack(1, 1),
 		},
@@ -981,7 +987,7 @@ func newFrontierInstructionSet() JumpTable {
 		},
 		CALL: {
 			execute:     opCall,
-			constantGas: params.CallGas,
+			constantGas: params.CallGasFrontier,
 			dynamicGas:  gasCall,
 			minStack:    minStack(7, 1),
 			maxStack:    maxStack(7, 1),
@@ -990,7 +996,7 @@ func newFrontierInstructionSet() JumpTable {
 		},
 		CALLCODE: {
 			execute:     opCallCode,
-			constantGas: params.CallGas,
+			constantGas: params.CallGasFrontier,
 			dynamicGas:  gasCallCode,
 			minStack:    minStack(7, 1),
 			maxStack:    maxStack(7, 1),

@@ -42,6 +42,7 @@ var (
 	ErrReturnStackExceeded        = errors.New("return stack limit reached")
 	ErrStakingInvalidInput        = errors.New("invalid input for staking")
 	ErrStakingInsufficientBalance = errors.New("insufficient balance for staking transfer")
+	ErrInvalidCode                = errors.New("invalid code: must not begin with 0xef")
 )
 
 // ErrStackUnderflow wraps an evm error when the items on the stack less
