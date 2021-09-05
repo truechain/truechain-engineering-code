@@ -75,32 +75,24 @@ func (arguments Arguments) isTuple() bool {
 	return len(arguments) > 1
 }
 
-// Unpack performs the operation hexdata -> Go format
-func (arguments Arguments) Unpack(v interface{}, data []byte) error {
+// Unpack performs the operation hexdata -> Go format.
+func (arguments Arguments) Unpack(data []byte) ([]interface{}, error) {
 	if len(data) == 0 {
 		if len(arguments) != 0 {
-			return fmt.Errorf("abi: attempting to unmarshall an empty string while arguments are expected")
+			return nil, fmt.Errorf("abi: attempting to unmarshall an empty string while arguments are expected")
 		}
-		return nil // Nothing to unmarshal, return
+		// Nothing to unmarshal, return default variables
+		nonIndexedArgs := arguments.NonIndexed()
+		defaultVars := make([]interface{}, len(nonIndexedArgs))
+		for index, arg := range nonIndexedArgs {
+			defaultVars[index] = reflect.New(arg.Type.GetType())
+		}
+		return defaultVars, nil
 	}
-	// make sure the passed value is arguments pointer
-	if reflect.Ptr != reflect.ValueOf(v).Kind() {
-		return fmt.Errorf("abi: Unpack(non-pointer %T)", v)
-	}
-	marshalledValues, err := arguments.UnpackValues(data)
-	if err != nil {
-		return err
-	}
-	if len(marshalledValues) == 0 {
-		return fmt.Errorf("abi: Unpack(no-values unmarshalled %T)", v)
-	}
-	if arguments.isTuple() {
-		return arguments.unpackTuple(v, marshalledValues)
-	}
-	return arguments.unpackAtomic(v, marshalledValues[0])
+	return arguments.UnpackValues(data)
 }
 
-// UnpackIntoMap performs the operation hexdata -> mapping of argument name to argument value
+// UnpackIntoMap performs the operation hexdata -> mapping of argument name to argument value.
 func (arguments Arguments) UnpackIntoMap(v map[string]interface{}, data []byte) error {
 	// Make sure map is not nil
 	if v == nil {
@@ -122,8 +114,26 @@ func (arguments Arguments) UnpackIntoMap(v map[string]interface{}, data []byte) 
 	return nil
 }
 
+// Copy performs the operation go format -> provided struct.
+func (arguments Arguments) Copy(v interface{}, values []interface{}) error {
+	// make sure the passed value is arguments pointer
+	if reflect.Ptr != reflect.ValueOf(v).Kind() {
+		return fmt.Errorf("abi: Unpack(non-pointer %T)", v)
+	}
+	if len(values) == 0 {
+		if len(arguments) != 0 {
+			return fmt.Errorf("abi: attempting to copy no values while %d arguments are expected", len(arguments))
+		}
+		return nil // Nothing to copy, return
+	}
+	if arguments.isTuple() {
+		return arguments.copyTuple(v, values)
+	}
+	return arguments.copyAtomic(v, values[0])
+}
+
 // unpackAtomic unpacks ( hexdata -> go ) a single value
-func (arguments Arguments) unpackAtomic(v interface{}, marshalledValues interface{}) error {
+func (arguments Arguments) copyAtomic(v interface{}, marshalledValues interface{}) error {
 	dst := reflect.ValueOf(v).Elem()
 	src := reflect.ValueOf(marshalledValues)
 
@@ -133,8 +143,8 @@ func (arguments Arguments) unpackAtomic(v interface{}, marshalledValues interfac
 	return set(dst, src)
 }
 
-// unpackTuple unpacks ( hexdata -> go ) a batch of values.
-func (arguments Arguments) unpackTuple(v interface{}, marshalledValues []interface{}) error {
+// copyTuple copies a batch of values from marshalledValues to v.
+func (arguments Arguments) copyTuple(v interface{}, marshalledValues []interface{}) error {
 	value := reflect.ValueOf(v).Elem()
 	nonIndexedArgs := arguments.NonIndexed()
 
@@ -207,61 +217,18 @@ func (arguments Arguments) UnpackValues(data []byte) ([]interface{}, error) {
 	return retval, nil
 }
 
-// PackValues performs the operation Go format -> Hexdata
-// It is the semantic opposite of UnpackValues
+// PackValues performs the operation Go format -> Hexdata.
+// It is the semantic opposite of UnpackValues.
 func (arguments Arguments) PackValues(args []interface{}) ([]byte, error) {
 	return arguments.Pack(args...)
 }
 
-// Pack performs the operation Go format -> Hexdata
+// Pack performs the operation Go format -> Hexdata.
 func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 	// Make sure arguments match up and pack them
 	abiArgs := arguments
 	if len(args) != len(abiArgs) {
 		return nil, fmt.Errorf("argument count mismatch: got %d for %d", len(args), len(abiArgs))
-	}
-	// variable input is the output appended at the end of packed
-	// output. This is used for strings and bytes types input.
-	var variableInput []byte
-
-	// input offset is the bytes offset for packed output
-	inputOffset := 0
-	for _, abiArg := range abiArgs {
-		inputOffset += getTypeSize(abiArg.Type)
-	}
-	var ret []byte
-	for i, a := range args {
-		input := abiArgs[i]
-		// pack the input
-		packed, err := input.Type.pack(reflect.ValueOf(a))
-		if err != nil {
-			return nil, err
-		}
-		// check for dynamic types
-		if isDynamicType(input.Type) {
-			// set the offset
-			ret = append(ret, packNum(reflect.ValueOf(inputOffset))...)
-			// calculate next offset
-			inputOffset += len(packed)
-			// append to variable input
-			variableInput = append(variableInput, packed...)
-		} else {
-			// append the packed value to the input
-			ret = append(ret, packed...)
-		}
-	}
-	// append the variable input at the end of the packed input
-	ret = append(ret, variableInput...)
-
-	return ret, nil
-}
-
-// PackNonIndexed performs the operation Go format -> Hexdata
-func (arguments Arguments) PackNonIndexed(args ...interface{}) ([]byte, error) {
-	// Make sure arguments match up and pack them
-	abiArgs := arguments.NonIndexed()
-	if len(args) != len(abiArgs) {
-		return nil, fmt.Errorf("argument count mismatch: %d for %d", len(args), len(abiArgs))
 	}
 	// variable input is the output appended at the end of packed
 	// output. This is used for strings and bytes types input.

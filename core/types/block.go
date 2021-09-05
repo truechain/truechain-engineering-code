@@ -163,6 +163,9 @@ type Header struct {
 	GasUsed       uint64         `json:"gasUsed"          gencodec:"required"`
 	Time          *big.Int       `json:"timestamp"        gencodec:"required"`
 	Extra         []byte         `json:"extraData"        gencodec:"required"`
+
+	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
+	BaseFee *big.Int `json:"baseFeePerGas" rlp:"optional"`
 }
 
 // field type overrides for gencodec

@@ -145,12 +145,15 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 	}{}
 	method, _ := abiStaking.Methods["deposit"]
 
-	err = method.Inputs.Unpack(&args, input)
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack deposit pubkey error", "err", err)
 		return nil, ErrStakingInvalidInput
 	}
-
+	err = method.Inputs.Copy(&args, unpacked)
+	if err != nil {
+		return nil, err
+	}
 	from := contract.caller.Address()
 	if evm.StateDB.GetUnlockedBalance(from).Cmp(args.Value) < 0 {
 		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", args.Value)
@@ -182,7 +185,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 
 	t4 := time.Now()
 	event := abiStaking.Events["Deposit"]
-	logData, err := event.Inputs.PackNonIndexed(args.Pubkey, args.Value, args.Fee)
+	logData, err := event.Inputs.Pack(args.Pubkey, args.Value, args.Fee)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -207,10 +210,14 @@ func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err 
 	amount := big.NewInt(0)
 
 	method, _ := abiStaking.Methods["append"]
-	err = method.Inputs.Unpack(&amount, input)
+	unpack, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack append value error", "err", err)
 		return nil, ErrStakingInvalidInput
+	}
+	err = method.Inputs.Copy(&amount, unpack)
+	if err != nil {
+		return nil, err
 	}
 	if evm.StateDB.GetUnlockedBalance(from).Cmp(amount) < 0 {
 		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", amount)
@@ -239,7 +246,7 @@ func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err 
 	addLockedBalance(evm.StateDB, from, amount)
 
 	event := abiStaking.Events["Append"]
-	logData, err := event.Inputs.PackNonIndexed(amount)
+	logData, err := event.Inputs.Pack(amount)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -256,12 +263,15 @@ func setFeeRate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	fee := big.NewInt(0)
 	method, _ := abiStaking.Methods["setFee"]
 
-	err = method.Inputs.Unpack(&fee, input)
+	unpack, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack deposit pubkey error", "err", err)
 		return nil, ErrStakingInvalidInput
 	}
-
+	err = method.Inputs.Copy(&fee, unpack)
+	if err != nil {
+		return nil, err
+	}
 	from := contract.caller.Address()
 
 	log.Info("Staking set fee", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "fee", fee)
@@ -285,7 +295,7 @@ func setFeeRate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	}
 
 	event := abiStaking.Events["SetFee"]
-	logData, err := event.Inputs.PackNonIndexed(fee)
+	logData, err := event.Inputs.Pack(fee)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -302,12 +312,16 @@ func setPubkey(evm *EVM, contract *Contract, input []byte) (ret []byte, err erro
 	var pubkey []byte
 
 	method, _ := abiStaking.Methods["setPubkey"]
-	err = method.Inputs.Unpack(&pubkey, input)
+
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack update pubkey error", "err", err)
 		return nil, ErrStakingInvalidInput
 	}
-
+	err = method.Inputs.Copy(&pubkey, unpacked)
+	if err != nil {
+		return nil, err
+	}
 	from := contract.caller.Address()
 
 	log.Info("Staking set pubkey", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "pk", pubkey)
@@ -331,7 +345,7 @@ func setPubkey(evm *EVM, contract *Contract, input []byte) (ret []byte, err erro
 	}
 
 	event := abiStaking.Events["SetPubkey"]
-	logData, err := event.Inputs.PackNonIndexed(pubkey)
+	logData, err := event.Inputs.Pack(pubkey)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -353,10 +367,14 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 
 	t0 := time.Now()
 	method, _ := abiStaking.Methods["delegate"]
-	err = method.Inputs.Unpack(&args, input)
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack deposit pubkey error", "err", err)
 		return nil, ErrStakingInvalidInput
+	}
+	err = method.Inputs.Copy(&args, unpacked)
+	if err != nil {
+		return nil, err
 	}
 	from := contract.caller.Address()
 	if evm.StateDB.GetUnlockedBalance(from).Cmp(args.Value) < 0 {
@@ -387,7 +405,7 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 
 	t4 := time.Now()
 	event := abiStaking.Events["Delegate"]
-	logData, err := event.Inputs.PackNonIndexed(args.Value)
+	logData, err := event.Inputs.Pack(args.Value)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -417,10 +435,14 @@ func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	}{}
 
 	method, _ := abiStaking.Methods["undelegate"]
-	err = method.Inputs.Unpack(&args, input)
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack undelegate error", "err", err)
 		return nil, ErrStakingInvalidInput
+	}
+	err = method.Inputs.Copy(&args, unpacked)
+	if err != nil {
+		return nil, err
 	}
 	from := contract.caller.Address()
 
@@ -444,7 +466,7 @@ func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	}
 
 	event := abiStaking.Events["Undelegate"]
-	logData, err := event.Inputs.PackNonIndexed(args.Value)
+	logData, err := event.Inputs.Pack(args.Value)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -464,12 +486,15 @@ func cancel(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) 
 	amount := new(big.Int)
 
 	method, _ := abiStaking.Methods["cancel"]
-	err = method.Inputs.Unpack(&amount, input)
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack cancel input error")
 		return nil, ErrStakingInvalidInput
 	}
-
+	err = method.Inputs.Copy(&amount, unpacked)
+	if err != nil {
+		return nil, err
+	}
 	log.Info("Staking cancel", "number", evm.Context.BlockNumber.Uint64(), "address", contract.caller.Address(), "value", amount)
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
@@ -490,7 +515,7 @@ func cancel(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) 
 	}
 
 	event := abiStaking.Events["Cancel"]
-	logData, err := event.Inputs.PackNonIndexed(amount)
+	logData, err := event.Inputs.Pack(amount)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -510,10 +535,14 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	amount := new(big.Int)
 
 	method, _ := abiStaking.Methods["withdraw"]
-	err = method.Inputs.Unpack(&amount, input)
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack withdraw input error")
 		return nil, ErrStakingInvalidInput
+	}
+	err = method.Inputs.Copy(&amount, unpacked)
+	if err != nil {
+		return nil, err
 	}
 	if evm.StateDB.GetPOSLocked(from).Cmp(amount) < 0 {
 		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", amount)
@@ -542,7 +571,7 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	subLockedBalance(evm.StateDB, from, amount)
 
 	event := abiStaking.Events["Withdraw"]
-	logData, err := event.Inputs.PackNonIndexed(amount)
+	logData, err := event.Inputs.Pack(amount)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -563,10 +592,14 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 	from := contract.caller.Address()
 
 	method, _ := abiStaking.Methods["withdrawDelegate"]
-	err = method.Inputs.Unpack(&args, input)
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack withdraw delegate input error")
 		return nil, ErrStakingInvalidInput
+	}
+	err = method.Inputs.Copy(&args, unpacked)
+	if err != nil {
+		return nil, err
 	}
 	if evm.StateDB.GetPOSLocked(from).Cmp(args.Value) < 0 {
 		log.Error("Staking balance insufficient", "address", contract.caller.Address(), "value", args.Value)
@@ -596,7 +629,7 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 	subLockedBalance(evm.StateDB, from, args.Value)
 
 	event := abiStaking.Events["WithdrawDelegate"]
-	logData, err := event.Inputs.PackNonIndexed(args.Value)
+	logData, err := event.Inputs.Pack(args.Value)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -614,12 +647,15 @@ func getLocked(evm *EVM, contract *Contract, input []byte) (ret []byte, err erro
 	var depositAddr common.Address
 
 	method, _ := abiStaking.Methods["lockedBalance"]
-	err = method.Inputs.Unpack(&depositAddr, input)
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack get_deposit input error")
 		return nil, ErrStakingInvalidInput
 	}
-
+	err = method.Inputs.Copy(&depositAddr, unpacked)
+	if err != nil {
+		return nil, err
+	}
 	locked := evm.StateDB.GetPOSLocked(depositAddr)
 
 	ret, err = method.Outputs.Pack(locked)
@@ -636,12 +672,15 @@ func getDeposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 		unlocked = big.NewInt(0)
 	)
 
-	err = method.Inputs.Unpack(&depositAddr, input)
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack get_deposit input error")
 		return nil, ErrStakingInvalidInput
 	}
-
+	err = method.Inputs.Copy(&depositAddr, unpacked)
+	if err != nil {
+		return nil, err
+	}
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
 	if err != nil {
@@ -683,12 +722,15 @@ func getDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err er
 		unlocked = big.NewInt(0)
 	)
 
-	err = method.Inputs.Unpack(&args, input)
+	unpacked, err := method.Inputs.Unpack(input)
 	if err != nil {
 		log.Error("Unpack get_deposit input error")
 		return nil, ErrStakingInvalidInput
 	}
-
+	err = method.Inputs.Copy(&args, unpacked)
+	if err != nil {
+		return nil, err
+	}
 	impawn := NewImpawnImpl()
 	err = impawn.Load(evm.StateDB, types.StakingAddress)
 	if err != nil {

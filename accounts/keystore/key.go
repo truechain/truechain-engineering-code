@@ -29,10 +29,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/pborman/uuid"
 )
 
 const (
@@ -110,7 +110,10 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 	}
 
 	u := new(uuid.UUID)
-	*u = uuid.Parse(keyJSON.Id)
+	*u, err = uuid.Parse(keyJSON.Id)
+	if err != nil {
+		return err
+	}
 	k.Id = *u
 	addr, err := hex.DecodeString(keyJSON.Address)
 	if err != nil {
@@ -128,7 +131,10 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 }
 
 func newKeyFromECDSA(privateKeyECDSA *ecdsa.PrivateKey) *Key {
-	id := uuid.NewRandom()
+	id, err := uuid.NewRandom()
+	if err != nil {
+		panic(fmt.Sprintf("Could not create random uuid: %v", err))
+	}
 	key := &Key{
 		Id:         id,
 		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
@@ -171,7 +177,10 @@ func storeNewKey(ks keyStore, rand io.Reader, auth string) (*Key, accounts.Accou
 	if err != nil {
 		return nil, accounts.Account{}, err
 	}
-	a := accounts.Account{Address: key.Address, URL: accounts.URL{Scheme: KeyStoreScheme, Path: ks.JoinPath(keyFileName(key.Address))}}
+	a := accounts.Account{
+		Address: key.Address,
+		URL:     accounts.URL{Scheme: KeyStoreScheme, Path: ks.JoinPath(keyFileName(key.Address))},
+	}
 	if err := ks.StoreKey(a.URL.Path, key, auth); err != nil {
 		zeroKey(key.PrivateKey)
 		return nil, a, err
@@ -224,5 +233,6 @@ func toISO8601(t time.Time) string {
 	} else {
 		tz = fmt.Sprintf("%03d00", offset/3600)
 	}
-	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
+	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s",
+		t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
 }
