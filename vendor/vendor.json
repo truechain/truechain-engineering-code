@@ -348,6 +348,12 @@
 			"tree": true
 		},
 		{
+			"checksumSHA1": "o1LjRG/J2y9dNV2m0FGpgDuKjJo=",
+			"path": "github.com/karalabe/usb",
+			"revision": "4ea20957c2104ef4130bb8884e6a6dfb4201a4c8",
+			"revisionTime": "2021-05-18T09:18:19Z"
+		},
+		{
 			"checksumSHA1": "7hln62oZPZmyqEmgXaybf9WxQ7A=",
 			"path": "github.com/maruel/panicparse/stack",
 			"revision": "ad661195ed0e88491e0f14be6613304e3b1141d6",
