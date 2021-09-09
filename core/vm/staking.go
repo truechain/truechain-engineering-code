@@ -185,7 +185,7 @@ func deposit(evm *EVM, contract *Contract, input []byte) (ret []byte, err error)
 
 	t4 := time.Now()
 	event := abiStaking.Events["Deposit"]
-	logData, err := event.Inputs.Pack(args.Pubkey, args.Value, args.Fee)
+	logData, err := event.Inputs.PackNonIndexed(args.Pubkey, args.Value, args.Fee)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -345,7 +345,7 @@ func setPubkey(evm *EVM, contract *Contract, input []byte) (ret []byte, err erro
 	}
 
 	event := abiStaking.Events["SetPubkey"]
-	logData, err := event.Inputs.Pack(pubkey)
+	logData, err := event.Inputs.PackNonIndexed(pubkey)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -405,7 +405,7 @@ func delegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 
 	t4 := time.Now()
 	event := abiStaking.Events["Delegate"]
-	logData, err := event.Inputs.Pack(args.Value)
+	logData, err := event.Inputs.PackNonIndexed(args.Value)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -466,7 +466,7 @@ func undelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	}
 
 	event := abiStaking.Events["Undelegate"]
-	logData, err := event.Inputs.Pack(args.Value)
+	logData, err := event.Inputs.PackNonIndexed(args.Value)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -515,7 +515,7 @@ func cancel(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) 
 	}
 
 	event := abiStaking.Events["Cancel"]
-	logData, err := event.Inputs.Pack(amount)
+	logData, err := event.Inputs.PackNonIndexed(amount)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -571,7 +571,7 @@ func withdraw(evm *EVM, contract *Contract, input []byte) (ret []byte, err error
 	subLockedBalance(evm.StateDB, from, amount)
 
 	event := abiStaking.Events["Withdraw"]
-	logData, err := event.Inputs.Pack(amount)
+	logData, err := event.Inputs.PackNonIndexed(amount)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -629,7 +629,7 @@ func withdrawDelegate(evm *EVM, contract *Contract, input []byte) (ret []byte, e
 	subLockedBalance(evm.StateDB, from, args.Value)
 
 	event := abiStaking.Events["WithdrawDelegate"]
-	logData, err := event.Inputs.Pack(args.Value)
+	logData, err := event.Inputs.PackNonIndexed(args.Value)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err

@@ -266,6 +266,49 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 	return ret, nil
 }
 
+// PackNonIndexed performs the operation Go format -> Hexdata
+func (arguments Arguments) PackNonIndexed(args ...interface{}) ([]byte, error) {
+	// Make sure arguments match up and pack them
+	abiArgs := arguments.NonIndexed()
+	if len(args) != len(abiArgs) {
+		return nil, fmt.Errorf("argument count mismatch: %d for %d", len(args), len(abiArgs))
+	}
+	// variable input is the output appended at the end of packed
+	// output. This is used for strings and bytes types input.
+	var variableInput []byte
+
+	// input offset is the bytes offset for packed output
+	inputOffset := 0
+	for _, abiArg := range abiArgs {
+		inputOffset += getTypeSize(abiArg.Type)
+	}
+	var ret []byte
+	for i, a := range args {
+		input := abiArgs[i]
+		// pack the input
+		packed, err := input.Type.pack(reflect.ValueOf(a))
+		if err != nil {
+			return nil, err
+		}
+		// check for dynamic types
+		if isDynamicType(input.Type) {
+			// set the offset
+			ret = append(ret, packNum(reflect.ValueOf(inputOffset))...)
+			// calculate next offset
+			inputOffset += len(packed)
+			// append to variable input
+			variableInput = append(variableInput, packed...)
+		} else {
+			// append the packed value to the input
+			ret = append(ret, packed...)
+		}
+	}
+	// append the variable input at the end of the packed input
+	ret = append(ret, variableInput...)
+
+	return ret, nil
+}
+
 // ToCamelCase converts an under-score string to a camel-case string
 func ToCamelCase(input string) string {
 	parts := strings.Split(input, "_")
