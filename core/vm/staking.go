@@ -246,7 +246,7 @@ func depositAppend(evm *EVM, contract *Contract, input []byte) (ret []byte, err 
 	addLockedBalance(evm.StateDB, from, amount)
 
 	event := abiStaking.Events["Append"]
-	logData, err := event.Inputs.Pack(amount)
+	logData, err := event.Inputs.PackNonIndexed(amount)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
@@ -295,7 +295,7 @@ func setFeeRate(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	}
 
 	event := abiStaking.Events["SetFee"]
-	logData, err := event.Inputs.Pack(fee)
+	logData, err := event.Inputs.PackNonIndexed(fee)
 	if err != nil {
 		log.Error("Pack staking log error", "error", err)
 		return nil, err
