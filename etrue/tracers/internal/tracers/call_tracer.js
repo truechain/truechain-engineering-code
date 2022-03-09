@@ -20,140 +20,146 @@
 	// callstack is the current recursive call stack of the EVM execution.
 	callstack: [{}],
 
-	// descended tracks whether we've just descended from an outer transaction into
-	// an inner call.
-	descended: false,
+		// descended tracks whether we've just descended from an outer transaction into
+		// an inner call.
+		descended: false,
 
 	// step is invoked for every opcode that the VM executes.
 	step: function(log, db) {
-		// Capture any errors immediately
-		var error = log.getError();
-		if (error !== undefined) {
-			this.fault(log, db);
-			return;
-		}
-		// We only care about system opcodes, faster if we pre-check once
-		var syscall = (log.op.toNumber() & 0xf0) == 0xf0;
-		if (syscall) {
-			var op = log.op.toString();
-		}
-		// If a new contract is being created, add to the call stack
-		if (syscall && op == 'CREATE') {
-			var inOff = log.stack.peek(1).valueOf();
-			var inEnd = inOff + log.stack.peek(2).valueOf();
+	// Capture any errors immediately
+	var error = log.getError();
+	if (error !== undefined) {
+		this.fault(log, db);
+		return;
+	}
+	// We only care about system opcodes, faster if we pre-check once
+	var syscall = (log.op.toNumber() & 0xf0) == 0xf0;
+	if (syscall) {
+		var op = log.op.toString();
+	}
+	// If a new contract is being created, add to the call stack
+	if (syscall && (op == 'CREATE' || op == "CREATE2")) {
+		var inOff = log.stack.peek(1).valueOf();
+		var inEnd = inOff + log.stack.peek(2).valueOf();
 
-			// Assemble the internal call report and store for completion
-			var call = {
-				type:    op,
-				from:    toHex(log.contract.getAddress()),
-				input:   toHex(log.memory.slice(inOff, inEnd)),
-				gasIn:   log.getGas(),
-				gasCost: log.getCost(),
-				value:   '0x' + log.stack.peek(0).toString(16)
-			};
-			this.callstack.push(call);
-			this.descended = true
-			return;
+		// Assemble the internal call report and store for completion
+		var call = {
+			type:    op,
+			from:    toHex(log.contract.getAddress()),
+			input:   toHex(log.memory.slice(inOff, inEnd)),
+			gasIn:   log.getGas(),
+			gasCost: log.getCost(),
+			value:   '0x' + log.stack.peek(0).toString(16)
+		};
+		this.callstack.push(call);
+		this.descended = true
+		return;
+	}
+	// If a contract is being self destructed, gather that as a subcall too
+	if (syscall && op == 'SELFDESTRUCT') {
+		var left = this.callstack.length;
+		if (this.callstack[left-1].calls === undefined) {
+			this.callstack[left-1].calls = [];
 		}
-		// If a contract is being self destructed, gather that as a subcall too
-		if (syscall && op == 'SELFDESTRUCT') {
-			var left = this.callstack.length;
-			if (this.callstack[left-1].calls === undefined) {
-				this.callstack[left-1].calls = [];
-			}
-			this.callstack[left-1].calls.push({type: op});
+		this.callstack[left-1].calls.push({
+			type:    op,
+			from:    toHex(log.contract.getAddress()),
+			to:      toHex(toAddress(log.stack.peek(0).toString(16))),
+			gasIn:   log.getGas(),
+			gasCost: log.getCost(),
+			value:   '0x' + db.getBalance(log.contract.getAddress()).toString(16)
+		});
+		return
+	}
+	// If a new method invocation is being done, add to the call stack
+	if (syscall && (op == 'CALL' || op == 'CALLCODE' || op == 'DELEGATECALL' || op == 'STATICCALL')) {
+		// Skip any pre-compile invocations, those are just fancy opcodes
+		var to = toAddress(log.stack.peek(1).toString(16));
+		if (isPrecompiled(to)) {
 			return
 		}
-		// If a new method invocation is being done, add to the call stack
-		if (syscall && (op == 'CALL' || op == 'CALLCODE' || op == 'DELEGATECALL' || op == 'STATICCALL')) {
-			// Skip any pre-compile invocations, those are just fancy opcodes
-			var to = toAddress(log.stack.peek(1).toString(16));
-			if (isPrecompiled(to)) {
-				return
-			}
-			var off = (op == 'DELEGATECALL' || op == 'STATICCALL' ? 0 : 1);
+		var off = (op == 'DELEGATECALL' || op == 'STATICCALL' ? 0 : 1);
 
-			var inOff = log.stack.peek(2 + off).valueOf();
-			var inEnd = inOff + log.stack.peek(3 + off).valueOf();
+		var inOff = log.stack.peek(2 + off).valueOf();
+		var inEnd = inOff + log.stack.peek(3 + off).valueOf();
 
-			// Assemble the internal call report and store for completion
-			var call = {
-				type:    op,
-				from:    toHex(log.contract.getAddress()),
-				to:      toHex(to),
-				input:   toHex(log.memory.slice(inOff, inEnd)),
-				gasIn:   log.getGas(),
-				gasCost: log.getCost(),
-				outOff:  log.stack.peek(4 + off).valueOf(),
-				outLen:  log.stack.peek(5 + off).valueOf()
-			};
-			if (op != 'DELEGATECALL' && op != 'STATICCALL') {
-				call.value = '0x' + log.stack.peek(2).toString(16);
-			}
-			this.callstack.push(call);
-			this.descended = true
-			return;
+		// Assemble the internal call report and store for completion
+		var call = {
+			type:    op,
+			from:    toHex(log.contract.getAddress()),
+			to:      toHex(to),
+			input:   toHex(log.memory.slice(inOff, inEnd)),
+			gasIn:   log.getGas(),
+			gasCost: log.getCost(),
+			outOff:  log.stack.peek(4 + off).valueOf(),
+			outLen:  log.stack.peek(5 + off).valueOf()
+		};
+		if (op != 'DELEGATECALL' && op != 'STATICCALL') {
+			call.value = '0x' + log.stack.peek(2).toString(16);
 		}
-		// If we've just descended into an inner call, retrieve it's true allowance. We
-		// need to extract if from within the call as there may be funky gas dynamics
-		// with regard to requested and actually given gas (2300 stipend, 63/64 rule).
-		if (this.descended) {
-			if (log.getDepth() >= this.callstack.length) {
-				this.callstack[this.callstack.length - 1].gas = log.getGas();
-			} else {
-				// TODO(karalabe): The call was made to a plain account. We currently don't
-				// have access to the true gas amount inside the call and so any amount will
-				// mostly be wrong since it depends on a lot of input args. Skip gas for now.
-			}
-			this.descended = false;
+		this.callstack.push(call);
+		this.descended = true
+		return;
+	}
+	// If we've just descended into an inner call, retrieve it's true allowance. We
+	// need to extract if from within the call as there may be funky gas dynamics
+	// with regard to requested and actually given gas (2300 stipend, 63/64 rule).
+	if (this.descended) {
+		if (log.getDepth() >= this.callstack.length) {
+			this.callstack[this.callstack.length - 1].gas = log.getGas();
+		} else {
+			// TODO(karalabe): The call was made to a plain account. We currently don't
+			// have access to the true gas amount inside the call and so any amount will
+			// mostly be wrong since it depends on a lot of input args. Skip gas for now.
 		}
-		// If an existing call is returning, pop off the call stack
-		if (syscall && op == 'REVERT') {
-			this.callstack[this.callstack.length - 1].error = "execution reverted";
-			return;
-		}
-		if (log.getDepth() == this.callstack.length - 1) {
-			// Pop off the last call and get the execution results
-			var call = this.callstack.pop();
+		this.descended = false;
+	}
+	// If an existing call is returning, pop off the call stack
+	if (syscall && op == 'REVERT') {
+		this.callstack[this.callstack.length - 1].error = "execution reverted";
+		return;
+	}
+	if (log.getDepth() == this.callstack.length - 1) {
+		// Pop off the last call and get the execution results
+		var call = this.callstack.pop();
 
-			if (call.type == 'CREATE') {
-				// If the call was a CREATE, retrieve the contract address and output code
-				call.gasUsed = '0x' + bigInt(call.gasIn - call.gasCost - log.getGas()).toString(16);
-				delete call.gasIn; delete call.gasCost;
+		if (call.type == 'CREATE' || call.type == "CREATE2") {
+			// If the call was a CREATE, retrieve the contract address and output code
+			call.gasUsed = '0x' + bigInt(call.gasIn - call.gasCost - log.getGas()).toString(16);
+			delete call.gasIn; delete call.gasCost;
 
-				var ret = log.stack.peek(0);
-				if (!ret.equals(0)) {
-					call.to     = toHex(toAddress(ret.toString(16)));
-					call.output = toHex(db.getCode(toAddress(ret.toString(16))));
-				} else if (call.error === undefined) {
-					call.error = "internal failure"; // TODO(karalabe): surface these faults somehow
-				}
-			} else {
-				// If the call was a contract call, retrieve the gas usage and output
-				if (call.gas !== undefined) {
-					call.gasUsed = '0x' + bigInt(call.gasIn - call.gasCost + call.gas - log.getGas()).toString(16);
-
-					var ret = log.stack.peek(0);
-					if (!ret.equals(0)) {
-						call.output = toHex(log.memory.slice(call.outOff, call.outOff + call.outLen));
-					} else if (call.error === undefined) {
-						call.error = "internal failure"; // TODO(karalabe): surface these faults somehow
-					}
-				}
-				delete call.gasIn; delete call.gasCost;
-				delete call.outOff; delete call.outLen;
+			var ret = log.stack.peek(0);
+			if (!ret.equals(0)) {
+				call.to     = toHex(toAddress(ret.toString(16)));
+				call.output = toHex(db.getCode(toAddress(ret.toString(16))));
+			} else if (call.error === undefined) {
+				call.error = "internal failure"; // TODO(karalabe): surface these faults somehow
 			}
+		} else {
+			// If the call was a contract call, retrieve the gas usage and output
 			if (call.gas !== undefined) {
-				call.gas = '0x' + bigInt(call.gas).toString(16);
+				call.gasUsed = '0x' + bigInt(call.gasIn - call.gasCost + call.gas - log.getGas()).toString(16);
 			}
-			// Inject the call into the previous one
-			var left = this.callstack.length;
-			if (this.callstack[left-1].calls === undefined) {
-				this.callstack[left-1].calls = [];
+			var ret = log.stack.peek(0);
+			if (!ret.equals(0)) {
+				call.output = toHex(log.memory.slice(call.outOff, call.outOff + call.outLen));
+			} else if (call.error === undefined) {
+				call.error = "internal failure"; // TODO(karalabe): surface these faults somehow
 			}
-			this.callstack[left-1].calls.push(call);
+			delete call.gasIn; delete call.gasCost;
+			delete call.outOff; delete call.outLen;
 		}
-	},
+		if (call.gas !== undefined) {
+			call.gas = '0x' + bigInt(call.gas).toString(16);
+		}
+		// Inject the call into the previous one
+		var left = this.callstack.length;
+		if (this.callstack[left-1].calls === undefined) {
+			this.callstack[left-1].calls = [];
+		}
+		this.callstack[left-1].calls.push(call);
+	}
+},
 
 	// fault is invoked when the actual execution of an opcode fails.
 	fault: function(log, db) {
@@ -208,7 +214,7 @@
 		} else if (ctx.error !== undefined) {
 			result.error = ctx.error;
 		}
-		if (result.error !== undefined) {
+		if (result.error !== undefined && (result.error !== "execution reverted" || result.output ==="0x")) {
 			delete result.output;
 		}
 		return this.finalize(result);
