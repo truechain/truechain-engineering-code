@@ -17,15 +17,16 @@
 package etrue
 
 import (
+	"github.com/truechain/truechain-engineering-code/params"
 	"math/rand"
 	"sync/atomic"
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	dtype "github.com/truechain/truechain-engineering-code/etrue/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
 )
 
@@ -296,7 +297,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pm.fdownloader.SetSyncStatsChainHeightLast(fastHeight)
 	currentNumber := pm.blockchain.CurrentBlock().NumberU64()
 	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHeight", fastHeight, "currentNumber", currentNumber, "snailHeight", currentBlock.Number())
-	if pTd.Cmp(td) <= 0 {
+	if pTd.Cmp(td) <= 0 || currentBlock.Number().Cmp(params.StopSnailMiner) >= 0 {
 
 		if fastHeight > currentNumber {
 			pm.eventMux.Post(downloader.StartEvent{})
@@ -322,7 +323,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		//else if atomic.LoadUint32(&pm.snapSync) == 1 {
 		//	mode = downloader.SnapShotSync
 		//}
-	}else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+	} else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
 		// The database  seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.
 		// The only scenario where this can happen is if the user manually (or via a
@@ -354,44 +355,47 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	pm.eventMux.Post(downloader.StartEvent{})
 	defer sendEvent()
-	log.Debug("ProtocolManager1","mode",mode)
-	// Run the sync cycle, and disable fast sync if we've went past the pivot block
-	if err = pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
-		log.Error("ProtocolManager end", "err", err)
-		return
-	}
-	log.Debug("ProtocolManager2","mode",mode)
-	if atomic.LoadUint32(&pm.fastSync) == 1 ||  atomic.LoadUint32(&pm.snapSync) == 1 {
-		if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
-			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.FastSync); err != nil {
-				log.Error("ProtocolManager fast sync: ", "err", err)
-				return
+	log.Debug("ProtocolManager1", "mode", mode)
+
+	if params.StopSnailMiner.Cmp(currentBlock.Number()) > 0 {
+		// Run the sync cycle, and disable fast sync if we've went past the pivot block
+		if err = pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
+			log.Error("ProtocolManager end", "err", err)
+			return
+		}
+		log.Debug("ProtocolManager2", "mode", mode)
+		if atomic.LoadUint32(&pm.fastSync) == 1 || atomic.LoadUint32(&pm.snapSync) == 1 {
+			if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+				if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.FastSync); err != nil {
+					log.Error("ProtocolManager fast sync: ", "err", err)
+					return
+				}
 			}
 		}
-	}
 
-	atomic.StoreUint32(&pm.fastSync, 0)
-	atomic.StoreUint32(&pm.snapSync, 0)
-	atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
-	atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
-	//atomic.StoreUint32(&pm.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
-	if head := pm.snailchain.CurrentBlock(); head.NumberU64() > 0 {
-		// We've completed a sync cycle, notify all peers of new state. This path is
-		// essential in star-topology networks where a gateway node needs to notify
-		// all its out-of-date peers of the availability of a new block. This failure
-		// scenario will most often crop up in private and hackathon networks with
-		// degenerate connectivity, but it should be healthy for the mainnet too to
-		// more reliably update peers or the local TD state.
-		go pm.BroadcastSnailBlock(head, false)
-	}
-	if head := pm.blockchain.CurrentBlock(); head.NumberU64() > 0 {
-		// We've completed a sync cycle, notify all peers of new state. This path is
-		// essential in star-topology networks where a gateway node needs to notify
-		// all its out-of-date peers of the availability of a new block. This failure
-		// scenario will most often crop up in private and hackathon networks with
-		// degenerate connectivity, but it should be healthy for the mainnet too to
-		// more reliably update peers or the local TD state.
-		log.Debug("synchronise", "number", head.Number(), "sign", head.GetLeaderSign() != nil)
-		go pm.BroadcastFastBlock(head, false)
+		atomic.StoreUint32(&pm.fastSync, 0)
+		atomic.StoreUint32(&pm.snapSync, 0)
+		atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
+		atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
+		//atomic.StoreUint32(&pm.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
+		if head := pm.snailchain.CurrentBlock(); head.NumberU64() > 0 {
+			// We've completed a sync cycle, notify all peers of new state. This path is
+			// essential in star-topology networks where a gateway node needs to notify
+			// all its out-of-date peers of the availability of a new block. This failure
+			// scenario will most often crop up in private and hackathon networks with
+			// degenerate connectivity, but it should be healthy for the mainnet too to
+			// more reliably update peers or the local TD state.
+			go pm.BroadcastSnailBlock(head, false)
+		}
+		if head := pm.blockchain.CurrentBlock(); head.NumberU64() > 0 {
+			// We've completed a sync cycle, notify all peers of new state. This path is
+			// essential in star-topology networks where a gateway node needs to notify
+			// all its out-of-date peers of the availability of a new block. This failure
+			// scenario will most often crop up in private and hackathon networks with
+			// degenerate connectivity, but it should be healthy for the mainnet too to
+			// more reliably update peers or the local TD state.
+			log.Debug("synchronise", "number", head.Number(), "sign", head.GetLeaderSign() != nil)
+			go pm.BroadcastFastBlock(head, false)
+		}
 	}
 }

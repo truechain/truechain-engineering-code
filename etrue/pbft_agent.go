@@ -1015,21 +1015,23 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 		return nil
 	}
 	snailBlock := agent.snailChain.CurrentBlock()
-	if snailBlock.NumberU64() == 0 {
-		space := new(big.Int).Sub(header.Number, common.Big0).Int64()
-		if space >= params.FastToFruitSpace.Int64() {
-			log.Warn("validateBlockSpace snailBlockNumber=0", "currentFastNumber", header.Number, "space", space)
-			return types.ErrSnailBlockTooSlow
+	if snailBlock.Number().Cmp(params.StopSnailMiner) <= 0 {
+		if snailBlock.NumberU64() == 0 {
+			space := new(big.Int).Sub(header.Number, common.Big0).Int64()
+			if space >= params.FastToFruitSpace.Int64() {
+				log.Warn("validateBlockSpace snailBlockNumber=0", "currentFastNumber", header.Number, "space", space)
+				return types.ErrSnailBlockTooSlow
+			}
 		}
-	}
-	blockFruits := snailBlock.Body().Fruits
-	if blockFruits != nil && len(blockFruits) > 0 {
-		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
-		space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
-		if space >= params.FastToFruitSpace.Int64() {
-			log.Warn("validateBlockSpace", "snailNumber", snailBlock.Number(), "lastFruitNum", lastFruitNum,
-				"currentFastNumber", header.Number, "space", space)
-			return types.ErrSnailBlockTooSlow
+		blockFruits := snailBlock.Body().Fruits
+		if blockFruits != nil && len(blockFruits) > 0 {
+			lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
+			space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
+			if space >= params.FastToFruitSpace.Int64() {
+				log.Warn("validateBlockSpace", "snailNumber", snailBlock.Number(), "lastFruitNum", lastFruitNum,
+					"currentFastNumber", header.Number, "space", space)
+				return types.ErrSnailBlockTooSlow
+			}
 		}
 	}
 	return nil
@@ -1038,8 +1040,11 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 //generate rewardSnailHegiht
 func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 	rewardSnailHegiht := agent.fastChain.NextSnailNumberReward()
-	space := new(big.Int).Sub(agent.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
-	if space >= params.SnailRewardInterval.Int64() {
+	curSnailNum := agent.snailChain.CurrentBlock().Number()
+	space := new(big.Int).Sub(curSnailNum, rewardSnailHegiht).Int64()
+	reward0 := new(big.Int).Add(params.SnailRewardInterval, rewardSnailHegiht)
+
+	if space >= params.SnailRewardInterval.Int64() && params.StopSnailMiner.Cmp(reward0) >= 0 {
 		header.SnailNumber = rewardSnailHegiht
 		sb := agent.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		if sb != nil {

@@ -29,6 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
+
 	//"github.com/truechain/truechain-engineering-code/core/vm"
 	//"crypto/rand"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -188,12 +189,22 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
 	worker.fastchainEventSub = worker.fastchain.SubscribeChainEvent(worker.fastchainEventCh)
 
-	go worker.update()
+	if worker.freezeMiner() {
+		go worker.update()
+		go worker.wait()
 
-	go worker.wait()
-	worker.commitNewWork()
+		worker.commitNewWork()
+	}
 
 	return worker
+}
+
+func (w *worker) freezeMiner() bool {
+	cur := w.chain.CurrentBlock().Number()
+	if cur.Cmp(params.StopSnailMiner) >= 0 {
+		return true
+	}
+	return false
 }
 
 func (w *worker) setEtherbase(addr common.Address) {
@@ -283,11 +294,12 @@ func (self *worker) start() {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 
-	atomic.StoreInt32(&self.mining, 1)
-
-	// spin up agents
-	for agent := range self.agents {
-		agent.Start()
+	if !self.freezeMiner() {
+		atomic.StoreInt32(&self.mining, 1)
+		// spin up agents
+		for agent := range self.agents {
+			agent.Start()
+		}
 	}
 }
 
@@ -330,6 +342,10 @@ func (w *worker) update() {
 	defer w.minedfruitSub.Unsubscribe()
 
 	for {
+		if w.freezeMiner() {
+			log.Info("freeze miner in update.....")
+			return
+		}
 		// A real event arrived, process interesting content
 		select {
 		// Handle ChainHeadEvent
@@ -402,13 +418,20 @@ func (w *worker) update() {
 
 func (w *worker) wait() {
 	for {
+		if w.freezeMiner() {
+			log.Info("freeze miner in wait1.....")
+			return
+		}
 		for result := range w.recv {
 			atomic.AddInt32(&w.atWork, -1)
 
 			if result == nil {
 				continue
 			}
-
+			if w.freezeMiner() {
+				log.Info("freeze miner in wait2.....")
+				return
+			}
 			block := result.Block
 			log.Debug("Worker get wait fond block or fruit")
 			if block.IsFruit() {
@@ -421,7 +444,7 @@ func (w *worker) wait() {
 				}
 
 				if w.minedFruit == nil {
-					log.Info("🍒  mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+					log.Info("�  mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
 					w.etrue.SnailPool().AddRemoteFruits(newFruits, true)
@@ -430,7 +453,7 @@ func (w *worker) wait() {
 				} else {
 					if w.minedFruit.FastNumber().Cmp(block.FastNumber()) != 0 {
 
-						log.Info("🍒  mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+						log.Info("�  mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						var newFruits []*types.SnailBlock
 						newFruits = append(newFruits, block)
 						w.etrue.SnailPool().AddRemoteFruits(newFruits, true)
@@ -489,8 +512,14 @@ func (w *worker) wait() {
 
 // push sends a new work task to currently live miner agents.
 func (w *worker) push(work *Work) {
+	if w.freezeMiner() {
+		log.Info("freeze miner in push.....")
+		return
+	}
+
 	if atomic.LoadInt32(&w.mining) != 1 {
 		w.atCommintNewWoker = false
+		log.Info("miner was stop")
 		return
 	}
 	for agent := range w.agents {

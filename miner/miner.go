@@ -23,9 +23,8 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -34,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -244,7 +244,9 @@ func (miner *Miner) Start(coinbase common.Address) {
 
 	miner.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&miner.canStart) == 0 && atomic.LoadInt32(&miner.commitFlag) == 0 && atomic.LoadInt32(&miner.mining) == 0 && atomic.LoadInt32(&miner.shouldStart) == 1 {
+	if atomic.LoadInt32(&miner.canStart) == 0 && atomic.LoadInt32(&miner.commitFlag) == 0 &&
+		atomic.LoadInt32(&miner.mining) == 0 && atomic.LoadInt32(&miner.shouldStart) == 1 &&
+		!miner.worker.freezeMiner() {
 
 		atomic.StoreInt32(&miner.mining, 1)
 
