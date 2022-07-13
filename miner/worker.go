@@ -189,7 +189,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
 	worker.fastchainEventSub = worker.fastchain.SubscribeChainEvent(worker.fastchainEventCh)
 
-	if worker.freezeMiner() {
+	if !worker.freezeMiner() {
 		go worker.update()
 		go worker.wait()
 
