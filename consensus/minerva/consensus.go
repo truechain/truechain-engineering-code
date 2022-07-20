@@ -386,7 +386,17 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 			"cmp:", big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix()))
 		return consensus.ErrFutureBlock
 	}
-
+	if chain.Config().IsTIP13(header.Number) {
+		// snail hash is sign info hash after tip13
+		parentBlock := chain.GetBlock(parent.Hash(), parent.Number.Uint64())
+		if parentBlock == nil {
+			return errors.New(fmt.Sprintf("getBlock error,hash %v,number %v", parent.Hash().Hex(), parent.Number.Uint64()))
+		}
+		pHash := parentBlock.GetSignHash()
+		if !bytes.Equal(pHash.Bytes(), header.SnailHash.Bytes()) {
+			return errors.New(fmt.Sprintf("snailhash wrong in tip9,want: %v,get: %v", pHash.Hex(), header.SnailHash.Hex()))
+		}
+	}
 	if header.Time.Cmp(parent.Time) < 0 {
 		return errZeroBlockTime
 	}

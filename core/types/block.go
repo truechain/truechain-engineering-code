@@ -387,6 +387,13 @@ func (b *Block) Header() *Header                 { return CopyHeader(b.header) }
 func (b *Block) CommitteeHash() common.Hash      { return b.header.CommitteeHash }
 func (b *Block) SwitchInfos() []*CommitteeMember { return b.infos }
 
+func (b *Block) GetSignHash() common.Hash {
+	if b.signs == nil {
+		return common.Hash{}
+	}
+	return rlpHash(b.signs)
+}
+
 // Body returns the non-header content of the block.
 func (b *Block) Body() *Body { return &Body{b.transactions, b.signs, b.infos} }
 

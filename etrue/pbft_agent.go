@@ -989,6 +989,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		}
 	}
 	log.Info("generateFastBlock", "Height:", fastBlock.Number())
+	agent.updateSnailHashForSignInfo(header)
 
 	voteSign, err := agent.GenerateSign(fastBlock)
 	if err != nil {
@@ -996,6 +997,15 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 	}
 	fastBlock.AppendSign(voteSign)
 	return fastBlock, err
+}
+func (agent *PbftAgent) getParentSignHash() common.Hash {
+	parent := agent.fastChain.CurrentBlock()
+	return parent.GetSignHash()
+}
+func (agent *PbftAgent) updateSnailHashForSignInfo(header *types.Header) {
+	if agent.config.IsTIP13(header.Number) {
+		header.SnailHash = agent.getParentSignHash()
+	}
 }
 
 //GetCurrentHeight return  current fastBlock number
@@ -1015,24 +1025,24 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 		return nil
 	}
 	snailBlock := agent.snailChain.CurrentBlock()
-	if snailBlock.Number().Cmp(params.StopSnailMiner) <= 0 {
-		//if snailBlock.NumberU64() == 0 {
-		//	space := new(big.Int).Sub(header.Number, common.Big0).Int64()
-		//	if space >= params.FastToFruitSpace.Int64() {
-		//		log.Warn("validateBlockSpace snailBlockNumber=0", "currentFastNumber", header.Number, "space", space)
-		//		return types.ErrSnailBlockTooSlow
-		//	}
-		//}
-		//blockFruits := snailBlock.Body().Fruits
-		//if blockFruits != nil && len(blockFruits) > 0 {
-		//	lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
-		//	space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
-		//	if space >= params.FastToFruitSpace.Int64() {
-		//		log.Warn("validateBlockSpace", "snailNumber", snailBlock.Number(), "lastFruitNum", lastFruitNum,
-		//			"currentFastNumber", header.Number, "space", space)
-		//		return types.ErrSnailBlockTooSlow
-		//	}
-		//}
+	if snailBlock.Number().Cmp(params.StopSnailMiner) < 0 {
+		if snailBlock.NumberU64() == 0 {
+			space := new(big.Int).Sub(header.Number, common.Big0).Int64()
+			if space >= params.FastToFruitSpace.Int64() {
+				log.Warn("validateBlockSpace snailBlockNumber=0", "currentFastNumber", header.Number, "space", space)
+				return types.ErrSnailBlockTooSlow
+			}
+		}
+		blockFruits := snailBlock.Body().Fruits
+		if blockFruits != nil && len(blockFruits) > 0 {
+			lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
+			space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
+			if space >= params.FastToFruitSpace.Int64() {
+				log.Warn("validateBlockSpace", "snailNumber", snailBlock.Number(), "lastFruitNum", lastFruitNum,
+					"currentFastNumber", header.Number, "space", space)
+				return types.ErrSnailBlockTooSlow
+			}
+		}
 	}
 	return nil
 }

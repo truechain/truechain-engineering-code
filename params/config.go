@@ -64,6 +64,7 @@ var (
 		TIP10: &BlockConfig{FastNumber: big.NewInt(6520000), CID: big.NewInt(302)},
 		TIP11: &BlockConfig{FastNumber: big.NewInt(8996000)},
 		TIP12: &BlockConfig{FastNumber: big.NewInt(14538000)},
+		TIP13: &BlockConfig{FastNumber: big.NewInt(-1), SnailNumber: new(big.Int).Set(StopSnailMiner)},
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
@@ -103,6 +104,7 @@ var (
 		TIP10: &BlockConfig{FastNumber: big.NewInt(5034600), CID: big.NewInt(229)},
 		TIP11: &BlockConfig{FastNumber: big.NewInt(7552000)},
 		TIP12: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP13: &BlockConfig{FastNumber: big.NewInt(0), SnailNumber: big.NewInt(0)},
 	}
 
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
@@ -142,6 +144,7 @@ var (
 		TIP10: &BlockConfig{FastNumber: big.NewInt(40000), CID: big.NewInt(117)},
 		TIP11: &BlockConfig{FastNumber: big.NewInt(0)},
 		TIP12: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP13: &BlockConfig{FastNumber: big.NewInt(0), SnailNumber: big.NewInt(0)},
 	}
 
 	SingleNodeChainConfig = &ChainConfig{
@@ -159,6 +162,7 @@ var (
 		TIP10: &BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(1)},
 		TIP11: &BlockConfig{FastNumber: big.NewInt(0)},
 		TIP12: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP13: &BlockConfig{FastNumber: big.NewInt(0), SnailNumber: big.NewInt(0)},
 	}
 
 	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
@@ -176,14 +180,14 @@ var (
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	AllMinervaProtocolChanges = &ChainConfig{ChainID: chainId, Minerva: new(MinervaConfig), TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil, TIP10: nil, TIP11: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil, TIP10: nil, TIP11: &BlockConfig{FastNumber: big.NewInt(0)}, TIP13: nil,
 	}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
 	TestChainConfig = &ChainConfig{ChainID: chainId, Minerva: &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}, TIP3: &BlockConfig{FastNumber: big.NewInt(0)},
-		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil, TIP10: nil, TIP11: &BlockConfig{FastNumber: big.NewInt(0)},
+		TIP5: nil, TIP7: nil, TIP8: nil, TIP9: nil, TIP10: nil, TIP11: &BlockConfig{FastNumber: big.NewInt(0)}, TIP13: nil,
 	}
 )
 
@@ -253,6 +257,7 @@ type ChainConfig struct {
 	TIP10 *BlockConfig `json:"tip10"`
 	TIP11 *BlockConfig `json:"tip11"`
 	TIP12 *BlockConfig `json:"tip12"`
+	TIP13 *BlockConfig `json:"tip13"`
 
 	TIPStake *BlockConfig `json:"tipstake"`
 }
@@ -524,4 +529,14 @@ func (c *ChainConfig) IsTIP12(num *big.Int) bool {
 		return false
 	}
 	return isForked(c.TIP12.FastNumber, num)
+}
+
+func (c *ChainConfig) IsTIP13(num *big.Int) bool {
+	if c.TIP13 == nil || num.Sign() == 0 {
+		return false
+	}
+	if c.TIP13.FastNumber.Sign() < 0 {
+		return false
+	}
+	return isForked(c.TIP13.FastNumber, num)
 }

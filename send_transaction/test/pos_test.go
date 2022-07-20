@@ -142,6 +142,7 @@ func TestSendTX(t *testing.T) {
 	gspec.Config.TIP7 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)}
 	gspec.Config.TIP9 = &params.BlockConfig{SnailNumber: big.NewInt(20)}
+	gspec.Config.TIP13 = &params.BlockConfig{FastNumber: big.NewInt(0), SnailNumber: big.NewInt(0)}
 
 	genesis := gspec.MustFastCommit(db)
 	blockchain, _ := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
@@ -165,6 +166,7 @@ func TestRewardTime(t *testing.T) {
 	gspec.Config.TIP7 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 	gspec.Config.TIP8 = &params.BlockConfig{FastNumber: big.NewInt(0), CID: big.NewInt(-1)}
 	gspec.Config.TIP9 = &params.BlockConfig{SnailNumber: big.NewInt(20)}
+	gspec.Config.TIP13 = &params.BlockConfig{FastNumber: big.NewInt(0), SnailNumber: big.NewInt(0)}
 
 	genesis := gspec.MustFastCommit(db)
 	blockchain, _ := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{})
