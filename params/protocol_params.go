@@ -163,7 +163,7 @@ var (
 	MinimumFruits int = 60
 	MaximumFruits int = 600
 
-	MinTimeGap = big.NewInt(359)
+	MinTimeGap = big.NewInt(300)
 )
 
 var (
