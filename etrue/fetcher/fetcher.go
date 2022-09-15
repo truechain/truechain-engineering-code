@@ -26,9 +26,9 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/prque"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"sync"
 )
@@ -383,7 +383,7 @@ func (f *Fetcher) loop() {
 						committeeNumber := f.agentFetcher.GetCommitteeNumber(block.Number())
 						if f.agreeAtSameHeight(block.Signs(), hash, committeeNumber) {
 							log.Debug("Block come agreement", "num", number, "height", height, "same block", len(blocks), "sign", len(block.Signs()), "hash", hash)
-							f.verifyComeAgreement(peer, block, block.Signs())
+							f.verifyComeAgreement(peer, block, block.AllSigns())
 							finished = true
 						}
 					}

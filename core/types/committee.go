@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -171,6 +172,14 @@ func (c *CommitteeNode) String() string {
 
 type PbftSigns []*PbftSign
 
+func (sinfos PbftSigns) String() string {
+	str := ""
+	for _, s := range sinfos {
+		str += s.String() + "\n"
+	}
+	return str
+}
+
 //go:generate gencodec -type PbftSign -field-override pbftSignMarshaling -out gen_pbftSign_json.go
 type PbftSign struct {
 	FastHeight *big.Int
@@ -180,6 +189,18 @@ type PbftSign struct {
 
 	// caches
 	size atomic.Value
+}
+
+func (s *PbftSign) String() string {
+	return fmt.Sprintf("sign:{height:%s,hash:%s,result:%v,signdata:%s}", s.FastHeight.String(), s.FastHash.Hex(),
+		s.Result, hex.EncodeToString(s.Sign))
+}
+func (s *PbftSign) Equal(b *PbftSign) bool {
+	if s.FastHeight.Cmp(b.FastHeight) == 0 && bytes.Equal(s.FastHash.Bytes(), b.FastHash.Bytes()) &&
+		s.Result == b.Result && bytes.Equal(s.Sign, b.Sign) {
+		return true
+	}
+	return false
 }
 
 // field type overrides for gencodec

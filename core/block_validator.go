@@ -17,10 +17,10 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-
-	"github.com/truechain/truechain-engineering-code/common"
+	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -65,10 +65,20 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		}
 		return consensus.ErrPrunedAncestor
 	}
+	// validate snail hash of the sign info for prev block
+	if fv.config.IsTIP13(block.Number()) && fv.config.IsTIP13(new(big.Int).Sub(block.Number(), big.NewInt(1))) {
+		pHash := block.GetSignHash()
+		if !bytes.Equal(pHash.Bytes(), block.Header().SnailHash.Bytes()) {
+			p, l := block.GetLocalSigns()
+			return errors.New(fmt.Sprintf("snailhash wrong in tip13,want: %v,get: %v,validateSign:%v,p:%v,l:%v",
+				pHash.Hex(), block.Header().SnailHash.Hex(), validateSign, len(p), len(l)))
+		}
+	}
 	//validate reward snailBlock
-	if block.SnailNumber() != nil && block.SnailNumber().Cmp(params.StopSnailMiner) > 0 {
-		if block.SnailNumber().Sign() != 0 || block.SnailHash() != (common.Hash{}) {
-			return errors.New("snail number or hash not empty when stop snail mining")
+	if block.SnailNumber() != nil && block.SnailNumber().Cmp(fv.config.TIP13.SnailNumber) > 0 {
+		if block.SnailNumber().Sign() != 0 {
+			return errors.New(fmt.Sprintf("snail number or hash not empty when stop snail mining,number:%v,hash:%s",
+				block.SnailNumber().Uint64(), block.SnailHash().Hex()))
 		}
 	} else {
 		if block.SnailNumber() != nil && block.SnailNumber().Uint64() != 0 {

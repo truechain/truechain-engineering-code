@@ -1048,7 +1048,6 @@ func FormatLogs(logs []vm.StructLog) []StructLogRes {
 	return formatted
 }
 
-
 // RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
 // returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
 // transaction hashes.
@@ -1083,7 +1082,7 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		return signmap, nil
 	}
 
-	ss := b.Signs()
+	ss := b.AllSigns()
 	signs := make([]interface{}, len(ss))
 	var err error
 	for i, sign := range ss {

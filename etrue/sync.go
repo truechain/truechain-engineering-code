@@ -17,7 +17,6 @@
 package etrue
 
 import (
-	"github.com/truechain/truechain-engineering-code/params"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -296,8 +295,10 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	pm.fdownloader.SetSyncStatsChainHeightLast(fastHeight)
 	currentNumber := pm.blockchain.CurrentBlock().NumberU64()
-	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHeight", fastHeight, "currentNumber", currentNumber, "snailHeight", currentBlock.Number())
-	if pTd.Cmp(td) <= 0 || currentBlock.Number().Cmp(params.StopSnailMiner) >= 0 {
+	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHeight",
+		fastHeight, "currentNumber", currentNumber, "snailHeight", currentBlock.Number())
+	// sync the fast blocks
+	if pTd.Cmp(td) <= 0 || currentBlock.Number().Cmp(pm.chainconfig.TIP13.SnailNumber) >= 0 {
 
 		if fastHeight > currentNumber {
 			pm.eventMux.Post(downloader.StartEvent{})
@@ -357,7 +358,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	defer sendEvent()
 	log.Debug("ProtocolManager1", "mode", mode)
 
-	if params.StopSnailMiner.Cmp(currentBlock.Number()) > 0 {
+	if pm.chainconfig.TIP13.SnailNumber.Cmp(currentBlock.Number()) > 0 {
 		// Run the sync cycle, and disable fast sync if we've went past the pivot block
 		if err = pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 			log.Error("ProtocolManager end", "err", err)

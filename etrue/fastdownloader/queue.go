@@ -27,9 +27,9 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/prque"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
@@ -760,9 +760,16 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [
 		}
 
 		for _, sign := range signs[index] {
-			if sign.FastHeight.Cmp(header.Number) != 0 || sign.FastHash != header.Hash() {
+			if !(sign.FastHeight.Uint64() == header.Number.Uint64()-1 ||
+				(sign.FastHeight.Uint64() == header.Number.Uint64() && sign.FastHash == header.Hash())) {
+				log.Error("DeliverBodies", "sign.FastHeight", sign.FastHeight.Uint64(), "header.Number", header.Number.Uint64(),
+					"sign.FastHash", sign.FastHash.Hex(), "header.Hash()", header.Hash().Hex())
 				return errInvalidChain
 			}
+
+			//if sign.FastHeight.Cmp(header.Number) != 0 || sign.FastHash != header.Hash() {
+			//	return errInvalidChain
+			//}
 		}
 
 		result.Transactions = txLists[index]

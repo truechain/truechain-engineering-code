@@ -280,14 +280,6 @@ func (b *Body) SetLeaderSign(sign *PbftSign) {
 	b.Signs = append(b.Signs, &signP)
 }
 
-// GetLeaderSign get the sign for proposal
-func (b *Body) GetLeaderSign() *PbftSign {
-	if len(b.Signs) > 0 {
-		return b.Signs[0]
-	}
-	return nil
-}
-
 // GetSwitchInfo get info for shift committee
 func (b *Body) GetSwitchInfo() []*CommitteeMember {
 	return b.Infos
@@ -382,28 +374,66 @@ func (b *Block) TxHash() common.Hash             { return b.header.TxHash }
 func (b *Block) ReceiptHash() common.Hash        { return b.header.ReceiptHash }
 func (b *Block) UncleHash() common.Hash          { return common.Hash{} }
 func (b *Block) Extra() []byte                   { return common.CopyBytes(b.header.Extra) }
-func (b *Block) Signs() []*PbftSign              { return b.signs }
 func (b *Block) Header() *Header                 { return CopyHeader(b.header) }
 func (b *Block) CommitteeHash() common.Hash      { return b.header.CommitteeHash }
 func (b *Block) SwitchInfos() []*CommitteeMember { return b.infos }
+func (b *Block) AllSigns() []*PbftSign           { return b.signs }
+func (b *Block) Signs() []*PbftSign {
+	_, local := b.GetLocalSigns()
+	return local
+}
+func (b *Block) GetLocalSigns() (PbftSigns, PbftSigns) {
+	if len(b.signs) == 0 {
+		return nil, nil
+	}
+	l, n := new(big.Int).Sub(b.Number(), big.NewInt(1)), b.Number()
+	other, local := []*PbftSign{}, []*PbftSign{}
 
+	for _, s := range b.signs {
+		if n.Cmp(s.FastHeight) == 0 {
+			local = append(local, CopyPbftSign(s))
+		}
+		if l.Cmp(s.FastHeight) == 0 {
+			other = append(other, CopyPbftSign(s))
+		}
+	}
+	return other, local
+}
 func (b *Block) GetSignHash() common.Hash {
-	if b.signs == nil {
+	prev, _ := b.GetLocalSigns()
+	if len(prev) == 0 {
 		return common.Hash{}
 	}
-	return rlpHash(b.signs)
+	return rlpHash(prev)
+}
+func (b *Block) UpdateSnailHash(h common.Hash) {
+	b.header.SnailHash = h
+}
+func (b *Block) SetSignInfosByPrevBlock(prev *Block) {
+	_, l := prev.GetLocalSigns()
+	b.SetSign(l)
 }
 
 // Body returns the non-header content of the block.
 func (b *Block) Body() *Body { return &Body{b.transactions, b.signs, b.infos} }
 
 func (b *Block) AppendSign(sign *PbftSign) {
-	signP := CopyPbftSign(sign)
-	b.signs = append(b.signs, signP)
+	//signP := CopyPbftSign(sign)
+	//b.signs = append(b.signs, signP)
 }
 
 func (b *Block) SetSign(signs []*PbftSign) {
-	b.signs = append(make([]*PbftSign, 0), signs...)
+	if b.signs == nil {
+		b.signs = append(make([]*PbftSign, 0), signs...)
+	} else {
+		p, _ := b.GetLocalSigns()
+		if len(p) > 0 {
+			b.signs = append(make([]*PbftSign, 0), p...)
+			b.signs = append(b.signs, signs...)
+		} else {
+			b.signs = append(make([]*PbftSign, 0), signs...)
+		}
+	}
 }
 
 func (b *Block) AppendSigns(signs []*PbftSign) {
@@ -425,14 +455,15 @@ func (b *Block) AppendSigns(signs []*PbftSign) {
 }
 
 func (b *Block) GetLeaderSign() *PbftSign {
-	if len(b.signs) > 0 {
-		return b.signs[0]
+	_, local := b.GetLocalSigns()
+	if len(local) > 0 {
+		return local[0]
 	}
 	return nil
 }
 
 func (b *Block) IsAward() bool {
-	if b.SnailHash() != *new(common.Hash) && b.SnailNumber() != nil {
+	if b.SnailHash() != *new(common.Hash) && b.SnailNumber().Sign() != 0 {
 		return true
 	}
 	return false
@@ -946,6 +977,31 @@ type SnailRewardContenet struct {
 	FruitMinerReward []map[common.Address]*big.Int
 	CommitteeReward  map[common.Address]*big.Int
 	FoundationReward map[common.Address]*big.Int
+}
+
+func (s *SnailRewardContenet) RewardInfo() map[string]interface{} {
+	item := make(map[string]interface{})
+	bitem := make(map[string]interface{})
+	for k, v := range s.BlockMinerReward {
+		bitem[k.String()] = (*hexutil.Big)(v)
+	}
+	items := make([]map[string]interface{}, 0, 0)
+	for _, val := range s.FruitMinerReward {
+		info := make(map[string]interface{})
+		for k, v := range val {
+			info[k.String()] = (*hexutil.Big)(v)
+		}
+		items = append(items, info)
+	}
+	citem := make(map[string]interface{})
+	for k, v := range s.CommitteeReward {
+		citem[k.String()] = (*hexutil.Big)(v)
+	}
+
+	item["blockminer"] = bitem
+	item["fruitminer"] = items
+	item["committeeReward"] = citem
+	return item
 }
 
 type BalanceChangeContent struct {

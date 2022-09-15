@@ -942,10 +942,11 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		tstamp = parent.Time().Int64() + 1
 	}
 	header := &types.Header{
-		ParentHash: parent.Hash(),
-		Number:     new(big.Int).Add(parentNumber, common.Big1),
-		GasLimit:   core.FastCalcGasLimit(parent, agent.gasFloor, agent.gasCeil),
-		Time:       big.NewInt(tstamp),
+		ParentHash:  parent.Hash(),
+		Number:      new(big.Int).Add(parentNumber, common.Big1),
+		GasLimit:    core.FastCalcGasLimit(parent, agent.gasFloor, agent.gasCeil),
+		Time:        big.NewInt(tstamp),
+		SnailNumber: big.NewInt(0),
 	}
 	if err := agent.validateBlockSpace(header); err == types.ErrSnailBlockTooSlow {
 		return nil, err
@@ -988,8 +989,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 			return fastBlock, err
 		}
 	}
-	log.Info("generateFastBlock", "Height:", fastBlock.Number())
-	agent.updateSnailHashForSignInfo(header)
+	agent.updateSnailHashForSignInfo(fastBlock)
 
 	voteSign, err := agent.GenerateSign(fastBlock)
 	if err != nil {
@@ -998,13 +998,14 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 	fastBlock.AppendSign(voteSign)
 	return fastBlock, err
 }
-func (agent *PbftAgent) getParentSignHash() common.Hash {
-	parent := agent.fastChain.CurrentBlock()
-	return parent.GetSignHash()
-}
-func (agent *PbftAgent) updateSnailHashForSignInfo(header *types.Header) {
-	if agent.config.IsTIP13(header.Number) {
-		header.SnailHash = agent.getParentSignHash()
+
+// mixed signinfos after tip13
+func (agent *PbftAgent) updateSnailHashForSignInfo(fastblock *types.Block) {
+	if agent.config.IsTIP9(fastblock.Number()) {
+		parent := agent.fastChain.CurrentBlock()
+		fastblock.SetSignInfosByPrevBlock(parent)
+		SnailHash := fastblock.GetSignHash()
+		fastblock.UpdateSnailHash(SnailHash)
 	}
 }
 
@@ -1025,7 +1026,7 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 		return nil
 	}
 	snailBlock := agent.snailChain.CurrentBlock()
-	if snailBlock.Number().Cmp(params.StopSnailMiner) < 0 {
+	if snailBlock.Number().Cmp(agent.config.TIP13.SnailNumber) < 0 {
 		if snailBlock.NumberU64() == 0 {
 			space := new(big.Int).Sub(header.Number, common.Big0).Int64()
 			if space >= params.FastToFruitSpace.Int64() {
@@ -1054,7 +1055,7 @@ func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 	space := new(big.Int).Sub(curSnailNum, rewardSnailHegiht).Int64()
 	reward0 := new(big.Int).Add(params.SnailRewardInterval, rewardSnailHegiht)
 
-	if space >= params.SnailRewardInterval.Int64() && params.StopSnailMiner.Cmp(reward0) >= 0 {
+	if space >= params.SnailRewardInterval.Int64() && agent.config.TIP13.SnailNumber.Cmp(reward0) >= 0 {
 		header.SnailNumber = rewardSnailHegiht
 		sb := agent.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		if sb != nil {
@@ -1063,6 +1064,7 @@ func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 			log.Error("cannot find snailBlock by rewardSnailHegiht.", "snailHeight", rewardSnailHegiht.Uint64())
 		}
 	}
+
 }
 
 func (agent *PbftAgent) GetSnailRewardContent(rewardSnailHegiht uint64) *types.SnailRewardContenet {

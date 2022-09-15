@@ -386,17 +386,7 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 			"cmp:", big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix()))
 		return consensus.ErrFutureBlock
 	}
-	if chain.Config().IsTIP13(header.Number) {
-		// snail hash is sign info hash after tip13
-		parentBlock := chain.GetBlock(parent.Hash(), parent.Number.Uint64())
-		if parentBlock == nil {
-			return errors.New(fmt.Sprintf("getBlock error,hash %v,number %v", parent.Hash().Hex(), parent.Number.Uint64()))
-		}
-		pHash := parentBlock.GetSignHash()
-		if !bytes.Equal(pHash.Bytes(), header.SnailHash.Bytes()) {
-			return errors.New(fmt.Sprintf("snailhash wrong in tip9,want: %v,get: %v", pHash.Hex(), header.SnailHash.Hex()))
-		}
-	}
+
 	if header.Time.Cmp(parent.Time) < 0 {
 		return errZeroBlockTime
 	}
@@ -430,6 +420,9 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 }
 func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain consensus.ChainReader, header, pointer *types.SnailHeader,
 	parents []*types.SnailHeader, uncle bool, seal bool, isFruit bool) error {
+	if !isFruit && m.sbc != nil && header.Number.Cmp(m.sbc.Config().TIP13.SnailNumber) > 0 {
+		return errors.New("snail block had disable")
+	}
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -877,19 +870,22 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 	}
 	var infos *types.ChainReward
 	var err error
-	currentSnailHeader := m.sbc.CurrentHeader().Number
-	if header != nil {
-		if header.SnailNumber == nil && currentSnailHeader.Cmp(params.StopSnailMiner) > 0 {
+
+	if header != nil && m.sbc != nil {
+		currentSnailHeader := m.sbc.CurrentHeader().Number
+		if header.SnailNumber.Sign() == 0 && currentSnailHeader.Cmp(chain.Config().TIP13.SnailNumber) >= 0 &&
+			chain.Config().TIP13.FastNumber.Sign() > 0 {
 			fastNumber := header.Number
 			epoch := types.GetEpochFromHeight(fastNumber.Uint64())
-			if fastNumber.Uint64() == epoch.EndHeight {
+
+			if fastNumber.Uint64() == epoch.EndHeight && fastNumber.Cmp(chain.Config().TIP13.FastNumber) >= 0 {
 				infos, err = accumulateRewardsFast3(state, header.Number.Uint64())
 				if err != nil {
 					log.Error("Finalize Error", "accumulateRewardsFast3", err.Error())
 					return nil, nil, err
 				}
 			}
-		} else if header.SnailHash != (common.Hash{}) && header.SnailNumber != nil {
+		} else if !chain.Config().IsTIP13(header.Number) && header.SnailHash != (common.Hash{}) && header.SnailNumber.Sign() != 0 {
 			sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
 			if sBlockHeader == nil {
 				return nil, nil, types.ErrSnailHeightNotYet

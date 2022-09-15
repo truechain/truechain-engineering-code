@@ -314,12 +314,16 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 		time = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
 	}
 
-	return &types.Header{
+	head := &types.Header{
 		ParentHash: parent.Hash(),
 		GasLimit:   FastCalcGasLimit(parent, parent.GasLimit(), parent.GasLimit()),
 		Number:     new(big.Int).Add(parent.Number(), common.Big1),
 		Time:       time,
 	}
+	if chain.Config().IsTIP13(head.Number) {
+		head.SnailHash = common.Hash{}
+	}
+	return head
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
