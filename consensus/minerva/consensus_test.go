@@ -18,17 +18,17 @@ package minerva
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/params"
+	osMath "math"
 	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-	"fmt"
-	"github.com/truechain/truechain-engineering-code/common/math"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/params"
-	osMath "math"
 )
 
 var (
@@ -222,44 +222,44 @@ func TestSnailAwardForHeight(t *testing.T) {
 	}
 }
 func TestReward2(t *testing.T) {
-	fmt.Println("addr:",types.FoundationAddress.String())
+	fmt.Println("addr:", types.FoundationAddress.String())
 	snailNum := NewRewardBegin
 	allReward := big.NewInt(0)
 	snailReward := big.NewInt(0)
-	rewardLimit := new(big.Int).Mul(big.NewInt(20000000),BaseBig)
+	rewardLimit := new(big.Int).Mul(big.NewInt(20000000), BaseBig)
 
 	for i := 1; i < 2000000; i++ {
-		num := big.NewInt(int64(i+snailNum))
+		num := big.NewInt(int64(i + snailNum))
 		snailReward1 := getRewardCoin(num)
-		if num.Cmp(big.NewInt(int64(NewRewardBegin+RewardEndSnailHeight))) >= 0{
-			fmt.Println("last pos1:",i+1)
+		if num.Cmp(big.NewInt(int64(NewRewardBegin+RewardEndSnailHeight))) >= 0 {
+			fmt.Println("last pos1:", i+1)
 			break
 		}
-		allReward = new(big.Int).Add(allReward,snailReward1)
+		allReward = new(big.Int).Add(allReward, snailReward1)
 		if allReward.Cmp(rewardLimit) >= 0 {
-			fmt.Println("last pos2:",i+1)
+			fmt.Println("last pos2:", i+1)
 			break
 		}
 		if snailReward1.Cmp(snailReward) != 0 {
-			fmt.Println("pos:",i+1,"preReward:",snailReward,"reward:",snailReward1)
-			fmt.Println("pos:",i+1,"preReward:",toTrueCoin(snailReward).Text('f',6),
-			"reward:",toTrueCoin(snailReward1).Text('f',6))
+			fmt.Println("pos:", i+1, "preReward:", snailReward, "reward:", snailReward1)
+			fmt.Println("pos:", i+1, "preReward:", toTrueCoin(snailReward).Text('f', 6),
+				"reward:", toTrueCoin(snailReward1).Text('f', 6))
 			snailReward = snailReward1
 
-			cc, mm, mf,fc,_ := GetBlockReward3(num)
-			fmt.Println("committeeAward:", cc, "minerAward:", mm, 
-				"minerFruitAward:", mf,"found",fc)
-			fmt.Println("committeeAward:", toTrueCoin(cc).Text('f',6), "minerAward:", toTrueCoin(mm).Text('f',6), 
-				"minerFruitAward:", toTrueCoin(mf).Text('f',6),"found",toTrueCoin(fc).Text('f',6))
+			cc, mm, mf, fc, _ := GetBlockReward3(num)
+			fmt.Println("committeeAward:", cc, "minerAward:", mm,
+				"minerFruitAward:", mf, "found", fc)
+			fmt.Println("committeeAward:", toTrueCoin(cc).Text('f', 6), "minerAward:", toTrueCoin(mm).Text('f', 6),
+				"minerFruitAward:", toTrueCoin(mf).Text('f', 6), "found", toTrueCoin(fc).Text('f', 6))
 		}
 	}
-	fmt.Println("allReward",allReward)
-	fmt.Println("allReward",toTrueCoin(allReward).Text('f',10))
+	fmt.Println("allReward", allReward)
+	fmt.Println("allReward", toTrueCoin(allReward).Text('f', 10))
 
 	fmt.Println("finish")
 }
 func toTrueCoin(val *big.Int) *big.Float {
-	return new(big.Float).Quo(new(big.Float).SetInt(val),new(big.Float).SetInt(BaseBig))
+	return new(big.Float).Quo(new(big.Float).SetInt(val), new(big.Float).SetInt(BaseBig))
 }
 
 func TestTime(t *testing.T) {
@@ -267,9 +267,19 @@ func TestTime(t *testing.T) {
 	time.Sleep(time.Millisecond * time.Duration(600))
 	t2 := time.Now()
 	d := t2.Sub(t1)
-	fmt.Println("d:",d.Seconds())
+	fmt.Println("d:", d.Seconds())
 	if d.Seconds() > float64(0.5) {
 		fmt.Println("good")
 	}
 	fmt.Println("finish")
+}
+func Test03(t *testing.T) {
+	origin, height := uint64(0), uint64(0)
+	year := new(big.Int).Mul(big.NewInt(244), big.NewInt(25000))
+	for i := 0; i < 100; i++ {
+		coin := getRewardCoin2(height, origin)
+		cur := types.GetEpochFromHeight(height)
+		fmt.Println(i, cur.EpochID, "yeas:", cur.EpochID/244, "coin", coin.String())
+		height = height + uint64(10*(i+1)) + year.Uint64()
+	}
 }

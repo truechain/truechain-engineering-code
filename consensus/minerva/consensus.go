@@ -38,7 +38,8 @@ import (
 
 // Minerva protocol constants.
 var (
-	NewRewardCoinForPos    = new(big.Int).Mul(big.NewInt(300), BaseBig)
+	//
+	NewRewardCoinForPos    = new(big.Int).Set(params.INITNewRewardCoinForPos)
 	allowedFutureBlockTime = 15 * time.Second // Max time from current time allowed for blocks, before they're considered future blocks
 )
 
@@ -879,7 +880,8 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 			epoch := types.GetEpochFromHeight(fastNumber.Uint64())
 
 			if fastNumber.Uint64() == epoch.EndHeight && fastNumber.Cmp(chain.Config().TIP13.FastNumber) >= 0 {
-				infos, err = accumulateRewardsFast3(state, header.Number.Uint64())
+				tip13Epoch := types.GetEpochFromHeight(chain.Config().TIP13.FastNumber.Uint64())
+				infos, err = accumulateRewardsFast3(state, new(big.Int).Set(header.Number), big.NewInt(int64(tip13Epoch.EpochID)))
 				if err != nil {
 					log.Error("Finalize Error", "accumulateRewardsFast3", err.Error())
 					return nil, nil, err
@@ -1151,13 +1153,23 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 	// "FruitBase",rewardsInfos.FruitBase,"CommitteeBase",rewardsInfos.CommitteeBase)
 	return rewardsInfos, nil
 }
-func accumulateRewardsFast3(stateDB *state.StateDB, fast uint64) (*types.ChainReward, error) {
-	committeeCoin := getBaseRewardCoinForPos(big.NewInt(0))
-	epoch := types.GetEpochFromHeight(fast)
+func accumulateRewardsFast3(stateDB *state.StateDB, fast, origin *big.Int) (*types.ChainReward, error) {
+	committeeCoin, developerCoin := getBaseRewardCoinForPos(fast, origin)
+	epoch := types.GetEpochFromHeight(fast.Uint64())
 
 	impawn := vm.NewImpawnImpl()
 	impawn.Load(stateDB, types.StakingAddress)
 	defer impawn.Save(stateDB, types.StakingAddress)
+
+	if developerCoin.Sign() > 0 {
+		stateDB.AddBalance(types.FoundationAddress, developerCoin)
+	} else {
+		developerCoin = common.Big0
+	}
+	developer := &types.RewardInfo{
+		Address: types.FoundationAddress,
+		Amount:  developerCoin,
+	}
 
 	//committee reward
 	infos, err := impawn.Reward2(epoch.BeginHeight, epoch.EndHeight, 1, committeeCoin)
@@ -1172,6 +1184,7 @@ func accumulateRewardsFast3(stateDB *state.StateDB, fast uint64) (*types.ChainRe
 	}
 	rewardsInfos := &types.ChainReward{
 		CommitteeBase: infos,
+		Foundation:    developer,
 	}
 	return rewardsInfos, nil
 }
@@ -1187,8 +1200,14 @@ func posOfFruitsInFirstEpoch(fruits []*types.SnailBlock, min, max uint64) int {
 	}
 	return -1
 }
-func getBaseRewardCoinForPos(height *big.Int) *big.Int {
-	return new(big.Int).Set(NewRewardCoinForPos)
+func getBaseRewardCoinForPos(height, origin *big.Int) (committee, developercoin *big.Int) {
+	base := getRewardCoin2(height.Uint64(), origin.Uint64())
+
+	// developercoin = base * 19%
+	developercoin = new(big.Int).Div(new(big.Int).Mul(base, big.NewInt(19)), big.NewInt(100))
+	// committee = base - developercoin
+	committee = new(big.Int).Sub(base, developercoin)
+	return
 }
 
 // GetRewardContentBySnailNumber retrieves SnailRewardContenet by snail block.
@@ -1379,6 +1398,26 @@ func getRewardCoin(height *big.Int) *big.Int {
 		return base
 	}
 	return nil
+}
+
+// decay 20% per years from the fork fast height.
+// 244 epochs in one year (365/1.5=243.3).
+// origin: the new epoch for the fork point
+func getRewardCoin2(height, origin uint64) *big.Int {
+	const count_epoch_in_one_year = 244
+	cur := types.GetEpochFromHeight(height)
+	if cur.EpochID < origin {
+		return big.NewInt(0)
+	}
+	base := new(big.Int).Set(NewRewardCoinForPos)
+	margin := cur.EpochID - origin
+	loops := new(big.Int).Div(big.NewInt(int64(margin)), big.NewInt(int64(count_epoch_in_one_year))).Int64()
+	for i := 0; i < int(loops); i++ {
+		// decay 20% per year
+		tmp := new(big.Int).Div(new(big.Int).Mul(base, big.NewInt(20)), big.NewInt(100))
+		base = new(big.Int).Sub(base, tmp)
+	}
+	return base
 }
 func getBlockReward2(num *big.Int) (committee, minerBlock, minerFruit, developercoin *big.Int, e error) {
 	base := getRewardCoin(num)

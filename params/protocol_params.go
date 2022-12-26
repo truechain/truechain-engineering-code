@@ -194,4 +194,6 @@ var (
 	FirstNewEpochID            uint64 = 1
 	DposForkPoint              uint64 = 0
 	ElectionMinLimitForStaking        = new(big.Int).Mul(big.NewInt(20000), big.NewInt(1e18))
+	// calc from the TIP13 by manual
+	INITNewRewardCoinForPos = new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
 )
