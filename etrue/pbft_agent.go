@@ -938,7 +938,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 	}
 
 	log.Info("FetchFastBlock ", "parent:", parent.Number(), "hash", parent.Hash())
-	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
 	header := &types.Header{
