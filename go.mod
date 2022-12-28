@@ -3,9 +3,8 @@ module github.com/truechain/truechain-engineering-code
 go 1.15
 
 replace (
-	github.com/Azure/azure-storage-go v0.0.0-20170302221508-12ccaadb081c => github.com/loinfish/azure-storage-go v0.0.1
-	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412 => github.com/neoiss/ed25519 v0.0.0-20221222024706-01d22003a3d1
-	gopkg.in/fatih/set.v0 v0.0.0-20141210084824-27c40922c40b => github.com/loinfish/set v0.0.1
+	github.com/Azure/azure-storage-go v0.0.0-20170302221508-12ccaadb081c => github.com/truechain/azure-storage-go v0.0.0-20221226090625-354a966bf062
+	gopkg.in/fatih/set.v0 v0.0.0-20141210084824-27c40922c40b => github.com/truechain/set v0.0.0-20221226090638-2e23dac3648b
 )
 
 require (
@@ -13,7 +12,6 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.28 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.8
-	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/allegro/bigcache v1.2.1-0.20190218064605-e24eb225f156
 	github.com/apilayer/freegeoip v3.5.1-0.20180702111401-3f942d1392f6+incompatible
 	github.com/aristanetworks/goarista v0.0.0-20170210015632-ea17b1a17847
@@ -72,9 +70,10 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v0.0.0-20180502072349-ae970a0732be
 	github.com/tendermint/go-amino v0.12.0
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
-	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1
+	github.com/truechain/ed25519 v0.0.0-20221228082246-645e8819766a
+	golang.org/x/crypto v0.4.0
+	golang.org/x/net v0.3.0
+	golang.org/x/sys v0.3.0
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
