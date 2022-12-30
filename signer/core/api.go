@@ -215,14 +215,14 @@ func NewSignerAPI(chainID int64, ksLocation string, noUSB bool, ui SignerUI, abi
 			log.Debug("Ledger support enabled")
 		}
 		// Start a USB hub for Trezor hardware wallets
-		if trezorhub, err := usbwallet.NewTrezorHub(); err != nil {
+		if trezorhub, err := usbwallet.NewTrezorHubWithHID(); err != nil {
 			log.Warn(fmt.Sprintf("Failed to start Trezor hub, disabling: %v", err))
 		} else {
 			backends = append(backends, trezorhub)
 			log.Debug("Trezor support enabled")
 		}
 	}
-	return &SignerAPI{big.NewInt(chainID), accounts.NewManager(backends...), ui, NewValidator(abidb)}
+	return &SignerAPI{big.NewInt(chainID), accounts.NewManager(&accounts.Config{}, backends...), ui, NewValidator(abidb)}
 }
 
 // List returns the set of wallet this signer manages. Each wallet can contain
@@ -395,7 +395,7 @@ func (api *SignerAPI) Sign(ctx context.Context, addr common.MixedcaseAddress, da
 		return nil, err
 	}
 	// Assemble sign the data with the wallet
-	signature, err := wallet.SignHashWithPassphrase(account, res.Password, sighash)
+	signature, err := wallet.SignTextWithPassphrase(account, res.Password, sighash)
 	if err != nil {
 		api.UI.ShowError(err.Error())
 		return nil, err

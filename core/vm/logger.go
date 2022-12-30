@@ -173,7 +173,7 @@ func (l *StructLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost ui
 	}
 	// Copy a snapshot of the current storage to a new container
 	var storage Storage
-	if !l.cfg.DisableStorage {
+	if !l.cfg.DisableStorage && (op == SLOAD || op == SSTORE) {
 		// initialise new changed values storage container for this contract
 		// if not present.
 		if l.storage[contract.Address()] == nil {
@@ -186,16 +186,16 @@ func (l *StructLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost ui
 				value   = env.StateDB.GetState(contract.Address(), address)
 			)
 			l.storage[contract.Address()][address] = value
-		}
-		// capture SSTORE opcodes and record the written entry in the local storage.
-		if op == SSTORE && stack.len() >= 2 {
+			storage = l.storage[contract.Address()].Copy()
+		} else if op == SSTORE && stack.len() >= 2 {
+			// capture SSTORE opcodes and record the written entry in the local storage.
 			var (
 				value   = common.Hash(stack.data[stack.len()-2].Bytes32())
 				address = common.Hash(stack.data[stack.len()-1].Bytes32())
 			)
 			l.storage[contract.Address()][address] = value
+			storage = l.storage[contract.Address()].Copy()
 		}
-		storage = l.storage[contract.Address()].Copy()
 	}
 	var rdata []byte
 	if !l.cfg.DisableReturnData {
@@ -204,7 +204,6 @@ func (l *StructLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost ui
 	}
 	// create a new snapshot of the EVM.
 	log := StructLog{pc, op, gas, cost, mem, memory.Len(), stck, rdata, storage, depth, env.StateDB.GetRefund(), err}
-
 	l.logs = append(l.logs, log)
 }
 

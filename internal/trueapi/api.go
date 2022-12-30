@@ -534,7 +534,7 @@ func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr c
 		return nil, err
 	}
 	// Assemble sign the data with the wallet
-	signature, err := wallet.SignHashWithPassphrase(account, passwd, signHash(data))
+	signature, err := wallet.SignTextWithPassphrase(account, passwd, signHash(data))
 	if err != nil {
 		return nil, err
 	}
@@ -1635,7 +1635,7 @@ func (s *PublicTransactionPoolAPI) sign_payment(addr common.Address, tx *types.T
 		return nil, err
 	}
 	// Request the wallet to sign the transaction
-	return wallet.SignTx_Payment(account, tx, s.b.ChainConfig().ChainID)
+	return wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
 }
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
@@ -1851,7 +1851,7 @@ func (s *PublicTransactionPoolAPI) Sign(addr common.Address, data hexutil.Bytes)
 		return nil, err
 	}
 	// Sign the requested hash with the wallet
-	signature, err := wallet.SignHash(account, signHash(data))
+	signature, err := wallet.SignText(account, signHash(data))
 	if err == nil {
 		signature[64] += 27 // Transform V from 0/1 to 27/28 according to the yellow paper
 	}

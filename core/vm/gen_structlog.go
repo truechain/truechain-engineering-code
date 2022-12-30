@@ -5,6 +5,7 @@ package vm
 import (
 	"encoding/json"
 
+	"github.com/holiman/uint256"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/common/math"
