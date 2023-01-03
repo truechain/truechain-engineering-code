@@ -1401,10 +1401,10 @@ func getRewardCoin(height *big.Int) *big.Int {
 }
 
 // decay 20% per years from the fork fast height.
-// 244 epochs in one year (365/1.5=243.3).
+// 250 epochs in one year (365*86400/(5*25000)=252).
 // origin: the new epoch for the fork point
 func getRewardCoin2(height, origin uint64) *big.Int {
-	const count_epoch_in_one_year = 244
+	const count_epoch_in_one_year = 250
 	cur := types.GetEpochFromHeight(height)
 	if cur.EpochID < origin {
 		return big.NewInt(0)

@@ -183,7 +183,6 @@ var (
 	MaximumCommitteeNumber  = big.NewInt(50)
 	ProposalCommitteeNumber = 20
 	MinimumCommitteeNumber  = 4
-	StopSnailMiner          = big.NewInt(2000000)
 )
 
 var (
@@ -195,5 +194,5 @@ var (
 	DposForkPoint              uint64 = 0
 	ElectionMinLimitForStaking        = new(big.Int).Mul(big.NewInt(20000), big.NewInt(1e18))
 	// calc from the TIP13 by manual
-	INITNewRewardCoinForPos = new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
+	INITNewRewardCoinForPos = new(big.Int).Mul(big.NewInt(4096), big.NewInt(1e16))
 )

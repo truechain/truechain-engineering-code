@@ -277,7 +277,7 @@ func TestTime(t *testing.T) {
 }
 func Test03(t *testing.T) {
 	origin, height := uint64(0), uint64(0)
-	year := new(big.Int).Mul(big.NewInt(244), big.NewInt(25000))
+	year := new(big.Int).Mul(big.NewInt(250), big.NewInt(25000))
 	for i := 0; i < 100; i++ {
 		coin := getRewardCoin2(height, origin)
 		cur := types.GetEpochFromHeight(height)
@@ -286,9 +286,11 @@ func Test03(t *testing.T) {
 	}
 }
 func Test04(t *testing.T) {
-	num := big.NewInt(60000)
+	num := big.NewInt(211600)
 	base := getRewardCoin(num)
 	fmt.Println("base", base, toTrueCoin(base))
+
+	fmt.Println("init", params.INITNewRewardCoinForPos, toTrueCoin(params.INITNewRewardCoinForPos))
 }
 func Test05(t *testing.T) {
 	prikey, _ := crypto.HexToECDSA("")
