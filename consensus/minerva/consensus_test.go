@@ -20,8 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
 	osMath "math"
 	"math/big"
@@ -282,4 +284,14 @@ func Test03(t *testing.T) {
 		fmt.Println(i, cur.EpochID, "yeas:", cur.EpochID/244, "coin", coin.String())
 		height = height + uint64(10*(i+1)) + year.Uint64()
 	}
+}
+func Test04(t *testing.T) {
+	num := big.NewInt(60000)
+	base := getRewardCoin(num)
+	fmt.Println("base", base, toTrueCoin(base))
+}
+func Test05(t *testing.T) {
+	prikey, _ := crypto.HexToECDSA("")
+	pk := crypto.FromECDSAPub(&prikey.PublicKey)
+	fmt.Println(hexutil.Encode(pk))
 }
