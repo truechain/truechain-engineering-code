@@ -1001,7 +1001,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 
 // mixed signinfos after tip13
 func (agent *PbftAgent) updateSnailHashForSignInfo(fastblock *types.Block) {
-	if agent.config.IsTIP9(fastblock.Number()) {
+	if agent.config.IsTIP13(fastblock.Number()) {
 		parent := agent.fastChain.CurrentBlock()
 		fastblock.SetSignInfosByPrevBlock(parent)
 		SnailHash := fastblock.GetSignHash()
