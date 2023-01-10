@@ -880,12 +880,14 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 			epoch := types.GetEpochFromHeight(fastNumber.Uint64())
 
 			if fastNumber.Uint64() == epoch.EndHeight && fastNumber.Cmp(chain.Config().TIP13.FastNumber) >= 0 {
+				log.Info("*************accumulateRewardsFast3*******************")
 				tip13Epoch := types.GetEpochFromHeight(chain.Config().TIP13.FastNumber.Uint64())
 				infos, err = accumulateRewardsFast3(state, new(big.Int).Set(header.Number), big.NewInt(int64(tip13Epoch.EpochID)))
 				if err != nil {
 					log.Error("Finalize Error", "accumulateRewardsFast3", err.Error())
 					return nil, nil, err
 				}
+				infos.SimplePrint()
 			}
 		} else if !chain.Config().IsTIP13(header.Number) && header.SnailHash != (common.Hash{}) && header.SnailNumber.Sign() != 0 {
 			sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
@@ -1183,6 +1185,7 @@ func accumulateRewardsFast3(stateDB *state.StateDB, fast, origin *big.Int) (*typ
 		}
 	}
 	rewardsInfos := &types.ChainReward{
+		Height:        fast.Uint64(),
 		CommitteeBase: infos,
 		Foundation:    developer,
 	}

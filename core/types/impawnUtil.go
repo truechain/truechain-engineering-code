@@ -101,11 +101,12 @@ type RewardInfo struct {
 	Amount  *big.Int       `json:"Amount"`
 	Staking *big.Int       `json:"Staking"`
 }
+
 func (e *RewardInfo) clone() *RewardInfo {
 	return &RewardInfo{
-		Address:	e.Address,
-		Amount:		new(big.Int).Set(e.Amount),
-		Staking:	new(big.Int).Set(e.Staking),
+		Address: e.Address,
+		Amount:  new(big.Int).Set(e.Amount),
+		Staking: new(big.Int).Set(e.Staking),
 	}
 }
 func (e *RewardInfo) String() string {
@@ -142,10 +143,11 @@ func mergeRewardInfos(items1, itmes2 []*RewardInfo) []*RewardInfo {
 type SARewardInfos struct {
 	Items []*RewardInfo `json:"Items"`
 }
+
 func (s *SARewardInfos) clone() *SARewardInfos {
 	var res SARewardInfos
-	for _,v := range s.Items {
-		res.Items = append(res.Items,v.clone())
+	for _, v := range s.Items {
+		res.Items = append(res.Items, v.clone())
 	}
 	return &res
 }
@@ -178,18 +180,29 @@ type ChainReward struct {
 	FruitBase     []*RewardInfo    `json:"fruitminer"`
 	CommitteeBase []*SARewardInfos `json:"committeeReward"`
 }
+
 func CloneChainReward(reward *ChainReward) *ChainReward {
 	var res ChainReward
-	res.Height,res.St = reward.Height,reward.St
+	res.Height, res.St = reward.Height, reward.St
 	res.Foundation = reward.Foundation.clone()
 	res.CoinBase = reward.CoinBase.clone()
-	for _,v := range reward.FruitBase {
-		res.FruitBase = append(res.FruitBase,v.clone())
+	for _, v := range reward.FruitBase {
+		res.FruitBase = append(res.FruitBase, v.clone())
 	}
-	for _,v := range reward.CommitteeBase {
-		res.CommitteeBase = append(res.CommitteeBase,v.clone())
+	for _, v := range reward.CommitteeBase {
+		res.CommitteeBase = append(res.CommitteeBase, v.clone())
 	}
 	return &res
+}
+func (c *ChainReward) SimplePrint() {
+	fmt.Println("--------------------------------------")
+	fmt.Println("height", c.Height)
+	fmt.Println("Foundation", c.Foundation.String())
+	for i, v := range c.CommitteeBase {
+		fmt.Println("CommitteeBase", i)
+		fmt.Println(v.String())
+	}
+	fmt.Println("--------------------------------------")
 }
 
 type BalanceInfo struct {
