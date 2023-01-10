@@ -882,7 +882,8 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 			if fastNumber.Uint64() == epoch.EndHeight && fastNumber.Cmp(chain.Config().TIP13.FastNumber) >= 0 {
 				log.Info("*************accumulateRewardsFast3*******************")
 				tip13Epoch := types.GetEpochFromHeight(chain.Config().TIP13.FastNumber.Uint64())
-				infos, err = accumulateRewardsFast3(state, new(big.Int).Set(header.Number), big.NewInt(int64(tip13Epoch.EpochID)))
+				infos, err = accumulateRewardsFast3(state, new(big.Int).Set(header.Number), big.NewInt(int64(tip13Epoch.EpochID)),
+					new(big.Int).Set(chain.Config().TIP14.FastNumber))
 				if err != nil {
 					log.Error("Finalize Error", "accumulateRewardsFast3", err.Error())
 					return nil, nil, err
@@ -1155,8 +1156,8 @@ func accumulateRewardsFast2(stateDB *state.StateDB, sBlock *types.SnailBlock, fa
 	// "FruitBase",rewardsInfos.FruitBase,"CommitteeBase",rewardsInfos.CommitteeBase)
 	return rewardsInfos, nil
 }
-func accumulateRewardsFast3(stateDB *state.StateDB, fast, origin *big.Int) (*types.ChainReward, error) {
-	committeeCoin, developerCoin := getBaseRewardCoinForPos(fast, origin)
+func accumulateRewardsFast3(stateDB *state.StateDB, fast, origin, tip14 *big.Int) (*types.ChainReward, error) {
+	committeeCoin, developerCoin := getBaseRewardCoinForPos(fast, origin, tip14)
 	epoch := types.GetEpochFromHeight(fast.Uint64())
 
 	impawn := vm.NewImpawnImpl()
@@ -1203,8 +1204,8 @@ func posOfFruitsInFirstEpoch(fruits []*types.SnailBlock, min, max uint64) int {
 	}
 	return -1
 }
-func getBaseRewardCoinForPos(height, origin *big.Int) (committee, developercoin *big.Int) {
-	base := getRewardCoin2(height.Uint64(), origin.Uint64())
+func getBaseRewardCoinForPos(height, origin, tip14 *big.Int) (committee, developercoin *big.Int) {
+	base := getRewardCoin2(height.Uint64(), origin.Uint64(), tip14.Uint64())
 
 	// developercoin = base * 19%
 	developercoin = new(big.Int).Div(new(big.Int).Mul(base, big.NewInt(19)), big.NewInt(100))
@@ -1406,13 +1407,16 @@ func getRewardCoin(height *big.Int) *big.Int {
 // decay 20% per years from the fork fast height.
 // 250 epochs in one year (365*86400/(5*25000)=252).
 // origin: the new epoch for the fork point
-func getRewardCoin2(height, origin uint64) *big.Int {
+func getRewardCoin2(height, origin, tip14 uint64) *big.Int {
 	const count_epoch_in_one_year = 250
 	cur := types.GetEpochFromHeight(height)
 	if cur.EpochID < origin {
 		return big.NewInt(0)
 	}
 	base := new(big.Int).Set(NewRewardCoinForPos)
+	if height >= tip14 {
+		base = new(big.Int).Set(params.INITNewRewardCoinForPos2)
+	}
 	margin := cur.EpochID - origin
 	loops := new(big.Int).Div(big.NewInt(int64(margin)), big.NewInt(int64(count_epoch_in_one_year))).Int64()
 	for i := 0; i < int(loops); i++ {

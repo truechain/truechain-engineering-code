@@ -71,6 +71,7 @@ func NewSimulatedBackendWithDatabase(database etruedb.Database, alloc types.Gene
 	genesis.Config.TIP10 = &params.BlockConfig{FastNumber: big.NewInt(1000)}
 	genesis.Config.TIP11 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 	genesis.Config.TIP13 = &params.BlockConfig{FastNumber: big.NewInt(0), SnailNumber: big.NewInt(0)}
+	genesis.Config.TIP14 = &params.BlockConfig{FastNumber: big.NewInt(0)}
 
 	genesis.MustFastCommit(database)
 	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{})

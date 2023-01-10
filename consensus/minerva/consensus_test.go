@@ -276,12 +276,15 @@ func TestTime(t *testing.T) {
 	fmt.Println("finish")
 }
 func Test03(t *testing.T) {
+
+	cur2 := types.GetEpochFromHeight(23761197)
+	fmt.Println(cur2.EpochID, cur2.EndHeight)
 	origin, height := uint64(0), uint64(0)
 	year := new(big.Int).Mul(big.NewInt(250), big.NewInt(25000))
 	for i := 0; i < 100; i++ {
-		coin := getRewardCoin2(height, origin)
+		coin := getRewardCoin2(height, origin, 0)
 		cur := types.GetEpochFromHeight(height)
-		fmt.Println(i, cur.EpochID, "yeas:", cur.EpochID/244, "coin", coin.String())
+		fmt.Println(i, cur.EpochID, "yeas:", cur.EpochID/244, "coin", coin.String(), toTrueCoin(coin))
 		height = height + uint64(10*(i+1)) + year.Uint64()
 	}
 }
